@@ -1506,6 +1506,34 @@ outcomes (`minimax.py:124`), so `value_function` must return a
 `gen_games` never records a post-winning-move state, so terminal leaves are
 scored exactly (`1.0 if winner == p0_color`).
 
+
+### Batched exact expectimax (M4 Step 2) — and a Catanatron search bug
+
+`ValueNetPlayer.decide()` now expands the whole depth-2 tree, encodes every
+leaf, and scores them in one forward. Verified against the base class's
+recursive `alphabeta()` at depth 1 (no cutoffs possible there): same action
+on 40/40 decisions, root values equal to 6e-8; at depth 2, same action
+40/40, **81 ms/decision vs 204 ms** for the recursive hook, measured
+back-to-back under the same (contended) load. Full expansion averages ~230
+leaves/decision (max ~2,300) — about what AB's cutoffs leave, because AB
+passes alpha/beta through chance nodes unadjusted and rarely cuts.
+
+**Found while verifying: `catanatron.players.tree_search_utils.execute_spectrum`
+does not pin stochastic outcomes.** It sets the dice / drawn card as
+`action.value`, but `apply_roll` and `apply_buy_development_card` read
+`action_record.result` (falling back to `roll_dice()` / `listdeck.pop()`).
+Measured: expanding the same ROLL from the same state twice gives different
+leaves (11 of 11 differ), because each "outcome" re-rolls the dice at random;
+and every dev-card "option" pops the *true* top card. So `AlphaBetaPlayer`'s
+expectation over dice is really 11 random rolls weighted by the dice
+probabilities, and its dev-card branch leaks the next card. Only
+`MOVE_ROBBER` is pinned correctly (it passes an `ActionRecord`).
+`value_net.expand_outcomes` pins ROLL and BUY_DEVELOPMENT_CARD via
+`action_record`, so our search is a deterministic, exact expectimax where
+AB's is noise. `test_env.py::test_batched_search_matches_recursive` guards
+both properties. We do **not** patch the opponent: the target is
+`AlphaBetaPlayer` as shipped.
+
 **Iteration 0 (running unattended via `run_it0.sh`, log
 `checkpoints_value/it0.log`):** AB-vs-3xAB calibration (300 games), 5,000
 `ab,ab,ab,ab` games, train `v0.pt`, `v0` vs 3x AB (300 games). Decision rule:
