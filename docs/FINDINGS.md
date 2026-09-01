@@ -1327,6 +1327,67 @@ help is reducing total CPU work per decision (fewer worker processes, or
 the encoder optimization flagged as a deferred M3 optimization) — not
 inference batching.
 
+## 2026-09-01 — M3 Step 4: self-play throughput, after fixing a 200x regression
+
+First real self-play training run (`--opponent self_play --n-envs 7`)
+measured **fps=10** against M2's 2048 baseline — a ~200x regression, far
+beyond the ~4x expected from self-play's extra encode+policy volume (BLUE +
+3 now-neural enemies vs. BLUE alone). Profiling `PPOPlayer.decide()`
+(`cProfile`, 200 calls) found the cost concentrated in
+`MaskablePPO.predict()`'s high-level API — `obs_to_tensor`'s
+vectorized-input checks, `MaskableCategoricalDistribution` object
+construction, etc. — at **~2555us/call**, ~23x FINDINGS.md's own recorded
+raw batch-1 forward-pass cost (45.5us). Multiplied by 3 enemies/env inside
+7 worker processes already competing for 8 hardware threads (this
+session's earlier IPC contention finding), this alone explains the
+collapse.
+
+**Fix, in `self_play.py`:**
+1. `torch.set_num_threads(1)` once per worker process. This is the
+   opposite of what an earlier session found for the *main* process's
+   backprop (net regression there, reverted) — but that's large-batch
+   matmuls benefiting from multi-core; this is many small batch-1 calls
+   inside a process that's one of 7 already fighting for 8 threads, where
+   per-call thread-pool spin-up is pure overhead. Different regime,
+   different answer — confirmed empirically, not assumed from the earlier
+   finding.
+2. A lean inference path bypassing SB3's `predict()` entirely:
+   `extract_features` → `mlp_extractor.forward_actor` → `action_net`,
+   masked by hand (`masked_fill(~mask, -1e9)`) and sampled via
+   `np.random.Generator.choice` on the softmax — same loaded weights, same
+   masked-categorical distribution `model.predict(deterministic=False)`
+   computes, just without the per-call API overhead. Isolated: 150.8us/call
+   (vs 2555us) — ~17x. Verified correctness after the swap: 19/20 wins as
+   a lone strong seat vs 3 weak bots (was 20/20 with `model.predict()`,
+   same ballpark — stochastic sampling, not a regression), and
+   `test_ppo_player_decodes_valid_actions_for_any_color` still passes.
+
+**Re-measured, 50k timesteps, 7 envs (the real Step 4 gate):**
+
+```
+iteration 1 (cold start): fps 437  (32s,  14336 steps)
+iteration 2:               fps 197  (cumulative; ~128 fps iteration-own)
+iteration 3:               fps 189  (cumulative)
+iteration 4 (final):       fps 201  (cumulative, 285s total, 57344 steps)
+```
+
+Steady state (iterations 2-4, excluding the artificially-fast cold-start
+iteration 1) settles around **~190-200 fps** — roughly **10x slower than
+M2's 2048 baseline**, worse than the naively-estimated ~4x but not close to
+the original 200x bug. Plausible contributors beyond the base ~4x: episode
+length grew during the run (`ep_len_mean` 34.3 → 64 as the policy started
+actually updating against self-play opponents instead of playing near-
+randomly), and periodic new-pool-checkpoint loads (`CheckpointCallback`
+saved 3 snapshots during this run, each triggering one one-time
+`MaskablePPO.load()` per worker on first sample). Neither fully separated
+out from base self-play overhead — not worth the rigor for a smoke-test
+gate.
+
+**Verdict: mild-to-moderate regression, not severe — proceed to the full
+run (M3 Step 5).** ~190-200 fps is a real, workable training rate; a
+1-3M-timestep run costs roughly 1.5-4.5 hours at this rate, not the
+days a genuinely severe regression would have implied.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
