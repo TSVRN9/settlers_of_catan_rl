@@ -431,6 +431,45 @@ def test_cached_mask_survives_episode_boundary(n_envs=3, seed=0, max_steps=400):
     )
 
 
+def test_ppo_player_decodes_valid_actions_for_any_color():
+    """M3 self_play.py's PPOPlayer calls to_action_space/from_action_space
+    using game.state.colors (actual seating order) for a possibly-non-BLUE
+    color, not FastCatanatronEnv's fixed (BLUE, RED, WHITE, ORANGE) order.
+    Confirms get_action_array's output doesn't depend on tuple order (only
+    on the set of colors present) and that PPOPlayer's decoded action is
+    always a real legal action for whichever color it's playing -- the
+    mirror of FastCatanatronEnv._decode_action's own assertion."""
+    from self_play import PPOPlayer
+    from catanatron.gym.envs.action_space import get_action_array
+
+    assert get_action_array(
+        (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE), "BASE"
+    ) == get_action_array((Color.RED, Color.WHITE, Color.BLUE, Color.ORANGE), "BASE")
+
+    checkpoint = Path(__file__).with_name("checkpoints_bc") / "bc_model.zip"
+    assert checkpoint.exists(), f"missing {checkpoint} -- run train_bc.py first"
+
+    for seat_color in (Color.RED, Color.WHITE, Color.ORANGE, Color.BLUE):
+        others = [c for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE) if c != seat_color]
+        players = {seat_color: PPOPlayer(seat_color, str(checkpoint))}
+        for c in others:
+            players[c] = RandomPlayer(c)
+        ordered = [players[c] for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)]
+        game = Game(ordered, seed=42)
+        checks = 0
+        while game.winning_color() is None and game.state.num_turns < TURNS_LIMIT and checks < 30:
+            if game.state.current_color() == seat_color and len(game.playable_actions) > 1:
+                action = players[seat_color].decide(game, game.playable_actions)
+                assert action in game.playable_actions, (
+                    f"PPOPlayer({seat_color}) decoded an action outside its own "
+                    f"playable_actions: {action}"
+                )
+                checks += 1
+            game.play_tick()
+        assert checks > 0, f"no non-forced decisions observed for {seat_color} in 30 ticks"
+    print("  PPOPlayer decodes legal actions for every seat color: ok")
+
+
 def test_seeded_games_are_reproducible_across_processes():
     """Catanatron seeds through the global `random` module, so a seeded game
     should be bit-identical -- but hash randomization reorders
@@ -486,5 +525,6 @@ if __name__ == "__main__":
     test_cached_mask_matches_env_method()
     test_cached_mask_survives_episode_boundary()
     test_search_boundary_alignment_matches_env_step()
+    test_ppo_player_decodes_valid_actions_for_any_color()
     test_seeded_games_are_reproducible_across_processes()
     print("test_env.py: all invariants passed")
