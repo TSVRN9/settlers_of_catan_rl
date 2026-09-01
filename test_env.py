@@ -515,6 +515,72 @@ def test_seeded_games_are_reproducible_across_processes():
     print(f"  seeded games reproducible only with PYTHONHASHSEED pinned: ok ({pinned.pop()})")
 
 
+def test_value_encoding_turn_onehot():
+    """value_net.encode_for_value appends a 4-one-hot of whose turn it is,
+    relative to the perspective color, after the 1026 base features."""
+    from value_net import N_BASE, N_FEATURES, encode_for_value
+
+    game = _random_game(3)
+    for _ in range(40):
+        game.play_tick()
+    enc = Encoder()
+    current = game.state.current_color()
+    for p0 in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE):
+        x = encode_for_value(enc, game, p0)
+        assert x.shape == (N_FEATURES,)
+        assert np.array_equal(x[:N_BASE], enc.encode(game, p0))
+        onehot = x[N_BASE:]
+        rel = {c: i for i, c in iter_players(game.state.colors, p0)}[current]
+        assert onehot.sum() == 1.0 and onehot[rel] == 1.0, (p0, current, onehot)
+    print("  encode_for_value turn one-hot is perspective-relative: ok")
+
+
+def test_gen_labels():
+    """gen_games samples: label is 1 exactly for the perspective that won."""
+    import gen_games
+
+    gen_games._init_worker(["wr", "wr", "wr", "wr"], 1.0)
+    seed, X, y = gen_games.play_one(7)
+    game = Game([WeightedRandomPlayer(c) for c in gen_games.COLORS], seed=7)
+    acc = gen_games.StateSampler(1.0, 7)
+    winner = game.play(accumulators=[acc])
+    from value_net import N_FEATURES
+
+    assert X.shape[1] == N_FEATURES and X.dtype == np.float16
+    assert len(y) == len(acc.colors) > 100
+    assert np.array_equal(y, np.array([c == winner for c in acc.colors], dtype=np.uint8))
+    assert 0 < y.mean() < 1, "both classes present"
+    print(f"  gen_games labels match (winner={winner.value}, {len(y)} samples, base rate {y.mean():.2f}): ok")
+
+
+def test_value_net_player_plays_legal_game():
+    """ValueNetPlayer with a random net completes a game through
+    AlphaBetaPlayer's search hook; the value is a probability, terminal
+    states are scored exactly, and evaluate.py's --player path returns a bool."""
+    import tempfile
+
+    import torch
+
+    import evaluate
+    from value_net import ValueNet, ValueNetPlayer
+
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "rand.pt")
+        torch.save(ValueNet().state_dict(), path)
+        p = ValueNetPlayer(Color.BLUE, path)
+        game = _random_game(11)
+        v = p.value_function(game, Color.BLUE)
+        assert 0.0 <= v <= 1.0, v
+        players = [p, WeightedRandomPlayer(Color.RED), WeightedRandomPlayer(Color.WHITE), WeightedRandomPlayer(Color.ORANGE)]
+        game = Game(players, seed=11)
+        winner = game.play()
+        assert winner is not None
+        assert p.value_function(game, winner) == 1.0 and p.value_function(game, next(c for c in game.state.colors if c != winner)) == 0.0
+        result = evaluate.play_one_player(f"vnet:{path}", WeightedRandomPlayer, 12)
+        assert isinstance(result, bool)
+    print(f"  ValueNetPlayer plays a full game via AlphaBetaPlayer's hook (winner={winner.value}): ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -527,4 +593,7 @@ if __name__ == "__main__":
     test_search_boundary_alignment_matches_env_step()
     test_ppo_player_decodes_valid_actions_for_any_color()
     test_seeded_games_are_reproducible_across_processes()
+    test_value_encoding_turn_onehot()
+    test_gen_labels()
+    test_value_net_player_plays_legal_game()
     print("test_env.py: all invariants passed")

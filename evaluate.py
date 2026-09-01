@@ -25,6 +25,7 @@ import multiprocessing as mp
 
 import numpy as np
 import torch
+from catanatron import Game
 from catanatron.gym.envs.action_space import to_action_space
 from catanatron.models.player import Color
 from catanatron.players.minimax import AlphaBetaPlayer
@@ -33,6 +34,7 @@ from catanatron.players.weighted_random import WeightedRandomPlayer
 from sb3_contrib import MaskablePPO
 
 from catan_env import FastCatanatronEnv, advance_until_decision
+from value_net import make_player
 
 OPPONENTS = {
     "weighted_random": WeightedRandomPlayer,
@@ -105,35 +107,53 @@ def play_one_with_search(model, opponent_cls, seed):
     return bool(info.get("is_success", False))
 
 
+def play_one_player(player_spec, opponent_cls, seed):
+    """M4: a catanatron Player (gen_games.make_player token, e.g. `ab` or
+    `vnet:<path>`) in seat BLUE vs 3 named bots, no gym env -- the same shape
+    the VFP-calibration used. A fresh player per game."""
+    players = [make_player(player_spec, Color.BLUE), opponent_cls(Color.RED), opponent_cls(Color.WHITE), opponent_cls(Color.ORANGE)]
+    game = Game(players, seed=seed)
+    return game.play() == Color.BLUE
+
+
 _WORKER = {}
 
 
-def _init_worker(model_path, opponent, search):
-    _WORKER["model"] = MaskablePPO.load(model_path)
+def _init_worker(model_path, opponent, search, player):
+    _WORKER["model"] = MaskablePPO.load(model_path) if model_path else None
     _WORKER["opponent_cls"] = OPPONENTS[opponent]
     _WORKER["search"] = search
+    _WORKER["player"] = player
 
 
 def _play_seed(seed):
+    if _WORKER["player"]:
+        return play_one_player(_WORKER["player"], _WORKER["opponent_cls"], seed)
     play_fn = play_one_with_search if _WORKER["search"] else play_one
     return play_fn(_WORKER["model"], _WORKER["opponent_cls"], seed)
 
 
-def evaluate(model_path, opponent, games, seed, jobs, search=False):
+def evaluate(model_path, opponent, games, seed, jobs, search=False, player=None):
     seeds = range(seed, seed + games)
     if jobs == 1:
-        _init_worker(model_path, opponent, search)
+        _init_worker(model_path, opponent, search, player)
         return sum(_play_seed(s) for s in seeds)
     ctx = mp.get_context("spawn")
     with ctx.Pool(
-        jobs, initializer=_init_worker, initargs=(model_path, opponent, search)
+        jobs, initializer=_init_worker, initargs=(model_path, opponent, search, player)
     ) as pool:
         return sum(pool.map(_play_seed, seeds, chunksize=1))
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", required=True, nargs="+", help="one or more checkpoint .zip paths")
+    parser.add_argument("--model", nargs="+", default=[], help="one or more PPO checkpoint .zip paths")
+    parser.add_argument(
+        "--player",
+        nargs="+",
+        default=[],
+        help="instead of --model: catanatron Player spec(s) for seat BLUE -- ab | vf | wr | vnet:<state_dict.pt>",
+    )
     parser.add_argument("--opponent", choices=sorted(OPPONENTS), required=True)
     parser.add_argument("--games", type=int, default=200)
     parser.add_argument("--seed", type=int, default=0)
@@ -144,12 +164,16 @@ def main():
         help="wrap the policy in 1-ply greedy search (HANDOFF.md M5) instead of calling it reactively",
     )
     args = parser.parse_args()
+    assert bool(args.model) != bool(args.player), "give exactly one of --model / --player"
 
-    for model_path in args.model:
-        wins = evaluate(model_path, args.opponent, args.games, args.seed, args.jobs, args.search)
+    for spec in args.model or args.player:
+        if args.player:
+            wins = evaluate(None, args.opponent, args.games, args.seed, args.jobs, player=spec)
+        else:
+            wins = evaluate(spec, args.opponent, args.games, args.seed, args.jobs, args.search)
         lo, hi = wilson_interval(wins, args.games)
         print(
-            f"{model_path}: {wins}/{args.games} wins = {wins / args.games:.1%}  "
+            f"{spec}: {wins}/{args.games} wins = {wins / args.games:.1%}  "
             f"Wilson 95% CI [{lo:.1%}, {hi:.1%}]  vs {args.opponent}",
             flush=True,
         )

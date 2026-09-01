@@ -193,7 +193,7 @@ class Encoder:
     shared template would let one game's tile/port refresh clobber another's."""
 
     def __init__(self):
-        self._map_id = None
+        self._map = None  # a reference, not id(): holding it keeps the address from being recycled for a later game's map
         self._static_template = np.zeros(len(FEATURES), dtype=np.float32)
 
     def _refresh_static_template(self, catan_map):
@@ -218,12 +218,12 @@ class Encoder:
                 tmpl[idx] = float(port.resource is None)
             else:
                 tmpl[idx] = float(port.resource == resource_or_3to1)
-        self._map_id = id(catan_map)
+        self._map = catan_map
 
     def encode(self, game: Game, p0_color) -> np.ndarray:
         state = game.state
         catan_map = state.board.map
-        if id(catan_map) != self._map_id:
+        if catan_map is not self._map:
             self._refresh_static_template(catan_map)
 
         buf = self._static_template.copy()
