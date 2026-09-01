@@ -1540,6 +1540,10 @@ both properties. We do **not** patch the opponent: the target is
 iterate unless v0's Wilson upper bound is below the AB baseline's point
 estimate. Results go here when they land.
 
+| Stage | Result |
+|---|---|
+| Calibration: `--player ab` vs 3x AB, 300 games, seeds 0-299 | **79/300 = 26.3%** [21.7%, 31.6%] — matches the 25% symmetry expectation; no seat bias, evaluator path sound |
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
