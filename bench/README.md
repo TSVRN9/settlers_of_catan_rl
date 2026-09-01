@@ -12,6 +12,7 @@ re-derive the baseline as routine work.**
 | `bench4_bots.py` | baseline bot speed (Random/Weighted/Value/AlphaBeta) + encoder profile |
 | `bench5_xpu_optimizers.py` | isolates the Adam `foreach=True` XPU crash — **this one resets the GPU on purpose** |
 | `bench6_engine_internals.py` | engine profile, replay-oracle check, search cost — evidence for `docs/RUST-ENGINE.md` |
+| `bench7_ipc_transport.py` | `inference_server.py`'s IPC transport in isolation (Queue vs shared memory), single-pair and 7-worker-contended — evidence for `docs/FINDINGS.md`'s "contention, not pickling" finding |
 
 `bench3_torch.py` uses `Adam(foreach=False)` so it does not trip the crash. If you revert
 that, the training section will kill the GPU (`UR_RESULT_ERROR_DEVICE_LOST`) and every

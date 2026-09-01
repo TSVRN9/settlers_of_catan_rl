@@ -62,6 +62,14 @@ Any one of these flips the verdict:
    no `torch.multiprocessing`, no games-per-worker tuning — the fiddliest and highest-risk
    part of the M1 design stops existing. Single-process, no IPC, no GIL.
 
+   This trigger fired (FINDINGS.md, M1 section) and was measured further during M3 Step 0
+   (FINDINGS.md, "IPC bottleneck: contention, not pickling"): the bottleneck is process/CPU
+   contention across 8 concurrent processes on this 8-thread machine, not `Queue` pickling
+   cost — a shared-memory transport was prototyped and measured *slower* under real
+   contention, not faster. That confirms this trigger's own instinct above (single-process
+   is what actually dissolves it) and rules out a lighter Python-only fix as a way to avoid
+   the full rewrite this trigger describes.
+
 3. **Parallel experimentation** — hyperparameter sweeps or ablations where 8 cores must
    host many concurrent runs.
 

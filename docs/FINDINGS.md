@@ -191,6 +191,12 @@ queue-per-decision protocol with shared-memory numpy buffers (workers write
 obs/mask into a preallocated slot, server reads slices directly) would
 attack the actual measured cause here without a rewrite.
 
+> **2026-09-01 correction**: measured directly (see "IPC bottleneck:
+> contention, not pickling" below) — the shared-memory fix proposed here
+> does **not** help. The bottleneck isn't serialization cost, it's process/
+> CPU contention across 8 concurrent processes on this 8-thread machine.
+> Don't build the shared-memory version on the strength of this paragraph.
+
 ## M2 measurements — 2026-08-31
 
 `train.py` (`MaskablePPO`, 3x512 MLP, `Adam(foreach=False)`, CPU device,
@@ -1256,6 +1262,70 @@ unlocks an M2/M3-shaped ceiling, not an M4-shaped one.
 (96.2% vs weighted_random, well above cold-start PPO) for whichever of
 self-play (M3) or expert-iteration is attempted next — still real,
 still to be built, still could fail for reasons BC didn't test.
+
+## 2026-09-01 — IPC bottleneck: contention, not pickling (M3 Step 0)
+
+M3's self-play design makes enemy players neural nets too, which reopens
+the M1 inference-server batching question this time for real (self-play
+needs *some* answer for how enemy `decide()` calls get inference-served).
+Before building anything, checked the claim two sections up — that
+per-decision `Queue` pickling is the batch-plateau's cause, and that
+shared-memory buffers would fix it — since it was a guess, never measured
+directly. `bench/bench7_ipc_transport.py` isolates the transport from game
+simulation and the forward pass entirely, at two concurrency levels:
+
+```
+single pair, no contention (2 processes on 8 threads):
+  Queue:          251.6 us/roundtrip,  3,975/s
+  shared memory:  205.8 us/roundtrip,  4,858/s   (~18% faster)
+
+7 workers + 1 server, matching inference_server.py's real topology
+(8 processes on 8 hardware threads -- zero spare threads):
+  Queue:          109.0 us/roundtrip,  9,174/s aggregate, 1,311/s/worker
+  shared memory:  115.2 us/roundtrip,  8,680/s aggregate, 1,240/s/worker
+```
+
+**Shared memory is not faster under the contention level that actually
+matters — it's marginally slower.** At 8 processes on 8 threads there is no
+spare core for anything, and busy-polling (the shared-memory design) spends
+CPU cycles spinning instead of yielding them back to the scheduler the way
+`Queue`'s blocking `.get()` does — a real, if small, regression under full
+contention, not an improvement.
+
+The more important number: this no-simulation, no-forward-pass IPC-only
+benchmark already reproduces **1,240-1,311 decisions/s/worker**, matching
+the real `inference_server.py`'s recorded **~1,000-1,100 decisions/s/worker**
+(with real game simulation and a real forward pass added on top) almost
+exactly. **The bottleneck is process/CPU contention among 8 concurrent
+processes on this 8-thread machine — not serialization cost.** Pickling a
+1026-float + 370-bool payload is cheap in isolation (the single-pair numbers
+above); it only looks expensive because 8 processes are fighting over 8
+threads with zero slack, and *any* synchronization primitive pays that tax,
+pickled or not.
+
+**Correction to the "This does not bottleneck training" framing two
+sections up, and to RUST-ENGINE.md trigger #2's proposed fix**: the
+shared-memory alternative named there does not attack the actual cause.
+Trigger #2's own text already had the right instinct for what *would* work
+("Rust doesn't optimize that problem, it dissolves it... single-process, no
+IPC, no GIL") — a single-process design removes the 8-way process
+contention entirely rather than trying to make the contended path faster.
+Nothing here changes M2's conclusion that this doesn't currently bottleneck
+training (XPU batch-32 still dwarfs the ~7,500 decisions/s this pipeline
+produces) — it only closes out the "swap in shared memory" fix as
+something to actually attempt.
+
+**Implication for M3**: self-play's `PPOPlayer` enemies should call
+`model.predict()` locally (batch-1, in-process) rather than routing through
+any kind of shared inference server — there's no transport-level win
+available at this concurrency level to justify the added complexity,
+and per §"Honest scope note" in the M3 plan, self-play's opponent-pool
+heterogeneity (different checkpoints per seat) would need multi-model
+batched serving on top of any working transport anyway. If self-play's
+throughput smoke test (M3 Step 4) shows a problem, the lever most likely to
+help is reducing total CPU work per decision (fewer worker processes, or
+the encoder optimization flagged as a deferred M3 optimization) — not
+inference batching.
 
 ## Prior art
 
