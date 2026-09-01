@@ -1,0 +1,31 @@
+[project]
+name = "settlers-of-catan-rl"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "catanatron[gym] @ git+https://github.com/bcollazo/catanatron",
+    "torch==2.13.0+xpu",
+    "triton-xpu==3.7.2",
+    "sb3-contrib",
+    "gymnasium",
+    "numpy",
+]
+
+[[tool.uv.index]]
+name = "pytorch-xpu"
+url = "https://download.pytorch.org/whl/xpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-xpu" }
+triton-xpu = { index = "pytorch-xpu" }
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "ruff>=0.16.5",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
