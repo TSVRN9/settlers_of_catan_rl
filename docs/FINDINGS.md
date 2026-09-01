@@ -1443,6 +1443,75 @@ structurally different approach, per the standing recommendation from the
 BC section above -- still unstarted, still the RUST-ENGINE.md trigger #1
 consideration if attempted.
 
+## 2026-09-01 — M4 reframed: keep AlphaBeta's search, replace its evaluator
+
+**Why.** Every agent built so far is a reactive policy. The table below is the
+whole story: `ValueFunctionPlayer` and `AlphaBetaPlayer` share one hand
+heuristic (`base_fn`); AB adds depth-2 expectimax and goes from 10% to
+~25%+ against 3x AB. Search is the missing mechanism, not representation
+(BC proved the net can represent VFP-quality play) and not the optimizer.
+
+| Agent | vs 3x WR | vs 3x VFP | vs 3x AB |
+|---|---|---|---|
+| PPO best (3M steps) | 79% | 1.7% | — |
+| BC of VFP | 96% | 7.8% | — |
+| Self-play PPO from BC (1M) | 82% | 9.0% | — |
+| VFP (1-ply, `base_fn`) | 98% | 25% (symmetry) | 10% |
+| AB (depth-2 expectimax, same `base_fn`) | — | — | 25% (symmetry) |
+
+**Design.** `ValueNetPlayer(AlphaBetaPlayer)` (`value_net.py`) uses the base
+class's own `use_value_function` / `value_function(game, p0_color)` hook. The
+evaluator is an MLP (1026 encoder features + a 4-one-hot of whose turn it is,
+relative to the perspective) trained by BCE on (state, perspective, won)
+samples from played games (`gen_games.py`, `train_value.py`). Expert
+iteration: generate games with the current player, retrain, repeat.
+
+**Measured before building** (one AB seat vs 3x WR, seed 1, `PYTHONHASHSEED=0`):
+
+| What | Value |
+|---|---|
+| Leaf evaluations per real AB decision | mean **279**, median 23, max 2,208 — 26,507 per game-seat |
+| `base_fn` per leaf | **80 µs** (51% of AB's wall time) |
+| `Encoder.encode` on the same states | 37 µs |
+| `Board.copy()` | shares the map object → the encoder's per-map template cache holds across all `game.copy()` leaves |
+| Seating | `State.__init__` shuffles players → seat BLUE has no order bias |
+
+Depth-2 expectimax is 2–3 orders of magnitude cheaper than the 800-sim MCTS
+`docs/RUST-ENGINE.md` trigger #1 assumed. **No Rust port for this plan.**
+
+**Measured after building** (smoke run, `performance` profile):
+
+| What | Value |
+|---|---|
+| `gen_games.py --lineup ab,ab,ab,ab`, 21 games, 7 workers | 0.32 games/s incl. pool startup/tail; **158 samples/game** at `--sample-p 0.5` (~316 ticks/game — AB games are ~136 turns, not the ~340 of random games) |
+| `train_value.py` on 3,309 samples, XPU | seconds per epoch; held-out log-loss 0.60 → 0.56 in 3 epochs, base rate 0.25 |
+| `ValueNetPlayer` seat vs 3x WR (batch-1 torch forward per leaf) | **9.0 s/game** vs AB's 1.8 s — **5x**, not the ~1.7x the per-leaf arithmetic predicted: torch per-op dispatch at batch 1 (~10 ops × ~25 µs) dominates, not the matmuls |
+
+That 5x only hits generation for iterations ≥1 (iteration 0 is AB-only
+games) and the gate eval (~16 s/game → 300 games ≈ 12 min on 7 workers).
+Batched leaf evaluation (expand the depth-2 tree, encode all leaves, one
+forward) is the fix — see the next section.
+
+**Also fixed:** `Encoder` cached its map template keyed by `id(catan_map)`;
+CPython recycles addresses (18 distinct ids over 40 sequential games measured),
+so a long-lived encoder could in principle keep a stale template. Now holds
+the map by reference and compares with `is`. Never lands on two *consecutive*
+maps in the patterns measured, so it can't be reproduced deterministically —
+no regression test, the fix is correct by construction.
+
+**Corrections to the reviewer-caught design details, recorded so nobody
+re-derives them:** the search averages leaf values over dice/dev-card/robber
+outcomes (`minimax.py:124`), so `value_function` must return a
+**probability**, not a logit; the search *does* evaluate won states and
+`gen_games` never records a post-winning-move state, so terminal leaves are
+scored exactly (`1.0 if winner == p0_color`).
+
+**Iteration 0 (running unattended via `run_it0.sh`, log
+`checkpoints_value/it0.log`):** AB-vs-3xAB calibration (300 games), 5,000
+`ab,ab,ab,ab` games, train `v0.pt`, `v0` vs 3x AB (300 games). Decision rule:
+iterate unless v0's Wilson upper bound is below the AB baseline's point
+estimate. Results go here when they land.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.

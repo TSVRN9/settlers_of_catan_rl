@@ -581,6 +581,54 @@ def test_value_net_player_plays_legal_game():
     print(f"  ValueNetPlayer plays a full game via AlphaBetaPlayer's hook (winner={winner.value}): ok")
 
 
+def test_batched_search_matches_recursive():
+    """ValueNetPlayer.decide() (full expansion, one forward) must equal the
+    base AlphaBetaPlayer.alphabeta() recursion at depth 1 (no cutoffs there)
+    once both use pinned chance outcomes, and expansion must be deterministic
+    -- catanatron's execute_spectrum re-rolls the dice per 'outcome' because
+    apply_roll reads action_record.result, not action.value."""
+    import tempfile
+    import time
+
+    import catanatron.players.minimax as mm
+    import torch
+
+    import value_net as vn
+
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "rand.pt")
+        torch.save(vn.ValueNet().state_dict(), path)
+        p = vn.ValueNetPlayer(Color.BLUE, path, depth=1)
+        enemies = [WeightedRandomPlayer(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)]
+        game = Game([p] + enemies, seed=5)
+        for _ in range(60):
+            game.play_tick()
+
+        def leaves():
+            p._leaf_obs, p._leaf_fixed = [], {}
+            p._expand(game, 2)
+            return [o for o in p._leaf_obs if o is not None]
+
+        a, b = leaves(), leaves()
+        assert len(a) == len(b) > 10 and all(np.array_equal(x, y) for x, y in zip(a, b)), "expansion not deterministic"
+
+        orig = mm.expand_spectrum
+        mm.expand_spectrum = vn.expand_outcomes
+        try:
+            checked = 0
+            while game.winning_color() is None and checked < 25:
+                if game.state.current_color() == Color.BLUE and len(game.playable_actions) > 1:
+                    a_b = p.decide(game, game.playable_actions)
+                    _, v_b = p._backup(p._expand(game, 1), p._score_leaves())
+                    a_r, v_r = p.alphabeta(game.copy(), 1, float("-inf"), float("inf"), time.time() + 60, mm.DebugStateNode("r", Color.BLUE))
+                    assert a_b == a_r and abs(v_b - v_r) < 1e-5, (a_b, a_r, v_b, v_r)
+                    checked += 1
+                game.play_tick()
+        finally:
+            mm.expand_spectrum = orig
+    print(f"  batched expectimax == recursive AlphaBeta at depth 1 on {checked} decisions, deterministic expansion ({len(a)} leaves): ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -596,4 +644,5 @@ if __name__ == "__main__":
     test_value_encoding_turn_onehot()
     test_gen_labels()
     test_value_net_player_plays_legal_game()
+    test_batched_search_matches_recursive()
     print("test_env.py: all invariants passed")

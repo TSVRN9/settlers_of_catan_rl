@@ -22,10 +22,20 @@ uv run python -c "import torch; print(torch.xpu.is_available())"   # must print 
 - **Never call the policy at batch 1.** Batch-1 inference (245 µs) costs more than the
   observation encoder (239 µs). All inference goes through `inference_server.py`, which
   batches to ≥256. This is the whole reason the architecture looks like it does.
+  The M4 search player (`value_net.py`) is the measured exception: its leaves are
+  batched per decision, and the number to beat there is AlphaBeta's own 80 µs/leaf
+  heuristic, not the encoder.
 - **We are simulation-bound, not GPU-bound.** Optimize CPU-side observation encoding.
   Reaching for a bigger net or more GPU is almost always the wrong move.
 - **Don't re-benchmark the baseline.** Every number is measured and recorded in
   `docs/FINDINGS.md`. Read it first.
+
+## Current direction (M4, 2026-09-01)
+
+Beat AlphaBeta by keeping its depth-2 expectimax search and replacing its hand
+heuristic with a learned win-probability net (`value_net.py`, `gen_games.py`,
+`train_value.py`), iterated expert-iteration style. PPO/self-play code is dormant, not
+deleted. See `docs/FINDINGS.md` "M4 reframed" before touching training.
 
 ## Docs
 

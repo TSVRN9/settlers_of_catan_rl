@@ -175,13 +175,33 @@ Regression check: `evaluate.py --opponent value_function --games 200` (~1.26 s/g
 
 ## M4 — beat AlphaBeta
 
-Tune and scale. If the win rate plateaus, the named upgrade is **factored conditional
-action heads** (action type → target node/edge/tile → resource), as in settlers-rl — a
-significant rewrite of the policy head, so only do it on evidence of a plateau, not on
-spec.
+**Reframed 2026-09-01** (see FINDINGS.md, "M4 reframed"). The reactive-policy
+line (PPO, BC, self-play) is exhausted far below the M3 gate. AlphaBeta's edge
+is its depth-2 expectimax; we keep that search and replace its hand heuristic
+with a learned win-probability net — expert iteration.
 
-`AlphaBetaPlayer` costs ~31.9 s/game as a 4x config, so 1000 games ≈ 1 h on 7 cores. Run
-it **at milestones only, never per checkpoint.**
+```
+uv run python evaluate.py --player ab --opponent alpha_beta --games 300           # calibration, ~25%
+uv run python gen_games.py --lineup ab,ab,ab,ab --games 5000 --out data/it0       # ~2-4 h
+uv run python train_value.py --data data/it0 --out checkpoints_value/v0.pt
+uv run python evaluate.py --player vnet:checkpoints_value/v0.pt --opponent alpha_beta --games 300
+# iteration k: 3 vnet seats + 1 ab seat keeps the data anchored to the target opponent
+uv run python gen_games.py --lineup vnet:V,vnet:V,vnet:V,ab --games 5000 --out data/itk
+uv run python train_value.py --data data/it0 ... data/itk --init V --out checkpoints_value/vk.pt
+```
+
+Decision rule per iteration: keep going unless the new net's Wilson upper
+bound (300 games) is below the previous best's point estimate. Levers held in
+reserve, in order, only on evidence: `prunning=True` (AB's own
+`list_prunned_actions`), depth 3, search-value targets instead of outcomes,
+Rust engine only if >20k games/iteration are needed.
+
+The factored-action-head rewrite is retired: BC showed the flat head can
+represent VFP-quality play (FINDINGS.md, "BC-from-VFP result").
+
+`AlphaBetaPlayer` costs ~2.5 s per seat-game, so 1000 games vs 3x AB is
+~20-40 min on 7 cores depending on our own seat's cost. Run it **at
+milestones only, never per checkpoint.**
 
 **Gate:** >50% win rate vs 3x `AlphaBetaPlayer` over 1000 games, reported with a
 confidence interval (Wilson interval on a binomial proportion; 1000 games gives roughly
@@ -206,7 +226,10 @@ Keep this out of the training loop.
 | `pyproject.toml` | uv, Python 3.12, torch+xpu index |
 | `catan_env.py` | gym env: obs encoder, mask, forced-decision skip, reward |
 | `inference_server.py` | batching queue + XPU forward |
-| `train.py` | MaskablePPO + self-play opponent pool |
+| `train.py` | MaskablePPO + self-play opponent pool (M2/M3, dormant since M4's reframe) |
+| `value_net.py` | M4: `ValueNet`, `ValueNetPlayer(AlphaBetaPlayer)`, `make_player` |
+| `gen_games.py` | M4: parallel games → (state, perspective, won) samples |
+| `train_value.py` | M4: value-net regression |
 | `evaluate.py` | win rate vs a named bot, with Wilson CI |
 | `test_env.py` | assert-based invariants (mask, info leakage, skip correctness) |
 | `bench_env.py` | encoder + throughput, compared against `docs/FINDINGS.md` |

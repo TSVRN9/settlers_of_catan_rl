@@ -13,11 +13,17 @@ the search is reimplemented.
     ValueNetPlayer(Color.BLUE, "checkpoints_value/v0.pt")
 """
 
+import math
+
 import numpy as np
 import torch
 import torch.nn as nn
 from catanatron.features import iter_players
+from catanatron.models.enums import DEVELOPMENT_CARDS, Action, ActionRecord, ActionType
+from catanatron.models.map import number_probability
 from catanatron.players.minimax import AlphaBetaPlayer
+from catanatron.players.tree_search_utils import execute_spectrum
+from catanatron.state_functions import get_dev_cards_in_hand, get_enemy_colors
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.weighted_random import WeightedRandomPlayer
 
@@ -69,6 +75,43 @@ def load_value_net(path):
     return _NET_CACHE[path]
 
 
+def _pinned(game, action, result):
+    """game.copy() with `action` applied and its stochastic outcome pinned to
+    `result` via action_record -- apply_roll / apply_buy_development_card
+    read action_record.result, NOT action.value. Catanatron's own
+    execute_spectrum sets action.value, so its ROLL "outcomes" re-roll the
+    dice at random (measured: expanding the same state twice gives different
+    leaves) and its BUY_DEVELOPMENT_CARD "options" all pop the true top card."""
+    g = game.copy()
+    try:
+        g.execute(action, validate_action=False, action_record=ActionRecord(action=action, result=result))
+    except Exception:
+        pass  # imagined-impossible outcome (card not in deck): same flattening as catanatron
+    return g
+
+
+def expand_outcomes(game, actions):
+    """action -> [(game, proba)], an exact expectation (see _pinned)."""
+    out = {}
+    for action in actions:
+        t = action.action_type
+        if t == ActionType.ROLL:
+            out[action] = [
+                (_pinned(game, action, (roll // 2, math.ceil(roll / 2))), number_probability(roll))
+                for roll in range(2, 13)
+            ]
+        elif t == ActionType.BUY_DEVELOPMENT_CARD:
+            # belief deck = face-down deck + enemies' unplayed cards, as catanatron does
+            deck = list(game.state.development_listdeck)
+            for color in get_enemy_colors(game.state.colors, action.color):
+                for card in DEVELOPMENT_CARDS:
+                    deck += [card] * get_dev_cards_in_hand(game.state, color, card)
+            out[action] = [(_pinned(game, action, card), deck.count(card) / len(deck)) for card in sorted(set(deck))]
+        else:
+            out[action] = execute_spectrum(game, action)  # deterministic, or MOVE_ROBBER (already pinned upstream)
+    return out
+
+
 class ValueNetPlayer(AlphaBetaPlayer):
     """AlphaBetaPlayer whose leaves are scored by a ValueNet as P(p0 wins).
 
@@ -87,10 +130,9 @@ class ValueNetPlayer(AlphaBetaPlayer):
         self.net_path = net_path
         self._encoder = Encoder()
 
-    # ponytail: batch-1 forward per leaf (~100us vs base_fn's 80us). Upgrade =
-    # expand the depth-2 tree fully, encode all leaves, one forward -- only
-    # if generation throughput, not model quality, becomes the limiter.
     def value_function(self, game, p0_color):
+        """Batch-1 path, kept for AlphaBetaPlayer.alphabeta (the recursive
+        reference used by test_env.py) -- decide() below doesn't use it."""
         winner = game.winning_color()
         if winner is not None:
             return float(winner == p0_color)
@@ -98,6 +140,61 @@ class ValueNetPlayer(AlphaBetaPlayer):
         x = torch.from_numpy(encode_for_value(self._encoder, game, p0_color))
         with torch.no_grad():
             return torch.sigmoid(net(x)).item()
+
+    def decide(self, game, playable_actions):
+        """Same expectimax as AlphaBetaPlayer.alphabeta, but the whole depth-d
+        tree is expanded first and every leaf is scored in one forward pass.
+        Measured: the recursive hook costs 9.0 s/seat-game (torch per-op
+        dispatch at batch 1), vs 1.8 s for AlphaBeta's own heuristic. No
+        alpha-beta cutoffs -- the base class passes alpha/beta through chance
+        nodes unadjusted, so its cutoffs were approximate anyway; this is the
+        exact expectation. Chance outcomes are pinned (expand_outcomes), so
+        the same state always expands to the same tree."""
+        actions = self.get_actions(game)
+        if len(actions) == 1:
+            return actions[0]
+        self._leaf_obs, self._leaf_fixed = [], {}
+        tree = self._expand(game, self.depth)
+        values = self._score_leaves()
+        best_action, _ = self._backup(tree, values)
+        return best_action if best_action is not None else playable_actions[0]
+
+    def _expand(self, game, depth):
+        winner = game.winning_color()
+        if depth == 0 or winner is not None:
+            idx = len(self._leaf_obs)
+            if winner is not None:
+                self._leaf_fixed[idx] = float(winner == self.color)
+                self._leaf_obs.append(None)
+            else:
+                self._leaf_obs.append(encode_for_value(self._encoder, game, self.color))
+            return idx
+        maximizing = game.state.current_color() == self.color
+        outcomes = expand_outcomes(game, self.get_actions(game))  # action -> [(game, proba)]
+        return (maximizing, [(a, [(p, self._expand(g, depth - 1)) for g, p in outs]) for a, outs in outcomes.items()])
+
+    def _score_leaves(self):
+        values = np.zeros(len(self._leaf_obs), dtype=np.float64)
+        live = [i for i, o in enumerate(self._leaf_obs) if o is not None]
+        if live:
+            net = load_value_net(self.net_path)
+            with torch.no_grad():
+                x = torch.from_numpy(np.stack([self._leaf_obs[i] for i in live]))
+                values[live] = torch.sigmoid(net(x)).squeeze(1).numpy()
+        for i, v in self._leaf_fixed.items():
+            values[i] = v
+        return values
+
+    def _backup(self, node, values):
+        if isinstance(node, int):
+            return None, values[node]
+        maximizing, children = node
+        best_action, best_value = None, float("-inf") if maximizing else float("inf")
+        for action, outs in children:
+            ev = sum(p * self._backup(child, values)[1] for p, child in outs)
+            if (ev > best_value) if maximizing else (ev < best_value):
+                best_action, best_value = action, ev
+        return best_action, best_value
 
     def __repr__(self):
         return f"ValueNetPlayer:{self.color.value}(depth={self.depth},net={self.net_path})"
