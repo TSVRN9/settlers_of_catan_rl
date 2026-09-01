@@ -1210,6 +1210,53 @@ speed**, not a per-move training-time search budget — this does **not**
 fire RUST-ENGINE.md's trigger #1 (search-based training). That trigger
 still applies if expert-iteration is chosen after BC's result.
 
+## 2026-09-01 — BC-from-VFP result: representation is not the bottleneck
+
+Ran the BC diagnostic proposed above. `train_bc.py`: 20,000 games labeled
+with `ValueFunctionPlayer`'s chosen action (`PYTHONHASHSEED=0`,
+`multiprocessing.Pool(7)`, ~1.25M labeled decisions), supervised-trained
+into the same `MaskablePPO` net/obs/action-head shape M2 uses (masked
+cross-entropy via `policy.evaluate_actions`, `Adam(foreach=False)`,
+`checkpoints_bc/bc_model.zip` — loads and evaluates with `evaluate.py`
+unmodified). 8 epochs, training-set accuracy (same 20k games, **not**
+held-out — no train/val split was done, so this number characterizes fit
+during training, not generalization) climbed 63.3% → 82.7% and was still
+rising at epoch 7.
+
+The number that matters is held-out win rate, measured on 500 fresh seeded
+games through the existing evaluator:
+
+```
+bc_model.zip vs 3x WeightedRandomPlayer:  481/500 = 96.2%  [94.1%, 97.6%]
+bc_model.zip vs 3x ValueFunctionPlayer:     39/500 =  7.8%  [ 5.8%, 10.5%]
+```
+
+**Conclusion: the 1026-dim observation and flat `Discrete(370)` action head
+can represent VFP-quality play — 96.2% vs weighted_random, in the same
+range as VFP's own 98.2%, decisively above PPO's 79% ceiling.** This is
+what was measured; it rules out representation as the bottleneck (kills the
+"factored conditional action heads" and "observation is incomplete"
+candidates for good — both already had null evidence from the M2
+investigation above, now positive counter-evidence). It does **not**
+establish that PPO's exploration/credit-assignment is fixable, only that a
+supervised signal on this net reaches 96% where PPO's RL signal reached
+79% — an exploration/credit-assignment diagnosis by elimination, sound but
+still to be tested by actually building the fix.
+
+**BC does not transfer to M3-strength play.** 7.8% vs 3×ValueFunctionPlayer
+is ~4.6x PPO's 1.7% on the same gate, but nowhere near M3's `>50%` bar.
+Cloning VFP's *moves* does not reproduce VFP's *strength* against a peer
+opponent — expected, since BC only ever sees VFP's own on-policy states
+against weak opponents, never learns to recover from mistakes a stronger
+opponent forces. Also note: **BC does not clear M4 either** — VFP itself
+scores only 10% vs 3×AlphaBeta, and BC is below VFP overall, so this result
+unlocks an M2/M3-shaped ceiling, not an M4-shaped one.
+
+**Standing next step**: `checkpoints_bc/bc_model.zip` is a warm start
+(96.2% vs weighted_random, well above cold-start PPO) for whichever of
+self-play (M3) or expert-iteration is attempted next — still real,
+still to be built, still could fail for reasons BC didn't test.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
