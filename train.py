@@ -22,6 +22,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from catan_env import CachedMaskVecEnv, FastCatanatronEnv
+from self_play import OpponentPool, SelfPlayCatanEnv
 
 # Opponent mixes for the M2 plateau. See docs/FINDINGS.md, 2026-09-01:
 # 3x WeightedRandomPlayer plateaus at ~79% (gate is >90%); ValueFunctionPlayer
@@ -33,6 +34,10 @@ OPPONENT_MIXES = {
     "mixed_1vf": [ValueFunctionPlayer, WeightedRandomPlayer, WeightedRandomPlayer],
     "value_function": [ValueFunctionPlayer, ValueFunctionPlayer, ValueFunctionPlayer],
 }
+
+# M3: self-play opponent pool. See docs/HANDOFF.md (gate: >50% vs
+# 3x ValueFunctionPlayer) and docs/FINDINGS.md's M3 plan Context.
+SELF_PLAY = "self_play"
 
 
 def _mask_fn(env):
@@ -54,13 +59,42 @@ def _make_env(seed, opponent_mix):
     return _init
 
 
+def _make_selfplay_env(seed, pool_dir, seed_checkpoints):
+    def _init():
+        pool = OpponentPool(
+            pool_dir=pool_dir,
+            seed_checkpoints=seed_checkpoints,
+            colors=(Color.RED, Color.WHITE, Color.ORANGE),
+        )
+        env = SelfPlayCatanEnv({"pool": pool})
+        env = ActionMasker(env, _mask_fn)
+        env = Monitor(env)
+        env.reset(seed=seed)
+        return env
+
+    return _init
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--timesteps", type=int, default=2_000_000)
     parser.add_argument("--n-envs", type=int, default=7)
-    parser.add_argument("--opponent", choices=sorted(OPPONENT_MIXES), default="weighted_random")
+    parser.add_argument("--opponent", choices=sorted(OPPONENT_MIXES) + [SELF_PLAY], default="weighted_random")
     parser.add_argument("--checkpoint-freq", type=int, default=100_000)
     parser.add_argument("--out-dir", default="checkpoints")
+    parser.add_argument(
+        "--pool-dir",
+        default=None,
+        help=f"{SELF_PLAY} only: checkpoint dir to sample opponents from (default: --out-dir, "
+        "so CheckpointCallback's own periodic saves populate the pool)",
+    )
+    parser.add_argument(
+        "--seed-checkpoint",
+        action="append",
+        default=None,
+        help=f"{SELF_PLAY} only: always-available pool member(s), repeatable "
+        "(default: checkpoints_bc/bc_model.zip)",
+    )
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--resume-from", default=None, help="checkpoint .zip to continue training from")
@@ -86,11 +120,23 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    env = CachedMaskVecEnv(
-        SubprocVecEnv(
-            [_make_env(seed=args.seed + i, opponent_mix=args.opponent) for i in range(args.n_envs)]
+    if args.opponent == SELF_PLAY:
+        pool_dir = args.pool_dir or args.out_dir
+        seed_checkpoints = args.seed_checkpoint or ["checkpoints_bc/bc_model.zip"]
+        env = CachedMaskVecEnv(
+            SubprocVecEnv(
+                [
+                    _make_selfplay_env(seed=args.seed + i, pool_dir=pool_dir, seed_checkpoints=seed_checkpoints)
+                    for i in range(args.n_envs)
+                ]
+            )
         )
-    )
+    else:
+        env = CachedMaskVecEnv(
+            SubprocVecEnv(
+                [_make_env(seed=args.seed + i, opponent_mix=args.opponent) for i in range(args.n_envs)]
+            )
+        )
 
     if args.resume_from:
         load_kwargs = {} if args.target_kl is None else {"target_kl": args.target_kl}
