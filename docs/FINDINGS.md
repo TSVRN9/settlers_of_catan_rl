@@ -1160,6 +1160,56 @@ deterministically (`vps_to_win=3`) instead of relying on the ~25% chance a
 reliably red) — verified to fail against the pre-fix code and pass against
 the fix before being kept.
 
+## 2026-09-01 — M2 gate calibration: the ~79% ceiling is real, not a miscalibrated gate
+
+Before committing to either of the two remaining M2/M3 candidates (self-play,
+search-bootstrapped value function — both multi-session), checked whether
+M2's `>90%` gate was itself attainable, or a Catan-variance wall no
+feed-forward policy could clear. Measured `ValueFunctionPlayer` — not any
+PPO checkpoint — against the same 3×`WeightedRandomPlayer` opponent config
+used throughout M2, via `Game(players).play()` directly (bypasses the gym
+env entirely; no `--model` flag needed since evaluate.py can only put a PPO
+checkpoint in seat 0). 500 seeded games, `PYTHONHASHSEED=0`,
+`multiprocessing.Pool(7)`, reused `evaluate.py`'s `wilson_interval`:
+
+```
+ValueFunctionPlayer vs 3x WeightedRandomPlayer: 491/500 = 98.2%
+95% CI: [96.6%, 99.1%]
+```
+
+**Conclusion: the gate is attainable and the trained agent's ~79% plateau is
+a real deficiency, not a miscalibrated target.** This closes the "maybe M2
+was never a fair bar" branch permanently — don't re-open it.
+
+Reframing that follows from this number: the agent isn't 19 points behind
+VFP on some smooth strategic-depth axis — it is **losing 21% of games to
+three weighted-random bots**, which VFP beats 49 times out of 50.
+Weighted-random is trivially exploitable, so a large share of that 21% is
+plausibly a concentrated behavioral defect rather than diffuse missing
+strategic depth. Both standing candidates (self-play, expert-iteration) are
+built on the assumption that the fix requires search-quality play; neither
+was checked against the cheaper hypothesis first.
+
+**Recommended next step (not yet started): behavior-clone the policy from
+VFP.** Label states with VFP's chosen action (VFP is 0.44s/game, 435 policy
+calls/game per the perf baseline above → 20k games ≈ 21 min on 7 cores ≈
+8.7M labeled decisions), supervised-train the same encoder/net/action-head
+shape PPO uses. This is a diagnostic + warm start, not a destination — BC
+can't exceed its teacher, and VFP itself only gets 10% vs 3×AlphaBeta (see
+M4 calibration above). It discriminates the next real decision:
+- BC reaches ~95%+ vs weighted_random → the 1026-dim obs and flat
+  `Discrete(370)` head *can* represent VFP-quality play; PPO's exploration/
+  credit assignment is the bottleneck, not representation. Points at
+  expert-iteration (with a warm start well above 79%) as the next milestone.
+- BC caps near ~80% → the representation or flat action space is the wall
+  regardless of training algorithm. Different repair; would have ruled out
+  self-play/expert-iteration as fixes before building either.
+
+Note: BC's `Game.copy()` cost is in **offline label generation at VFP
+speed**, not a per-move training-time search budget — this does **not**
+fire RUST-ENGINE.md's trigger #1 (search-based training). That trigger
+still applies if expert-iteration is chosen after BC's result.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
