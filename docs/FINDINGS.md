@@ -1388,6 +1388,61 @@ run (M3 Step 5).** ~190-200 fps is a real, workable training rate; a
 1-3M-timestep run costs roughly 1.5-4.5 hours at this rate, not the
 days a genuinely severe regression would have implied.
 
+## 2026-09-01 — M3 Step 5: full self-play run, gate not met
+
+1M timesteps, `--opponent self_play --resume-from checkpoints_bc/bc_model.zip
+--n-envs 7`, pool seeded with `bc_model.zip` and growing via
+`CheckpointCallback`'s own periodic saves (10 snapshots produced over the
+run, steps 99995 through 999950). Ran in 56 minutes (~297 fps average --
+faster than Step 4's ~190-200 fps steady-state reading, plausibly because
+games got more decisive as the pool filled with real trained snapshots
+instead of 3 clones of the same seed checkpoint).
+
+**Gotcha, not a blocker**: `train.log` captured only the final `saved:`
+line -- none of SB3's per-iteration rollout/train diagnostics
+(`approx_kl`, `ep_rew_mean`, etc.) made it to the redirected file, likely
+stdout buffering under `nohup`/`uv run` that isn't flushed until process
+exit. Lost the mid-run health check M2's `approx_kl` anomaly makes
+routine to want; for a future run, redirect through `stdbuf -oL` or set
+`PYTHONUNBUFFERED=1`.
+
+**Gate result (the actual M3 criterion, `evaluate.py`, 1000 games):**
+
+```
+final_model.zip vs 3x ValueFunctionPlayer:      90/1000 =  9.0%  [ 7.4%, 10.9%]   <- gate is >50%, NOT MET
+final_model.zip vs 3x WeightedRandomPlayer:     410/500 = 82.0%  [78.4%, 85.1%]
+```
+
+**Progression vs value_function across everything tried this session**:
+cold-start PPO 1.7% → BC clone 7.8% [5.8%, 10.5%] → this self-play run
+9.0% [7.4%, 10.9%]. The self-play number's CI overlaps BC's almost
+entirely -- **1M steps of self-play warm-started from BC did not clearly
+improve on BC alone** against this gate. It did clear M2's weighted_random
+plateau (82.0% vs the 79% ceiling), so the pipeline is doing *something*,
+but the M3 gate remains a different scale of gap, matching FINDINGS.md's
+standing framing of self-play as a "multi-session undertaking" rather than
+a single-run fix.
+
+**Read cautiously, not as failure**: this is one 1M-step run against one
+specific pool-growth trajectory (uniform sampling, seeded with a single BC
+checkpoint, no recency weighting). Candidate reasons 1M steps wasn't
+enough, none tested here: (1) early in the run the pool is mostly clones
+of the same seed checkpoint or its near-immediate descendants -- little
+real opponent diversity/pressure until several snapshots accumulate; (2)
+uniform-over-history sampling means a already-improving policy still faces
+early-weak snapshots at the same rate as recent-strong ones, diluting
+pressure; (3) simply more steps, matching M2's own 1M-3M-flat pattern
+suggesting a plateau check at 3M+ would be the natural next data point
+before concluding self-play (at this configuration) is exhausted.
+
+**Standing next steps, unstarted**: extend this same run further (more
+timesteps from the same warm start, same pool) to see if the gap closes
+with budget alone; try recency-weighted pool sampling instead of uniform;
+or revisit expert-iteration (search-bootstrapped value function) as a
+structurally different approach, per the standing recommendation from the
+BC section above -- still unstarted, still the RUST-ENGINE.md trigger #1
+consideration if attempted.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
