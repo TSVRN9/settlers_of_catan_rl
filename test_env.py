@@ -814,6 +814,66 @@ def test_rust_search_matches_python():
     print(f"  Rust search == Python search on {checked} decisions (same leaves, same root value): ok")
 
 
+def test_arena_games_replay_in_python(n_games=6):
+    """The Rust arena plays (rab + value-net seats, chance sampled in Rust);
+    catanatron replays every logged (action, outcome) with the result pinned.
+    Every action must be legal where it was played, the final Python state
+    must equal the arena's final snapshot, and the winner must agree -- the
+    mirror of test_rust_engine_replays_python_games."""
+    import tempfile
+
+    import torch
+    from catanatron.models.enums import ActionRecord, ActionType, DEVELOPMENT_CARDS, RESOURCES
+
+    import arena
+    import gen_games
+    import rust_bridge as rb
+    from value_net import ValueNet
+
+    def py_result(t, r):  # inverse of rust_bridge.result_of
+        if t == ActionType.ROLL:
+            return (r[0], r[1])
+        if t == ActionType.BUY_DEVELOPMENT_CARD:
+            return DEVELOPMENT_CARDS[r[0]]
+        if t == ActionType.MOVE_ROBBER:
+            return None if r[0] < 0 else RESOURCES[r[0]]
+        if t == ActionType.DISCARD_RESOURCE:
+            return RESOURCES[r[0]]
+        return None
+
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "rand.pt")
+        torch.save(ValueNet(hidden=64).state_dict(), path)
+        steps, n_self = 0, 0
+        for seed, winner, part, (game, log, snap) in arena.play([f"vnet:{path}", "rab", f"vnet:{path}", "rab"], range(40, 40 + n_games), sample_p=1.0, rank_p=1.0, sib_p=1.0, batch=n_games, keep_log=True):
+            ctx = rb.ctx_for(game)
+            colors = list(game.state.colors)
+            for canon, outcome in log:
+                action = rb.uncanon(canon, game.state.current_color(), ctx, colors)
+                assert action in game.playable_actions, (seed, steps, action, game.playable_actions[:4])
+                game.execute(action, action_record=ActionRecord(action, py_result(action.action_type, outcome)))
+                steps += 1
+            py = rb.state_spec(game, ctx)
+            # catanatron's pinned draw removes the *first* matching card (draw_from_listdeck) while a live
+            # draw pops the last, so the replayed deck is a permutation of the arena's; nothing else observes order
+            py["dev_deck"], snap["dev_deck"] = sorted(py["dev_deck"]), sorted(snap["dev_deck"])
+            bad = [k for k in py if py[k] != snap.get(k)]
+            assert not bad, (seed, bad[:3], [(py[k], snap.get(k)) for k in bad[:1]])
+            assert game.winning_color() == winner, (seed, game.winning_color(), winner)
+            assert (winner is None) == (part is None)
+            if part is not None:
+                # same schema and label logic as the Python StateSampler (test_gen_labels)
+                y, vp, sx, sv, isp0 = part["y"], part["vp"], part["sib_x"], part["sib_v"], part["sib_isp0"]
+                assert part["X"].shape[1] == sx.shape[2] == part["rank_c"].shape[1] == rb.N_FEATURES and sx.shape[1] == gen_games.StateSampler.K_SIB
+                assert (vp[y == 1, 0] >= 10).all() and (vp[y == 0, 0] < 10).all() and part["turns_left"].min() == 0
+                # self-play sets carry a one-hot of the chosen child; base_fn sets carry finite values
+                onehot = np.nansum(sv, axis=1) == 1.0
+                n_self += int(onehot.sum())
+                assert (isp0[onehot]).all(), "self-play sibling sets are recorded from the decider's perspective"
+        assert n_self > 0
+    print(f"  arena games replay in catanatron ({n_games} games, {steps} steps, final states equal, {n_self} self-play sibling sets): ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -834,4 +894,5 @@ if __name__ == "__main__":
     test_rust_engine_replays_python_games()
     test_rust_encoder_matches_python()
     test_rust_search_matches_python()
+    test_arena_games_replay_in_python()
     print("test_env.py: all invariants passed")

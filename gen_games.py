@@ -7,11 +7,13 @@ labeled 1.0 iff that color won. Games with no winner (TURNS_LIMIT) are dropped.
     uv run python gen_games.py --lineup vnet:checkpoints_value/v0.pt,vnet:checkpoints_value/v0.pt,vnet:checkpoints_value/v0.pt,ab --games 5000 --out data/it1
 
 Lineup tokens: ab (AlphaBetaPlayer), vf (ValueFunctionPlayer),
-wr (WeightedRandomPlayer), vnet:<path> (ValueNetPlayer). Seating is shuffled
-by the engine. Output: data/<name>/shard_NNNN.npz with X float16 (n, 1030),
+wr (WeightedRandomPlayer), rab (Rust AlphaBeta), vnet:<path> (ValueNetPlayer).
+Lineups of only rab / vnet seats run in the Rust arena (arena.py); the rest in
+7 Python worker processes. Seating is shuffled by the engine.
+Output: data/<name>/shard_NNNN.npz with X float16 (n, N_FEATURES),
 y uint8 (perspective won), vp float16 (n, 4: final VPs, perspective order),
 turns_left float16, game int32 (the seed; train_value.py splits held-out by game),
-and with --rank-p: rank_c / rank_o float16 (m, 1030), AlphaBeta's chosen child
+and with --rank-p: rank_c / rank_o float16 (m, N_FEATURES), AlphaBeta's chosen child
 state vs one other legal child, from the decider's perspective.
 """
 
@@ -190,7 +192,8 @@ def main():
     parser.add_argument("--lineup", required=True, help="4 comma-separated tokens: ab|vf|wr|vnet:<path>")
     parser.add_argument("--games", type=int, required=True)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--jobs", type=int, default=7)
+    parser.add_argument("--jobs", type=int, default=7, help="worker processes (Python loop) / Rust threads minus one (arena)")
+    parser.add_argument("--batch", type=int, default=128, help="arena: games in flight (leaves of all of them share one forward)")
     parser.add_argument("--sample-p", type=float, default=0.5)
     parser.add_argument("--rank-p", type=float, default=0.0, help="per AlphaBeta decision: probability of recording a (chosen, other) child pair")
     parser.add_argument("--sib-p", type=float, default=0.0, help="per decision: probability of recording a sibling set with base_fn values")
@@ -204,9 +207,21 @@ def main():
     seeds = range(args.seed, args.seed + args.games)
     t0 = time.time()
     parts, gs, shard, done, dropped, n_samples, n_pairs, n_sib = [], [], 0, 0, 0, 0, 0, 0
-    ctx = mp.get_context("spawn")
-    with ctx.Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p, args.sib_p)) as pool:
-        for seed, part in pool.imap_unordered(play_one, seeds, chunksize=1):
+    import contextlib
+
+    import arena
+
+    if arena.supports(lineup):
+        # Rust game loop, cross-game batched XPU inference (arena.py); ~2x the 7-process loop for
+        # value-net lineups, ~3x for rab-only ones (docs/FINDINGS.md).
+        os.environ.setdefault("RAYON_NUM_THREADS", str(args.jobs + 1))
+        pool = contextlib.nullcontext()
+        results = ((seed, part) for seed, _, part, _ in arena.play(lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, batch=args.batch))
+    else:
+        pool = mp.get_context("spawn").Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p, args.sib_p))
+        results = pool.imap_unordered(play_one, seeds, chunksize=1)
+    with pool:
+        for seed, part in results:
             done += 1
             if part is None:
                 dropped += 1

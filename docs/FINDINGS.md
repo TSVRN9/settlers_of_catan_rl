@@ -1860,6 +1860,89 @@ with the net's *own* search choice (from its perspective) instead of
 `base_fn` — the expert-iteration improvement step proper; AB-seat
 decisions keep the `base_fn` labels.
 
+## 2026-09-02 — two OOM classes, a training-target bug, and the Rust arena (generation 5.4 → 16.8 games/s)
+
+**What killed the box (kernel log of the previous boot).** Two different OOMs:
+
+| When | Process | Cause | Status |
+|---|---|---|---|
+| 00:11, 00:13 | one `train_value.py`, 26 GB RSS | unbudgeted load of 4 iterations of data, `np.concatenate` doubling it | fixed by the budget commits (c25ff7b..7543b7b) |
+| 00:36, 00:45 | seven `gen_games.py` workers, **5-6 GB each**, ~1 GB each swapped | `rust_bridge._MAP_CACHE` (dict keyed by `id(map)`) held every game's map + `Ctx` forever | fixed: one-entry cache compared with `is` (the `Encoder` pattern) |
+
+Probe, one worker, 12 games: `rab x4` +0.5 MB/game; `vnet x2 + rab x2` **+15.3 MB/game**; the same with the
+cache cleared **+0.0**. 570 games/worker × 15 MB = the observed 6 GB. After the fix: +63 MB after 10 games, flat
+through 40. The swapping also explains why it7/it8 generation ran at 2.5 games/s while it9's fresh workers ran 5.4.
+A worker that dies leaves `imap_unordered` hanging forever — that is why the log just stops.
+
+**Training-target bug (train_value.py, found by the audit).** When the sample budget subsampled a shard, the
+auxiliary targets (final VPs, turns left) were appended *whole*, so `auxd[idx]` indexed unrelated rows. Dormant
+until v8, the first run where the budget bit (2.5 M samples > 1.5 M): **v8's auxiliary heads trained on misaligned
+targets** through the shared trunk. Fixed (subsampled with the same index, asserted). v8 gated 27.0% regardless,
+so the win head survived it; v9 warm-starts from v8 and re-fits the aux heads on correct targets. Also fixed: the
+sibling budget counted sets in shards that were then skipped for lacking `sib_isp0` (it2), so 89 k landed instead
+of 120 k; and the feature-width check materialized every shard's `X` (6.7 GB of reads for a scalar) — now read
+from the `.npy` header.
+
+**Generation profile (single process, `vnet x2 + rab x2`, v8, uncontended).** Per value-net decision: `rust_state`
+0.05 ms, Rust `expand` 2.09 ms (708 leaves on average here), **torch CPU forward 6.31 ms = 68% of wall**, backup
+0.01 ms; game loop + rab seats + sampling 60 ms/game (8%). 76 value-net decisions per game.
+
+**The CPU forward depends on which core the worker lands on.** Lunar Lake has 4 P + 4 E cores; the 3x256 forward
+at batch 708, one thread: **8.9 ms on a P-core, 52 ms on an E-core**, and with 7 workers three of them live on
+E-cores. The XPU does the same batch in 0.59 ms alone (1.6-2.7 ms with 7 processes sharing it), and at batch
+7-16 k **0.66 µs/row** (1.5 M rows/s) including transfer. The earlier note "per-decision XPU is not a win at this
+batch size (6.0 ms)" was measured under a contending run and is wrong today.
+
+### The arena: Rust game loop + one forward per step (`catan_engine/src/arena.rs`, `arena.py`)
+
+`catan_engine.Arena` holds G games; `step(values)` resumes every parked game from the previous forward, then
+advances all games in parallel (rayon) until each ends or a value-net seat needs a forward, at which point its
+depth-2 leaves are parked; `fill(buf)` copies all parked leaves into a Python-owned buffer; Python runs one
+forward over them. `rab` seats use `decide_heuristic` in Rust; chance outcomes come from the state's own RNG
+(`apply(action, None)`). The recorder mirrors `gen_games.StateSampler` one-for-one (samples, chosen-vs-other
+pairs, sibling sets with `base_fn` or self-play one-hot labels) and writes the identical shard schema, so
+`train_value.py` is untouched. Map generation, deck shuffle and seating stay in Python: a fresh catanatron `Game`
+per seed is handed over once. `gen_games.py` routes any lineup made of `vnet:`/`rab` seats through it (the
+7-process path remains for `ab`/`vf`/`wr`); `evaluate.py --opponent rab` uses it for the proxy gate.
+
+**Correctness: the mirror oracle** (`test_env.test_arena_games_replay_in_python`). The arena logs every
+(action, outcome); catanatron replays them with the outcome pinned (`Game.execute(action, ActionRecord)`).
+Every action must be legal where it was played, the final `state_spec` must equal the arena's final snapshot, and
+the winner must agree — 6 games mixing `rab` and value-net seats pass. One replay artifact: catanatron's pinned
+draw removes the *first* matching dev card while a live draw pops the last, so the replayed deck is a permutation
+of the arena's; nothing else observes deck order, the test compares the multiset.
+
+**Three things that had to be fixed to get the speed, each measured:**
+
+| Step (batch 64-128) | Rust step | forward | games/s |
+|---|---|---|---|
+| first version: leaves concatenated into a fresh Vec each step | 27 ms parallel + **40 ms serial concat** (page faults on 136 MB) | 27 ms | 5.6 |
+| persistent Python-owned buffer, filled in parallel; per-game leaf buffers reused | 23 ms + 4 ms fill | 27 ms | 10.1 |
+| + pinned host buffer (pageable H2D copy blocked the host 8.3 ms; pinned non_blocking 0 ms) | same | 20 ms | 11.2 |
+| + forward and its wait in a helper thread, two arenas ping-ponging | 30 ms (now 90% of wall) | **1-2 ms waited** | **16.0-16.7** |
+
+Rayon thread scaling on this chip: 1 thread 94 ms, 8 threads 23 ms for the same parallel section (E-cores add
+little; 6 threads is within noise of 8). The XPU forward itself stays at ~15 ms with up to 7 cores busy and jumps
+to 40 ms only when all 8 are saturated (the submitting thread starves), which is why the helper-thread design
+works while device-side overlap does not: **waiting on an XPU event recorded after forward A blocks until a
+later-queued oneDNN matmul B also finishes**, on separate `torch.xpu.Stream`s or with `torch.xpu.Event` alike
+(measured: A; sleep 20 ms; B; event-sync A = 38 ms, where an elementwise B gives 21 ms). Don't build on streams.
+
+**End to end** (`gen_games.py`, `vnet x2 + rab x2`, 1,000 games, while the test suite ran alongside):
+**16.8 games/s**, 158 samples / 36 pairs / 43 sibling sets per game (the Python path: 153 / 35 per rab seat / 46).
+`rab x4`: **94.6 games/s** (Python loop: 34.6). Proxy gate `evaluate.py --opponent rab`: 300 `rab`-vs-`rab` games
+in 3.7 s (25.0%, symmetry), **1,000 games of v8 vs 3x rab in 36 s: 28.0% [25.3%, 30.9%]**. Remaining cost is the
+Rust step (expand ≈ 3 µs/leaf incl. the heuristic-summary features); the forward is hidden.
+
+**Loop changes (`run_exit.sh`).** Generation is skipped only if the *last* shard exists (it9 had 4 of 8);
+training uses the last 4 iteration dirs (budgets remain the memory ceiling); the 1,000-game `rab` proxy gate runs
+every iteration (±2.7 pt) and the 300-game Python-AB gate — still the number reported here — every third
+iteration. Cycle: ~4 min gen + 1.5 min train + 0.6 min proxy (+ 9.5 min AB gate every third) ≈ **6 min** vs 23-38.
+Known, unchanged: the rank/sibling held-out split is the tail of the concatenated arrays, not by game.
+
+**Progression on the 300-game Python-AB gate:** v0 6.0% → v1 3.8% → v2 18.7% → v4 21.3% → v5 25.3% → v7 27.3% →
+**v8 27.0%** [22.3%, 32.3%] (AB itself: 26.3%).
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.

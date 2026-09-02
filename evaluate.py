@@ -40,6 +40,7 @@ OPPONENTS = {
     "weighted_random": WeightedRandomPlayer,
     "value_function": ValueFunctionPlayer,
     "alpha_beta": AlphaBetaPlayer,
+    "rab": None,  # Rust AlphaBeta, arena only (see evaluate): the fast proxy gate; the reported gate stays alpha_beta
 }
 
 
@@ -135,6 +136,12 @@ def _play_seed(seed):
 
 def evaluate(model_path, opponent, games, seed, jobs, search=False, player=None):
     seeds = range(seed, seed + games)
+    if opponent == "rab":
+        import arena
+
+        lineup = [player, "rab", "rab", "rab"]
+        assert arena.supports(lineup), f"--opponent rab takes a vnet:<path> or rab player, got {player}"
+        return sum(w == Color.BLUE for _, w, _, _ in arena.play(lineup, seeds, batch=128))
     if jobs == 1:
         _init_worker(model_path, opponent, search, player)
         return sum(_play_seed(s) for s in seeds)

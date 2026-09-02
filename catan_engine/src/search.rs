@@ -76,7 +76,14 @@ impl State {
     }
 
     pub fn expand(&self, depth: u32, p0: usize, layout: &Layout) -> Search {
-        let mut search = Search { n_features: layout.n_features, leaves: Vec::new(), fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] } };
+        self.expand_into(depth, p0, layout, Vec::new())
+    }
+
+    /// `expand` writing leaves into a reused buffer (the arena expands every
+    /// step; fresh multi-MB Vecs page-fault each time).
+    pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>) -> Search {
+        buf.clear();
+        let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] } };
         let root = self.expand_node(depth, p0, layout, &mut search);
         match root {
             Child::Node(n) => search.root = *n,

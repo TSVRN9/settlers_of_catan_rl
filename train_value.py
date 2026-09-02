@@ -20,14 +20,18 @@ import torch.nn.functional as F
 from value_net import N_FEATURES, ValueNet
 
 
-def _count(z, name, _row_bytes=None):
-    """Rows of an npz member from its .npy header, without loading the data."""
+def _shape(z, name):
+    """Shape of an npz member from its .npy header, without loading the data."""
     if name not in z.files:
-        return 0
+        return (0,)
     with z.zip.open(name + ".npy") as f:
         version = np.lib.format.read_magic(f)
         shape, _, _ = getattr(np.lib.format, f"read_array_header_{version[0]}_{version[1]}")(f)
-    return shape[0]
+    return shape
+
+
+def _count(z, name):
+    return _shape(z, name)[0]
 
 
 def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
@@ -39,15 +43,14 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
     rng = np.random.default_rng(seed)
     paths = [p for d in dirs for p in sorted(glob.glob(os.path.join(d, "shard_*.npz")))]
     zs = [np.load(p) for p in paths]
-    ok = [z["X"].shape[1] == N_FEATURES for z in zs]
+    ok = [_shape(z, "X")[1:] == (N_FEATURES,) for z in zs]
     for p, o in zip(paths, ok):
         if not o:
             print(f"skipping {p}: wrong feature width (encoder has {N_FEATURES})")
     zs = [z for z, o in zip(zs, ok) if o]
-    F2 = N_FEATURES * 2
-    tot_s = sum(_count(z, "y", 1) for z in zs)
-    tot_p = sum(_count(z, "rank_c", F2) for z in zs)
-    tot_b = sum(_count(z, "sib_n", 1) for z in zs)
+    tot_s = sum(_count(z, "y") for z in zs)
+    tot_p = sum(_count(z, "rank_c") for z in zs)
+    tot_b = sum(_count(z, "sib_n") for z in zs if "sib_isp0" in z)  # same condition as the load below
     fs = min(1.0, (max_samples or tot_s) / max(tot_s, 1))
     fp = min(1.0, (max_pairs or tot_p) / max(tot_p, 1))
     fb = min(1.0, (max_sibs or tot_b) / max(tot_b, 1))
@@ -64,14 +67,15 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
             k = pick(len(yy), fs)
             n = len(yy[k])
             X.append(z["X"][k]); y.append(yy[k]); g.append(z["game"][k])
-            if "rank_c" in z and _count(z, "rank_c", F2):
-                kp = pick(_count(z, "rank_c", F2), fp)
+            if "rank_c" in z and _count(z, "rank_c"):
+                kp = pick(_count(z, "rank_c"), fp)
                 rc.append(z["rank_c"][kp]); ro.append(z["rank_o"][kp])
-            if "sib_isp0" in z and _count(z, "sib_n", 1):
-                kb = pick(_count(z, "sib_n", 1), fb)
+            if "sib_isp0" in z and _count(z, "sib_n"):
+                kb = pick(_count(z, "sib_n"), fb)
                 sx.append(z["sib_x"][kb]); sv.append(z["sib_v"][kb]); sn.append(z["sib_n"][kb]); sp.append(z["sib_isp0"][kb])
             if "vp" in z:
-                aux.append(np.concatenate([z["vp"].astype(np.float32) / 10.0, z["turns_left"].astype(np.float32)[:, None] / 100.0], axis=1))
+                aux.append(np.concatenate([z["vp"][k].astype(np.float32) / 10.0, z["turns_left"][k].astype(np.float32)[:, None] / 100.0], axis=1))
+                assert len(aux[-1]) == n  # v8 trained its aux heads on unsubsampled (misaligned) targets, docs/FINDINGS.md
                 has.append(np.ones(n, dtype=bool))
             else:
                 aux.append(np.zeros((n, 5), dtype=np.float32)); has.append(np.zeros(n, dtype=bool))

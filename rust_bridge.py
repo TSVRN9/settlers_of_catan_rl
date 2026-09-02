@@ -26,7 +26,8 @@ from value_net import EXTRA_BASE, N_BASE, N_FEATURES
 
 RES_IDX = {r: i for i, r in enumerate(RESOURCES)}
 DEV_IDX = {c: i for i, c in enumerate(DEVELOPMENT_CARDS)}
-_MAP_CACHE = {}  # id(catan_map) -> (catan_map, Ctx)  (holds the map so the id can't be recycled)
+_MAP = (None, None)  # (catan_map, Ctx) of the last map seen; one entry, compared with `is` (a dict keyed by
+# id(map) that held every map grew gen_games workers by 15 MB/game and OOM-killed the box, docs/FINDINGS.md)
 
 
 class Ctx:
@@ -63,12 +64,11 @@ class Ctx:
 
 
 def ctx_for(game):
+    global _MAP
     catan_map = game.state.board.map
-    key = id(catan_map)
-    hit = _MAP_CACHE.get(key)
-    if hit is None or hit[0] is not catan_map:
-        _MAP_CACHE[key] = (catan_map, Ctx(catan_map))
-    return _MAP_CACHE[key][1]
+    if _MAP[0] is not catan_map:
+        _MAP = (catan_map, Ctx(catan_map))
+    return _MAP[1]
 
 
 def canon(action, ctx, colors):

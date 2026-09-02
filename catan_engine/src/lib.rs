@@ -3,6 +3,7 @@
 
 mod actions;
 mod apply;
+mod arena;
 mod board;
 mod encode;
 mod heuristic;
@@ -13,12 +14,15 @@ mod state;
 use std::sync::Arc;
 
 use numpy::ndarray::Array2;
-use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1};
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadwriteArray2};
+use numpy::ndarray::Array3;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use actions::Action;
+use arena::{ArenaGame, Recorder, Seat, K_SIB};
+use rayon::prelude::*;
 use encode::Layout;
 use map::{Map, Port, Tile};
 use search::Search;
@@ -429,6 +433,147 @@ impl PyState {
     }
 }
 
+
+/// Many games in lockstep, one leaf matrix per step (arena.py drives it).
+#[pyclass(name = "Arena")]
+struct PyArena {
+    layout: Arc<Layout>,
+    depth: u32,
+    sample_p: f64,
+    rank_p: f64,
+    sib_p: f64,
+    keep_log: bool,
+    games: Vec<ArenaGame>,
+    last_ms: (f64, f64), // (parallel advance, parallel fill) of the last step
+}
+
+#[pymethods]
+impl PyArena {
+    #[new]
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool) -> PyArena {
+        PyArena { layout: layout.inner.clone(), depth, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
+    }
+
+    /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
+    fn add(&mut self, state: &PyState, seats: [u8; 4], seed: u64, game_id: i32) {
+        let mut st = state.inner.clone();
+        st.rng = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x5851_F42D_4C95_7F2D;
+        let seats = seats.map(|s| if s == 0 { Seat::Vnet } else { Seat::Rab });
+        self.games.push(ArenaGame {
+            id: game_id,
+            state: st,
+            seats,
+            depth: self.depth,
+            pending: None,
+            leaf_buf: Vec::new(),
+            offset: 0,
+            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p),
+            log: if self.keep_log { Some(vec![]) } else { None },
+            done: false,
+        });
+    }
+
+    fn in_flight(&self) -> usize {
+        self.games.len()
+    }
+
+    fn last_ms(&self) -> (f64, f64) {
+        self.last_ms
+    }
+
+    /// Resume every parked game from `values` (one per row of the buffer the
+    /// last fill() wrote), advance all games in parallel, and return
+    /// (total leaf rows now parked, games parked). Call fill() next.
+    #[pyo3(signature = (values=None))]
+    fn step(&mut self, py: Python<'_>, values: Option<PyReadonlyArray1<f64>>) -> PyResult<(usize, usize)> {
+        let vals: Vec<f64> = match values {
+            Some(v) => v.as_slice()?.to_vec(),
+            None => vec![],
+        };
+        let layout = self.layout.clone();
+        let games = &mut self.games;
+        let (rows, n_pending, ms) = py.allow_threads(move || {
+            let t0 = std::time::Instant::now();
+            games.par_iter_mut().for_each(|g| g.advance(&layout, &vals));
+            let ms = t0.elapsed().as_secs_f64() * 1e3;
+            let rows: usize = games.iter().filter_map(|g| g.pending.as_ref()).map(|s| s.n_leaves).sum();
+            let n_pending = games.iter().filter(|g| g.pending.is_some()).count();
+            (rows, n_pending, ms)
+        });
+        self.last_ms.0 = ms;
+        Ok((rows, n_pending))
+    }
+
+    /// Copies every parked game's leaves into `buf[:rows]` (rows from step())
+    /// in parallel and records each game's row offset. `buf` is reused across
+    /// steps, so nothing is allocated or page-faulted per step.
+    fn fill(&mut self, py: Python<'_>, mut buf: PyReadwriteArray2<f32>) -> PyResult<usize> {
+        let nf = self.layout.n_features;
+        let rows: usize = self.games.iter().filter_map(|g| g.pending.as_ref()).map(|s| s.n_leaves).sum();
+        let (cap, width) = buf.as_array().dim();
+        if width != nf || cap < rows {
+            return Err(PyValueError::new_err(format!("fill buffer must be at least ({rows}, {nf})")));
+        }
+        let mut rest: &mut [f32] = buf.as_slice_mut()?;
+        let mut jobs: Vec<(&mut ArenaGame, &mut [f32])> = Vec::new();
+        let mut off = 0usize;
+        for g in self.games.iter_mut() {
+            let n = match g.pending.as_ref() {
+                Some(s) => s.n_leaves,
+                None => continue,
+            };
+            let (dst, tail) = rest.split_at_mut(n * nf);
+            rest = tail;
+            g.offset = off;
+            off += n;
+            jobs.push((g, dst));
+        }
+        let t0 = std::time::Instant::now();
+        py.allow_threads(move || {
+            jobs.into_par_iter().for_each(|(g, dst)| {
+                let s = g.pending.as_mut().unwrap();
+                dst.copy_from_slice(&s.leaves);
+                let mut v = std::mem::take(&mut s.leaves); // backup only needs the tree + fixed values
+                v.clear();
+                g.leaf_buf = v;
+            });
+        });
+        self.last_ms.1 = t0.elapsed().as_secs_f64() * 1e3;
+        Ok(rows)
+    }
+
+    /// Drains finished games: (game_id, winner_seat or -1, num_turns, actual_vp
+    /// per seat, recorded arrays, log [(action, outcome)] if kept, final snapshot).
+    fn finished<'py>(&mut self, py: Python<'py>) -> PyResult<Vec<(i32, i8, i32, Vec<i32>, Bound<'py, PyDict>, Option<Vec<(Canon, (i32, i32))>>, Option<Bound<'py, PyDict>>)>> {
+        let nf = self.layout.n_features;
+        let (done, live): (Vec<ArenaGame>, Vec<ArenaGame>) = std::mem::take(&mut self.games).into_iter().partition(|g| g.done);
+        self.games = live;
+        let mut out = Vec::with_capacity(done.len());
+        for g in done {
+            let r = g.rec;
+            let d = PyDict::new(py);
+            let n = r.colors.len();
+            d.set_item("X", Array2::from_shape_vec((n, nf), r.xs).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("color", r.colors)?;
+            d.set_item("turn", r.turns)?;
+            let m = r.rank_c.len() / nf;
+            d.set_item("rank_c", Array2::from_shape_vec((m, nf), r.rank_c).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("rank_o", Array2::from_shape_vec((m, nf), r.rank_o).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            let k = r.sib_n.len();
+            d.set_item("sib_x", Array3::from_shape_vec((k, K_SIB, nf), r.sib_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("sib_v", Array2::from_shape_vec((k, K_SIB), r.sib_v).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("sib_n", r.sib_n)?;
+            d.set_item("sib_isp0", r.sib_isp0)?;
+            let log = g.log.map(|l| l.into_iter().map(|(a, o)| (to_canon(a), o)).collect());
+            let snap = if self.keep_log { Some(PyState { inner: g.state.clone(), search: None }.snapshot(py)?) } else { None };
+            let vps: Vec<i32> = g.state.players.iter().map(|p| p.actual_vp).collect();
+            out.push((g.id, g.state.winner(), g.state.num_turns, vps, d, log, snap));
+        }
+        Ok(out)
+    }
+}
+
 #[pyfunction]
 fn action_types() -> Vec<&'static str> {
     vec!["ROLL", "MOVE_ROBBER", "DISCARD_RESOURCE", "BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY", "BUY_DEVELOPMENT_CARD", "PLAY_KNIGHT_CARD", "PLAY_YEAR_OF_PLENTY", "PLAY_MONOPOLY", "PLAY_ROAD_BUILDING", "MARITIME_TRADE", "END_TURN"]
@@ -439,6 +584,7 @@ fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMap>()?;
     m.add_class::<PyLayout>()?;
     m.add_class::<PyState>()?;
+    m.add_class::<PyArena>()?;
     m.add_function(wrap_pyfunction!(action_types, m)?)?;
     Ok(())
 }
