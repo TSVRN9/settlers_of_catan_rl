@@ -420,6 +420,11 @@ impl PyState {
         self.inner.decide_heuristic(depth).map(to_canon)
     }
 
+    /// The rollout policy: depth-2 expectimax over the pruned action lists (heuristic.rs rollout_actions).
+    fn decide_rollout(&self) -> Option<Canon> {
+        self.inner.decide_rollout().map(to_canon)
+    }
+
     fn smooth_base_fn(&self, p0: usize) -> f64 {
         self.inner.smooth_base_fn(p0)
     }

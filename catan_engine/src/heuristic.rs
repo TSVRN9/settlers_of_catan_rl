@@ -151,13 +151,20 @@ impl State {
         (best, best_v)
     }
 
-    /// decide_heuristic(2) over the pruned action lists (rollouts only).
+    /// decide_heuristic(2) over the pruned action lists (rollouts only); robber
+    /// prompts search one ply (a 7-roll state otherwise expands ~30 robber
+    /// moves x 5 steal outcomes x the whole post-roll action list: half of all
+    /// rollout leaves, and what one builds afterwards barely depends on the tile).
     pub fn decide_rollout(&self) -> Option<Action> {
         let actions = self.playable_actions();
         if actions.len() == 1 {
             return Some(actions[0]);
         }
-        self.expectimax_rollout(2, self.current_player).0
+        let depth = match self.prompt {
+            Prompt::MoveRobber => 1,
+            _ => 2,
+        };
+        self.expectimax_rollout(depth, self.current_player).0
     }
 
     /// AlphaBetaPlayer.decide with exact chance nodes and no cutoffs.
