@@ -1543,6 +1543,40 @@ estimate. Results go here when they land.
 | Stage | Result |
 |---|---|
 | Calibration: `--player ab` vs 3x AB, 300 games, seeds 0-299 | **79/300 = 26.3%** [21.7%, 31.6%] — matches the 25% symmetry expectation; no seat bias, evaluator path sound |
+| `gen_games.py --lineup ab,ab,ab,ab --games 5000` | 4h 0m at 0.35 games/s on 7 workers; 754,800 samples (151/game), 0 games without a winner |
+| `train_value.py`, first config (no regularization, 10 epochs) | **memorized**: train 0.028, held-out **2.12** vs the constant base-rate loss 0.562; already 0.61 after epoch 0. Calibration: predicted 0.98 → actual 0.51 |
+
+### The value net memorizes games; what fixed it
+
+Sweep on the same 754k samples (by-game 10% held-out, 4 epochs, held-out
+checked every 90 optimizer steps), best held-out BCE:
+
+| Config | Best held-out | Where |
+|---|---|---|
+| Logistic regression | 0.418 | end (still improving slowly) |
+| 3x512 MLP as shipped | 0.421 | step 90, then 1.58 by epoch 4 |
+| 3x512, static map features masked | 0.419 | step 180, then 1.05 |
+| 3x512, wd 1e-4, dropout 0.3 | 0.416 | step 180, then 0.75 |
+| **3x512, wd 1e-4, dropout 0.3, static masked** | **0.408** | step 180, then 0.56 |
+| 3x128, dropout 0.3, static masked, lr 3e-4 | 0.410 | step 540, then 0.47 |
+
+Two readings. (1) The signal is real and mostly linear: a logistic regression
+beats the base rate by a wide margin, the best MLP only by a little more.
+(2) Every MLP peaks within half an epoch and then memorizes. The 206 raw
+tile/port one-hots uniquely fingerprint a map, and all ~150 samples from a
+game share that map and its outcome, so "this map → this winner" is the
+cheapest fit. 5,000 games is ~5,000 bits of outcome signal against a
+1M-parameter net. **Masking the static features at the net's input +
+dropout 0.3 + weight decay 1e-4 + early stopping on held-out** is now the
+default in `value_net.ValueNet` / `train_value.py`. Retrained `v0.pt`:
+best held-out **0.412** at step 270, calibrated (top bucket predicted 0.90
+vs actual 0.87).
+
+**Implication for the speed-up work:** more games is the lever that
+actually adds information, not more epochs or more capacity. Denser
+targets (final VPs of all four players, or AB search values as
+distillation targets) would add bits per game and are the cheap
+complement to faster generation.
 
 ## Prior art
 
