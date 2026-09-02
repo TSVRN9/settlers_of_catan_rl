@@ -20,21 +20,48 @@ import torch.nn.functional as F
 from value_net import N_FEATURES, ValueNet
 
 
-def load(dirs):
+def _count(z, name, row_bytes):
+    """Rows of an npz member from the zip header, without loading it."""
+    try:
+        return z.zip.getinfo(name + ".npy").file_size // row_bytes
+    except KeyError:
+        return 0
+
+
+def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
     """Returns X, y, game, aux (n, 5) = [vp0..vp3 / 10, turns_left / 100] and
     has_aux (n,) -- shards written before the auxiliary targets existed load
-    with has_aux False and contribute only to the win-probability loss."""
+    with has_aux False and contribute only to the win-probability loss.
+    Budgets subsample *per shard* while loading, so peak RAM is bounded by
+    the budgets rather than the corpus (4 iterations OOM-killed the box)."""
+    rng = np.random.default_rng(seed)
+    paths = [p for d in dirs for p in sorted(glob.glob(os.path.join(d, "shard_*.npz")))]
+    zs = [np.load(p) for p in paths]
+    ok = [z["X"].shape[1] == N_FEATURES for z in zs]
+    for p, o in zip(paths, ok):
+        if not o:
+            print(f"skipping {p}: wrong feature width (encoder has {N_FEATURES})")
+    zs = [z for z, o in zip(zs, ok) if o]
+    F2 = N_FEATURES * 2
+    tot_s = sum(_count(z, "y", 1) for z in zs)
+    tot_p = sum(_count(z, "rank_c", F2) for z in zs)
+    tot_b = sum(_count(z, "sib_n", 1) for z in zs)
+    fs = min(1.0, (max_samples or tot_s) / max(tot_s, 1))
+    fp = min(1.0, (max_pairs or tot_p) / max(tot_p, 1))
+    fb = min(1.0, (max_sibs or tot_b) / max(tot_b, 1))
+
+    def pick(n, frac):
+        return np.sort(rng.choice(n, int(n * frac), replace=False)) if frac < 1.0 else slice(None)
+
     X, y, g, aux, has = [], [], [], [], []
     rc, ro = [], []
     sx, sv, sn, sp = [], [], [], []
-    for d in dirs:
-        for path in sorted(glob.glob(os.path.join(d, "shard_*.npz"))):
-            z = np.load(path)
-            if z["X"].shape[1] != N_FEATURES:
-                print(f"skipping {path}: {z['X'].shape[1]} features, encoder has {N_FEATURES}")
-                continue
-            n = len(z["y"])
-            X.append(z["X"]); y.append(z["y"]); g.append(z["game"])
+    for z in zs:
+        if True:
+            yy = z["y"]
+            k = pick(len(yy), fs)
+            n = len(yy[k])
+            X.append(z["X"][k]); y.append(yy[k]); g.append(z["game"][k])
             if "rank_c" in z and len(z["rank_c"]):
                 rc.append(z["rank_c"]); ro.append(z["rank_o"])
             if "sib_isp0" in z and len(z["sib_n"]):
@@ -89,6 +116,9 @@ def main():
     parser.add_argument("--init", default=None, help="warm-start state_dict")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--prior-scale", type=float, default=None, help="smooth-heuristic prior scale (ValueNet.PRIOR_SCALE default); 0.1 = one logit per VP")
+    parser.add_argument("--max-samples", type=int, default=1_500_000, help="random subsample budgets (memory): outcome samples")
+    parser.add_argument("--max-pairs", type=int, default=300_000, help="... chosen-vs-other pairs")
+    parser.add_argument("--max-sibs", type=int, default=120_000, help="... sibling sets (each is K x F)")
     parser.add_argument("--hidden", type=int, default=256, help="MLP width; 256 is 3x cheaper per leaf than 512 at equal held-out loss (FINDINGS)")
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -103,9 +133,11 @@ def main():
     args = parser.parse_args()
     torch.manual_seed(args.seed)
 
-    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0) = load(args.data)
-    games = np.unique(g)
+    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0) = load(
+        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed
+    )
     rng = np.random.default_rng(args.seed)
+    games = np.unique(g)
     held = set(rng.choice(games, size=max(1, len(games) // 10), replace=False).tolist())
     is_held = np.isin(g, list(held))
     print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games, aux targets on {has.mean():.0%}, {len(rank_c)} rank pairs, {len(sib_n)} sibling sets")
@@ -113,20 +145,21 @@ def main():
     dev = torch.device(args.device)
     Xd = torch.from_numpy(X).to(dev)  # float16 on device; cast per batch
     yd = torch.from_numpy(y.astype(np.float32)).to(dev)
-    auxd = torch.from_numpy(aux).to(dev)
-    hasd = torch.from_numpy(has).to(dev)
+    auxd = torch.from_numpy(aux)
+    hasd = torch.from_numpy(has)
     # rank pairs: last 10% held out (they are not tied to game ids)
     n_rank = len(rank_c)
     n_rank_tr = int(n_rank * 0.9)
-    rcd = torch.from_numpy(rank_c).to(dev)
-    rod = torch.from_numpy(rank_o).to(dev)
+    rcd = torch.from_numpy(rank_c)
+    rod = torch.from_numpy(rank_o)
     use_rank = args.rank_weight > 0 and n_rank_tr > 0
     n_sib = len(sib_n)
     n_sib_tr = int(n_sib * 0.9)
-    sxd = torch.from_numpy(sib_x).to(dev)
-    svd = torch.from_numpy(sib_v).to(dev)
-    spd = torch.from_numpy(sib_isp0).to(dev)
+    sxd = torch.from_numpy(sib_x)
+    svd = torch.from_numpy(sib_v)
+    spd = torch.from_numpy(sib_isp0)
     use_sib = args.sib_weight > 0 and n_sib_tr > 0
+    D = lambda t: t.to(dev, non_blocking=True)  # noqa: E731
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held)).to(dev)
     ho_idx = torch.from_numpy(np.flatnonzero(is_held)).to(dev)
 
@@ -139,20 +172,25 @@ def main():
         net.eval()
         with torch.no_grad():
             if n_rank > n_rank_tr:
-                d = net(rcd[n_rank_tr:].float())[:, 0] - net(rod[n_rank_tr:].float())[:, 0]
-                rank_acc = (d > 0).float().mean().item()
+                ds = []
+                for i in range(n_rank_tr, n_rank, 8192):
+                    ds.append(net(D(rcd[i:i + 8192]).float())[:, 0] - net(D(rod[i:i + 8192]).float())[:, 0])
+                rank_acc = (torch.cat(ds) > 0).float().mean().item()
             else:
                 rank_acc = float("nan")
             if n_sib > n_sib_tr:
-                hx, hv, hp = sxd[n_sib_tr:], svd[n_sib_tr:], spd[n_sib_tr:]
-                B, K, Fd = hx.shape
-                o = net(hx.reshape(B * K, Fd).float())[:, 0].reshape(B, K)
-                o = torch.where(torch.isfinite(hv), o, torch.full_like(o, -1e9))
-                top1 = (o.argmax(1) == sibling_target(hv, hp)).float().mean().item()
+                hits = []
+                for i in range(n_sib_tr, n_sib, 2048):
+                    hx, hv, hp = D(sxd[i:i + 2048]), D(svd[i:i + 2048]), D(spd[i:i + 2048])
+                    B, K, Fd = hx.shape
+                    o = net(hx.reshape(B * K, Fd).float())[:, 0].reshape(B, K)
+                    o = torch.where(torch.isfinite(hv), o, torch.full_like(o, -1e9))
+                    hits.append((o.argmax(1) == sibling_target(hv, hp)).float())
+                top1 = torch.cat(hits).mean().item()
             else:
                 top1 = float("nan")
-            logits = torch.cat([net(Xd[ho_idx[i:i + 8192]].float()).squeeze(1) for i in range(0, len(ho_idx), 8192)])
-            yy = yd[ho_idx]
+            logits = torch.cat([net(D(Xd[ho_idx[i:i + 8192]]).float()).squeeze(1) for i in range(0, len(ho_idx), 8192)])
+            yy = D(yd[ho_idx])
             loss = F.binary_cross_entropy_with_logits(logits, yy).item()
             p = torch.sigmoid(logits)
             buckets = []
@@ -187,17 +225,17 @@ def main():
         return ho_loss, buckets, rank_acc, top1
     for epoch in range(args.epochs):
         t0 = time.time()
-        perm = tr_idx[torch.randperm(n, device=dev)]
+        perm = tr_idx[torch.randperm(n)]
         total = 0.0
         for i in range(0, n, args.batch_size):
             idx = perm[i:i + args.batch_size]
-            loss = loss_fn(net, Xd[idx].float(), yd[idx], auxd[idx], hasd[idx], args.aux_weight, args.win_weight)
+            loss = loss_fn(net, D(Xd[idx]).float(), D(yd[idx]), D(auxd[idx]), D(hasd[idx]), args.aux_weight, args.win_weight)
             if use_rank:
-                ridx = torch.randint(0, n_rank_tr, (min(args.batch_size, n_rank_tr),), device=dev)
-                loss = loss + args.rank_weight * rank_loss(net, rcd[ridx].float(), rod[ridx].float())
+                ridx = torch.randint(0, n_rank_tr, (min(args.batch_size, n_rank_tr),))
+                loss = loss + args.rank_weight * rank_loss(net, D(rcd[ridx]).float(), D(rod[ridx]).float())
             if use_sib:
-                sidx = torch.randint(0, n_sib_tr, (min(args.batch_size // 4, n_sib_tr),), device=dev)
-                loss = loss + args.sib_weight * sibling_loss(net, sxd[sidx].float(), svd[sidx], spd[sidx])
+                sidx = torch.randint(0, n_sib_tr, (min(args.batch_size // 4, n_sib_tr),))
+                loss = loss + args.sib_weight * sibling_loss(net, D(sxd[sidx]).float(), D(svd[sidx]), D(spd[sidx]))
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
             step += 1
