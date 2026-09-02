@@ -1691,6 +1691,40 @@ runs in 1.7 s. Next lever is therefore the forward pass (cross-game
 batching on the XPU from a Rust-driven game loop, or a cheaper net), not
 the engine.
 
+### Generation profile after the port, and the two next levers
+
+3x `ValueNetPlayer` (Rust) + 1x Python `AlphaBetaPlayer`, uncontended:
+**3.97 s/game, of which the Python AB seat is 74%**; Rust `expand` 3%; the
+rest is the torch forward. `gen_games.py` with that lineup: **1.34 games/s**
+on 7 workers (iteration 0's 4x-AB lineup ran at 0.35).
+
+**Lever A — `RustAlphaBetaPlayer` (`--player rab`, `value_net.py`):**
+`base_fn(DEFAULT_WEIGHTS)` ported to `catan_engine/src/heuristic.rs`
+(production with robber, level-1 road reachability, hand synergy,
+blockable tiles, buildable nodes, longest road, dev cards, knights) and an
+exact depth-2 expectimax over it. Parity: **0.0 relative error on 676
+(state, perspective) pairs** against Python `base_fn`. Speed: **0.03
+s/game vs 3.06** for the Python AB seat against 3x WR (100x). It is a
+generation-only opponent — exact chance nodes make it a slightly different
+(and, if anything, stronger) player than the shipped one, so the gate
+keeps the Python `AlphaBetaPlayer`. Strength check vs 3x Python AB:
+see below.
+
+**Lever B — the forward pass.** Batch 230 (one decision's leaves), measured
+while a 7-worker generation run was contending:
+
+| Net / device | ms per decision | µs per leaf |
+|---|---|---|
+| 3x512, CPU 1 thread | 12.0 | 52 |
+| 3x512, XPU (incl. transfer) | 6.0 | 26 |
+| **3x256, CPU 1 thread** | **4.3** | **19** |
+
+Width above 128 bought nothing on held-out loss in the sweep above, so
+`train_value.py --hidden` now defaults to 256 (loading infers the width
+from the checkpoint). Per-decision XPU is not a win at this batch size;
+it becomes one only with cross-game batching from a Rust-driven game loop
+(batch ≥2048: 1.6M samples/s), which is the next speed step if needed.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.

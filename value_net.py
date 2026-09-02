@@ -103,8 +103,9 @@ def load_value_net(path):
         torch.set_num_threads(1)
         _threads_capped = True
     if path not in _NET_CACHE:
-        net = ValueNet()
         sd = torch.load(path, map_location="cpu")
+        first = [k for k in sd if k.endswith(".weight")][0]
+        net = ValueNet(hidden=sd[first].shape[0])
         last = [k for k in sd if k.endswith(".weight")][-1]
         if sd[last].shape[0] == 1:  # single-head checkpoint (v0.pt as evaluated), before the auxiliary heads
             w, b = torch.zeros(N_HEADS, sd[last].shape[1]), torch.zeros(N_HEADS)
