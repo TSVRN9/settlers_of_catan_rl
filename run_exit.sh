@@ -11,7 +11,8 @@ for k in $(seq "$first" "$last"); do
   prev=checkpoints_value/v$((k - 1)).pt
   V="vnet:$prev"
   echo "=== it$k gen: $V x2 + rab x2, $games games  $(date)"
-  uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0.5 --sib-p 0.3 --out "data/it$k" || exit 1
+  if [ -f "data/it$k/shard_0000.npz" ]; then echo "  data/it$k exists, skipping generation"; else
+  uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0.5 --sib-p 0.3 --out "data/it$k" || exit 1; fi
   echo "=== it$k train  $(date)"
   uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | sed -n "1,$((k + 1))p") --init "$prev" --out "checkpoints_value/v$k.pt" --epochs 6 --rank-weight 0.5 --sib-weight 1 || exit 1
   echo "=== it$k eval v$k vs 3x ab, 300 games  $(date)"

@@ -17,7 +17,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from value_net import ValueNet
+from value_net import N_FEATURES, ValueNet
 
 
 def load(dirs):
@@ -30,6 +30,9 @@ def load(dirs):
     for d in dirs:
         for path in sorted(glob.glob(os.path.join(d, "shard_*.npz"))):
             z = np.load(path)
+            if z["X"].shape[1] != N_FEATURES:
+                print(f"skipping {path}: {z['X'].shape[1]} features, encoder has {N_FEATURES}")
+                continue
             n = len(z["y"])
             X.append(z["X"]); y.append(z["y"]); g.append(z["game"])
             if "rank_c" in z and len(z["rank_c"]):
