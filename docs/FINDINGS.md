@@ -2029,6 +2029,16 @@ k·10⁶ + 7; the incumbent's fresh scores were 30.4-32.1%, i.e. ~1 point below 
 | 24 | v19 31.2% | v24 30.5% | rejected; v24 vs Python AB 30.3% [25.4, 35.8] |
 | 25 | v19 30.4% | **v25 32.4%** | accepted — final incumbent |
 
+**Final incumbent v25 vs 3x Python AlphaBeta, 1,000 games (seeds 0-999, under the cap, 31 min):**
+
+```
+vnet:checkpoints_value/v25.pt: 309/1000 wins = 30.9%  Wilson 95% CI [28.1%, 33.8%]  vs alpha_beta
+```
+
+The symmetry baseline for one seat of four is 25.0% (AB itself measured 26.3% [21.7, 31.6] at 300 games), so this
+is the first interval that excludes parity: **the value-net player is measurably stronger than AlphaBeta**, by
+about 6 points of seat win rate. It is not the >50% M4 gate.
+
 **Reading.** Against 3x `rab` the line went from ~27% (v8-v11) to ~31-32% (v14 onward) and then flat: seven
 challengers trained from a ~31% incumbent on fresh on-policy data scored 25-32%, with one accepted at a
 2-point margin. Expert iteration with `base_fn` sibling labels and outcome/pair losses is worth ~4-5 points over
