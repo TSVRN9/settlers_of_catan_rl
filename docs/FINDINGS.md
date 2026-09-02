@@ -1795,6 +1795,26 @@ Up from 6.0% (v0) and 3.8% (v1_interim). Not parity (26.3%) yet, but the
 first net that plays in AlphaBeta's league; the features were the missing
 piece, the ordering losses the second.
 
+**The smooth prior is a bad player: `--player rsab` (exact depth-2 search
+over `smooth_base_fn`) = 6/105 = 5.7%** [2.6%, 11.9%] vs 3x AB, while the
+lexicographic `rab` scores 21.0% with the identical search. It agrees
+with `base_fn`'s top child on 96.7% of sibling sets, and with `rab`'s
+depth-2 decision on 84% of real decisions — but the 16% it gets wrong are
+the ones that decide games: robber placement (19/40 differ), which road
+(16/82), trade vs end turn (9/64). Those are decided by `base_fn`'s tiny
+terms (a pip of production is 2.8e6 vs. hand synergy ≤ 1e2), and a
+bounded-ratio stand-in cannot be both lexicographic and a trainable logit.
+The prior is switched off (`ValueNet.PRIOR_SCALE = 0`), v3/v4 (residual
+designs) are not pursued beyond their gates. Lesson recorded: **don't
+smooth AlphaBeta's heuristic; learn the choice.**
+
+**Next: listwise top-1 sibling loss.** Ask the net only for the *choice* a
+`base_fn` search makes among a decision's children (argmax of
+`base_fn(p0)` when p0 decides, argmin — the opponent's worst-for-p0 reply
+— otherwise), as a softmax cross-entropy, instead of the all-pairs ordering
+that demanded million-to-one gaps. Data regenerated with the decider flag
+(`sib_isp0`). v5 gate below.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
