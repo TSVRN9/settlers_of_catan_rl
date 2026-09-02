@@ -133,12 +133,12 @@ class ValueNet(nn.Module):
     # that base_fn's lexicographic weights get right. Kept as a switch for experiments.
     PRIOR_SCALE = 0.0
 
-    def __init__(self, hidden=512, dropout=0.3):
+    def __init__(self, hidden=512, dropout=0.3, prior_scale=None):
         super().__init__()
         self.register_buffer("mask", torch.from_numpy(STATIC_MASK))
-        # fixed scale: when it was learnable the outcome loss shrank it and the residual took
-        # over the sibling ordering (docs/FINDINGS.md, v3); the sibling loss now regularizes the residual
-        self.register_buffer("alpha", torch.tensor(self.PRIOR_SCALE))
+        # fixed scale (a buffer, saved with the checkpoint): when it was learnable the outcome
+        # loss shrank it and the residual took over the ordering (docs/FINDINGS.md, v3)
+        self.register_buffer("alpha", torch.tensor(self.PRIOR_SCALE if prior_scale is None else float(prior_scale)))
         self.mlp = nn.Sequential(
             nn.Linear(N_FEATURES, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),

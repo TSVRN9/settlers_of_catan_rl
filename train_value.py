@@ -85,6 +85,7 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--init", default=None, help="warm-start state_dict")
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--prior-scale", type=float, default=None, help="smooth-heuristic prior scale (ValueNet.PRIOR_SCALE default); 0.1 = one logit per VP")
     parser.add_argument("--hidden", type=int, default=256, help="MLP width; 256 is 3x cheaper per leaf than 512 at equal held-out loss (FINDINGS)")
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -126,7 +127,7 @@ def main():
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held)).to(dev)
     ho_idx = torch.from_numpy(np.flatnonzero(is_held)).to(dev)
 
-    net = ValueNet(hidden=args.hidden).to(dev)
+    net = ValueNet(hidden=args.hidden, prior_scale=args.prior_scale).to(dev)
     if args.init:
         net.load_state_dict(torch.load(args.init, map_location=dev))
     opt = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay, foreach=False)  # foreach=True kills the XPU, see CLAUDE.md
