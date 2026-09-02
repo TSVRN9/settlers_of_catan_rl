@@ -2177,6 +2177,17 @@ swings between successive checkpoints. Seed replicates of v27d's exact configura
 **v27d vs 3x Python AlphaBeta, 300 games: 112/300 = 37.3% [32.1%, 42.9%]** (v25: 30.9% at 1,000 games; AB
 itself 26.3%). The proxy and the headline gate agree.
 
+**Seed replicates of v27d's configuration, same data, same seeds:** v27d (seed 0) 38.2%, **seed 1: 1302/4000 =
+32.6%** [31.1, 34.0], **seed 2: 1315/4000 = 32.9%** [31.4, 34.3]. Held-out numbers of the three are within noise of
+each other. So one training draw of this configuration spreads over ~6 points, v27d is a favorable draw, and the
+configuration's honest single-net gain over the incumbent is small. Training-draw noise, not the signal, is the
+dominant error of a single net — which is also why the loop's rounds 15-25 swung 3-5 points on identical recipes.
+
+**Weight averaging removes it: the soup of the three (`soup.py`, plain mean of the state dicts — same warm start,
+same data, so they share a basin) scores 1715/4000 = 42.9%** [41.3, 44.4] on the same seeds — +4.7 over the best
+single draw, +10.3 over the incumbent. `run_exit.sh` now trains `N_SEEDS` (default 3) nets per round from the
+incumbent and soups them into the candidate. Fresh-seed confirmation, a 5-seed soup and the Python-AB gate below.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
