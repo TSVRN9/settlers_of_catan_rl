@@ -1827,6 +1827,26 @@ Best so far; the interval reaches the AB baseline's point estimate
 *initialization*: the residual repairs its tiny-term decisions. Both
 v2 (18.7%, no prior) and v4 sit in the same band; neither is parity yet.
 
+**v5 gate — AlphaBeta parity** (listwise top-1 sibling loss, no prior,
+outcome + aux + pair losses, 4,000 fresh `rab` games; held-out sibling
+top-1 0.575, up from 0.44 with the all-pairs loss):
+
+```
+vnet:checkpoints_value/v5.pt: 76/300 wins = 25.3%  Wilson 95% CI [20.7%, 30.5%]  vs alpha_beta
+```
+
+vs. AlphaBeta itself in the same seat: 26.3% [21.7%, 31.6%]. Progression
+on the same 300-game gate: v0 6.0% → v1 3.8% → v2 18.7% → v4 21.3% →
+**v5 25.3%**. Two things account for it: `base_fn`'s terms as input
+features (the net can *see* what AlphaBeta values) and asking the net for
+the *choice* among siblings rather than the full lexicographic ordering.
+Total generation cost of the winning dataset: 94 seconds.
+
+Next: the expert-iteration loop (`run_exit.sh`: 2 value-net seats + 2 Rust
+AB seats per game, retrain on everything, gate each round) to move from
+parity toward the >50% M4 gate — the on-distribution outcomes of the net's
+own play are what can exceed the teacher.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
