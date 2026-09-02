@@ -59,8 +59,8 @@ def sibling_loss(net, sx, sv, isp0):
     """Listwise top-1: softmax over the net's win logits of one decision's
     children must put base_fn's pick on top. Only the *choice* is asked for,
     not base_fn's million-to-one gaps between the others (docs/FINDINGS.md)."""
-    B, K, F = sx.shape
-    out = net(sx.reshape(B * K, F))[:, 0].reshape(B, K)
+    B, K, Fd = sx.shape
+    out = net(sx.reshape(B * K, Fd))[:, 0].reshape(B, K)
     out = torch.where(torch.isfinite(sv), out, torch.full_like(out, -1e9))
     return F.cross_entropy(out, sibling_target(sv, isp0))
 
