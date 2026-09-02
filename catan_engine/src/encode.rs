@@ -33,15 +33,27 @@ pub struct Layout {
 const PLAYABLE_DEVS: [usize; 4] = [KNIGHT, YEAR_OF_PLENTY, MONOPOLY, ROAD_BUILDING];
 
 impl State {
+    #[allow(dead_code)]
     pub fn node_production(&self, node: u8, r: usize) -> f64 {
-        let mut s = 0.0;
-        for &tid in &self.map.node_tiles[node as usize] {
-            let t = &self.map.tiles[tid as usize];
-            if t.resource == r as i8 && tid != self.robber {
-                s += self.map.number_prob[t.number as usize];
-            }
+        let mut s = self.map.node_prod[node as usize][r];
+        let rt = &self.map.tiles[self.robber as usize];
+        if rt.resource == r as i8 && rt.nodes.contains(&node) {
+            s -= self.map.tile_prob[self.robber as usize];
         }
         s
+    }
+
+    /// out[r] += mult * production of `node` for every resource (robbed tile excluded).
+    #[inline]
+    pub fn add_node_production(&self, node: u8, mult: f64, out: &mut [f64; 5]) {
+        let np = &self.map.node_prod[node as usize];
+        for r in 0..5 {
+            out[r] += mult * np[r];
+        }
+        let rt = &self.map.tiles[self.robber as usize];
+        if rt.resource >= 0 && rt.nodes.contains(&node) {
+            out[rt.resource as usize] -= mult * self.map.tile_prob[self.robber as usize];
+        }
     }
 
     /// Writes the full feature vector for perspective `p0` into `out`
@@ -75,18 +87,11 @@ impl State {
             for &e in &pl.roads {
                 out[ix(layout.edge_idx[i * 72 + e as usize])] = 1.0;
             }
+            let prod = self.effective_production(seat);
             for r in 0..5 {
-                let mut prod = 0.0f64;
-                for &n in &pl.settlements {
-                    prod += self.node_production(n, r);
-                }
-                let mut cprod = 0.0f64;
-                for &n in &pl.cities {
-                    cprod += 2.0 * self.node_production(n, r);
-                }
-                out[ix(layout.production_idx[i * 5 + r])] = (prod + cprod) as f32;
+                out[ix(layout.production_idx[i * 5 + r])] = prod[r] as f32;
             }
-            out[ix(layout.buildable_nodes_idx[i])] = self.buildable_node_ids(seat, false).len() as f32;
+            out[ix(layout.buildable_nodes_idx[i])] = self.num_buildable_nodes(seat) as f32;
             if i == 0 {
                 out[ix(layout.p0_actual_vps_idx)] = pl.actual_vp as f32;
                 for r in 0..5 {

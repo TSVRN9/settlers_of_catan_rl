@@ -24,6 +24,9 @@ pub struct Map {
     pub neighbors: Vec<Vec<u8>>,
     pub node_tiles: Vec<Vec<u8>>,                // node -> tile ids (tile-id order)
     pub number_prob: [f64; 13],
+    pub node_prod: Vec<[f64; 5]>,  // node -> production per resource, robber ignored (sum of number_prob over touching tiles)
+    pub node_prod_sum: Vec<f64>,   // node -> sum over resources
+    pub tile_prob: Vec<f64>,       // tile -> number_prob[number] (0 for the desert)
     pub static_template: Vec<f32>, // catan_env.Encoder's per-map template (tile/port statics), n_features long
 }
 
@@ -69,7 +72,17 @@ impl Map {
                 number_prob[i + j] += 1.0 / 36.0;
             }
         }
-        Map { tiles, ports, edges: edge_set, edge_of, neighbors, node_tiles, number_prob, static_template }
+        let tile_prob: Vec<f64> = tiles.iter().map(|t| if t.resource >= 0 { number_prob[t.number as usize] } else { 0.0 }).collect();
+        let mut node_prod = vec![[0f64; 5]; NUM_NODES];
+        for (tid, t) in tiles.iter().enumerate() {
+            if t.resource >= 0 {
+                for &n in &t.nodes {
+                    node_prod[n as usize][t.resource as usize] += tile_prob[tid];
+                }
+            }
+        }
+        let node_prod_sum: Vec<f64> = node_prod.iter().map(|v| v.iter().sum()).collect();
+        Map { tiles, ports, edges: edge_set, edge_of, neighbors, node_tiles, number_prob, node_prod, node_prod_sum, tile_prob, static_template }
     }
 
     #[inline]

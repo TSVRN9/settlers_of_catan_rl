@@ -881,6 +881,46 @@ def test_arena_games_replay_in_python(n_games=6):
     print(f"  arena games replay in catanatron ({n_games} games, {steps} steps, final states equal, {n_self} self-play sibling sets, {n_ts} search-value rows, {n_ro} rollout-labeled rows): ok")
 
 
+def test_longest_road_may_end_at_enemy_settlements():
+    """catanatron issue #378 (docs/AUDIT-rules.md): a road whose ends are both enemy settlements must count
+    its end edges. Python (the pinned fork) and the Rust port compute the same 9 on the same board, and Rust's
+    own recompute (a BUILD_ROAD applied in Rust) agrees."""
+    import networkx as nx
+    from catanatron import Game, RandomPlayer
+    from catanatron.models.board import STATIC_GRAPH as G
+    from catanatron.models.enums import ActionPrompt
+
+    import rust_bridge as rb
+
+    path = [0, 5, 16, 18, 17, 15, 14, 13, 12, 3]  # a 9-edge simple path; ends >= 2 nodes from the middle
+    mid = path[5]
+    game = Game([RandomPlayer(c) for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)], seed=0)
+    board = game.state.board
+    board.build_settlement(Color.BLUE, mid, initial_build_phase=True)
+    board.build_settlement(Color.RED, path[0], initial_build_phase=True)
+    board.build_settlement(Color.RED, path[9], initial_build_phase=True)
+    for i in range(5, 8):
+        board.build_road(Color.BLUE, (path[i], path[i + 1]))
+    for i in range(4, -1, -1):
+        board.build_road(Color.BLUE, (path[i], path[i + 1]))
+    last = (path[8], path[9])
+    # hand the state to Rust one road short, with BLUE able to build it, then build it on both sides
+    st = game.state
+    st.current_player_index = list(st.colors).index(Color.BLUE)
+    st.current_prompt = ActionPrompt.PLAY_TURN
+    st.is_initial_build_phase = False
+    key = f"P{st.current_player_index}"
+    st.player_state[f"{key}_HAS_ROLLED"] = True
+    st.player_state[f"{key}_WOOD_IN_HAND"] += 1
+    st.player_state[f"{key}_BRICK_IN_HAND"] += 1
+    rs, ctx = rb.rust_state(game)
+    rs.apply(("BUILD_ROAD", ctx.edge_idx[tuple(sorted(last))], -1, -1), None)
+    board.build_road(Color.BLUE, last)
+    py, rust = board.road_length, rs.snapshot()["road_length"]
+    assert py == rust == 9, (py, rust)
+    print(f"  longest road capped by enemy settlements at both ends counts all 9 edges (python {py}, rust {rust}): ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -902,4 +942,5 @@ if __name__ == "__main__":
     test_rust_encoder_matches_python()
     test_rust_search_matches_python()
     test_arena_games_replay_in_python()
+    test_longest_road_may_end_at_enemy_settlements()
     print("test_env.py: all invariants passed")

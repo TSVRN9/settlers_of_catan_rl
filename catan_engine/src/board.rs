@@ -41,10 +41,26 @@ impl State {
 
     /// Length of the longest trail (edge-simple path) over p's roads
     /// starting from any node in `nodes`, never entering an enemy node.
+    /// An enemy building breaks a road: a trail may start or end at the
+    /// enemy's node but never pass through it. Enemy-occupied endpoints are
+    /// not in the component (board_build_settlement removes them), so they
+    /// are re-added as start nodes -- catanatron issue #378, fixed identically
+    /// in the pinned catanatron fork (docs/AUDIT-rules.md).
     pub fn longest_acyclic_path(&self, nodes: u64, p: usize) -> i32 {
+        let mut starts = nodes;
+        for n in 0..54u8 {
+            if nodes & (1u64 << n) == 0 {
+                continue;
+            }
+            for &v in &self.map.neighbors[n as usize] {
+                if self.road_owner[self.map.edge(n, v) as usize] == p as i8 && self.is_enemy_node(v, p) {
+                    starts |= 1u64 << v;
+                }
+            }
+        }
         let mut best = 0;
-        for start in 0..64u8 {
-            if nodes & (1u64 << start) == 0 {
+        for start in 0..54u8 {
+            if starts & (1u64 << start) == 0 {
                 continue;
             }
             best = best.max(self.trail_from(start, p, 0u128, 0));
@@ -54,12 +70,12 @@ impl State {
 
     fn trail_from(&self, node: u8, p: usize, used: u128, len: i32) -> i32 {
         let mut best = len;
+        if len > 0 && self.is_enemy_node(node, p) {
+            return best; // endpoint only
+        }
         for &v in &self.map.neighbors[node as usize] {
             let e = self.map.edge(node, v);
             if self.road_owner[e as usize] != p as i8 {
-                continue;
-            }
-            if self.is_enemy_node(v, p) {
                 continue;
             }
             if used & (1u128 << e) != 0 {
@@ -163,6 +179,15 @@ impl State {
             self.road_length = candidate;
         }
         (previous_road_color, self.road_color)
+    }
+
+    /// buildable_node_ids(p, false).len() without the Vec.
+    pub fn num_buildable_nodes(&self, p: usize) -> u32 {
+        let mut nodes = 0u64;
+        for &c in &self.components[p] {
+            nodes |= c;
+        }
+        (nodes & self.buildable).count_ones()
     }
 
     pub fn buildable_node_ids(&self, p: usize, initial: bool) -> Vec<u8> {

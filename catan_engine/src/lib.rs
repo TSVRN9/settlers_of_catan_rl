@@ -594,6 +594,14 @@ impl PyArena {
     }
 }
 
+/// (leaves, ms encoding, ms generating children, ms total) of every expansion on the calling thread since the
+/// last call (rayon workers keep their own counters; the arena sums them in step()).
+#[pyfunction]
+fn prof() -> (u64, f64, f64, f64) {
+    let (l, e, c, t) = crate::search::PROF.with(|p| p.replace((0, 0, 0, 0)));
+    (l, e as f64 / 1e6, c as f64 / 1e6, t as f64 / 1e6)
+}
+
 #[pyfunction]
 fn action_types() -> Vec<&'static str> {
     vec!["ROLL", "MOVE_ROBBER", "DISCARD_RESOURCE", "BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY", "BUY_DEVELOPMENT_CARD", "PLAY_KNIGHT_CARD", "PLAY_YEAR_OF_PLENTY", "PLAY_MONOPOLY", "PLAY_ROAD_BUILDING", "MARITIME_TRADE", "END_TURN"]
@@ -606,5 +614,6 @@ fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyState>()?;
     m.add_class::<PyArena>()?;
     m.add_function(wrap_pyfunction!(action_types, m)?)?;
+    m.add_function(wrap_pyfunction!(prof, m)?)?;
     Ok(())
 }

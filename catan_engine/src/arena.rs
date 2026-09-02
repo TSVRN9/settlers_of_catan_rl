@@ -68,7 +68,7 @@ impl Recorder {
         s.rng = splitmix(&mut self.rng);
         while s.winner() < 0 && s.num_turns < TURNS_LIMIT {
             let acts = s.playable_actions();
-            let a = if acts.len() == 1 { acts[0] } else { s.decide_heuristic(2).unwrap_or(acts[0]) };
+            let a = if acts.len() == 1 { acts[0] } else { s.decide_rollout().unwrap_or(acts[0]) };
             if s.apply(a, None).is_err() {
                 return 0.0;
             }

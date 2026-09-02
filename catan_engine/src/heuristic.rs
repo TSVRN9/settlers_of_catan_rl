@@ -11,36 +11,26 @@ const TRANSLATE_VARIETY: f64 = 4.0;
 const PROBA_POINT: f64 = 2.778 / 100.0;
 
 impl State {
-    fn effective_production(&self, p: usize) -> [f64; 5] {
+    pub fn effective_production(&self, p: usize) -> [f64; 5] {
         let mut out = [0f64; 5];
-        for r in 0..5 {
-            let pl = &self.players[p];
-            let mut prod = 0.0;
-            for &n in &pl.settlements {
-                prod += self.node_production(n, r);
-            }
-            for &n in &pl.cities {
-                prod += 2.0 * self.node_production(n, r);
-            }
-            out[r] = prod;
+        let pl = &self.players[p];
+        for &n in &pl.settlements {
+            self.add_node_production(n, 1.0, &mut out);
+        }
+        for &n in &pl.cities {
+            self.add_node_production(n, 2.0, &mut out);
         }
         out
     }
 
     /// Sum over resources of node production (robber ignored, like
     /// CatanMap.node_production) for `nodes`.
-    fn count_production(&self, nodes: u64) -> f64 {
+    fn count_production(&self, mut nodes: u64) -> f64 {
         let mut total = 0.0;
-        for n in 0..54u8 {
-            if nodes & (1u64 << n) == 0 {
-                continue;
-            }
-            for &tid in &self.map.node_tiles[n as usize] {
-                let t = &self.map.tiles[tid as usize];
-                if t.resource >= 0 {
-                    total += self.map.number_prob[t.number as usize];
-                }
-            }
+        while nodes != 0 {
+            let n = nodes.trailing_zeros() as usize;
+            nodes &= nodes - 1;
+            total += self.map.node_prod_sum[n];
         }
         total
     }
@@ -72,7 +62,7 @@ impl State {
             }
         }
         let num_tiles = tiles.count_ones() as f64;
-        let num_buildable = self.buildable_node_ids(p0, false).len() as f64;
+        let num_buildable = self.num_buildable_nodes(p0) as f64;
         let longest_road_factor = if num_buildable == 0.0 { 10.0 } else { 0.1 };
         let num_devs: i32 = pl.devs.iter().sum();
 
@@ -105,6 +95,69 @@ impl State {
             }
         }
         (best, best_v)
+    }
+
+    /// Action list for the rollout policy (arena.rs Recorder::rollout): the
+    /// same depth-2 expectimax over base_fn as decide_heuristic, minus moves
+    /// it never picks. Depth-2 leaf counts have a heavy tail (median 22,
+    /// mean 459, docs/PLAN-gen-speed.md) driven by robber and trade states:
+    /// - MOVE_ROBBER only onto tiles touching an enemy building (a robber on
+    ///   an empty or own-only tile cannot improve base_fn's enemy-production
+    ///   term and can only hurt one's own);
+    /// - MARITIME_TRADE at the second ply (a trade not followed by a build
+    ///   within the horizon cannot pay off; the generator already emits each
+    ///   trade at its best port rate, so catanatron's 3:1-vs-4:1 prune is moot).
+    /// Only the rollout policy uses this; `rab` seats and gates stay exact.
+    fn rollout_actions(&self, second_ply: bool) -> Vec<Action> {
+        let p = self.current_player;
+        let acts = self.playable_actions();
+        let mut enemy_tiles = 0u32;
+        for i in 0..self.n {
+            if i == p {
+                continue;
+            }
+            for &n in self.players[i].settlements.iter().chain(self.players[i].cities.iter()) {
+                for &tid in &self.map.node_tiles[n as usize] {
+                    enemy_tiles |= 1 << tid;
+                }
+            }
+        }
+        let kept: Vec<Action> = acts
+            .iter()
+            .copied()
+            .filter(|a| match *a {
+                Action::MoveRobber { tile, .. } => enemy_tiles & (1 << tile) != 0,
+                Action::MaritimeTrade { .. } => !second_ply,
+                _ => true,
+            })
+            .collect();
+        if kept.is_empty() { acts } else { kept }
+    }
+
+    fn expectimax_rollout(&self, depth: u32, p0: usize) -> (Option<Action>, f64) {
+        if depth == 0 || self.winner() >= 0 {
+            return (None, self.base_fn(p0));
+        }
+        let maximizing = self.current_player == p0;
+        let mut best: Option<Action> = None;
+        let mut best_v = if maximizing { f64::NEG_INFINITY } else { f64::INFINITY };
+        for a in self.rollout_actions(depth == 1) {
+            let ev: f64 = self.outcomes(a).iter().map(|(s, p)| p * s.expectimax_rollout(depth - 1, p0).1).sum();
+            if (maximizing && ev > best_v) || (!maximizing && ev < best_v) {
+                best = Some(a);
+                best_v = ev;
+            }
+        }
+        (best, best_v)
+    }
+
+    /// decide_heuristic(2) over the pruned action lists (rollouts only).
+    pub fn decide_rollout(&self) -> Option<Action> {
+        let actions = self.playable_actions();
+        if actions.len() == 1 {
+            return Some(actions[0]);
+        }
+        self.expectimax_rollout(2, self.current_player).0
     }
 
     /// AlphaBetaPlayer.decide with exact chance nodes and no cutoffs.
@@ -187,7 +240,7 @@ impl State {
         let p1 = (p0 + 1) % self.n;
         let reach = self.reachable_production(p0);
         let num_in_hand: i32 = pl.hand.iter().sum();
-        let num_buildable = self.buildable_node_ids(p0, false).len() as f64;
+        let num_buildable = self.num_buildable_nodes(p0) as f64;
         let lr_factor = if num_buildable == 0.0 { 1.0 } else { 0.1 };
         let num_devs: i32 = pl.devs.iter().sum();
         10.0 * pl.vp as f64
