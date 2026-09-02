@@ -2047,6 +2047,100 @@ not get there. Candidates, in FINDINGS' earlier order: a richer per-game signal 
 values as distillation targets are not), and revisiting the evaluator design (the net still cannot see what
 depth-2 sees). The pipeline is now cheap enough (6-8 min/round, safe) that these are afternoon experiments.
 
+## 2026-09-02 (evening) — search depth is not the lever: every deeper / reshaped tree scores *below* depth 2 with the same net
+
+Setup for all rows: `v25.pt` in seat BLUE vs 3x `rab` (Rust AlphaBeta, depth 2), **the same 1,000 seeds (0-999)**,
+arena (`evaluate.py --opponent rab`). ±2.8 pt at 1,000 games. The arena now takes a separate `rab_depth`
+(before this the half-built `vnet3:` spec would have deepened the opponents too).
+
+Catanatron's `depth` counts **actions, not turns**: depth 2 = my action + (my next action | the opponent's ROLL).
+Depth 3 is the first depth at which an opponent *acts*. Leaf counts at depth 3 (102 BLUE mid-game decisions):
+median 244, p90 10.6k, p95 160k, max **428,620** rows (1.8 GB of features) — **8% of decisions hold 95% of all
+leaves**, and the first depth-3 run was OOM-killed in its cgroup at 12.6 GB after 30 s. Fix: a per-decision leaf
+cap (`search.rs expand_into(max_leaves)`, `VNET_MAX_LEAVES`, default 20,000): a tree deeper than 2 that overflows
+is abandoned and redone one ply shallower; depth-2 trees are never capped (verified: capped depth-3 expansion ==
+depth-2 expansion on three overflowing states). With the cap, depth 3 costs ~2x depth 2 (4 min / 1,000 games).
+
+| Search (same `v25.pt`) | vs 3x `rab`, seeds 0-999 |
+|---|---|
+| **depth 2 (as trained, the incumbent)** | **307/1000 = 30.7%** [27.9, 33.6] |
+| depth 3, paranoid min at the opponent's decision, cap 20k (`vnet3:`) | 249/1000 = **24.9%** [22.3, 27.7] |
+| own-turn depth 2: opponent decisions are leaves, an end-turn branch always finishes with the ROLL chance node (`vnet2o:`) | 244/1000 = **24.4%** [21.8, 27.2] |
+| own-turn depth 3 (`vnet3o:`) | 282/1000 = **28.2%** [25.5, 31.1] |
+
+Three readings.
+
+1. **Min over the opponent's replies hurts.** A min over 10-15 replies scored by a noisy evaluator is biased low,
+   and by a different amount per branch (branches differ in how many replies they open), so every end-turn branch
+   is mis-ranked against the keep-acting branches. `rab3`'s +7.6 over `rab` (FINDINGS, 105 games) does not transfer:
+   `base_fn` is deterministic, the net is not.
+2. **The evaluator is co-adapted to the depth-2 tree shape.** Own-turn depth 2 differs from depth 2 in exactly one
+   place — after "build, END_TURN" the leaf is the post-roll state (averaged over 11 rolls) instead of the pre-roll
+   state — and that alone costs 6 points. So the net's values are **not consistent across state phases** (pre-roll
+   vs post-roll, my turn vs theirs): v25's numbers only rank correctly for the leaf distribution it was trained
+   inside (25 rounds of depth-2 expert iteration). Swapping the search under a fixed net is not a valid test of the
+   search; the loop would have to be re-run with the new search for the net to re-adapt — hours per variant with
+   no evidence any variant is better in the limit.
+3. **The lever is the evaluator's consistency, not depth.** The failure mode in (2) is the thing search-value
+   distillation targets fix directly: V(pre-roll) must equal E_roll[V(post-roll)] and V(s) must equal the value
+   of its best child, on the very states the search visits. Built this session (below); depth work is parked.
+   The `vnetN:` / `vnetNo:` specs, the cap and the split `rab_depth` stay (cheap, tested) for when the net is
+   consistent enough to try again.
+
+**Search-value distillation rows ("TreeStrap-lite", `arena.rs Recorder::record_tree`).** At each value-net decision,
+with probability `--ts-p`, the arena records the root (from the decider's perspective, value = the search's root
+value) and up to 5 random deterministic children (value = that child's backed-up expectation) — soft targets in
+[0, 1], on states the trajectory never visits. `train_value.py --ts-weight w` adds `BCE(net(ts_x), ts_v)`; shards
+without the rows load as before. Not v9's self-labels: v9 turned the search's *argmax* into a one-hot listwise
+label and lost 7 points; this regresses chance-averaged *values*. it26 (4,000 games, `--ts-p 0.25`): ~95 rows per
+game, +0.4 GB per iteration on disk. Results below.
+
+**it26 results — both challengers rejected, the distillation net badly.** Fresh-seed head-to-head, 4,000 games each
+vs 3x `rab`, seed 26000007 (the loop's protocol):
+
+| Net (all warm-started from v25) | Training data | vs 3x `rab` |
+|---|---|---|
+| **v25 (incumbent)** | — | **1214/4000 = 30.3%** [28.9, 31.8] |
+| v26_alldata: same budgets, **all 21 iterations** (84k games instead of 16k) | it2..it25 | 1146/4000 = 28.6% [27.3, 30.1] — rejected |
+| v26ts: last 4 iterations + **search-value distillation** rows (`--ts-weight 1`, 300k rows) | it23..it26 | 932/4000 = **23.3%** [22.0, 24.6] — rejected |
+
+Held-out numbers said nothing about this (v26ts: BCE 0.460 / rank 0.862 / sib top-1 0.596 vs the incumbent's
+usual 0.45 / 0.86 / 0.60). Two conclusions:
+
+- **Anything derived from the net's own depth-2 search makes the net worse**, whether as hard labels (v9, one-hot
+  argmax: −7 pts) or as soft chance-averaged values (v26ts: −7 pts). The search is too shallow to know more than
+  the net (depth 1 vs depth 2 with the same net, seeds 0-999: **27.0%** vs 30.7% — the search is worth ~4 points),
+  so its values are the net's own biases plus noise, and regressing onto them is self-reinforcement. Bootstrapped
+  targets (TD-leaf / TreeStrap) need a search that is genuinely stronger than the evaluator; ours is not. Recorded
+  so nobody builds a third variant of this.
+- **More distinct games from older, weaker generators is off-policy and slightly harmful** (−1.7 pts). The
+  outcome signal is not data-starved at 16k games; it is the wrong kind of signal.
+
+**So the net at 1-ply is already the player** (27% alone vs 25% symmetry; `base_fn` at 1-ply scored 10%), and every
+remaining lever is a *better value target*: not the outcome bit (1 bit per game, shared by 150 states), not the
+net's own search (self-referential), not `base_fn`'s ranking (caps at AlphaBeta). What is left is measured
+continuation value: **rollout-labeled children** (`arena.rs Recorder::record_rollouts`, `--roll-p`, `--roll-m`) —
+at a sampled decision of any seat, up to 6 deterministic children are each played out `roll_m` times by `rab` in all
+four seats (own RNG stream), and the decider's win fraction is the target (`ro_x` / `ro_v`; trained with
+`--ts-weight w --ts-key ro`). It is the value of the AlphaBeta continuation — the quantity a perfect evaluator would
+need to beat AlphaBeta — measured on the sibling states the search compares. Cost and result below.
+
+**it27 — rollout labels: the first new signal that does not regress, and the first net that does not memorize.**
+`gen_games.py --lineup v25 x2 + rab x2 --games 4000 --roll-p 0.1 --roll-m 1` (one rollout per child: with a soft
+BCE the information per rollout is the same and more states get covered): 40 min at 1.68 games/s (14 without
+rollouts; a mid-game `rab x4` playout is ~110 ms CPU), **279,586 rollout-labeled rows** (70/game) next to the
+usual samples / pairs / sibling sets. Train v27 = v25 warm start, it24-it27, `--ts-key ro --ts-weight 1`, the other
+losses as in the loop. Early stopping picked **step 3150** (every earlier net peaked at step 90-270 and then
+memorized) at held-out BCE **0.448** (the incumbent line sits at 0.45-0.46). Fresh-seed head-to-head, seed 27000007:
+
+| Net | vs 3x `rab`, 4,000 games |
+|---|---|
+| v25 (incumbent) | 1304/4000 = 32.6% [31.2, 34.1] |
+| **v27** (rollout rows, weight 1) | **1326/4000 = 33.1%** [31.7, 34.6] — accepted (coin-flip margin) |
+
+Not a jump, but the first challenger in nine rounds that is not below the incumbent, from a single iteration's
+worth of rows at weight 1. Weight / loss-mix sweep on the same data next (v27b/c/d), then more rollout iterations.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
