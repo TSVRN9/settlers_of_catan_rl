@@ -61,3 +61,17 @@ ceiling, decided by a gated round after the speed-ups land.
 ### Not in scope
 Bigger changes with unclear payoff: thread pinning to P-cores (rayon cannot; E-cores still add throughput), moving
 rollouts to a separate pool (imbalance loss measured ≤30%), GPU anything (forward wait is already ~1 ms).
+
+## Progress log
+
+- **Step 1b** (per-node production table, allocation-free buildable count, set-bit iteration in
+  `reachable_production`): landed; wall-clock effect measured once the machine is quiet (below).
+- **Step 1a** (rollout-only pruning): the first cut (robber onto enemy-adjacent tiles, no trades at ply 2) was
+  worth **1.03x** — most tiles touch an enemy building, so nothing was pruned where it mattered. The census
+  said half of all rollout leaves come from robber prompts (~30 moves x 5 steal outcomes x the whole post-roll
+  action list), so the rollout policy now searches **depth 1 on robber prompts** (depth 2 elsewhere, no trades at
+  ply 2): **5.9x faster per decision, 97.7% agreement** with the exact depth-2 choice on 300 rab decisions
+  (robber 21/24, roads 45/48, everything else identical), rollouts 12 ms instead of ~50. Depth 1 on discard
+  prompts too was 8.8x but only 93% agreement (discards 95/108) — not taken.
+- Expansion timers (`catan_engine.prof()`): per leaf ~76% is the leaf encode (incl. the template copy), ~10%
+  child generation, ~14% tree bookkeeping. So step 2's ceiling without incremental encoding is ~1.3x, not 2x.

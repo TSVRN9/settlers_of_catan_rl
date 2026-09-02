@@ -194,13 +194,15 @@ impl State {
         let mut last = zero;
         for level in 1..=2 {
             let mut nodes = last;
-            for n in 0..54u8 {
-                if last & (1u64 << n) == 0 || self.is_enemy_node(n, p) {
+            let mut bits = last; // iterate set bits only (the component is ~5-15 nodes, not 54)
+            while bits != 0 {
+                let n = bits.trailing_zeros() as u8;
+                bits &= bits - 1;
+                if self.is_enemy_node(n, p) {
                     continue;
                 }
                 for &v in &self.map.neighbors[n as usize] {
-                    let e = self.map.edge(n, v);
-                    let ro = self.road_owner[e as usize];
+                    let ro = self.road_owner[self.map.edge(n, v) as usize];
                     if ro < 0 || ro as usize == p {
                         nodes |= 1u64 << v;
                     }
