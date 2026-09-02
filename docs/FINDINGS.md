@@ -2141,6 +2141,25 @@ memorized) at held-out BCE **0.448** (the incumbent line sits at 0.45-0.46). Fre
 Not a jump, but the first challenger in nine rounds that is not below the incumbent, from a single iteration's
 worth of rows at weight 1. Weight / loss-mix sweep on the same data next (v27b/c/d), then more rollout iterations.
 
+**Weight / loss-mix sweep on the same it24-it27 data, same seeds (v25 32.6%, v27 33.1%):**
+
+| Net (v25 warm start) | losses | held-out BCE / pair acc / sib top-1 | vs 3x `rab` |
+|---|---|---|---|
+| v27b | outcome + aux + pair 0.5 + sib 1 + **rollout 3** | 0.441 / 0.846 / 0.604 | 1391/4000 = 34.8% [33.3, 36.3] |
+| v27c | ... + rollout **10** | 0.438 / 0.801 / 0.575 | 1210/4000 = 30.2% [28.8, 31.7] |
+| **v27d** | outcome + aux + rollout 3, **no pair / sibling losses** | 0.417 / 0.762 / 0.387 | **1528/4000 = 38.2%** [36.7, 39.7] |
+
+**The `base_fn` imitation losses were the cap.** Every net since v2 carried AlphaBeta's chosen-vs-other pairs and
+`base_fn`-labeled sibling sets; they were what lifted the line from 6% to parity (v0 → v5) and they are what held
+it at ~31%: a net that must agree with `base_fn`'s ranking cannot rank better than `base_fn`. With a measured
+value target on the same sibling states (rollouts), the imitation losses can be dropped: held-out outcome loss
+falls to 0.417 (never below 0.45 before), agreement with `base_fn` collapses to 39% top-1 — and the player gains
+5.6 points on the incumbent in one round. v27b/v27c show the same thing from the other side: the more rollout
+weight next to the imitation losses, the more the two fight (0.5 → 34.8%, 10 → 30.2%).
+
+`run_exit.sh` now generates with `--roll-p 0.1 --roll-m 1` and trains with `--rank-weight 0 --sib-weight 0
+--ts-key ro --ts-weight $TS_WEIGHT` (default 3). Incumbent: `v27d`. Python-AB gate and the next rounds below.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
