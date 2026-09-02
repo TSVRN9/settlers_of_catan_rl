@@ -30,6 +30,19 @@ uv run python -c "import torch; print(torch.xpu.is_available())"   # must print 
 - **Don't re-benchmark the baseline.** Every number is measured and recorded in
   `docs/FINDINGS.md`. Read it first.
 
+## Rust engine (`catan_engine/`)
+
+The rules engine, encoder, and search expansion are ported to Rust (PyO3). Build it into
+the venv after any change to `catan_engine/src`:
+
+```bash
+uv run maturin develop --release -m catan_engine/Cargo.toml
+```
+
+`test_env.py` replays Python-played games through it and requires a step-for-step match;
+that replay oracle is the port's correctness argument — never edit the engine without it.
+`rust_bridge.py` is the Python side of the boundary.
+
 ## Current direction (M4, 2026-09-01)
 
 Beat AlphaBeta by keeping its depth-2 expectimax search and replacing its hand
