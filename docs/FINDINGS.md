@@ -1578,6 +1578,52 @@ targets (final VPs of all four players, or AB search values as
 distillation targets) would add bits per game and are the cheap
 complement to faster generation.
 
+### Iteration-0 gate: NOT met — and why
+
+```
+uv run python evaluate.py --player vnet:checkpoints_value/v0.pt --opponent alpha_beta --games 300
+vnet:checkpoints_value/v0.pt: 18/300 wins = 6.0%  Wilson 95% CI [3.8%, 9.3%]  vs alpha_beta
+```
+
+vs the AB-in-seat-BLUE baseline of 26.3% [21.7%, 31.6%]. The plan's rule
+(stop and debug if v0's upper bound is below the baseline's point estimate)
+fires. Diagnostics, same afternoon:
+
+| Probe | Result |
+|---|---|
+| `v0` vs 3x WeightedRandom, 105 games | **81.9%** [73.5%, 88.1%] — PPO's old ceiling, far below VFP 98% / AB ~99% |
+| 189 BLUE decisions in AB-vs-AB games: `ValueNetPlayer` picks AB's exact action | **37%** (VFP's: 34%) |
+| … agreement on action *type*, by AB's type | BUILD_ROAD 56/59, BUILD_SETTLEMENT 22/23, BUILD_CITY 7/7, MOVE_ROBBER 14/14, DISCARD 35/35, **MARITIME_TRADE 20/34, END_TURN 8/17** |
+| Root sibling spread of the net's 1-ply values | median 0.029 win-prob, min 4e-5 |
+
+So the search is fine (verified exact) and the net is calibrated on the
+states it was trained on, but it is a poor *decision* evaluator: it agrees
+on *whether* to build but not *where*, and it trades/holds resources wrong
+(the END_TURN / MARITIME_TRADE rows). Mechanism: outcome regression on
+expert games sees only the trajectory states. The counterfactual siblings
+a search compares — "didn't build", "traded the wheat away", "the other
+node" — are never in the data (AB always builds, so their outcomes are
+never observed), and the net's values for them are just the parent's value
+plus noise. A calibrated win-probability is not the same thing as a
+ranking of siblings, and search needs the ranking.
+
+**What would fix the evaluator** (not yet built, ordered by expected
+payoff per effort):
+
+1. **Sibling-ranking signal from AB's own search.** Record, for a subset of
+   decisions in AB games, the pinned child states of every legal action and
+   AB's chosen one; add a listwise loss (`softmax` over the net's child
+   values must put AB's choice on top) next to the outcome loss. Directly
+   teaches the missing discrimination; data comes free with the games
+   (the search is already run). Storage is the constraint (~15 states ×
+   1030 × 2 B per decision) — subsample decisions.
+2. **Expert iteration proper**: generate games with `ValueNetPlayer` itself
+   so its own mistakes become on-distribution states with observed
+   outcomes. Correct in the limit, slow from a 6% start; needs the
+   generation speed-up to be practical.
+3. **Deeper search** over any base_fn-quality evaluator — see the depth-3
+   calibration below.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
