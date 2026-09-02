@@ -2188,6 +2188,16 @@ same data, so they share a basin) scores 1715/4000 = 42.9%** [41.3, 44.4] on the
 single draw, +10.3 over the incumbent. `run_exit.sh` now trains `N_SEEDS` (default 3) nets per round from the
 incumbent and soups them into the candidate. Fresh-seed confirmation, a 5-seed soup and the Python-AB gate below.
 
+**Fresh seeds (28000007), head-to-head:** v27d_soup **1747/4000 = 43.7%** [42.1, 45.2] vs v25 1258/4000 = 31.4%
+[30.0, 32.9] — +12.3 points, confirmed off the selection seeds. **A 5-seed soup (two more draws, seeds 3-4) scored
+38.6%** [37.1, 40.1] on the same seeds: plain averaging is not monotone in the number of draws — some land in a
+different basin and pull the mean down. `soup.py --greedy` (rank checkpoints by a 1,000-game arena proxy, add one
+only if the soup's proxy does not drop — Wortsman et al.'s greedy soup) is the fix; result below.
+
+**v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
+v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
+(`run_exit.sh 28 40`: rollout labels, no `base_fn` losses, 3-seed soups, incumbent v27d_soup) is running.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
