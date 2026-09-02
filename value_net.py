@@ -21,6 +21,7 @@ import torch.nn as nn
 from catanatron.features import iter_players
 from catanatron.models.enums import DEVELOPMENT_CARDS, Action, ActionRecord, ActionType
 from catanatron.models.map import number_probability
+from catanatron.models.player import Player
 from catanatron.players.minimax import AlphaBetaPlayer
 from catanatron.players.tree_search_utils import execute_spectrum
 from catanatron.state_functions import get_dev_cards_in_hand, get_enemy_colors
@@ -266,12 +267,36 @@ class ValueNetPlayer(AlphaBetaPlayer):
         return f"ValueNetPlayer:{self.color.value}(depth={self.depth},net={self.net_path})"
 
 
+class RustAlphaBetaPlayer(Player):
+    """AlphaBetaPlayer's heuristic (base_fn) + depth-2 expectimax, run in
+    catan_engine. For data generation only: exact chance nodes, so not
+    bit-identical to the shipped AlphaBetaPlayer -- the gate keeps using
+    the Python one. ~50x cheaper per decision (docs/FINDINGS.md)."""
+
+    def __init__(self, color, depth=2):
+        super().__init__(color)
+        self.depth = depth
+
+    def decide(self, game, playable_actions):
+        if len(playable_actions) == 1:
+            return playable_actions[0]
+        import rust_bridge as rb
+
+        rs, ctx = rb.rust_state(game)
+        best = rs.decide_heuristic(self.depth)
+        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, list(game.state.colors))
+
+
 def make_player(spec, color):
     """Lineup/--player token -> catanatron Player. Shared by gen_games.py and evaluate.py."""
     if spec == "ab":
         return AlphaBetaPlayer(color)
     if spec.startswith("ab") and spec[2:].isdigit():  # ab3 = AlphaBetaPlayer(depth=3)
         return AlphaBetaPlayer(color, depth=int(spec[2:]))
+    if spec == "rab":
+        return RustAlphaBetaPlayer(color)
+    if spec.startswith("rab") and spec[3:].isdigit():
+        return RustAlphaBetaPlayer(color, depth=int(spec[3:]))
     if spec == "vf":
         return ValueFunctionPlayer(color)
     if spec == "wr":

@@ -5,6 +5,7 @@ mod actions;
 mod apply;
 mod board;
 mod encode;
+mod heuristic;
 mod map;
 mod search;
 mod state;
@@ -377,6 +378,16 @@ impl PyState {
         let mut out = s.map.static_template.clone();
         s.encode_into(p0, &layout.inner, &mut out);
         Ok(Some(out.into_pyarray(py)))
+    }
+
+    /// base_fn(DEFAULT_WEIGHTS) from seat p0's perspective.
+    fn base_fn(&self, p0: usize) -> f64 {
+        self.inner.base_fn(p0)
+    }
+
+    /// AlphaBeta-style decision (exact expectimax over base_fn) for the current player.
+    fn decide_heuristic(&self, depth: u32) -> Option<Canon> {
+        self.inner.decide_heuristic(depth).map(to_canon)
     }
 
     fn leaf_count(&self) -> usize {
