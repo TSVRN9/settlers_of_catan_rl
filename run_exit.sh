@@ -16,7 +16,9 @@ first=$1; last=$2; games=${3:-4000}; every=${4:-3}
 # 2026-09-02 evening (docs/FINDINGS.md): rollout-labeled children replace the base_fn pair / sibling losses --
 # v27d (outcome + rollout values, no base_fn imitation) 38.2% vs v25's 32.6% on the same seeds. Generation is
 # ~40 min/round at roll_p 0.1 (one rab-vs-rab playout per labeled child, ~110 ms CPU each).
-ROLL_P=${ROLL_P:-0.1}; ROLL_M=${ROLL_M:-1}; TS_WEIGHT=${TS_WEIGHT:-3}
+ROLL_P=${ROLL_P:-0.1}; ROLL_M=${ROLL_M:-1}; TS_WEIGHT=${TS_WEIGHT:-3}; N_SEEDS=${N_SEEDS:-3}
+# The candidate is a weight average (soup.py) of N_SEEDS trainings from the same warm start: one draw swings
+# ±5 points, the average of three scored +4.7 over the best draw (docs/FINDINGS.md).
 echo $$ > checkpoints_value/run_exit.pid  # stop with: kill $(cat checkpoints_value/run_exit.pid); never pkill -f (it matches your own shell)
 # Every stage runs in its own transient cgroup with a hard memory cap and no swap: a runaway stage is killed
 # alone and `|| exit 1` stops the loop; the box stays up (docs/FINDINGS.md 2026-09-02, two OOMs took it down).
@@ -37,7 +39,10 @@ for k in $(seq "$first" "$last"); do
   if busy >/dev/null; then echo "refusing to generate: stale processes: $(busy | tr '\n' ' ')"; exit 1; fi
   run uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0.5 --sib-p 0.3 --roll-p "$ROLL_P" --roll-m "$ROLL_M" --out "data/it$k" || exit 1; fi
   echo "=== it$k train  $(date)"
-  run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v$k.pt" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key ro --ts-weight "$TS_WEIGHT" || exit 1
+  for s in $(seq 0 $((N_SEEDS - 1))); do
+    run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v${k}_s$s.pt" --seed "$s" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key ro --ts-weight "$TS_WEIGHT" || exit 1
+  done
+  uv run python soup.py --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
   seedk=$((k * 1000000 + 7))
   echo "=== it$k proxy gate: incumbent and v$k vs 3x rab, 4000 fresh games each (seed $seedk)  $(date)"
   inc=$(proxy "$prev" "$seedk") || exit 1; echo "$inc"; best_wins=$(wins_of "$inc")
