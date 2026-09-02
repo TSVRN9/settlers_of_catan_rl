@@ -69,7 +69,7 @@ class StateSampler(GameAccumulator):
         self.encoder = Encoder()
         self.xs, self.colors, self.turns = [], [], []
         self.rank_c, self.rank_o = [], []  # (chosen child, other child) encodings, decider's perspective
-        self.sib_x, self.sib_v, self.sib_n = [], [], []  # sibling sets: (K, F) encodings, (K,) base_fn values, count
+        self.sib_x, self.sib_v, self.sib_n, self.sib_isp0 = [], [], [], []  # sibling sets: (K, F) encodings, (K,) base_fn values, count, p0 was the decider
 
     def step(self, game, action):
         if self.rng.random() < self.sample_p:
@@ -105,6 +105,7 @@ class StateSampler(GameAccumulator):
         self.sib_x.append(pad)
         self.sib_v.append(vv)
         self.sib_n.append(len(kept))
+        self.sib_isp0.append(colors[p0] == game.state.current_color())
 
     def record_pair(self, game, action):
         """AlphaBeta's chosen child vs one random other deterministic legal
@@ -163,6 +164,7 @@ def play_one(seed):
         sib_x=np.array(acc.sib_x, dtype=np.float16).reshape(len(acc.sib_n), StateSampler.K_SIB, N_FEATURES),
         sib_v=np.array(acc.sib_v, dtype=np.float64).reshape(len(acc.sib_n), StateSampler.K_SIB),
         sib_n=np.array(acc.sib_n, dtype=np.int8),
+        sib_isp0=np.array(acc.sib_isp0, dtype=bool),
     )
 
 

@@ -128,7 +128,10 @@ class ValueNet(nn.Module):
     corrections from outcomes; the sibling-ordering loss keeps the residual
     from flipping the heuristic's ordering. heads() -> all N_HEADS."""
 
-    PRIOR_SCALE = 0.1  # one VP of the smooth heuristic == one logit; fixed, not learned
+    # The smooth prior is off: as a player it scored 5.7% vs 3x AB (docs/FINDINGS.md) --
+    # a bounded-ratio stand-in loses exactly the tiny-term decisions (robber, road choice)
+    # that base_fn's lexicographic weights get right. Kept as a switch for experiments.
+    PRIOR_SCALE = 0.0
 
     def __init__(self, hidden=512, dropout=0.3):
         super().__init__()

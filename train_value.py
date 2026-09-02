@@ -26,7 +26,7 @@ def load(dirs):
     with has_aux False and contribute only to the win-probability loss."""
     X, y, g, aux, has = [], [], [], [], []
     rc, ro = [], []
-    sx, sv, sn = [], [], []
+    sx, sv, sn, sp = [], [], [], []
     for d in dirs:
         for path in sorted(glob.glob(os.path.join(d, "shard_*.npz"))):
             z = np.load(path)
@@ -34,8 +34,8 @@ def load(dirs):
             X.append(z["X"]); y.append(z["y"]); g.append(z["game"])
             if "rank_c" in z and len(z["rank_c"]):
                 rc.append(z["rank_c"]); ro.append(z["rank_o"])
-            if "sib_n" in z and len(z["sib_n"]):
-                sx.append(z["sib_x"]); sv.append(z["sib_v"]); sn.append(z["sib_n"])
+            if "sib_isp0" in z and len(z["sib_n"]):
+                sx.append(z["sib_x"]); sv.append(z["sib_v"]); sn.append(z["sib_n"]); sp.append(z["sib_isp0"])
             if "vp" in z:
                 aux.append(np.concatenate([z["vp"].astype(np.float32) / 10.0, z["turns_left"].astype(np.float32)[:, None] / 100.0], axis=1))
                 has.append(np.ones(n, dtype=bool))
@@ -43,25 +43,26 @@ def load(dirs):
                 aux.append(np.zeros((n, 5), dtype=np.float32)); has.append(np.zeros(n, dtype=bool))
     assert X, f"no shard_*.npz under {dirs}"
     pairs = (np.concatenate(rc), np.concatenate(ro)) if rc else (np.zeros((0, X[0].shape[1]), np.float16),) * 2
-    sibs = (np.concatenate(sx), np.concatenate(sv), np.concatenate(sn)) if sx else (np.zeros((0, 1, X[0].shape[1]), np.float16), np.zeros((0, 1)), np.zeros(0, np.int8))
+    sibs = (np.concatenate(sx), np.concatenate(sv), np.concatenate(sn), np.concatenate(sp)) if sx else (np.zeros((0, 1, X[0].shape[1]), np.float16), np.zeros((0, 1)), np.zeros(0, np.int8), np.zeros(0, bool))
     return np.concatenate(X), np.concatenate(y), np.concatenate(g), np.concatenate(aux), np.concatenate(has), pairs, sibs
 
 
-def sibling_loss(net, sx, sv):
-    """All-pairs ordering within each sibling set: for children i, j of one
-    decision with base_fn(p0) values v_i > v_j, the net's win logit must
-    satisfy V_i > V_j. sx: (B, K, F); sv: (B, K) with NaN padding."""
+def sibling_target(sv, isp0):
+    """Index of the child a base_fn search would pick: argmax of base_fn(p0)
+    when p0 decides, argmin (the opponent's worst-for-p0 reply) otherwise."""
+    hi = torch.nan_to_num(sv, nan=-1e300).argmax(1)
+    lo = torch.nan_to_num(sv, nan=1e300).argmin(1)
+    return torch.where(isp0, hi, lo)
+
+
+def sibling_loss(net, sx, sv, isp0):
+    """Listwise top-1: softmax over the net's win logits of one decision's
+    children must put base_fn's pick on top. Only the *choice* is asked for,
+    not base_fn's million-to-one gaps between the others (docs/FINDINGS.md)."""
     B, K, F = sx.shape
     out = net(sx.reshape(B * K, F))[:, 0].reshape(B, K)
-    diff = out[:, :, None] - out[:, None, :]              # V_i - V_j
-    target = sv[:, :, None] - sv[:, None, :]             # v_i - v_j (NaN where padded)
-    valid = torch.isfinite(target) & (target != 0)
-    sign = torch.sign(target)
-    loss = -F_logsigmoid(sign * diff)
-    return loss[valid].mean() if valid.any() else out.sum() * 0.0
-
-
-F_logsigmoid = F.logsigmoid
+    out = torch.where(torch.isfinite(sv), out, torch.full_like(out, -1e9))
+    return F.cross_entropy(out, sibling_target(sv, isp0))
 
 
 def loss_fn(net, x, y, aux, has, aux_weight, win_weight=1.0):
@@ -98,7 +99,7 @@ def main():
     args = parser.parse_args()
     torch.manual_seed(args.seed)
 
-    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n) = load(args.data)
+    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0) = load(args.data)
     games = np.unique(g)
     rng = np.random.default_rng(args.seed)
     held = set(rng.choice(games, size=max(1, len(games) // 10), replace=False).tolist())
@@ -120,6 +121,7 @@ def main():
     n_sib_tr = int(n_sib * 0.9)
     sxd = torch.from_numpy(sib_x).to(dev)
     svd = torch.from_numpy(sib_v).to(dev)
+    spd = torch.from_numpy(sib_isp0).to(dev)
     use_sib = args.sib_weight > 0 and n_sib_tr > 0
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held)).to(dev)
     ho_idx = torch.from_numpy(np.flatnonzero(is_held)).to(dev)
@@ -138,11 +140,11 @@ def main():
             else:
                 rank_acc = float("nan")
             if n_sib > n_sib_tr:
-                hx, hv = sxd[n_sib_tr:], svd[n_sib_tr:]
+                hx, hv, hp = sxd[n_sib_tr:], svd[n_sib_tr:], spd[n_sib_tr:]
                 B, K, Fd = hx.shape
                 o = net(hx.reshape(B * K, Fd).float())[:, 0].reshape(B, K)
                 o = torch.where(torch.isfinite(hv), o, torch.full_like(o, -1e9))
-                top1 = (o.argmax(1) == torch.nan_to_num(hv, nan=-1e300).argmax(1)).float().mean().item()
+                top1 = (o.argmax(1) == sibling_target(hv, hp)).float().mean().item()
             else:
                 top1 = float("nan")
             logits = torch.cat([net(Xd[ho_idx[i:i + 8192]].float()).squeeze(1) for i in range(0, len(ho_idx), 8192)])
@@ -191,7 +193,7 @@ def main():
                 loss = loss + args.rank_weight * rank_loss(net, rcd[ridx].float(), rod[ridx].float())
             if use_sib:
                 sidx = torch.randint(0, n_sib_tr, (min(args.batch_size // 4, n_sib_tr),), device=dev)
-                loss = loss + args.sib_weight * sibling_loss(net, sxd[sidx].float(), svd[sidx])
+                loss = loss + args.sib_weight * sibling_loss(net, sxd[sidx].float(), svd[sidx], spd[sidx])
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
             step += 1
