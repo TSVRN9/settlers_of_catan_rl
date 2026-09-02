@@ -629,6 +629,58 @@ def test_batched_search_matches_recursive():
     print(f"  batched expectimax == recursive AlphaBeta at depth 1 on {checked} decisions, deterministic expansion ({len(a)} leaves): ok")
 
 
+def test_fast_copy_is_exact():
+    """fast_copy's State/Board copies must equal catanatron's originals in
+    content and be independent of the source; and an AlphaBeta game (whose
+    decisions run on copies) must produce identical action records either way."""
+    import pickle
+
+    import fast_copy
+    from catanatron.players.minimax import AlphaBetaPlayer
+
+    def snapshot(state):
+        d = {k: v for k, v in vars(state).items() if k not in ("board", "players")}
+        b = {k: v for k, v in vars(state.board).items() if k not in ("map", "buildable_subgraph")}
+        b["connected_components"] = {c: sorted(sorted(x) for x in v) for c, v in b["connected_components"].items()}
+        b["player_port_resources_cache"] = {c: sorted(v, key=str) for c, v in b["player_port_resources_cache"].items()}
+        b["buildable_edges_cache"] = {c: sorted(v) for c, v in b["buildable_edges_cache"].items()}
+        return repr(([(k, d[k]) for k in sorted(d)], [(k, b[k]) for k in sorted(b)]))
+
+    checked = 0
+    try:
+        for seed in range(3):
+            game = _random_game(seed)
+            while game.winning_color() is None and game.state.num_turns < 300:
+                for _ in range(9):
+                    if game.winning_color() is None:
+                        game.play_tick()
+                game.state.board.buildable_edges(Color.BLUE)
+                game.state.board.get_player_port_resources(Color.RED)
+                fast_copy.uninstall(); ref = game.copy()
+                fast_copy.install(); fast = game.copy()
+                assert snapshot(ref.state) == snapshot(fast.state), f"seed {seed} turn {game.state.num_turns}"
+                before = snapshot(game.state)
+                for _ in range(5):
+                    if fast.winning_color() is None:
+                        fast.execute(fast.playable_actions[0])
+                assert snapshot(game.state) == before, "mutating the fast copy touched the original"
+                checked += 1
+
+        def ab_records(seed):
+            random.seed(seed)
+            players = [AlphaBetaPlayer(Color.BLUE)] + [WeightedRandomPlayer(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)]
+            game = Game(players, seed=seed)
+            game.play()
+            return [(r.action, r.result) for r in game.state.action_records]
+
+        fast_copy.uninstall(); ref = ab_records(1)
+        fast_copy.install(); fast = ab_records(1)
+        assert ref == fast, "AlphaBeta game diverged under fast_copy"
+    finally:
+        fast_copy.install()
+    print(f"  fast_copy exact + independent on {checked} states; AlphaBeta game identical ({len(ref)} records): ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -645,4 +697,5 @@ if __name__ == "__main__":
     test_gen_labels()
     test_value_net_player_plays_legal_game()
     test_batched_search_matches_recursive()
+    test_fast_copy_is_exact()
     print("test_env.py: all invariants passed")

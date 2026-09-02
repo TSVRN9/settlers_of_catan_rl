@@ -38,6 +38,8 @@ def main():
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
@@ -59,7 +61,7 @@ def main():
     net = ValueNet().to(dev)
     if args.init:
         net.load_state_dict(torch.load(args.init, map_location=dev))
-    opt = torch.optim.Adam(net.parameters(), lr=args.lr, foreach=False)  # foreach=True kills the XPU, see CLAUDE.md
+    opt = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay, foreach=False)  # foreach=True kills the XPU, see CLAUDE.md
 
     def heldout():
         net.eval()
@@ -76,7 +78,11 @@ def main():
         net.train()
         return loss, buckets
 
+    # Early stopping on held-out: the net memorizes games within an epoch
+    # (docs/FINDINGS.md, M4 iteration 0), so the best checkpoint is usually
+    # a fraction of an epoch in. Keep the best state seen.
     n = len(tr_idx)
+    best, best_state, best_buckets, step = float("inf"), None, [], 0
     for epoch in range(args.epochs):
         t0 = time.time()
         perm = tr_idx[torch.randperm(n, device=dev)]
@@ -86,14 +92,21 @@ def main():
             loss = F.binary_cross_entropy_with_logits(net(Xd[idx].float()).squeeze(1), yd[idx])
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
-        ho_loss, buckets = heldout()
-        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} ({time.time() - t0:.0f}s)", flush=True)
-    for b in buckets:
+            step += 1
+            if step % args.eval_every == 0:
+                ho_loss, buckets = heldout()
+                if ho_loss < best:
+                    best, best_buckets = ho_loss, buckets
+                    best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
+                    best_step = step
+        ho_loss, _ = heldout()
+        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} best={best:.4f}@step{best_step} ({time.time() - t0:.0f}s)", flush=True)
+    for b in best_buckets:
         print("  calib", b)
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    torch.save({k: v.cpu() for k, v in net.state_dict().items()}, args.out)
-    print(f"saved: {args.out}")
+    torch.save(best_state, args.out)
+    print(f"saved: {args.out} (best held-out {best:.4f} at step {best_step})")
 
 
 if __name__ == "__main__":

@@ -27,13 +27,26 @@ from catanatron.state_functions import get_dev_cards_in_hand, get_enemy_colors
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.weighted_random import WeightedRandomPlayer
 
+import fast_copy
 from catan_env import FEATURES, Encoder
+
+fast_copy.install()  # 1.3x on every Game.copy()-heavy player, AlphaBeta included; exact (test_env.py)
 
 # Encoder has HAS_ROLLED / is_discarding / is_moving_robber but not whose turn
 # it is; a leaf evaluator scoring arbitrary mid-turn states needs that.
 # Appended here (not inside Encoder) so 1026-dim PPO/BC checkpoints stay loadable.
 N_BASE = len(FEATURES)
 N_FEATURES = N_BASE + 4
+
+# Raw tile/port one-hots (206 features) uniquely fingerprint a map, and every
+# sample from one game shares that map, so an MLP memorizes "this map -> this
+# winner" within half an epoch (docs/FINDINGS.md, M4 iteration 0). They are
+# zeroed at the net's input; the derived per-player production / buildable
+# node features carry what the map means for the value.
+STATIC_MASK = np.ones(N_FEATURES, dtype=np.float32)
+for _i, _name in enumerate(FEATURES):
+    if _name.startswith("TILE") or _name.startswith("PORT"):
+        STATIC_MASK[_i] = 0.0
 
 _NET_CACHE = {}
 _threads_capped = False
@@ -49,14 +62,19 @@ def encode_for_value(encoder, game, p0_color):
     return out
 
 
-class ValueNet(nn.Sequential):
-    def __init__(self, hidden=512):
-        super().__init__(
-            nn.Linear(N_FEATURES, hidden), nn.ReLU(),
-            nn.Linear(hidden, hidden), nn.ReLU(),
-            nn.Linear(hidden, hidden), nn.ReLU(),
+class ValueNet(nn.Module):
+    def __init__(self, hidden=512, dropout=0.3):
+        super().__init__()
+        self.register_buffer("mask", torch.from_numpy(STATIC_MASK))
+        self.mlp = nn.Sequential(
+            nn.Linear(N_FEATURES, hidden), nn.ReLU(), nn.Dropout(dropout),
+            nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),
+            nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, 1),
         )
+
+    def forward(self, x):
+        return self.mlp(x * self.mask)
 
 
 def load_value_net(path):
