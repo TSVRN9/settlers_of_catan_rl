@@ -51,6 +51,13 @@ for _i, _name in enumerate(FEATURES):
 _NET_CACHE = {}
 _threads_capped = False
 
+try:
+    import catan_engine  # noqa: F401  (build: uv run maturin develop --release -m catan_engine/Cargo.toml)
+
+    USE_RUST = True
+except ImportError:  # pragma: no cover
+    USE_RUST = False
+
 
 def encode_for_value(encoder, game, p0_color):
     out = np.zeros(N_FEATURES, dtype=np.float32)
@@ -175,6 +182,32 @@ class ValueNetPlayer(AlphaBetaPlayer):
             return torch.sigmoid(net(x)).item()
 
     def decide(self, game, playable_actions):
+        if USE_RUST:
+            return self.decide_rust(game, playable_actions)
+        return self.decide_python(game, playable_actions)
+
+    def decide_rust(self, game, playable_actions):
+        """Same tree as decide_python, expanded and encoded by catan_engine
+        (Rust); one Python forward over the leaf matrix; backup in Rust.
+        Verified equal to the Python path in test_env.py."""
+        actions = self.get_actions(game)
+        if len(actions) == 1:
+            return actions[0]
+        import rust_bridge as rb
+
+        rs, ctx = rb.rust_state(game)
+        colors = list(game.state.colors)
+        leaves, fixed = rs.expand(rb.layout(ctx), self.depth, colors.index(self.color))
+        net = load_value_net(self.net_path)
+        with torch.no_grad():
+            values = torch.sigmoid(net(torch.from_numpy(leaves))).squeeze(1).double().numpy()
+        for i, v in fixed:
+            values[i] = v
+        self._n_leaves = leaves.shape[0]
+        best, _ = rs.backup(values)
+        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, colors)
+
+    def decide_python(self, game, playable_actions):
         """Same expectimax as AlphaBetaPlayer.alphabeta, but the whole depth-d
         tree is expanded first and every leaf is scored in one forward pass.
         Measured: the recursive hook costs 9.0 s/seat-game (torch per-op

@@ -1633,6 +1633,64 @@ random re-rolls (see the execute_spectrum bug above): each extra ply adds
 noise as well as lookahead. **So the evaluator, not the depth, is the whole
 game.** Lever 3 is dropped; levers 1 and 2 stand.
 
+## 2026-09-01 — Rust rules engine (`catan_engine/`), conformance 100%
+
+User decision after the gate miss: start the Rust engine now (every
+remaining path needs many more games), with the ranking-loss work alongside.
+
+**Scope of the port.** `catan_engine/` (PyO3 + maturin, ~1,100 lines of
+Rust): state, move generation, apply_action, board (components, longest
+trail, cuts), the 1030-feature encoder, and depth-d expectimax expansion
+with pinned chance outcomes. **Not ported:** map generation and its RNG
+(Python hands the map over once per game), players, the game loop, and
+player-to-player trading (never enabled here). Build:
+
+```
+uv run maturin develop --release -m catan_engine/Cargo.toml
+```
+
+**Conformance (the deliverable metric, per `docs/RUST-ENGINE.md`):**
+Python plays, Rust replays every `ActionRecord` with its pinned result, and
+after *every* step the legal-action **set** and a full state snapshot
+(hands, decks, buildings, roads, components in list order, longest-road
+bookkeeping, prompt/turn flags) must be equal (`rust_bridge.state_spec`
+vs `State.snapshot()`).
+
+| Lineup | Games | Steps | Match after every step |
+|---|---|---|---|
+| 4x RandomPlayer | 40 | 46,645 | **40/40** |
+| 4x WeightedRandomPlayer | 15 | 9,348 | **15/15** |
+| 4x ValueFunctionPlayer | 4 | 1,206 | **4/4** |
+
+Encoder: 552 (state, perspective) pairs equal to `encode_for_value` within
+1e-6. Search: same leaf count and same chosen action as the Python
+expansion on 25 decisions (`test_env.py`, three new checks).
+
+**Quirks that had to be reproduced to get there** (all found by the
+oracle, none by reading): the dev deck pops from the *end* (`list.pop()`),
+so a pinned draw must remove the last occurrence; the two halves of a cut
+enemy component are appended in networkx's adjacency insertion order, not
+sorted node order — component list order is observable through later
+`_get_connected_component_index` lookups, so `STATIC_GRAPH`'s neighbor
+order is passed in from Python; the longest-road holder after a cut is
+recomputed by a dict `max` (first max in seating order, can award below
+5); `dfs_walk` enters enemy nodes; `iter_players` is a cyclic rotation.
+`Vec<u8>` crosses PyO3 as `bytes`, not a list.
+
+**Speed, uncontended (`ValueNetPlayer` seat, random net):**
+
+| Path | s per seat-game vs 3x WR |
+|---|---|
+| Python expansion (`decide_python`) | 3.57 |
+| **Rust expansion (`decide_rust`)** | **0.71** (5.0x) |
+
+Per decision: Rust `expand` 1.2 ms (was 81 ms contended in Python);
+per-decision `state_spec` conversion 0.1 ms; the torch forward over ~230
+leaves is now **6.7 ms — the dominant cost**. A 3x value-net + 1x AB game
+runs in 1.7 s. Next lever is therefore the forward pass (cross-game
+batching on the XPU from a Rust-driven game loop, or a cheaper net), not
+the engine.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.

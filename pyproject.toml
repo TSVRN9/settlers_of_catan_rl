@@ -23,6 +23,7 @@ triton-xpu = { index = "pytorch-xpu" }
 
 [dependency-groups]
 dev = [
+    "maturin>=1.15.0",
     "mypy>=2.3.1",
     "ruff>=0.16.5",
 ]

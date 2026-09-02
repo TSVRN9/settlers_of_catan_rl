@@ -685,6 +685,108 @@ def test_fast_copy_is_exact():
     print(f"  fast_copy exact + independent on {checked} states; AlphaBeta game identical ({len(ref)} records): ok")
 
 
+def _rust_replay(players, seed):
+    """Python plays; Rust replays every record; legal-action sets and full
+    state snapshots must agree after every step. Returns (steps, error)."""
+    import rust_bridge as rb
+
+    random.seed(seed)
+    game = Game(players, seed=seed)
+    rs, ctx = rb.rust_state(game)
+    colors = list(game.state.colors)
+    steps = 0
+    while game.winning_color() is None and game.state.num_turns < TURNS_LIMIT:
+        py_actions = {rb.canon(a, ctx, colors) for a in game.playable_actions}
+        rs_actions = set(rs.playable_actions())
+        if py_actions != rs_actions:
+            return steps, f"playable mismatch: only-py={sorted(py_actions - rs_actions)[:3]} only-rs={sorted(rs_actions - py_actions)[:3]}"
+        record = game.play_tick()
+        rs.apply(rb.canon(record.action, ctx, colors), rb.result_of(record))
+        py, rust = rb.state_spec(game, ctx), rs.snapshot()
+        bad = [k for k in py if py[k] != rust.get(k)]
+        if bad:
+            return steps, f"after {record.action.action_type.value}: " + "; ".join(f"{k}: py={py[k]!r} rs={rust.get(k)!r}"[:200] for k in bad[:3])
+        steps += 1
+    assert rs.winner() == (-1 if game.winning_color() is None else colors.index(game.winning_color()))
+    return steps, None
+
+
+def test_rust_engine_replays_python_games():
+    """The Rust rules engine must reproduce catanatron step for step (the
+    replay oracle from docs/RUST-ENGINE.md): every legal-action set and every
+    state field, over random, weighted-random and value-function games."""
+    from catanatron.players.value import ValueFunctionPlayer
+
+    lineups = [(RandomPlayer, range(6)), (WeightedRandomPlayer, range(3)), (ValueFunctionPlayer, range(2))]
+    total = 0
+    for cls, seeds in lineups:
+        for seed in seeds:
+            steps, err = _rust_replay([cls(c) for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)], seed)
+            assert err is None, f"{cls.__name__} seed {seed} diverged after {steps} steps: {err}"
+            total += steps
+    print(f"  Rust engine replays 11 Python games identically ({total} steps): ok")
+
+
+def test_rust_encoder_matches_python():
+    """catan_engine.State.encode == value_net.encode_for_value on live states, all perspectives."""
+    import rust_bridge as rb
+    from value_net import encode_for_value
+
+    checked = 0
+    for seed in range(3):
+        game = _random_game(seed)
+        enc = Encoder()
+        while game.winning_color() is None and game.state.num_turns < 200:
+            for _ in range(13):
+                if game.winning_color() is None:
+                    game.play_tick()
+            rs, ctx = rb.rust_state(game)
+            layout = rb.layout(ctx)
+            for p0 in range(4):
+                py = encode_for_value(enc, game, game.state.colors[p0])
+                ru = rs.encode(layout, p0)
+                bad = np.flatnonzero(~np.isclose(py, ru, atol=1e-6))
+                assert len(bad) == 0, f"seed {seed} turn {game.state.num_turns} p0={p0}: {[(FEATURES[i] if i < len(FEATURES) else f'turn{i - len(FEATURES)}', py[i], ru[i]) for i in bad[:5]]}"
+                checked += 1
+    print(f"  Rust encoder matches Python encoder on {checked} (state, perspective) pairs: ok")
+
+
+def test_rust_search_matches_python():
+    """Rust expand/backup picks the same action as ValueNetPlayer's Python
+    expansion for the same net, and both see the same number of leaves."""
+    import tempfile
+
+    import torch
+
+    import rust_bridge as rb
+    from value_net import ValueNet, ValueNetPlayer, load_value_net
+
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "rand.pt")
+        torch.save(ValueNet().state_dict(), path)
+        net = load_value_net(path)
+        p = ValueNetPlayer(Color.BLUE, path, depth=2)
+        game = Game([p] + [WeightedRandomPlayer(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)], seed=8)
+        checked = 0
+        while game.winning_color() is None and checked < 25:
+            if game.state.current_color() == Color.BLUE and len(game.playable_actions) > 1:
+                a_py = p.decide_python(game, game.playable_actions)
+                n_py = len(p._leaf_obs)
+                rs, ctx = rb.rust_state(game)
+                colors = list(game.state.colors)
+                leaves, fixed = rs.expand(rb.layout(ctx), 2, colors.index(Color.BLUE))
+                with torch.no_grad():
+                    values = torch.sigmoid(net(torch.from_numpy(leaves))).squeeze(1).double().numpy()
+                for i, v in fixed:
+                    values[i] = v
+                a_rs, _ = rs.backup(values)
+                assert leaves.shape[0] == n_py, (leaves.shape, n_py)
+                assert rb.uncanon(a_rs, Color.BLUE, ctx, colors) == a_py, (a_rs, a_py)
+                checked += 1
+            game.play_tick()
+    print(f"  Rust search == Python search on {checked} decisions (same leaves, same action): ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -702,4 +804,7 @@ if __name__ == "__main__":
     test_value_net_player_plays_legal_game()
     test_batched_search_matches_recursive()
     test_fast_copy_is_exact()
+    test_rust_engine_replays_python_games()
+    test_rust_encoder_matches_python()
+    test_rust_search_matches_python()
     print("test_env.py: all invariants passed")

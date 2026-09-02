@@ -1,0 +1,14 @@
+/home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/deps/pyo3_build_config-c15d8de89a7dd86c.d: /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/lib.rs /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/errors.rs /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/impl_.rs /home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config-file.txt /home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config.txt
+
+/home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/deps/libpyo3_build_config-c15d8de89a7dd86c.rlib: /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/lib.rs /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/errors.rs /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/impl_.rs /home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config-file.txt /home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config.txt
+
+/home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/deps/libpyo3_build_config-c15d8de89a7dd86c.rmeta: /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/lib.rs /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/errors.rs /home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/impl_.rs /home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config-file.txt /home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config.txt
+
+/home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/lib.rs:
+/home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/errors.rs:
+/home/tavern/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.23.5/src/impl_.rs:
+/home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config-file.txt:
+/home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out/pyo3-build-config.txt:
+
+# env-dep:CARGO_PKG_VERSION=0.23.5
+# env-dep:OUT_DIR=/home/tavern/Projects/py/settlers_of_catan_rl/catan_engine/target/release/build/pyo3-build-config-2de334d9abb61366/out
