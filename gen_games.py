@@ -201,6 +201,7 @@ def main():
     parser.add_argument("--ts-p", type=float, default=0.0, help="arena only, per value-net decision: probability of recording the root + up to 5 children with their search values (soft distillation targets ts_x / ts_v)")
     parser.add_argument("--roll-p", type=float, default=0.0, help="arena only, per decision (any seat): probability of labeling up to 6 children with rab-vs-rab rollout win fractions (ro_x / ro_v)")
     parser.add_argument("--roll-m", type=int, default=4, help="rollouts per labeled child")
+    parser.add_argument("--roll-depth", type=int, default=2, help="rollout policy: 2 = pruned depth-2 expectimax over base_fn (decide_rollout), 1 = depth-1 (experiment)")
     parser.add_argument("--shard", type=int, default=500, help="games per output file")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
@@ -220,7 +221,7 @@ def main():
         # value-net lineups, ~3x for rab-only ones (docs/FINDINGS.md).
         os.environ.setdefault("RAYON_NUM_THREADS", str(args.jobs + 1))
         pool = contextlib.nullcontext()
-        results = ((seed, part) for seed, _, part, _ in arena.play(lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, ts_p=args.ts_p, roll_p=args.roll_p, roll_m=args.roll_m, batch=args.batch))
+        results = ((seed, part) for seed, _, part, _ in arena.play(lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, ts_p=args.ts_p, roll_p=args.roll_p, roll_m=args.roll_m, roll_depth=args.roll_depth, batch=args.batch))
     else:
         assert args.ts_p == 0 and args.roll_p == 0, "--ts-p / --roll-p are recorded by the arena only"
         pool = mp.get_context("spawn").Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p, args.sib_p))

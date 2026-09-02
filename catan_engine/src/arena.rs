@@ -42,6 +42,7 @@ pub struct Recorder {
     ts_p: f64,
     roll_p: f64,
     roll_m: u32,
+    roll_depth: u32, // 2 = pruned depth-2 policy (decide_rollout); 1 = decide_heuristic(1) (experiment)
     pub xs: Vec<f32>,
     pub colors: Vec<u8>,
     pub turns: Vec<i32>,
@@ -58,8 +59,8 @@ pub struct Recorder {
 }
 
 impl Recorder {
-    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![] }
+    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32, roll_depth: u32) -> Recorder {
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![] }
     }
 
     /// One rab-vs-rab playout from `s` (own RNG stream; the game's chance
@@ -68,7 +69,7 @@ impl Recorder {
         s.rng = splitmix(&mut self.rng);
         while s.winner() < 0 && s.num_turns < TURNS_LIMIT {
             let acts = s.playable_actions();
-            let a = if acts.len() == 1 { acts[0] } else { s.decide_rollout().unwrap_or(acts[0]) };
+            let a = if acts.len() == 1 { acts[0] } else if self.roll_depth == 1 { s.decide_heuristic(1).unwrap_or(acts[0]) } else { s.decide_rollout().unwrap_or(acts[0]) };
             if s.apply(a, None).is_err() {
                 return 0.0;
             }
