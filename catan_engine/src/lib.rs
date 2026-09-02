@@ -444,6 +444,8 @@ struct PyArena {
     max_leaves: usize,
     ts_p: f64,
     own_turn: bool,
+    roll_p: f64,
+    roll_m: u32,
     sample_p: f64,
     rank_p: f64,
     sib_p: f64,
@@ -455,9 +457,9 @@ struct PyArena {
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool) -> PyArena {
-        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32) -> PyArena {
+        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
@@ -476,7 +478,7 @@ impl PyArena {
             pending: None,
             leaf_buf: Vec::new(),
             offset: 0,
-            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p),
+            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p, self.roll_p, self.roll_m),
             log: if self.keep_log { Some(vec![]) } else { None },
             done: false,
         });
@@ -580,6 +582,9 @@ impl PyArena {
             let t = r.ts_v.len();
             d.set_item("ts_x", Array2::from_shape_vec((t, nf), r.ts_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("ts_v", r.ts_v)?;
+            let q = r.ro_v.len();
+            d.set_item("ro_x", Array2::from_shape_vec((q, nf), r.ro_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("ro_v", r.ro_v)?;
             let log = g.log.map(|l| l.into_iter().map(|(a, o)| (to_canon(a), o)).collect());
             let snap = if self.keep_log { Some(PyState { inner: g.state.clone(), search: None }.snapshot(py)?) } else { None };
             let vps: Vec<i32> = g.state.players.iter().map(|p| p.actual_vp).collect();

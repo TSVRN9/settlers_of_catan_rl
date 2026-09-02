@@ -844,8 +844,8 @@ def test_arena_games_replay_in_python(n_games=6):
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "rand.pt")
         torch.save(ValueNet(hidden=64).state_dict(), path)
-        steps, n_self, n_ts = 0, 0, 0
-        for seed, winner, part, (game, log, snap) in arena.play([f"vnet:{path}", "rab", f"vnet:{path}", "rab"], range(40, 40 + n_games), sample_p=1.0, rank_p=1.0, sib_p=1.0, ts_p=1.0, batch=n_games, keep_log=True):
+        steps, n_self, n_ts, n_ro = 0, 0, 0, 0
+        for seed, winner, part, (game, log, snap) in arena.play([f"vnet:{path}", "rab", f"vnet:{path}", "rab"], range(40, 40 + n_games), sample_p=1.0, rank_p=1.0, sib_p=1.0, ts_p=1.0, roll_p=0.02, roll_m=2, batch=n_games, keep_log=True):
             ctx = rb.ctx_for(game)
             colors = list(game.state.colors)
             for canon, outcome in log:
@@ -874,8 +874,11 @@ def test_arena_games_replay_in_python(n_games=6):
                 tx, tv = part["ts_x"], part["ts_v"]
                 assert tx.shape == (len(tv), rb.N_FEATURES) and len(tv) > 0 and (tv >= 0).all() and (tv <= 1).all(), (tx.shape, tv[:3])
                 n_ts += len(tv)
-        assert n_self > 0
-    print(f"  arena games replay in catanatron ({n_games} games, {steps} steps, final states equal, {n_self} self-play sibling sets, {n_ts} search-value rows): ok")
+                rx, rv = part["ro_x"], part["ro_v"]
+                assert rx.shape == (len(rv), rb.N_FEATURES) and set(np.unique(rv)) <= {0.0, 0.5, 1.0}, (rx.shape, rv[:5])
+                n_ro += len(rv)
+        assert n_self > 0 and n_ro > 0
+    print(f"  arena games replay in catanatron ({n_games} games, {steps} steps, final states equal, {n_self} self-play sibling sets, {n_ts} search-value rows, {n_ro} rollout-labeled rows): ok")
 
 
 if __name__ == "__main__":

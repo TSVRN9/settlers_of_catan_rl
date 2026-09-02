@@ -40,6 +40,8 @@ pub struct Recorder {
     rank_p: f64,
     sib_p: f64,
     ts_p: f64,
+    roll_p: f64,
+    roll_m: u32,
     pub xs: Vec<f32>,
     pub colors: Vec<u8>,
     pub turns: Vec<i32>,
@@ -51,11 +53,57 @@ pub struct Recorder {
     pub sib_isp0: Vec<bool>,
     pub ts_x: Vec<f32>, // search-value distillation: root + up to K_TS deterministic children of a value-net decision, decider's perspective
     pub ts_v: Vec<f64>, // ... each with its backed-up expectimax value (P(decider wins)), a soft target (docs/FINDINGS.md, TreeStrap-lite)
+    pub ro_x: Vec<f32>, // rollout-labeled children of a decision (any seat), decider's perspective
+    pub ro_v: Vec<f64>, // ... fraction of roll_m rab-vs-rab rollouts from that child the decider won: a value target that owes nothing to the net
 }
 
 impl Recorder {
-    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![] }
+    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32) -> Recorder {
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![] }
+    }
+
+    /// One rab-vs-rab playout from `s` (own RNG stream; the game's chance
+    /// outcomes are untouched). 1 if `p0` won, 0 otherwise (incl. turn limit).
+    fn rollout(&mut self, mut s: State, p0: usize) -> f64 {
+        s.rng = splitmix(&mut self.rng);
+        while s.winner() < 0 && s.num_turns < TURNS_LIMIT {
+            let acts = s.playable_actions();
+            let a = if acts.len() == 1 { acts[0] } else { s.decide_heuristic(2).unwrap_or(acts[0]) };
+            if s.apply(a, None).is_err() {
+                return 0.0;
+            }
+        }
+        (s.winner() == p0 as i8) as u8 as f64
+    }
+
+    /// With probability roll_p at a decision with >= 2 deterministic children:
+    /// up to K_SIB random children, each labeled with the decider's win
+    /// fraction over roll_m rollouts (docs/FINDINGS.md 2026-09-02 evening:
+    /// every target derived from the net's own search regressed; this one is
+    /// the value of the AlphaBeta continuation, measured).
+    fn record_rollouts(&mut self, s: &State, layout: &Layout) {
+        let acts: Vec<Action> = s.playable_actions().into_iter().filter(|&a| deterministic(a)).collect();
+        if acts.len() < 2 {
+            return;
+        }
+        let k = acts.len().min(K_SIB);
+        let acts = self.sample(acts, k);
+        let p0 = s.current_player;
+        let mut row = Vec::with_capacity(layout.n_features);
+        for a in acts {
+            let mut c = s.clone();
+            if c.apply(a, None).is_err() {
+                continue;
+            }
+            let mut wins = 0.0;
+            for _ in 0..self.roll_m {
+                wins += self.rollout(c.clone(), p0);
+            }
+            row.clear();
+            self.encode(&c, p0, layout, &mut row);
+            self.ro_x.extend_from_slice(&row);
+            self.ro_v.push(wins / self.roll_m as f64);
+        }
     }
 
     /// With probability ts_p: the root state (value = the search's root value)
@@ -123,6 +171,9 @@ impl Recorder {
         }
         if self.sib_p > 0.0 && self.rand() < self.sib_p {
             self.record_siblings(s, action, seat == Seat::Vnet && deterministic(action), layout);
+        }
+        if self.roll_p > 0.0 && self.rand() < self.roll_p {
+            self.record_rollouts(s, layout);
         }
     }
 

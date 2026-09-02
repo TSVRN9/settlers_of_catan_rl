@@ -34,7 +34,8 @@ def _count(z, name):
     return _shape(z, name)[0]
 
 
-def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sibs=True, max_ts=None):
+def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sibs=True, max_ts=None, ts_key="ts"):
+    kx, kv = ts_key + "_x", ts_key + "_v"
     """Returns X, y, game, aux (n, 5) = [vp0..vp3 / 10, turns_left / 100] and
     has_aux (n,) -- shards written before the auxiliary targets existed load
     with has_aux False and contribute only to the win-probability loss.
@@ -51,7 +52,7 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
     tot_s = sum(_count(z, "y") for z in zs)
     tot_p = sum(_count(z, "rank_c") for z in zs)
     tot_b = sum(_count(z, "sib_n") for z in zs if "sib_isp0" in z)  # same condition as the load below
-    tot_t = sum(_count(z, "ts_v") for z in zs)
+    tot_t = sum(_count(z, kv) for z in zs)
     ft = min(1.0, (max_ts or tot_t) / max(tot_t, 1))
     fs = min(1.0, (max_samples or tot_s) / max(tot_s, 1))
     fp = min(1.0, (max_pairs or tot_p) / max(tot_p, 1))
@@ -78,9 +79,9 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
                 v = z["sib_v"][kb]
                 keep = slice(None) if self_sibs else ~((np.nanmax(v, 1) == 1.0) & (np.nanmin(v, 1) == 0.0))  # self-play sets are one-hot; base_fn values never are
                 sx.append(z["sib_x"][kb][keep]); sv.append(v[keep]); sn.append(z["sib_n"][kb][keep]); sp.append(z["sib_isp0"][kb][keep])
-            if "ts_v" in z and _count(z, "ts_v"):
-                kt = pick(_count(z, "ts_v"), ft)
-                tx.append(z["ts_x"][kt]); tv.append(z["ts_v"][kt].astype(np.float32))
+            if kv in z and _count(z, kv):
+                kt = pick(_count(z, kv), ft)
+                tx.append(z[kx][kt]); tv.append(z[kv][kt].astype(np.float32))
                 assert len(tx[-1]) == len(tv[-1])
             if "vp" in z:
                 aux.append(np.concatenate([z["vp"][k].astype(np.float32) / 10.0, z["turns_left"][k].astype(np.float32)[:, None] / 100.0], axis=1))
@@ -155,7 +156,8 @@ def main():
     parser.add_argument("--aux-weight", type=float, default=1.0, help="weight of the final-VPs / turns-left auxiliary heads (0 disables)")
     parser.add_argument("--rank-weight", type=float, default=1.0, help="weight of the AlphaBeta chosen-vs-other pair loss (0 disables)")
     parser.add_argument("--sib-weight", type=float, default=1.0, help="weight of the base_fn sibling-ordering loss (0 disables)")
-    parser.add_argument("--ts-weight", type=float, default=0.0, help="weight of the search-value distillation loss on ts_x / ts_v rows (0 disables)")
+    parser.add_argument("--ts-weight", type=float, default=0.0, help="weight of the soft-value loss on <ts-key>_x / <ts-key>_v rows (0 disables)")
+    parser.add_argument("--ts-key", default="ts", help="ts = search-value distillation rows, ro = rollout-labeled children")
     parser.add_argument("--self-sibs", type=int, default=1, help="0 drops the sibling sets labeled by the value net's own search (gen_games self-play), keeping base_fn-labeled ones")
     parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
@@ -164,7 +166,7 @@ def main():
     torch.manual_seed(args.seed)
 
     X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0), (ts_x, ts_v) = load(
-        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs), max_ts=args.max_ts
+        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs), max_ts=args.max_ts, ts_key=args.ts_key
     )
     rng = np.random.default_rng(args.seed)
     games = np.unique(g)

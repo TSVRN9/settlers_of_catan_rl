@@ -46,7 +46,7 @@ def targets(colors, turns, winner_seat, vps, num_turns):
     return y, vp, turns_left
 
 
-def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, batch=64, depth=2, keep_log=False):
+def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p=0.0, roll_m=4, batch=64, depth=2, keep_log=False):
     """Yields (seed, winner_color or None, part, extra) per game as they finish.
     `part` is the gen_games shard dict (float16) or None for a game without a
     winner; `extra` is (game, log, snapshot) when keep_log, else None.
@@ -65,7 +65,7 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, batch=
     own_turn = bool(nets and nets[0].group(2))
     layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in COLORS], seed=0)))
     n_arenas = 2 if net is not None else 1
-    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn) for _ in range(n_arenas)]  # vnetN: deepens the net only
+    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn, roll_p=roll_p, roll_m=roll_m) for _ in range(n_arenas)]  # vnetN: deepens the net only
     pool = ThreadPoolExecutor(max_workers=1)
     seeds = iter(seeds)
     games = [{} for _ in arenas]  # per arena: seed -> (game, colors) while in flight
@@ -112,6 +112,7 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, batch=
                     rank_c=d["rank_c"].astype(np.float16), rank_o=d["rank_o"].astype(np.float16),
                     sib_x=d["sib_x"].astype(np.float16), sib_v=d["sib_v"], sib_n=np.asarray(d["sib_n"], dtype=np.int8), sib_isp0=np.asarray(d["sib_isp0"], dtype=bool),
                     ts_x=d["ts_x"].astype(np.float16), ts_v=np.asarray(d["ts_v"], dtype=np.float32),
+                    ro_x=d["ro_x"].astype(np.float16), ro_v=np.asarray(d["ro_v"], dtype=np.float32),
                 )
             finished.append((seed, (None if w < 0 else colors[w]), part, ((game, log, snap) if keep_log else None)))
             add(i)
