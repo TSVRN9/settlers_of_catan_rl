@@ -2203,6 +2203,10 @@ loop. `run_exit.sh` uses it from round 29 (N_SEEDS=5).
 soup):** v28 **1871/4000 = 46.8%** [45.2, 48.3] vs the incumbent's 1747/4000 = 43.7% on the same fresh seeds —
 accepted. Rounds 29+ use the greedy 5-seed soup. Per-round table continues below.
 
+| k | incumbent (fresh seeds) | challenger (greedy 5-seed soup) | decision |
+|---|---|---|---|
+| 29 | v28 46.8% | **v29 49.6%** [48.1, 51.1] (3/5 draws kept, 49.1% on selection seeds) | accepted |
+
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
 (`run_exit.sh 28 40`: rollout labels, no `base_fn` losses, 3-seed soups, incumbent v27d_soup) is running.
