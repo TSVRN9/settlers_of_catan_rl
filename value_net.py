@@ -125,12 +125,17 @@ class ValueNet(nn.Module):
     """forward() -> win logit = alpha * smooth_heuristic(x) + residual; the
     residual MLP's last layer starts at zero, so a fresh net plays exactly
     like the smooth heuristic (AlphaBeta-class) and training only learns
-    corrections from outcomes. heads() -> all N_HEADS (win logit first)."""
+    corrections from outcomes; the sibling-ordering loss keeps the residual
+    from flipping the heuristic's ordering. heads() -> all N_HEADS."""
+
+    PRIOR_SCALE = 0.1  # one VP of the smooth heuristic == one logit; fixed, not learned
 
     def __init__(self, hidden=512, dropout=0.3):
         super().__init__()
         self.register_buffer("mask", torch.from_numpy(STATIC_MASK))
-        self.alpha = nn.Parameter(torch.tensor(1.0))
+        # fixed scale: when it was learnable the outcome loss shrank it and the residual took
+        # over the sibling ordering (docs/FINDINGS.md, v3); the sibling loss now regularizes the residual
+        self.register_buffer("alpha", torch.tensor(self.PRIOR_SCALE))
         self.mlp = nn.Sequential(
             nn.Linear(N_FEATURES, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),

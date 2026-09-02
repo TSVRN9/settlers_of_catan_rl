@@ -1784,6 +1784,17 @@ mlp(x)` with the MLP's last layer zero-initialized, so a fresh net plays
 exactly like the smooth heuristic and training only learns corrections.
 Calibration of the prior itself: `--player rsab` vs 3x AB, below.
 
+**v2 gate (heuristic-summary features + outcome + aux + pair + sibling
+losses, trained on 4,000 `rab` games, 300 games vs 3x Python AB):**
+
+```
+vnet:checkpoints_value/v2.pt: 56/300 wins = 18.7%  Wilson 95% CI [14.7%, 23.5%]  vs alpha_beta
+```
+
+Up from 6.0% (v0) and 3.8% (v1_interim). Not parity (26.3%) yet, but the
+first net that plays in AlphaBeta's league; the features were the missing
+piece, the ordering losses the second.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
