@@ -353,8 +353,9 @@ impl PyState {
     /// Expands the depth-d tree; returns the leaf feature matrix (n_leaves x
     /// n_features) with terminal leaves as zero rows, plus [(idx, value)] for
     /// those. Call backup(values) afterwards.
-    fn expand<'py>(&mut self, py: Python<'py>, layout: &PyLayout, depth: u32, p0: usize) -> PyResult<(Bound<'py, PyArray2<f32>>, Vec<(usize, f64)>)> {
-        let search = self.inner.expand(depth, p0, &layout.inner);
+    #[pyo3(signature = (layout, depth, p0, max_leaves=0))]
+    fn expand<'py>(&mut self, py: Python<'py>, layout: &PyLayout, depth: u32, p0: usize, max_leaves: usize) -> PyResult<(Bound<'py, PyArray2<f32>>, Vec<(usize, f64)>)> {
+        let search = self.inner.expand(depth, p0, &layout.inner, max_leaves);
         let nf = search.n_features;
         let n = search.n_leaves;
         let arr = Array2::from_shape_vec((n, nf), search.leaves.clone())
@@ -440,6 +441,7 @@ struct PyArena {
     layout: Arc<Layout>,
     depth: u32,
     rab_depth: u32,
+    max_leaves: usize,
     sample_p: f64,
     rank_p: f64,
     sib_p: f64,
@@ -451,9 +453,9 @@ struct PyArena {
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32) -> PyArena {
-        PyArena { layout: layout.inner.clone(), depth, rab_depth, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize) -> PyArena {
+        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
@@ -467,6 +469,7 @@ impl PyArena {
             seats,
             vnet_depth: self.depth,
             rab_depth: self.rab_depth,
+            max_leaves: self.max_leaves,
             pending: None,
             leaf_buf: Vec::new(),
             offset: 0,

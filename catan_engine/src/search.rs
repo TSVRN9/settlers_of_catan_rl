@@ -22,6 +22,8 @@ pub struct Search {
     pub fixed: Vec<(usize, f64)>,  // terminal leaves with exact values
     pub n_leaves: usize,
     pub root: Node,
+    cap: usize,
+    overflow: bool,
 }
 
 impl State {
@@ -75,16 +77,26 @@ impl State {
         }
     }
 
-    pub fn expand(&self, depth: u32, p0: usize, layout: &Layout) -> Search {
-        self.expand_into(depth, p0, layout, Vec::new())
+    pub fn expand(&self, depth: u32, p0: usize, layout: &Layout, max_leaves: usize) -> Search {
+        self.expand_into(depth, p0, layout, Vec::new(), max_leaves)
     }
 
     /// `expand` writing leaves into a reused buffer (the arena expands every
-    /// step; fresh multi-MB Vecs page-fault each time).
-    pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>) -> Search {
+    /// step; fresh multi-MB Vecs page-fault each time). `max_leaves` (0 =
+    /// unlimited) caps a tree deeper than 2: when it overflows, the expansion
+    /// is abandoned and redone one ply shallower. Depth-3 leaf counts are
+    /// extremely skewed -- 8% of decisions hold 95% of the leaves (up to
+    /// 430k rows, 1.8 GB) -- so the cap buys ~20x memory and time for 8%
+    /// of decisions at depth 2 (docs/FINDINGS.md). Depth-2 trees are never
+    /// capped, so depth-2 play is unchanged whatever the cap.
+    pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>, max_leaves: usize) -> Search {
         buf.clear();
-        let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] } };
+        let cap = if max_leaves == 0 || depth <= 2 { usize::MAX } else { max_leaves };
+        let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, cap, overflow: false };
         let root = self.expand_node(depth, p0, layout, &mut search);
+        if search.overflow {
+            return self.expand_into(depth - 1, p0, layout, search.leaves, max_leaves);
+        }
         match root {
             Child::Node(n) => search.root = *n,
             Child::Leaf(_) => {}
@@ -93,6 +105,10 @@ impl State {
     }
 
     fn expand_node(&self, depth: u32, p0: usize, layout: &Layout, search: &mut Search) -> Child {
+        if search.overflow || search.n_leaves >= search.cap {
+            search.overflow = true;
+            return Child::Leaf(0);
+        }
         let winner = self.winner();
         if depth == 0 || winner >= 0 {
             let idx = search.n_leaves;

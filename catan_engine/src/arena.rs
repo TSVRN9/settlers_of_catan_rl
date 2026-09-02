@@ -170,6 +170,7 @@ pub struct ArenaGame {
     pub seats: [Seat; 4],
     pub vnet_depth: u32,
     pub rab_depth: u32, // opponents stay at AlphaBeta's depth 2 while the net searches deeper
+    pub max_leaves: usize, // per-decision leaf cap for depth > 2 (search.rs), 0 = unlimited
     pub pending: Option<Search>,
     pub leaf_buf: Vec<f32>, // recycled between decisions
     pub offset: usize,
@@ -216,7 +217,7 @@ impl ArenaGame {
                     self.tick(a, layout);
                 }
                 Seat::Vnet => {
-                    self.pending = Some(self.state.expand_into(self.vnet_depth, p, layout, std::mem::take(&mut self.leaf_buf)));
+                    self.pending = Some(self.state.expand_into(self.vnet_depth, p, layout, std::mem::take(&mut self.leaf_buf), self.max_leaves));
                     return;
                 }
             }

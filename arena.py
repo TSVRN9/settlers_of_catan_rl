@@ -25,6 +25,7 @@ from value_net import load_value_net
 COLORS = (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)
 DEVICE = os.environ.get("VNET_DEVICE", "xpu" if torch.xpu.is_available() else "cpu")
 ROW_BUCKET = 16384  # forwards are padded to a multiple of this many rows so the allocator sees a handful of sizes
+MAX_LEAVES = int(os.environ.get("VNET_MAX_LEAVES", 20000))  # depth>2 decisions over this many leaves fall back one ply (search.rs); depth 2 is never capped
 
 
 VNET = re.compile(r"^vnet(\d?):(.+)$")  # vnet:<path> (depth 2) or vnet3:<path> (depth 3)
@@ -63,7 +64,7 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
         depth = int(nets[0].group(1))
     layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in COLORS], seed=0)))
     n_arenas = 2 if net is not None else 1
-    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2) for _ in range(n_arenas)]  # vnetN: deepens the net only
+    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES) for _ in range(n_arenas)]  # vnetN: deepens the net only
     pool = ThreadPoolExecutor(max_workers=1)
     seeds = iter(seeds)
     games = [{} for _ in arenas]  # per arena: seed -> (game, colors) while in flight
