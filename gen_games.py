@@ -39,7 +39,7 @@ from catanatron.players.minimax import AlphaBetaPlayer
 
 import rust_bridge as rb
 from catan_env import Encoder
-from value_net import N_FEATURES, encode_for_value, make_player
+from value_net import N_FEATURES, RustAlphaBetaPlayer, encode_for_value, make_player
 
 COLORS = (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)
 # Actions whose child state is fully determined (no dice / draw / steal), so a
@@ -73,7 +73,7 @@ class StateSampler(GameAccumulator):
             self.xs.append(encode_for_value(self.encoder, game, color))
             self.colors.append(color)
             self.turns.append(game.state.num_turns)
-        if self.rank_p and self.rng.random() < self.rank_p and isinstance(game.state.current_player(), AlphaBetaPlayer):
+        if self.rank_p and self.rng.random() < self.rank_p and isinstance(game.state.current_player(), (AlphaBetaPlayer, RustAlphaBetaPlayer)):
             self.record_pair(game, action)
 
     def record_pair(self, game, action):
