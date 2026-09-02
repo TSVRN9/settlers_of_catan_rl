@@ -143,8 +143,8 @@ def main():
     print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games, aux targets on {has.mean():.0%}, {len(rank_c)} rank pairs, {len(sib_n)} sibling sets")
 
     dev = torch.device(args.device)
-    Xd = torch.from_numpy(X).to(dev)  # float16 on device; cast per batch
-    yd = torch.from_numpy(y.astype(np.float32)).to(dev)
+    Xd = torch.from_numpy(X)  # float16, CPU-resident; batches are moved to the device
+    yd = torch.from_numpy(y.astype(np.float32))
     auxd = torch.from_numpy(aux)
     hasd = torch.from_numpy(has)
     # rank pairs: last 10% held out (they are not tied to game ids)
@@ -160,8 +160,8 @@ def main():
     spd = torch.from_numpy(sib_isp0)
     use_sib = args.sib_weight > 0 and n_sib_tr > 0
     D = lambda t: t.to(dev, non_blocking=True)  # noqa: E731
-    tr_idx = torch.from_numpy(np.flatnonzero(~is_held)).to(dev)
-    ho_idx = torch.from_numpy(np.flatnonzero(is_held)).to(dev)
+    tr_idx = torch.from_numpy(np.flatnonzero(~is_held))
+    ho_idx = torch.from_numpy(np.flatnonzero(is_held))
 
     net = ValueNet(hidden=args.hidden, prior_scale=args.prior_scale).to(dev)
     if args.init:
