@@ -15,7 +15,7 @@ echo $$ > checkpoints_value/run_exit.pid  # stop with: kill $(cat checkpoints_va
 # alone and `|| exit 1` stops the loop; the box stays up (docs/FINDINGS.md 2026-09-02, two OOMs took it down).
 run() { systemd-run --user --scope -q -p MemoryMax=14G -p MemorySwapMax=0 "$@"; }
 # Never start a GPU stage next to a stale one (a stalled generation once survived pkill, stuck in the GPU driver).
-busy() { pgrep -f "python.*(gen_games|evaluate|train_value)\.py" | grep -v "^$$$" ; }
+busy() { pgrep -f "^\S*python[0-9.]* (gen_games|evaluate|train_value)\.py" ; }  # anchored: a shell whose command text mentions the scripts must not match
 if busy >/dev/null; then echo "refusing to start: stale processes: $(busy | tr '\n' ' ')"; exit 1; fi
 last_shard=$(printf "shard_%04d.npz" $((games / 500 - 1)))  # gen_games --shard 500
 for k in $(seq "$first" "$last"); do
