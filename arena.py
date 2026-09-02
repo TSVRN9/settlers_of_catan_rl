@@ -63,7 +63,7 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
         depth = int(nets[0].group(1))
     layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in COLORS], seed=0)))
     n_arenas = 2 if net is not None else 1
-    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log) for _ in range(n_arenas)]
+    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2) for _ in range(n_arenas)]  # vnetN: deepens the net only
     pool = ThreadPoolExecutor(max_workers=1)
     seeds = iter(seeds)
     games = [{} for _ in arenas]  # per arena: seed -> (game, colors) while in flight

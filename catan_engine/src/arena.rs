@@ -168,7 +168,8 @@ pub struct ArenaGame {
     pub id: i32,
     pub state: State,
     pub seats: [Seat; 4],
-    pub depth: u32,
+    pub vnet_depth: u32,
+    pub rab_depth: u32, // opponents stay at AlphaBeta's depth 2 while the net searches deeper
     pub pending: Option<Search>,
     pub leaf_buf: Vec<f32>, // recycled between decisions
     pub offset: usize,
@@ -211,11 +212,11 @@ impl ArenaGame {
             }
             match self.seats[p] {
                 Seat::Rab => {
-                    let a = self.state.decide_heuristic(self.depth).unwrap_or(acts[0]);
+                    let a = self.state.decide_heuristic(self.rab_depth).unwrap_or(acts[0]);
                     self.tick(a, layout);
                 }
                 Seat::Vnet => {
-                    self.pending = Some(self.state.expand_into(self.depth, p, layout, std::mem::take(&mut self.leaf_buf)));
+                    self.pending = Some(self.state.expand_into(self.vnet_depth, p, layout, std::mem::take(&mut self.leaf_buf)));
                     return;
                 }
             }

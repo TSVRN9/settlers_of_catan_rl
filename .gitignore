@@ -12,3 +12,4 @@ wheels/
 # Training artifacts
 checkpoints*/
 data/
+checkpoints_value/best.txt

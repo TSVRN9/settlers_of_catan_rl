@@ -14,6 +14,7 @@ the search is reimplemented.
 """
 
 import math
+import re
 
 import numpy as np
 import torch
@@ -386,6 +387,7 @@ def make_player(spec, color):
         return ValueFunctionPlayer(color)
     if spec == "wr":
         return WeightedRandomPlayer(color)
-    if spec.startswith("vnet:"):
-        return ValueNetPlayer(color, spec[len("vnet:"):])
+    m = re.fullmatch(r"vnet(\d?):(.+)", spec)  # vnet:<path> (depth 2) or vnet3:<path> (depth-3 search)
+    if m:
+        return ValueNetPlayer(color, m.group(2), depth=int(m.group(1) or 2))
     raise ValueError(f"unknown player token {spec!r}")
