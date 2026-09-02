@@ -535,7 +535,11 @@ impl PyArena {
                 let s = g.pending.as_mut().unwrap();
                 dst.copy_from_slice(&s.leaves);
                 let mut v = std::mem::take(&mut s.leaves); // backup only needs the tree + fixed values
+                let used = v.len();
                 v.clear();
+                if v.capacity() > 4 * used {
+                    v.shrink_to(2 * used); // one huge expansion must not pin ~10 MB per game for the rest of the game
+                }
                 g.leaf_buf = v;
             });
         });

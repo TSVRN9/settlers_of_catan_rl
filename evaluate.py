@@ -15,6 +15,7 @@ once PYTHONHASHSEED was pinned. The re-exec below pins it.
 import os
 import sys
 
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")  # before torch is imported; see arena.py
 if os.environ.get("PYTHONHASHSEED") != "0":
     os.environ["PYTHONHASHSEED"] = "0"
     os.execv(sys.executable, [sys.executable] + sys.argv)
@@ -141,7 +142,7 @@ def evaluate(model_path, opponent, games, seed, jobs, search=False, player=None)
 
         lineup = [player, "rab", "rab", "rab"]
         assert arena.supports(lineup), f"--opponent rab takes a vnet:<path> or rab player, got {player}"
-        return sum(w == Color.BLUE for _, w, _, _ in arena.play(lineup, seeds, batch=128))
+        return sum(w == Color.BLUE for _, w, _, _ in arena.play(lineup, seeds, batch=int(os.environ.get("ARENA_BATCH", 128))))
     if jobs == 1:
         _init_worker(model_path, opponent, search, player)
         return sum(_play_seed(s) for s in seeds)

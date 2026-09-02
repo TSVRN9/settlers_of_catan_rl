@@ -1962,6 +1962,44 @@ per-iteration decision signal. The loop continues from **v9b as `v9.pt`** (the s
 `v9_selfsib.pt`) with `train_value.py --self-sibs 0`; the arena still records the self-play sets, the flag drops
 them at load. Sibling labels stay `base_fn`'s: the teacher's evaluator is still the best ranking signal we have.
 
+## 2026-09-02 (later) — the arena OOMed the box too: the XPU caching allocator, and a stage that would not die
+
+**Process table at the 02:25 kill** (kernel log): `gen_games.py` (arena, it11, ~1,200 games in) at **7.1 GB
+resident + 4.7 GB swapped**, plus an older Python at 3.6 GB + 1.2 GB that still held the GPU (`xe: Timedout job
+... in python3 [18011]`). Everything else was tiny. Two causes:
+
+1. **The XPU caching allocator over-reserves by 10-40x.** Tracker over 2,000 arena games: RSS 4.9-5.7 GB while
+   `torch.xpu.memory_reserved()` sat at **4.4-5.9 GB for 0.1-0.5 GB allocated**. Every step's forward has a
+   different row count, so freed blocks never fit the next request and new ones keep being reserved — and on an
+   iGPU "device" memory is host RAM. Standalone, 400 forwards of 25-60 k rows: raw sizes **1,992 MB reserved**;
+   rows padded to a multiple of 16,384 **680 MB**; raw with `PYTORCH_ALLOC_CONF=expandable_segments:True`
+   **604 MB**. Under pressure the process swapped into zram (which is RAM) and the GPU driver began timing out
+   jobs. The 1,000-game smoke test peaked at 2.7 GB and never showed it.
+2. **A stalled generation survived `pkill`.** The first it11 gen wrote its last shard at 02:15:00 and then nothing
+   for four minutes: grown, swapping, stuck in the GPU driver (the job-timeout message names it). It stayed
+   resident next to the restarted loop's gen. Two 6-12 GB GPU processes plus the desktop is 30 GB.
+
+**Fixes, measured (tracker, `vnet x2 + rab x2`, batch 128, 4,000 games):** `arena.py` sets
+`PYTORCH_ALLOC_CONF=expandable_segments:True` before torch is imported and pads every forward to a multiple of
+16,384 rows (`ROW_BUCKET`; the padding is stale data, sliced off); pinned host buffers grow in the same buckets;
+per-game Rust leaf buffers shrink after an outsized expansion. Result: **RSS flat at 2.7-4.4 GB over 4,000 games,
+reserved 1.0 GB** (1.8-2.7 GB when the env var is only set inside `arena.py`, after the caller has imported torch —
+so `gen_games.py`, `evaluate.py` and `run_exit.sh` set it first; was 4.4-5.9 GB and climbing to 11.8 GB under pressure); games/s unchanged; the 1,000-seed
+proxy result for v10 moved by one game (282 → 283 wins: a tie-break under the padded batch shape), the arena
+replay oracle still passes.
+
+**Guards, so the box can never go down again (`run_exit.sh`):** every stage runs as
+`systemd-run --user --scope -p MemoryMax=14G -p MemorySwapMax=0 ...` — a runaway stage is OOM-killed inside its own
+cgroup (verified: a 3 GB allocation under a 2 GB cap dies with 137, 1 GB passes) and `|| exit 1` stops the loop;
+the loop refuses to start any stage while a `gen_games.py` / `evaluate.py` / `train_value.py` process exists;
+its pid is in `checkpoints_value/run_exit.pid` — stop it with `kill $(cat ...)`, never `pkill -f run_exit`
+(which matches, and killed, the invoking shell twice tonight).
+
+**Proxy at 4,000 games (±1.4 pt), same seeds:** v8 27.0% [25.6%, 28.3%], v9 27.2% [25.8%, 28.6%], v10 27.4%
+[26.0%, 28.8%]. The 1,000-game readings of 28.0 / 29.1 earlier were noise-high; three expert-iteration rounds
+with `base_fn` sibling labels are flat at the noise floor, and the self-labeled v9 (20.7% on 1,000) remains the
+one clear regression.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.

@@ -21,6 +21,7 @@ import os
 import sys
 
 # Same reproducibility guard as evaluate.py (see docs/FINDINGS.md, "the evaluator was broken").
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")  # before torch is imported; see arena.py
 if os.environ.get("PYTHONHASHSEED") != "0":
     os.environ["PYTHONHASHSEED"] = "0"
     os.execv(sys.executable, [sys.executable] + sys.argv)

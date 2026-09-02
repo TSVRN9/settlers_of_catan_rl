@@ -7,22 +7,31 @@
 # iterations (~10 min). Log: whatever stdout is redirected to.
 set -u
 export PYTHONUNBUFFERED=1
+export PYTORCH_ALLOC_CONF=expandable_segments:True  # XPU caching allocator otherwise hoards 4-6 GB (docs/FINDINGS.md)
 cd "$(dirname "$0")"
 first=$1; last=$2; games=${3:-4000}; every=${4:-3}
+echo $$ > checkpoints_value/run_exit.pid  # stop with: kill $(cat checkpoints_value/run_exit.pid); never pkill -f (it matches your own shell)
+# Every stage runs in its own transient cgroup with a hard memory cap and no swap: a runaway stage is killed
+# alone and `|| exit 1` stops the loop; the box stays up (docs/FINDINGS.md 2026-09-02, two OOMs took it down).
+run() { systemd-run --user --scope -q -p MemoryMax=14G -p MemorySwapMax=0 "$@"; }
+# Never start a GPU stage next to a stale one (a stalled generation once survived pkill, stuck in the GPU driver).
+busy() { pgrep -f "python.*(gen_games|evaluate|train_value)\.py" | grep -v "^$$$" ; }
+if busy >/dev/null; then echo "refusing to start: stale processes: $(busy | tr '\n' ' ')"; exit 1; fi
 last_shard=$(printf "shard_%04d.npz" $((games / 500 - 1)))  # gen_games --shard 500
 for k in $(seq "$first" "$last"); do
   prev=checkpoints_value/v$((k - 1)).pt
   V="vnet:$prev"
   echo "=== it$k gen: $V x2 + rab x2, $games games  $(date)"
   if [ -f "data/it$k/$last_shard" ]; then echo "  data/it$k complete, skipping generation"; else
-  uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0.5 --sib-p 0.3 --out "data/it$k" || exit 1; fi
+  if busy >/dev/null; then echo "refusing to generate: stale processes: $(busy | tr '\n' ' ')"; exit 1; fi
+  run uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0.5 --sib-p 0.3 --out "data/it$k" || exit 1; fi
   echo "=== it$k train  $(date)"
-  uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v$k.pt" --epochs 6 --rank-weight 0.5 --sib-weight 1 --self-sibs 0 || exit 1
+  run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v$k.pt" --epochs 6 --rank-weight 0.5 --sib-weight 1 --self-sibs 0 || exit 1
   echo "=== it$k proxy gate v$k vs 3x rab, 4000 games  $(date)"
-  uv run python evaluate.py --player "vnet:checkpoints_value/v$k.pt" --opponent rab --games 4000 || exit 1
+  run uv run python evaluate.py --player "vnet:checkpoints_value/v$k.pt" --opponent rab --games 4000 || exit 1
   if [ $((k % every)) -eq 0 ]; then
     echo "=== it$k gate v$k vs 3x ab, 300 games  $(date)"
-    uv run python evaluate.py --player "vnet:checkpoints_value/v$k.pt" --opponent alpha_beta --games 300 || exit 1
+    run uv run python evaluate.py --player "vnet:checkpoints_value/v$k.pt" --opponent alpha_beta --games 300 || exit 1
   fi
 done
 echo "=== done $(date)"

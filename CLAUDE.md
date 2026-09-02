@@ -27,6 +27,10 @@ uv run python -c "import torch; print(torch.xpu.is_available())"   # must print 
   heuristic, not the encoder.
 - **We are simulation-bound, not GPU-bound.** Optimize CPU-side observation encoding.
   Reaching for a bigger net or more GPU is almost always the wrong move.
+- **XPU memory is host RAM and the caching allocator hoards it.** Forwards with varying batch sizes reserved
+  4-6 GB for <0.5 GB used and OOM-killed the box. `arena.py` pads forwards to `ROW_BUCKET` rows and sets
+  `PYTORCH_ALLOC_CONF=expandable_segments:True`; keep both. Every long stage runs under `run_exit.sh`'s
+  `systemd-run` memory cap; stop the loop with `kill $(cat checkpoints_value/run_exit.pid)`, never `pkill -f`.
 - **Don't re-benchmark the baseline.** Every number is measured and recorded in
   `docs/FINDINGS.md`. Read it first.
 

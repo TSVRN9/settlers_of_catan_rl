@@ -10,6 +10,7 @@ Python: a fresh catanatron Game is built per seed and handed over once.
 """
 
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -23,10 +24,15 @@ from value_net import load_value_net
 
 COLORS = (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)
 DEVICE = os.environ.get("VNET_DEVICE", "xpu" if torch.xpu.is_available() else "cpu")
+ROW_BUCKET = 16384  # forwards are padded to a multiple of this many rows so the allocator sees a handful of sizes
+
+
+VNET = re.compile(r"^vnet(\d?):(.+)$")  # vnet:<path> (depth 2) or vnet3:<path> (depth 3)
 
 
 def supports(lineup):
-    return all(t.startswith("vnet:") or t == "rab" for t in lineup) and len({t for t in lineup if t.startswith("vnet:")}) <= 1
+    nets = {t for t in lineup if VNET.match(t)}
+    return all(VNET.match(t) or t == "rab" for t in lineup) and len(nets) <= 1
 
 
 def targets(colors, turns, winner_seat, vps, num_turns):
@@ -51,8 +57,10 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
     streams/events does not work here -- measured: waiting on an event recorded
     after forward A blocks until a later-queued oneDNN matmul B also finishes."""
     assert supports(lineup), lineup
-    net_paths = [t[len("vnet:"):] for t in lineup if t.startswith("vnet:")]
-    net = load_value_net(net_paths[0]).to(DEVICE) if net_paths else None
+    nets = [VNET.match(t) for t in lineup if VNET.match(t)]
+    net = load_value_net(nets[0].group(2)).to(DEVICE) if nets else None
+    if nets and nets[0].group(1):
+        depth = int(nets[0].group(1))
     layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in COLORS], seed=0)))
     n_arenas = 2 if net is not None else 1
     arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log) for _ in range(n_arenas)]
@@ -74,7 +82,7 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
         game = Game([RandomPlayer(c) for c in COLORS], seed=seed)
         rs, _ = rb.rust_state(game)
         colors = list(game.state.colors)
-        seats = [0 if lineup[COLORS.index(c)].startswith("vnet:") else 1 for c in colors]
+        seats = [0 if VNET.match(lineup[COLORS.index(c)]) else 1 for c in colors]
         arenas[i].add(rs, seats, seed, seed)
         games[i][seed] = (game, colors)
         return True
@@ -84,8 +92,9 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
         arena = arenas[i]
         t = time.perf_counter()
         n_rows, n_pending = arena.step(vals)
-        if n_rows > len(bufs[i]):
-            bufs[i] = new_buf(int(n_rows * 1.25) + 1024)
+        rows = -(-max(n_rows, 1) // ROW_BUCKET) * ROW_BUCKET
+        if rows > len(bufs[i]):
+            bufs[i] = new_buf(rows)
         arena.fill(bufs[i].numpy())
         prof["step"] += time.perf_counter() - t; prof["rows"] += n_rows; prof["steps"] += 1
         prof["par"] += arena.last_ms()[0]; prof["fill"] += arena.last_ms()[1]
@@ -104,11 +113,11 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
             finished.append((seed, (None if w < 0 else colors[w]), part, ((game, log, snap) if keep_log else None)))
             add(i)
         prof["drain"] += time.perf_counter() - t
-        return (pool.submit(forward, bufs[i][:n_rows]) if n_pending else None), finished
+        return (pool.submit(forward, bufs[i][:rows], n_rows) if n_pending else None), finished
 
-    def forward(x):  # helper thread
+    def forward(x, n):  # helper thread; rows beyond n are padding (stale data), dropped
         with torch.no_grad():
-            return torch.sigmoid(net(x.to(DEVICE, non_blocking=True))).squeeze(1).double().cpu().numpy()
+            return torch.sigmoid(net(x.to(DEVICE, non_blocking=True))).squeeze(1).double()[:n].cpu().numpy()
 
     def sync(fut):
         if fut is None:
@@ -133,6 +142,8 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
             outs[i], finished = run(i, sync(outs[i]))
             yield from finished
     pool.shutdown()
+    if DEVICE == "xpu":
+        torch.xpu.empty_cache()
     if os.environ.get("ARENA_PROF"):
         el = time.perf_counter() - prof["t0"]
         n = max(prof["steps"], 1)
