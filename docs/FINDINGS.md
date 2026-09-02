@@ -2206,6 +2206,11 @@ accepted. Rounds 29+ use the greedy 5-seed soup. Per-round table continues below
 | k | incumbent (fresh seeds) | challenger (greedy 5-seed soup) | decision |
 |---|---|---|---|
 | 29 | v28 46.8% | **v29 49.6%** [48.1, 51.1] (3/5 draws kept, 49.1% on selection seeds) | accepted |
+| 30 | v29 49.0% | **v30 50.7%** [49.1, 52.2] (3/5 kept, 51.5% on selection seeds) | accepted |
+
+**v30 vs 3x Python AlphaBeta, 300 games: 156/300 = 52.0% [46.4%, 57.6%]** — the first point estimate above the
+M4 gate (>50%); the interval still includes 50%, a 1,000-game run is the confirmation. Loop paused after round 30
+(user request: implement the generation speed-up first).
 
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
