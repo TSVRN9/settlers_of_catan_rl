@@ -64,9 +64,9 @@ def sibling_loss(net, sx, sv):
 F_logsigmoid = F.logsigmoid
 
 
-def loss_fn(net, x, y, aux, has, aux_weight):
+def loss_fn(net, x, y, aux, has, aux_weight, win_weight=1.0):
     out = net.heads(x)
-    loss = F.binary_cross_entropy_with_logits(out[:, 0], y)
+    loss = win_weight * F.binary_cross_entropy_with_logits(out[:, 0], y)
     if aux_weight and has.any():
         loss = loss + aux_weight * F.mse_loss(out[has, 1:], aux[has])
     return loss
@@ -88,6 +88,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--win-weight", type=float, default=1.0, help="weight of the win-probability BCE loss (0 disables)")
     parser.add_argument("--aux-weight", type=float, default=1.0, help="weight of the final-VPs / turns-left auxiliary heads (0 disables)")
     parser.add_argument("--rank-weight", type=float, default=1.0, help="weight of the AlphaBeta chosen-vs-other pair loss (0 disables)")
     parser.add_argument("--sib-weight", type=float, default=1.0, help="weight of the base_fn sibling-ordering loss (0 disables)")
@@ -184,7 +185,7 @@ def main():
         total = 0.0
         for i in range(0, n, args.batch_size):
             idx = perm[i:i + args.batch_size]
-            loss = loss_fn(net, Xd[idx].float(), yd[idx], auxd[idx], hasd[idx], args.aux_weight)
+            loss = loss_fn(net, Xd[idx].float(), yd[idx], auxd[idx], hasd[idx], args.aux_weight, args.win_weight)
             if use_rank:
                 ridx = torch.randint(0, n_rank_tr, (min(args.batch_size, n_rank_tr),), device=dev)
                 loss = loss + args.rank_weight * rank_loss(net, rcd[ridx].float(), rod[ridx].float())

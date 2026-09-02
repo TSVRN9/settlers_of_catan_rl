@@ -90,22 +90,60 @@ def encode_base_python(encoder, game, p0_color):
 N_HEADS = 6  # [win logit, final VPs of the 4 seats / 10, turns remaining / 100]
 
 
+# --- smooth stand-in for AlphaBeta's base_fn, as a fixed function of the
+# features (mirrors catan_engine's smooth_base_fn; parity-tested). Same terms
+# and priority order, weight ratios ~3-10 between levels instead of ~1e6, so
+# the value net can carry it exactly and learn only a residual on top.
+def _idx(name):
+    from catan_env import FEATURE_INDEX
+
+    return FEATURE_INDEX[name]
+
+
+def smooth_heuristic(x):
+    """x: (..., N_FEATURES) float tensor from perspective P0 -> (...,) score."""
+    eb = EXTRA_BASE
+    vp = x[..., _idx("P0_PUBLIC_VPS")]
+    prod0, prod1 = x[..., eb + 0], x[..., eb + 5]
+    reach1 = x[..., eb + 2]
+    synergy = x[..., eb + 20]
+    buildable = x[..., _idx("P0_BUILDABLE_NODES")]
+    tiles = x[..., eb + 4]
+    in_hand = x[..., _idx("P0_NUM_RESOURCES_IN_HAND")]
+    lr_len = x[..., _idx("P0_LONGEST_ROAD_LENGTH")]
+    devs = x[..., _idx("P0_NUM_DEVS_IN_HAND")]
+    knights = x[..., _idx("P0_KNIGHT_PLAYED")]
+    lr_factor = torch.where(buildable == 0, torch.ones_like(buildable), torch.full_like(buildable, 0.1))
+    return (
+        10.0 * vp + 3.0 * prod0 - 3.0 * prod1 + 1.0 * reach1 + 0.5 * synergy + 0.1 * buildable
+        + 0.02 * tiles + 0.02 * in_hand - 0.1 * (in_hand > 7).to(x.dtype)
+        + 0.1 * lr_factor * lr_len + 0.05 * devs + 0.05 * knights
+    )
+
+
 class ValueNet(nn.Module):
-    """forward() -> win logit only (what search uses); heads() -> all N_HEADS.
-    The auxiliary heads exist for training signal (gen_games.StateSampler.targets)."""
+    """forward() -> win logit = alpha * smooth_heuristic(x) + residual; the
+    residual MLP's last layer starts at zero, so a fresh net plays exactly
+    like the smooth heuristic (AlphaBeta-class) and training only learns
+    corrections from outcomes. heads() -> all N_HEADS (win logit first)."""
 
     def __init__(self, hidden=512, dropout=0.3):
         super().__init__()
         self.register_buffer("mask", torch.from_numpy(STATIC_MASK))
+        self.alpha = nn.Parameter(torch.tensor(1.0))
         self.mlp = nn.Sequential(
             nn.Linear(N_FEATURES, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, N_HEADS),
         )
+        nn.init.zeros_(self.mlp[-1].weight)
+        nn.init.zeros_(self.mlp[-1].bias)
 
     def heads(self, x):
-        return self.mlp(x * self.mask)
+        out = self.mlp(x * self.mask)
+        prior = (self.alpha * smooth_heuristic(x)).unsqueeze(-1)
+        return torch.cat([out[..., :1] + prior, out[..., 1:]], dim=-1)
 
     def forward(self, x):
         return self.heads(x)[..., :1]
@@ -285,6 +323,25 @@ class ValueNetPlayer(AlphaBetaPlayer):
         return f"ValueNetPlayer:{self.color.value}(depth={self.depth},net={self.net_path})"
 
 
+class RustSmoothPlayer(Player):
+    """Exact depth-d expectimax over the smooth base_fn stand-in, in Rust.
+    Calibration player: how much does smoothing the lexicographic heuristic
+    cost? (`--player rsab`)"""
+
+    def __init__(self, color, depth=2):
+        super().__init__(color)
+        self.depth = depth
+
+    def decide(self, game, playable_actions):
+        if len(playable_actions) == 1:
+            return playable_actions[0]
+        import rust_bridge as rb
+
+        rs, ctx = rb.rust_state(game)
+        best = rs.decide_smooth(self.depth)
+        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, list(game.state.colors))
+
+
 class RustAlphaBetaPlayer(Player):
     """AlphaBetaPlayer's heuristic (base_fn) + depth-2 expectimax, run in
     catan_engine. For data generation only: exact chance nodes, so not
@@ -311,6 +368,8 @@ def make_player(spec, color):
         return AlphaBetaPlayer(color)
     if spec.startswith("ab") and spec[2:].isdigit():  # ab3 = AlphaBetaPlayer(depth=3)
         return AlphaBetaPlayer(color, depth=int(spec[2:]))
+    if spec == "rsab":
+        return RustSmoothPlayer(color)
     if spec == "rab":
         return RustAlphaBetaPlayer(color)
     if spec.startswith("rab") and spec[3:].isdigit():

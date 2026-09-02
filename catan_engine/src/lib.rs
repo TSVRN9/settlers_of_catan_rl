@@ -415,6 +415,15 @@ impl PyState {
         self.inner.decide_heuristic(depth).map(to_canon)
     }
 
+    fn smooth_base_fn(&self, p0: usize) -> f64 {
+        self.inner.smooth_base_fn(p0)
+    }
+
+    /// Same search over the smooth stand-in evaluator (value_net.smooth_heuristic).
+    fn decide_smooth(&self, depth: u32) -> Option<Canon> {
+        self.inner.decide_smooth(depth).map(to_canon)
+    }
+
     fn leaf_count(&self) -> usize {
         self.search.as_ref().map(|s| s.n_leaves).unwrap_or(0)
     }

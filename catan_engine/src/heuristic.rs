@@ -177,3 +177,55 @@ impl State {
         (2.0 - d_city - d_settle) / 2.0
     }
 }
+
+impl State {
+    /// A smooth stand-in for base_fn: same terms, same priority order, weight
+    /// ratios of ~3-10 between levels instead of ~1e6, so a bounded network
+    /// can represent it (value_net.smooth_heuristic mirrors this in torch).
+    pub fn smooth_base_fn(&self, p0: usize) -> f64 {
+        let pl = &self.players[p0];
+        let p1 = (p0 + 1) % self.n;
+        let reach = self.reachable_production(p0);
+        let num_in_hand: i32 = pl.hand.iter().sum();
+        let num_buildable = self.buildable_node_ids(p0, false).len() as f64;
+        let lr_factor = if num_buildable == 0.0 { 1.0 } else { 0.1 };
+        let num_devs: i32 = pl.devs.iter().sum();
+        10.0 * pl.vp as f64
+            + 3.0 * self.production_score(p0)
+            - 3.0 * self.production_score(p1)
+            + 1.0 * reach[1]
+            + 0.5 * self.hand_synergy(p0)
+            + 0.1 * num_buildable
+            + 0.02 * self.num_tiles(p0)
+            + 0.02 * num_in_hand as f64
+            - (if num_in_hand > 7 { 0.1 } else { 0.0 })
+            + 0.1 * lr_factor * pl.longest_road_length as f64
+            + 0.05 * num_devs as f64
+            + 0.05 * pl.played[KNIGHT] as f64
+    }
+
+    fn expectimax_smooth(&self, depth: u32, p0: usize) -> (Option<Action>, f64) {
+        if depth == 0 || self.winner() >= 0 {
+            return (None, self.smooth_base_fn(p0));
+        }
+        let maximizing = self.current_player == p0;
+        let mut best: Option<Action> = None;
+        let mut best_v = if maximizing { f64::NEG_INFINITY } else { f64::INFINITY };
+        for a in self.playable_actions() {
+            let ev: f64 = self.outcomes(a).iter().map(|(s, p)| p * s.expectimax_smooth(depth - 1, p0).1).sum();
+            if (maximizing && ev > best_v) || (!maximizing && ev < best_v) {
+                best = Some(a);
+                best_v = ev;
+            }
+        }
+        (best, best_v)
+    }
+
+    pub fn decide_smooth(&self, depth: u32) -> Option<Action> {
+        let actions = self.playable_actions();
+        if actions.len() == 1 {
+            return Some(actions[0]);
+        }
+        self.expectimax_smooth(depth, self.current_player).0
+    }
+}

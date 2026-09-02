@@ -1727,6 +1727,63 @@ from the checkpoint). Per-decision XPU is not a win at this batch size;
 it becomes one only with cross-game batching from a Rust-driven game loop
 (batch ≥2048: 1.6M samples/s), which is the next speed step if needed.
 
+## 2026-09-01 (late) — what the value net was missing, and the residual design
+
+**Sibling-ranking pairs alone did not help.** `v1_interim` (iteration-0
+outcomes + 76k AlphaBeta chosen-vs-other pairs; held-out pair accuracy
+0.79) scored **3.8%** [1.5%, 9.4%] vs 3x AB — no better than v0.
+
+**Diagnostic that explained it** (190 BLUE decisions in AB games; all
+deterministic children of each decision scored by the net and by AB's own
+`base_fn`):
+
+| Net | top-1 agreement with `base_fn` | all-pairs ordering agreement |
+|---|---|---|
+| v0 (outcomes only) | 22% | 61% |
+| v1_interim (+ pairs) | 35% | 71% |
+
+By `base_fn`'s chosen type: BUILD_ROAD 5/48 and 9/48, MARITIME_TRADE 0/15
+and 4/15, DISCARD 11/63 and 23/63. Road placement was the tell: with the
+raw tile features masked (the memorization fix), the net **cannot see
+where a road leads** — `base_fn` uses reachable production at 0/1/2 roads
+for exactly that.
+
+**Fix 1 — heuristic-summary features.** `catan_engine` now appends
+`base_fn`'s own terms to the encoding (per relative player: production
+score, reachable production at 0/1/2 roads, tiles touched; plus p0's hand
+synergy; 21 features, N_FEATURES 1051), each parity-tested against
+catanatron's `value_production` / `reachability_features`. Old 1030-wide
+datasets and checkpoints are obsolete; regenerating is now cheap.
+
+**Speed after the Rust AlphaBeta seat:** `gen_games.py --lineup
+rab,rab,rab,rab` runs at **34.6 games/s** on 7 workers — 4,000 games in
+116 s, vs. 4 h 0 m for iteration 0's 5,000 (≈100x). It records 153
+outcome samples, 71 AB chosen-vs-other pairs and 46 sibling sets per game.
+
+**Fix 2 attempted — sibling-ordering distillation.** Sibling sets (up to 6
+deterministic children, `base_fn` value of each from a random
+perspective) with an all-pairs logistic ordering loss. Held-out top-1
+agreement stalls at **0.44** (v2, combined losses) and **0.48** trained
+on that loss alone. Cause: `base_fn` is lexicographic (weights 3e14, 1e8,
+1e4, 1e3, ...). A bounded logit trained with a logistic pair loss cannot
+express million-to-one priority ratios, so it can't reproduce the
+ordering even though every term is now an input feature.
+
+**Exact depth-3 over `base_fn` (`--player rab3`)**: 30/105 = **28.6%**
+[20.8%, 37.8%] vs 3x AB (depth-2 `rab`: 21.0%). Depth helps a little
+with exact chance nodes, nowhere near 50%. Confirms the evaluator is the
+lever.
+
+**Design that follows (v3): a smooth stand-in for `base_fn` as the net's
+prior, residual learned from outcomes.** `smooth_base_fn` (Rust) /
+`value_net.smooth_heuristic` (torch, parity 2e-5 on 676 pairs): the same
+terms in the same priority order with weight ratios of ~3-10 instead of
+~1e6 — `10·VP + 3·(prod − enemy prod) + 1·reach1 + 0.5·synergy +
+0.1·buildable + ...`. `ValueNet.forward = alpha · smooth_heuristic(x) +
+mlp(x)` with the MLP's last layer zero-initialized, so a fresh net plays
+exactly like the smooth heuristic and training only learns corrections.
+Calibration of the prior itself: `--player rsab` vs 3x AB, below.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
