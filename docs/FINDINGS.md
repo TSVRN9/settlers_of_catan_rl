@@ -2217,6 +2217,41 @@ ends capped by enemy settlements) is present in both engines and undercounts by 
 #350 are fixed in the pinned commit; the bank-shortage rule deviates. Nothing changed yet — the fix touches catanatron
 itself (fork) to keep the replay oracle.
 
+**v30 vs 3x Python AlphaBeta, 1,000 games (seeds 0-999): 491/1000 = 49.1% [46.0%, 52.2%]** — at the gate, not
+above it (the 300-game 52.0% was the top of its interval). Measured under catanatron `d3f4ad0` rules (before the
+#378 fix below).
+
+## 2026-09-02 (night) — generation 4.8x faster; catanatron #378 fixed in both engines
+
+Plan and measurements in `docs/PLAN-gen-speed.md`; rules audit in `docs/AUDIT-rules.md`. Quiet machine, v30 x2 +
+rab x2, 256 games (`ARENA_PROF=1`):
+
+| | before | after |
+|---|---|---|
+| generation with rollouts (`--roll-p 0.1 --roll-m 1`) | 1.31 games/s (rust 299 ms/step) | **6.29 games/s** (63 ms/step) |
+| generation without rollouts | 10.0 | 11.3 |
+| `rab x4` | 94.6 | 132 |
+| rab decision, exact depth 2 / rollout policy | 320 µs / 320 µs | 202 µs / **32 µs** |
+| `base_fn` / `encode` | 0.30 / 1.4 µs | 0.17 / 0.67 µs |
+| value-net `expand(2)` per leaf (Rust timers, `catan_engine.prof()`) | 4.95 µs | 2.53 µs (encode 2.0, children 0.2) |
+
+What did it: (1) **the rollout policy searches depth 1 on robber prompts** (depth 2 elsewhere, no trades at the
+second ply) — half of all rollout leaves were 7-roll states (~30 robber moves x 5 steal outcomes x the whole
+post-roll action list); 97.7% agreement with the exact depth-2 choice on 300 decisions (robber 21/24, roads 45/48,
+all else identical), 5.9x per decision. The `rab` opponent seats and every gate still use the exact search.
+(2) Per-node production precomputed per map (`Map.node_prod`), `count_production` / `reachable_production` over
+set bits, `buildable_node_ids(..).len()` → `count_ones()` — this is the `base_fn` / `encode` / `rab` speed-up.
+A first pruning attempt (robber only onto enemy-adjacent tiles) was worth 1.03x: nearly every tile touches an
+enemy building. A round is now ~gen 11 min + 5 trainings 8 min + greedy soup ~4 min + gates ~4 min ≈ **27 min**
+(was ~60).
+
+**catanatron #378** (a road capped by enemy settlements at both ends lost an edge at each end: 7 for a 9-edge
+road in the common ordering) is fixed in a fork pinned in `pyproject.toml`
+(`TSVRN9/catanatron@c61d218`, branch `fix-longest-road-capped-ends`: the trail may start and end at an enemy node,
+never pass through one) and identically in `catan_engine/src/board.rs`; `test_env.py` has the scenario for both
+engines and the replay oracles still hold. **Every number above this line was measured under the old rule**;
+the incumbent is re-scored on fresh seeds by the loop, so the next rounds' incumbent numbers are the new baseline.
+
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
 (`run_exit.sh 28 40`: rollout labels, no `base_fn` losses, 3-seed soups, incumbent v27d_soup) is running.

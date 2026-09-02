@@ -75,3 +75,9 @@ rollouts to a separate pool (imbalance loss measured ≤30%), GPU anything (forw
   prompts too was 8.8x but only 93% agreement (discards 95/108) — not taken.
 - Expansion timers (`catan_engine.prof()`): per leaf ~76% is the leaf encode (incl. the template copy), ~10%
   child generation, ~14% tree bookkeeping. So step 2's ceiling without incremental encoding is ~1.3x, not 2x.
+- **Quiet-machine result:** generation with rollouts 1.31 → **6.29 games/s (4.8x)**; without rollouts 10.0 → 11.3;
+  `rab x4` 94.6 → 132; expand 4.95 → 2.53 µs/leaf; encode 1.4 → 0.67 µs. Step 2's remaining items (template copy,
+  tree arena) are not worth it: encode is now 2.0 of the 2.5 µs and the arena step is bounded by P/E-core
+  imbalance, not by expand.
+- Next: the approved depth-1 rollout experiment and the denser-labels (`ROLL_P` 0.3) variant, each one gated round
+  vs v30 on the same fresh seeds, then restart the loop with the winner.
