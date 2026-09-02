@@ -237,6 +237,8 @@ def make_player(spec, color):
     """Lineup/--player token -> catanatron Player. Shared by gen_games.py and evaluate.py."""
     if spec == "ab":
         return AlphaBetaPlayer(color)
+    if spec.startswith("ab") and spec[2:].isdigit():  # ab3 = AlphaBetaPlayer(depth=3)
+        return AlphaBetaPlayer(color, depth=int(spec[2:]))
     if spec == "vf":
         return ValueFunctionPlayer(color)
     if spec == "wr":
