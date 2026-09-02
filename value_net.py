@@ -62,7 +62,13 @@ def encode_for_value(encoder, game, p0_color):
     return out
 
 
+N_HEADS = 6  # [win logit, final VPs of the 4 seats / 10, turns remaining / 100]
+
+
 class ValueNet(nn.Module):
+    """forward() -> win logit only (what search uses); heads() -> all N_HEADS.
+    The auxiliary heads exist for training signal (gen_games.StateSampler.targets)."""
+
     def __init__(self, hidden=512, dropout=0.3):
         super().__init__()
         self.register_buffer("mask", torch.from_numpy(STATIC_MASK))
@@ -70,11 +76,14 @@ class ValueNet(nn.Module):
             nn.Linear(N_FEATURES, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),
             nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),
-            nn.Linear(hidden, 1),
+            nn.Linear(hidden, N_HEADS),
         )
 
-    def forward(self, x):
+    def heads(self, x):
         return self.mlp(x * self.mask)
+
+    def forward(self, x):
+        return self.heads(x)[..., :1]
 
 
 def load_value_net(path):
@@ -87,7 +96,13 @@ def load_value_net(path):
         _threads_capped = True
     if path not in _NET_CACHE:
         net = ValueNet()
-        net.load_state_dict(torch.load(path, map_location="cpu"))
+        sd = torch.load(path, map_location="cpu")
+        last = [k for k in sd if k.endswith(".weight")][-1]
+        if sd[last].shape[0] == 1:  # single-head checkpoint (v0.pt as evaluated), before the auxiliary heads
+            w, b = torch.zeros(N_HEADS, sd[last].shape[1]), torch.zeros(N_HEADS)
+            w[0], b[0] = sd[last][0], sd[last[:-6] + "bias"][0]
+            sd[last], sd[last[:-6] + "bias"] = w, b
+        net.load_state_dict(sd)
         net.eval()
         _NET_CACHE[path] = net
     return _NET_CACHE[path]

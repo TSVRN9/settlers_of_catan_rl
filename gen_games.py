@@ -9,7 +9,8 @@ labeled 1.0 iff that color won. Games with no winner (TURNS_LIMIT) are dropped.
 Lineup tokens: ab (AlphaBetaPlayer), vf (ValueFunctionPlayer),
 wr (WeightedRandomPlayer), vnet:<path> (ValueNetPlayer). Seating is shuffled
 by the engine. Output: data/<name>/shard_NNNN.npz with X float16 (n, 1030),
-y uint8, game int32 (the seed; train_value.py splits held-out by game).
+y uint8 (perspective won), vp float16 (n, 4: final VPs, perspective order),
+turns_left float16, game int32 (the seed; train_value.py splits held-out by game).
 """
 
 import os
@@ -28,6 +29,8 @@ import time
 import numpy as np
 from catanatron import Color, Game
 from catanatron.game import GameAccumulator
+from catanatron.features import iter_players
+from catanatron.state_functions import get_actual_victory_points
 
 from catan_env import Encoder
 from value_net import encode_for_value, make_player
@@ -43,13 +46,26 @@ class StateSampler(GameAccumulator):
         self.sample_p = sample_p
         self.rng = random.Random(seed)
         self.encoder = Encoder()
-        self.xs, self.colors = [], []
+        self.xs, self.colors, self.turns = [], [], []
 
     def step(self, game, action):
         if self.rng.random() < self.sample_p:
             color = self.rng.choice(COLORS)
             self.xs.append(encode_for_value(self.encoder, game, color))
             self.colors.append(color)
+            self.turns.append(game.state.num_turns)
+
+    def targets(self, game):
+        """Per sample: won (uint8), final VPs of the 4 seats in perspective
+        order (float16, 4), turns remaining (float16). The outcome alone is one
+        bit per game shared by every sample; the final scoreboard and the
+        clock add signal per game at zero generation cost."""
+        winner = game.winning_color()
+        final_vps = {c: get_actual_victory_points(game.state, c) for c in game.state.colors}
+        y = np.array([c == winner for c in self.colors], dtype=np.uint8)
+        vp = np.array([[final_vps[c] for _, c in iter_players(game.state.colors, p0)] for p0 in self.colors], dtype=np.float16)
+        turns_left = np.array([game.state.num_turns - t for t in self.turns], dtype=np.float16)
+        return y, vp, turns_left
 
 
 _W = {}
@@ -62,17 +78,17 @@ def _init_worker(lineup, sample_p):
 def play_one(seed):
     players = [make_player(spec, c) for spec, c in zip(_W["lineup"], COLORS)]
     acc = StateSampler(_W["sample_p"], seed)
-    winner = Game(players, seed=seed).play(accumulators=[acc])
+    game = Game(players, seed=seed)
+    winner = game.play(accumulators=[acc])
     if winner is None or not acc.xs:
-        return seed, None, None
-    X = np.array(acc.xs, dtype=np.float16)
-    y = np.array([c == winner for c in acc.colors], dtype=np.uint8)
-    return seed, X, y
+        return seed, None
+    y, vp, turns_left = acc.targets(game)
+    return seed, dict(X=np.array(acc.xs, dtype=np.float16), y=y, vp=vp, turns_left=turns_left)
 
 
-def _flush(out, shard, xs, ys, gs):
+def _flush(out, shard, parts, gs):
     path = os.path.join(out, f"shard_{shard:04d}.npz")
-    np.savez(path, X=np.concatenate(xs), y=np.concatenate(ys), game=np.array(gs, dtype=np.int32))
+    np.savez(path, game=np.array(gs, dtype=np.int32), **{k: np.concatenate([p[k] for p in parts]) for k in parts[0]})
     return path
 
 
@@ -92,20 +108,20 @@ def main():
 
     seeds = range(args.seed, args.seed + args.games)
     t0 = time.time()
-    xs, ys, gs, shard, done, dropped, n_samples = [], [], [], 0, 0, 0, 0
+    parts, gs, shard, done, dropped, n_samples = [], [], 0, 0, 0, 0
     ctx = mp.get_context("spawn")
     with ctx.Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p)) as pool:
-        for seed, X, y in pool.imap_unordered(play_one, seeds, chunksize=1):
+        for seed, part in pool.imap_unordered(play_one, seeds, chunksize=1):
             done += 1
-            if X is None:
+            if part is None:
                 dropped += 1
             else:
-                xs.append(X); ys.append(y); gs.extend([seed] * len(y)); n_samples += len(y)
-            if len(xs) and (len(gs) and done % args.shard == 0):
-                print(f"  {done}/{args.games} games, {n_samples} samples, {done / (time.time() - t0):.2f} games/s -> {_flush(args.out, shard, xs, ys, gs)}", flush=True)
-                xs, ys, gs, shard = [], [], [], shard + 1
-    if xs:
-        print(f"  final -> {_flush(args.out, shard, xs, ys, gs)}", flush=True)
+                parts.append(part); gs.extend([seed] * len(part["y"])); n_samples += len(part["y"])
+            if parts and done % args.shard == 0:
+                print(f"  {done}/{args.games} games, {n_samples} samples, {done / (time.time() - t0):.2f} games/s -> {_flush(args.out, shard, parts, gs)}", flush=True)
+                parts, gs, shard = [], [], shard + 1
+    if parts:
+        print(f"  final -> {_flush(args.out, shard, parts, gs)}", flush=True)
     el = time.time() - t0
     print(f"{args.games} games in {el:.0f}s ({args.games / el:.2f} games/s), {dropped} dropped (no winner), "
           f"{n_samples} samples ({n_samples / max(args.games - dropped, 1):.0f}/game) -> {args.out}", flush=True)

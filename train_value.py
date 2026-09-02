@@ -21,13 +21,30 @@ from value_net import ValueNet
 
 
 def load(dirs):
-    X, y, g = [], [], []
+    """Returns X, y, game, aux (n, 5) = [vp0..vp3 / 10, turns_left / 100] and
+    has_aux (n,) -- shards written before the auxiliary targets existed load
+    with has_aux False and contribute only to the win-probability loss."""
+    X, y, g, aux, has = [], [], [], [], []
     for d in dirs:
         for path in sorted(glob.glob(os.path.join(d, "shard_*.npz"))):
             z = np.load(path)
+            n = len(z["y"])
             X.append(z["X"]); y.append(z["y"]); g.append(z["game"])
+            if "vp" in z:
+                aux.append(np.concatenate([z["vp"].astype(np.float32) / 10.0, z["turns_left"].astype(np.float32)[:, None] / 100.0], axis=1))
+                has.append(np.ones(n, dtype=bool))
+            else:
+                aux.append(np.zeros((n, 5), dtype=np.float32)); has.append(np.zeros(n, dtype=bool))
     assert X, f"no shard_*.npz under {dirs}"
-    return np.concatenate(X), np.concatenate(y), np.concatenate(g)
+    return np.concatenate(X), np.concatenate(y), np.concatenate(g), np.concatenate(aux), np.concatenate(has)
+
+
+def loss_fn(net, x, y, aux, has, aux_weight):
+    out = net.heads(x)
+    loss = F.binary_cross_entropy_with_logits(out[:, 0], y)
+    if aux_weight and has.any():
+        loss = loss + aux_weight * F.mse_loss(out[has, 1:], aux[has])
+    return loss
 
 
 def main():
@@ -39,22 +56,25 @@ def main():
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--aux-weight", type=float, default=1.0, help="weight of the final-VPs / turns-left auxiliary heads (0 disables)")
     parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     torch.manual_seed(args.seed)
 
-    X, y, g = load(args.data)
+    X, y, g, aux, has = load(args.data)
     games = np.unique(g)
     rng = np.random.default_rng(args.seed)
     held = set(rng.choice(games, size=max(1, len(games) // 10), replace=False).tolist())
     is_held = np.isin(g, list(held))
-    print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games")
+    print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games, aux targets on {has.mean():.0%}")
 
     dev = torch.device(args.device)
     Xd = torch.from_numpy(X).to(dev)  # float16 on device; cast per batch
     yd = torch.from_numpy(y.astype(np.float32)).to(dev)
+    auxd = torch.from_numpy(aux).to(dev)
+    hasd = torch.from_numpy(has).to(dev)
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held)).to(dev)
     ho_idx = torch.from_numpy(np.flatnonzero(is_held)).to(dev)
 
@@ -89,7 +109,7 @@ def main():
         total = 0.0
         for i in range(0, n, args.batch_size):
             idx = perm[i:i + args.batch_size]
-            loss = F.binary_cross_entropy_with_logits(net(Xd[idx].float()).squeeze(1), yd[idx])
+            loss = loss_fn(net, Xd[idx].float(), yd[idx], auxd[idx], hasd[idx], args.aux_weight)
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
             step += 1

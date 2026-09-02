@@ -540,7 +540,8 @@ def test_gen_labels():
     import gen_games
 
     gen_games._init_worker(["wr", "wr", "wr", "wr"], 1.0)
-    seed, X, y = gen_games.play_one(7)
+    seed, part = gen_games.play_one(7)
+    X, y, vp, turns_left = part["X"], part["y"], part["vp"], part["turns_left"]
     game = Game([WeightedRandomPlayer(c) for c in gen_games.COLORS], seed=7)
     acc = gen_games.StateSampler(1.0, 7)
     winner = game.play(accumulators=[acc])
@@ -550,7 +551,10 @@ def test_gen_labels():
     assert len(y) == len(acc.colors) > 100
     assert np.array_equal(y, np.array([c == winner for c in acc.colors], dtype=np.uint8))
     assert 0 < y.mean() < 1, "both classes present"
-    print(f"  gen_games labels match (winner={winner.value}, {len(y)} samples, base rate {y.mean():.2f}): ok")
+    assert vp.shape == (len(y), 4) and (vp[y == 1, 0] >= 10).all(), "winner's perspective must show >= 10 final VPs in slot 0"
+    assert (vp[y == 0, 0] < 10).all() and (vp.max(axis=1) >= 10).all(), "exactly the winner reaches 10"
+    assert turns_left.min() == 0 and np.all(np.diff(turns_left.astype(np.int32)) <= 0), "turns_left counts down to 0"
+    print(f"  gen_games labels + aux targets match (winner={winner.value}, {len(y)} samples, base rate {y.mean():.2f}): ok")
 
 
 def test_value_net_player_plays_legal_game():
