@@ -2212,6 +2212,11 @@ accepted. Rounds 29+ use the greedy 5-seed soup. Per-round table continues below
 M4 gate (>50%); the interval still includes 50%, a 1,000-game run is the confirmation. Loop paused after round 30
 (user request: implement the generation speed-up first).
 
+**Rules audit (user request, same evening):** see `docs/AUDIT-rules.md`. Headline: catanatron #378 (longest road with both
+ends capped by enemy settlements) is present in both engines and undercounts by 2 in the common ordering; #376 and
+#350 are fixed in the pinned commit; the bank-shortage rule deviates. Nothing changed yet — the fix touches catanatron
+itself (fork) to keep the replay oracle.
+
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
 (`run_exit.sh 28 40`: rollout labels, no `base_fn` losses, 3-seed soups, incumbent v27d_soup) is running.
