@@ -39,7 +39,7 @@ from catanatron.players.minimax import AlphaBetaPlayer
 
 import rust_bridge as rb
 from catan_env import Encoder
-from value_net import encode_for_value, make_player
+from value_net import N_FEATURES, encode_for_value, make_player
 
 COLORS = (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)
 # Actions whose child state is fully determined (no dice / draw / steal), so a
@@ -128,8 +128,8 @@ def play_one(seed):
     n_rank = len(acc.rank_c)
     return seed, dict(
         X=np.array(acc.xs, dtype=np.float16), y=y, vp=vp, turns_left=turns_left,
-        rank_c=np.array(acc.rank_c, dtype=np.float16).reshape(n_rank, -1),
-        rank_o=np.array(acc.rank_o, dtype=np.float16).reshape(n_rank, -1),
+        rank_c=np.array(acc.rank_c, dtype=np.float16).reshape(n_rank, N_FEATURES),
+        rank_o=np.array(acc.rank_o, dtype=np.float16).reshape(n_rank, N_FEATURES),
     )
 
 
