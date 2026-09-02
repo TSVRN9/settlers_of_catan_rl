@@ -62,10 +62,12 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
             k = pick(len(yy), fs)
             n = len(yy[k])
             X.append(z["X"][k]); y.append(yy[k]); g.append(z["game"][k])
-            if "rank_c" in z and len(z["rank_c"]):
-                rc.append(z["rank_c"]); ro.append(z["rank_o"])
-            if "sib_isp0" in z and len(z["sib_n"]):
-                sx.append(z["sib_x"]); sv.append(z["sib_v"]); sn.append(z["sib_n"]); sp.append(z["sib_isp0"])
+            if "rank_c" in z and _count(z, "rank_c", F2):
+                kp = pick(_count(z, "rank_c", F2), fp)
+                rc.append(z["rank_c"][kp]); ro.append(z["rank_o"][kp])
+            if "sib_isp0" in z and _count(z, "sib_n", 1):
+                kb = pick(_count(z, "sib_n", 1), fb)
+                sx.append(z["sib_x"][kb]); sv.append(z["sib_v"][kb]); sn.append(z["sib_n"][kb]); sp.append(z["sib_isp0"][kb])
             if "vp" in z:
                 aux.append(np.concatenate([z["vp"].astype(np.float32) / 10.0, z["turns_left"].astype(np.float32)[:, None] / 100.0], axis=1))
                 has.append(np.ones(n, dtype=bool))
