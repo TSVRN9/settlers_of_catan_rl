@@ -2160,6 +2160,23 @@ weight next to the imitation losses, the more the two fight (0.5 → 34.8%, 10 �
 `run_exit.sh` now generates with `--roll-p 0.1 --roll-m 1` and trains with `--rank-weight 0 --sib-weight 0
 --ts-key ro --ts-weight $TS_WEIGHT` (default 3). Incumbent: `v27d`. Python-AB gate and the next rounds below.
 
+**Second sweep, base_fn losses off, same data and seeds:**
+
+| Net | losses | held-out BCE / rollout BCE | vs 3x `rab` |
+|---|---|---|---|
+| v27e | outcome + aux + rollout **1** | 0.410 / 0.417 | 1145/4000 = 28.6% [27.2, 30.0] |
+| **v27d** | outcome + aux + rollout **3** | 0.417 / 0.416 | **38.2%** |
+| v27f | outcome + aux + rollout **10** | 0.424 / — | 1345/4000 = 33.6% [32.2, 35.1] |
+| v27g | outcome + rollout 3, **no aux heads** | 0.419 / — | 1162/4000 = 29.0% [27.7, 30.5] |
+
+v27d and v27e are indistinguishable on every held-out number and 10 points apart in play; the weight curve
+(1 → 28.6, 3 → 38.2, 10 → 33.6) is not monotone. Either the weight matters a lot in a way no held-out metric
+sees, or a single training draw of this configuration has a ~±5-point spread — the loop already saw 3-5 point
+swings between successive checkpoints. Seed replicates of v27d's exact configuration (below) settle which.
+
+**v27d vs 3x Python AlphaBeta, 300 games: 112/300 = 37.3% [32.1%, 42.9%]** (v25: 30.9% at 1,000 games; AB
+itself 26.3%). The proxy and the headline gate agree.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
