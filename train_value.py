@@ -20,12 +20,14 @@ import torch.nn.functional as F
 from value_net import N_FEATURES, ValueNet
 
 
-def _count(z, name, row_bytes):
-    """Rows of an npz member from the zip header, without loading it."""
-    try:
-        return z.zip.getinfo(name + ".npy").file_size // row_bytes
-    except KeyError:
+def _count(z, name, _row_bytes=None):
+    """Rows of an npz member from its .npy header, without loading the data."""
+    if name not in z.files:
         return 0
+    with z.zip.open(name + ".npy") as f:
+        version = np.lib.format.read_magic(f)
+        shape, _, _ = getattr(np.lib.format, f"read_array_header_{version[0]}_{version[1]}")(f)
+    return shape[0]
 
 
 def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
