@@ -1707,8 +1707,10 @@ exact depth-2 expectimax over it. Parity: **0.0 relative error on 676
 s/game vs 3.06** for the Python AB seat against 3x WR (100x). It is a
 generation-only opponent — exact chance nodes make it a slightly different
 (and, if anything, stronger) player than the shipped one, so the gate
-keeps the Python `AlphaBetaPlayer`. Strength check vs 3x Python AB:
-see below.
+keeps the Python `AlphaBetaPlayer`. Strength check, `--player rab` vs 3x
+Python AB, 105 games: **21.0%** [14.3%, 29.7%] — parity within the
+interval (symmetry is 25%); exact chance nodes did not make it measurably
+stronger. Fine as a generation opponent of AB's class.
 
 **Lever B — the forward pass.** Batch 230 (one decision's leaves), measured
 while a 7-worker generation run was contending:
