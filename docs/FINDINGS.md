@@ -2000,6 +2000,43 @@ its pid is in `checkpoints_value/run_exit.pid` — stop it with `kill $(cat ...)
 with `base_fn` sibling labels are flat at the noise floor, and the self-labeled v9 (20.7% on 1,000) remains the
 one clear regression.
 
+## 2026-09-02 (afternoon) — iterations 11-25 under the caps: expert iteration climbs ~4 points, then saturates near 31% vs `rab`
+
+Cycle under the new guards: gen 4,000 games in ~285 s (14 games/s with the padded forwards), train ~80 s, proxy
+gate(s) ~2.5 min each, Python-AB gate 10 min every third round. No OOM, no stall, every stage inside its cgroup.
+
+**Rounds 11-15, sequential warm start from v(k-1), 4,000-game proxy on seeds 0-3999 (v8 27.0%, v9 27.2%, v10
+27.4% on the same seeds):** v11 27.9%, v12 25.7%, **v13 30.5%**, **v14 31.8%**, v15 27.1%. Python-AB gate: v12
+28.3% [23.5, 33.7], v15 27.3% [22.6, 32.6]. Successive checkpoints swing 3-5 points on the proxy while early
+stopping (composite of held-out BCE, pair accuracy, sibling top-1) keeps picking the step-90 checkpoint — the
+selection signal does not track play. So an acceptance gate was added: the best-by-proxy checkpoint is the
+incumbent generator and warm start; a challenger replaces it only if it wins more proxy games.
+
+**Rounds 16-18, incumbent v14 scored once on the fixed seeds (1,271):** challengers 1,127 / 1,248 / 1,107 — all
+rejected, all below. That is the winner's curse: the incumbent's number is the max of noisy draws. Fixed by
+**head-to-head on fresh seeds each round** (both incumbent and challenger play 4,000 games on seed
+k·10⁶ + 7; the incumbent's fresh scores were 30.4-32.1%, i.e. ~1 point below its selected 31.8).
+
+**Rounds 19-25, fresh-seed head-to-head (incumbent vs challenger, same seeds):**
+
+| k | incumbent | challenger | decision |
+|---|---|---|---|
+| 19 | v14 30.4% | v19 30.8% | accepted (coin-flip margin) |
+| 20 | v19 32.1% | v20 30.2% | rejected |
+| 21 | v19 31.5% | v21 31.2% | rejected; v21 vs Python AB 29.7% [24.8, 35.1] |
+| 22 | v19 31.6% | v22 25.2% | rejected (a bad training draw) |
+| 23 | v19 31.8% | v23 30.2% | rejected |
+| 24 | v19 31.2% | v24 30.5% | rejected; v24 vs Python AB 30.3% [25.4, 35.8] |
+| 25 | v19 30.4% | **v25 32.4%** | accepted — final incumbent |
+
+**Reading.** Against 3x `rab` the line went from ~27% (v8-v11) to ~31-32% (v14 onward) and then flat: seven
+challengers trained from a ~31% incumbent on fresh on-policy data scored 25-32%, with one accepted at a
+2-point margin. Expert iteration with `base_fn` sibling labels and outcome/pair losses is worth ~4-5 points over
+AlphaBeta-parity and no more at this data volume and net. The M4 gate is >50%; more rounds of this loop will
+not get there. Candidates, in FINDINGS' earlier order: a richer per-game signal (final VPs are in; AB search
+values as distillation targets are not), and revisiting the evaluator design (the net still cannot see what
+depth-2 sees). The pipeline is now cheap enough (6-8 min/round, safe) that these are afternoon experiments.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
