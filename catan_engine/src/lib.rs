@@ -366,6 +366,19 @@ impl PyState {
         Ok((a.map(to_canon), val))
     }
 
+    /// Encoding (perspective p0) of the state after `action`, or None if the
+    /// action can't be applied. Stochastic actions draw from the state's RNG.
+    fn child_encoding<'py>(&self, py: Python<'py>, layout: &PyLayout, action: Canon, p0: usize) -> PyResult<Option<Bound<'py, PyArray1<f32>>>> {
+        let a = from_canon(&action)?;
+        let mut s = self.inner.clone();
+        if s.apply(a, None).is_err() {
+            return Ok(None);
+        }
+        let mut out = s.map.static_template.clone();
+        s.encode_into(p0, &layout.inner, &mut out);
+        Ok(Some(out.into_pyarray(py)))
+    }
+
     fn leaf_count(&self) -> usize {
         self.search.as_ref().map(|s| s.n_leaves).unwrap_or(0)
     }

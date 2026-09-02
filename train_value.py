@@ -25,18 +25,22 @@ def load(dirs):
     has_aux (n,) -- shards written before the auxiliary targets existed load
     with has_aux False and contribute only to the win-probability loss."""
     X, y, g, aux, has = [], [], [], [], []
+    rc, ro = [], []
     for d in dirs:
         for path in sorted(glob.glob(os.path.join(d, "shard_*.npz"))):
             z = np.load(path)
             n = len(z["y"])
             X.append(z["X"]); y.append(z["y"]); g.append(z["game"])
+            if "rank_c" in z and len(z["rank_c"]):
+                rc.append(z["rank_c"]); ro.append(z["rank_o"])
             if "vp" in z:
                 aux.append(np.concatenate([z["vp"].astype(np.float32) / 10.0, z["turns_left"].astype(np.float32)[:, None] / 100.0], axis=1))
                 has.append(np.ones(n, dtype=bool))
             else:
                 aux.append(np.zeros((n, 5), dtype=np.float32)); has.append(np.zeros(n, dtype=bool))
     assert X, f"no shard_*.npz under {dirs}"
-    return np.concatenate(X), np.concatenate(y), np.concatenate(g), np.concatenate(aux), np.concatenate(has)
+    pairs = (np.concatenate(rc), np.concatenate(ro)) if rc else (np.zeros((0, X[0].shape[1]), np.float16),) * 2
+    return np.concatenate(X), np.concatenate(y), np.concatenate(g), np.concatenate(aux), np.concatenate(has), pairs
 
 
 def loss_fn(net, x, y, aux, has, aux_weight):
@@ -45,6 +49,12 @@ def loss_fn(net, x, y, aux, has, aux_weight):
     if aux_weight and has.any():
         loss = loss + aux_weight * F.mse_loss(out[has, 1:], aux[has])
     return loss
+
+
+def rank_loss(net, xc, xo):
+    """Pairwise: the child AlphaBeta chose must score above the other child.
+    -log sigmoid(V(chosen) - V(other)) on the win logits."""
+    return -F.logsigmoid(net(xc)[:, 0] - net(xo)[:, 0]).mean()
 
 
 def main():
@@ -57,24 +67,31 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--aux-weight", type=float, default=1.0, help="weight of the final-VPs / turns-left auxiliary heads (0 disables)")
+    parser.add_argument("--rank-weight", type=float, default=1.0, help="weight of the AlphaBeta sibling-ranking loss (0 disables)")
     parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     torch.manual_seed(args.seed)
 
-    X, y, g, aux, has = load(args.data)
+    X, y, g, aux, has, (rank_c, rank_o) = load(args.data)
     games = np.unique(g)
     rng = np.random.default_rng(args.seed)
     held = set(rng.choice(games, size=max(1, len(games) // 10), replace=False).tolist())
     is_held = np.isin(g, list(held))
-    print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games, aux targets on {has.mean():.0%}")
+    print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games, aux targets on {has.mean():.0%}, {len(rank_c)} rank pairs")
 
     dev = torch.device(args.device)
     Xd = torch.from_numpy(X).to(dev)  # float16 on device; cast per batch
     yd = torch.from_numpy(y.astype(np.float32)).to(dev)
     auxd = torch.from_numpy(aux).to(dev)
     hasd = torch.from_numpy(has).to(dev)
+    # rank pairs: last 10% held out (they are not tied to game ids)
+    n_rank = len(rank_c)
+    n_rank_tr = int(n_rank * 0.9)
+    rcd = torch.from_numpy(rank_c).to(dev)
+    rod = torch.from_numpy(rank_o).to(dev)
+    use_rank = args.rank_weight > 0 and n_rank_tr > 0
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held)).to(dev)
     ho_idx = torch.from_numpy(np.flatnonzero(is_held)).to(dev)
 
@@ -86,6 +103,11 @@ def main():
     def heldout():
         net.eval()
         with torch.no_grad():
+            if n_rank > n_rank_tr:
+                d = net(rcd[n_rank_tr:].float())[:, 0] - net(rod[n_rank_tr:].float())[:, 0]
+                rank_acc = (d > 0).float().mean().item()
+            else:
+                rank_acc = float("nan")
             logits = torch.cat([net(Xd[ho_idx[i:i + 8192]].float()).squeeze(1) for i in range(0, len(ho_idx), 8192)])
             yy = yd[ho_idx]
             loss = F.binary_cross_entropy_with_logits(logits, yy).item()
@@ -96,13 +118,24 @@ def main():
                 if m.any():
                     buckets.append(f"[{lo:.1f},{lo + 0.2:.1f}) n={int(m.sum())} pred={p[m].mean():.3f} actual={yy[m].mean():.3f}")
         net.train()
-        return loss, buckets
+        return loss, buckets, rank_acc
 
     # Early stopping on held-out: the net memorizes games within an epoch
     # (docs/FINDINGS.md, M4 iteration 0), so the best checkpoint is usually
     # a fraction of an epoch in. Keep the best state seen.
     n = len(tr_idx)
     best, best_state, best_buckets, step = float("inf"), None, [], 0
+    best_ho, best_rank, best_step = float("nan"), float("nan"), 0
+
+    def consider():
+        nonlocal best, best_state, best_buckets, best_ho, best_rank, best_step
+        ho_loss, buckets, rank_acc = heldout()
+        score = ho_loss - (0.0 if rank_acc != rank_acc else args.rank_weight * rank_acc)  # nan-safe
+        if score < best:
+            best, best_buckets, best_ho, best_rank = score, buckets, ho_loss, rank_acc
+            best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
+            best_step = step
+        return ho_loss, buckets, rank_acc
     for epoch in range(args.epochs):
         t0 = time.time()
         perm = tr_idx[torch.randperm(n, device=dev)]
@@ -110,23 +143,22 @@ def main():
         for i in range(0, n, args.batch_size):
             idx = perm[i:i + args.batch_size]
             loss = loss_fn(net, Xd[idx].float(), yd[idx], auxd[idx], hasd[idx], args.aux_weight)
+            if use_rank:
+                ridx = torch.randint(0, n_rank_tr, (min(args.batch_size, n_rank_tr),), device=dev)
+                loss = loss + args.rank_weight * rank_loss(net, rcd[ridx].float(), rod[ridx].float())
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
             step += 1
             if step % args.eval_every == 0:
-                ho_loss, buckets = heldout()
-                if ho_loss < best:
-                    best, best_buckets = ho_loss, buckets
-                    best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
-                    best_step = step
-        ho_loss, _ = heldout()
-        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} best={best:.4f}@step{best_step} ({time.time() - t0:.0f}s)", flush=True)
+                consider()
+        ho_loss, _, rank_acc = consider()
+        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} rank_acc={rank_acc:.3f} best@step{best_step}: heldout={best_ho:.4f} rank_acc={best_rank:.3f} ({time.time() - t0:.0f}s)", flush=True)
     for b in best_buckets:
         print("  calib", b)
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     torch.save(best_state, args.out)
-    print(f"saved: {args.out} (best held-out {best:.4f} at step {best_step})")
+    print(f"saved: {args.out} (best held-out {best_ho:.4f}, rank_acc {best_rank:.3f} at step {best_step})")
 
 
 if __name__ == "__main__":
