@@ -2194,6 +2194,11 @@ incumbent and soups them into the candidate. Fresh-seed confirmation, a 5-seed s
 different basin and pull the mean down. `soup.py --greedy` (rank checkpoints by a 1,000-game arena proxy, add one
 only if the soup's proxy does not drop — Wortsman et al.'s greedy soup) is the fix; result below.
 
+**Greedy soup over the five draws** (`soup.py --greedy`, 1,000-game proxy on seeds 5000-5999): singles 36.8 / 34.4 /
+33.0 / 28.4 / 26.7% (v27d, s2, s1, s4, s3); v27d + s2 → 42.5%, + s1 → **43.9% kept**, + s4 → 40.4% dropped, + s3 →
+40.6% dropped. It recovers exactly the three-net soup and rejects the two bad draws — ~7 minutes, no human in the
+loop. `run_exit.sh` uses it from round 29 (N_SEEDS=5).
+
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
 (`run_exit.sh 28 40`: rollout labels, no `base_fn` losses, 3-seed soups, incumbent v27d_soup) is running.
