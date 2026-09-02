@@ -1847,6 +1847,19 @@ AB seats per game, retrain on everything, gate each round) to move from
 parity toward the >50% M4 gate — the on-distribution outcomes of the net's
 own play are what can exceed the teacher.
 
+**Iteration 7** (`run_exit.sh`: 4,000 games of 2x v5 + 2x `rab`, 2.6
+games/s; retrain on it2 + it3 + it7 warm-started from v5):
+
+```
+vnet:checkpoints_value/v7.pt: 82/300 wins = 27.3%  Wilson 95% CI [22.6%, 32.6%]  vs alpha_beta
+```
+
+First net above AlphaBeta's own point estimate in this seat. From
+iteration 9 on, sibling sets recorded at value-net decisions are labeled
+with the net's *own* search choice (from its perspective) instead of
+`base_fn` — the expert-iteration improvement step proper; AB-seat
+decisions keep the `base_fn` labels.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.

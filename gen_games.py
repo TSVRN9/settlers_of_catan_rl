@@ -39,7 +39,7 @@ from catanatron.players.minimax import AlphaBetaPlayer
 
 import rust_bridge as rb
 from catan_env import Encoder
-from value_net import N_FEATURES, RustAlphaBetaPlayer, encode_for_value, make_player
+from value_net import N_FEATURES, RustAlphaBetaPlayer, ValueNetPlayer, encode_for_value, make_player
 
 COLORS = (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)
 # Actions whose child state is fully determined (no dice / draw / steal), so a
@@ -80,24 +80,35 @@ class StateSampler(GameAccumulator):
         if self.rank_p and self.rng.random() < self.rank_p and isinstance(game.state.current_player(), (AlphaBetaPlayer, RustAlphaBetaPlayer)):
             self.record_pair(game, action)
         if self.sib_p and self.rng.random() < self.sib_p:
-            self.record_siblings(game)
+            self.record_siblings(game, action)
 
-    def record_siblings(self, game):
-        """Up to K_SIB deterministic children of this decision, encoded from a
-        random perspective, with AlphaBeta's base_fn value of each from that
-        perspective -- the ordering target that teaches the net AlphaBeta's
-        evaluator (docs/FINDINGS.md, v1 diagnosis: 35% top-1 agreement)."""
+    def record_siblings(self, game, action):
+        """Up to K_SIB deterministic children of this decision with a top-1
+        target for the listwise loss (train_value.sibling_loss):
+        - AlphaBeta-class decider: children from a random perspective, values =
+          base_fn(p0) (argmax if p0 decides, argmin otherwise) -- imitates the
+          teacher's evaluator (docs/FINDINGS.md, v1 diagnosis);
+        - value-net decider: children from the decider's perspective, target =
+          the action its own search chose -- distills the search into the net
+          (expert iteration's improvement step)."""
         acts = [a for a in game.playable_actions if _deterministic(a)]
         if len(acts) < 2:
             return
+        self_play = isinstance(game.state.current_player(), ValueNetPlayer) and _deterministic(action)
         if len(acts) > self.K_SIB:
-            acts = self.rng.sample(acts, self.K_SIB)
+            acts = self.rng.sample([a for a in acts if a != action], self.K_SIB - 1) + [action] if self_play else self.rng.sample(acts, self.K_SIB)
         rs, ctx = rb.rust_state(game)
         colors = list(game.state.colors)
-        p0 = self.rng.randrange(len(colors))
+        p0 = colors.index(game.state.current_color()) if self_play else self.rng.randrange(len(colors))
         x, v, kept = rs.children(rb.layout(ctx), [rb.canon(a, ctx, colors) for a in acts], p0)
         if len(kept) < 2:
             return
+        if self_play:
+            chosen = [i for i, k in enumerate(kept) if acts[k] == action]
+            if not chosen:
+                return
+            v = [0.0] * len(kept)
+            v[chosen[0]] = 1.0
         pad = np.zeros((self.K_SIB, x.shape[1]), dtype=np.float16)
         pad[: len(kept)] = x
         vv = np.full(self.K_SIB, np.nan)
