@@ -1624,6 +1624,15 @@ payoff per effort):
 3. **Deeper search** over any base_fn-quality evaluator — see the depth-3
    calibration below.
 
+**Depth-3 calibration (35 games, `--player ab3`, i.e. `AlphaBetaPlayer(depth=3)`
+vs 3x depth-2 AB):** 9/35 = **25.7%** [14.2%, 42.1%]. One extra ply of the
+same heuristic buys nothing measurable (point estimate at symmetry; the
+interval is wide, but there is no hint of the large effect that would make
+"deeper search" a path to 50%). Consistent with AB's chance nodes being
+random re-rolls (see the execute_spectrum bug above): each extra ply adds
+noise as well as lookahead. **So the evaluator, not the depth, is the whole
+game.** Lever 3 is dropped; levers 1 and 2 stand.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
