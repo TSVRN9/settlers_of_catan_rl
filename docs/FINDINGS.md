@@ -1815,6 +1815,18 @@ smooth AlphaBeta's heuristic; learn the choice.**
 that demanded million-to-one gaps. Data regenerated with the decider flag
 (`sib_isp0`). v5 gate below.
 
+**v4 gate** (smooth prior at fixed scale 0.1 + residual MLP, outcome + aux +
+pair + all-pairs sibling losses, 4,000 `rab` games):
+
+```
+vnet:checkpoints_value/v4.pt: 64/300 wins = 21.3%  Wilson 95% CI [17.1%, 26.3%]  vs alpha_beta
+```
+
+Best so far; the interval reaches the AB baseline's point estimate
+(26.3%). So the prior is a poor *player* on its own (5.7%) but a useful
+*initialization*: the residual repairs its tiny-term decisions. Both
+v2 (18.7%, no prior) and v4 sit in the same band; neither is parity yet.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.
