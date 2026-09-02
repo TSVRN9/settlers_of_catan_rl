@@ -17,7 +17,7 @@ for k in $(seq "$first" "$last"); do
   if [ -f "data/it$k/$last_shard" ]; then echo "  data/it$k complete, skipping generation"; else
   uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0.5 --sib-p 0.3 --out "data/it$k" || exit 1; fi
   echo "=== it$k train  $(date)"
-  uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v$k.pt" --epochs 6 --rank-weight 0.5 --sib-weight 1 || exit 1
+  uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v$k.pt" --epochs 6 --rank-weight 0.5 --sib-weight 1 --self-sibs 0 || exit 1
   echo "=== it$k proxy gate v$k vs 3x rab, 1000 games  $(date)"
   uv run python evaluate.py --player "vnet:checkpoints_value/v$k.pt" --opponent rab --games 1000 || exit 1
   if [ $((k % every)) -eq 0 ]; then

@@ -1943,6 +1943,25 @@ Known, unchanged: the rank/sibling held-out split is the tail of the concatenate
 **Progression on the 300-game Python-AB gate:** v0 6.0% → v1 3.8% → v2 18.7% → v4 21.3% → v5 25.3% → v7 27.3% →
 **v8 27.0%** [22.3%, 32.3%] (AB itself: 26.3%).
 
+### Iteration 9: self-labeled sibling sets hurt; the proxy gate caught what the AB gate could not
+
+it9 (4,000 games of 2x v8 + 2x `rab` in the arena: 230 s, 17.4 games/s; train 77 s; proxy gate 36 s) was the first
+round with sibling sets at value-net decisions labeled by the net's *own* search choice. Same 1,000 proxy seeds
+throughout (v8: 28.0% [25.3%, 30.9%]):
+
+| Net | Training data (all warm-started from v8) | vs 3x `rab`, 1,000 games | vs 3x Python AB, 300 |
+|---|---|---|---|
+| v9 (self-play sibling labels) | it3 + it7 + it8 + it9 | **20.7%** [18.3%, 23.3%] | 26.0% [21.4%, 31.2%] |
+| v9a (`--self-sibs 0`: those sets dropped) | it3 + it7 + it8 + it9 | 25.2% [22.6%, 28.0%] | — |
+| v9b (no it9 data; aux-target fix only) | it3 + it7 + it8 | **29.1%** [26.4%, 32.0%] | — |
+
+Distilling the depth-2 choice of a parity-strength net into its own 1-ply ranking made it worse, not better
+(v9 → v9a is the whole effect; v9a → v9b overlaps). Meanwhile the 300-game Python-AB gate read 26.0% for v9 —
+indistinguishable from v8's 27.0% — so it would have let the regression through; the ±2.7-point proxy is now the
+per-iteration decision signal. The loop continues from **v9b as `v9.pt`** (the self-labeled net is kept as
+`v9_selfsib.pt`) with `train_value.py --self-sibs 0`; the arena still records the self-play sets, the flag drops
+them at load. Sibling labels stay `base_fn`'s: the teacher's evaluator is still the best ranking signal we have.
+
 ## Prior art
 
 - [Catanatron](https://github.com/bcollazo/catanatron) — the engine we build on.

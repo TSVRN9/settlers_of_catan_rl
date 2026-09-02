@@ -34,7 +34,7 @@ def _count(z, name):
     return _shape(z, name)[0]
 
 
-def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
+def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sibs=True):
     """Returns X, y, game, aux (n, 5) = [vp0..vp3 / 10, turns_left / 100] and
     has_aux (n,) -- shards written before the auxiliary targets existed load
     with has_aux False and contribute only to the win-probability loss.
@@ -72,7 +72,9 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0):
                 rc.append(z["rank_c"][kp]); ro.append(z["rank_o"][kp])
             if "sib_isp0" in z and _count(z, "sib_n"):
                 kb = pick(_count(z, "sib_n"), fb)
-                sx.append(z["sib_x"][kb]); sv.append(z["sib_v"][kb]); sn.append(z["sib_n"][kb]); sp.append(z["sib_isp0"][kb])
+                v = z["sib_v"][kb]
+                keep = slice(None) if self_sibs else ~((np.nanmax(v, 1) == 1.0) & (np.nanmin(v, 1) == 0.0))  # self-play sets are one-hot; base_fn values never are
+                sx.append(z["sib_x"][kb][keep]); sv.append(v[keep]); sn.append(z["sib_n"][kb][keep]); sp.append(z["sib_isp0"][kb][keep])
             if "vp" in z:
                 aux.append(np.concatenate([z["vp"][k].astype(np.float32) / 10.0, z["turns_left"][k].astype(np.float32)[:, None] / 100.0], axis=1))
                 assert len(aux[-1]) == n  # v8 trained its aux heads on unsubsampled (misaligned) targets, docs/FINDINGS.md
@@ -135,6 +137,7 @@ def main():
     parser.add_argument("--aux-weight", type=float, default=1.0, help="weight of the final-VPs / turns-left auxiliary heads (0 disables)")
     parser.add_argument("--rank-weight", type=float, default=1.0, help="weight of the AlphaBeta chosen-vs-other pair loss (0 disables)")
     parser.add_argument("--sib-weight", type=float, default=1.0, help="weight of the base_fn sibling-ordering loss (0 disables)")
+    parser.add_argument("--self-sibs", type=int, default=1, help="0 drops the sibling sets labeled by the value net's own search (gen_games self-play), keeping base_fn-labeled ones")
     parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
     parser.add_argument("--seed", type=int, default=0)
@@ -142,7 +145,7 @@ def main():
     torch.manual_seed(args.seed)
 
     X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0) = load(
-        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed
+        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs)
     )
     rng = np.random.default_rng(args.seed)
     games = np.unique(g)
