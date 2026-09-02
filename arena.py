@@ -28,7 +28,7 @@ ROW_BUCKET = 16384  # forwards are padded to a multiple of this many rows so the
 MAX_LEAVES = int(os.environ.get("VNET_MAX_LEAVES", 20000))  # depth>2 decisions over this many leaves fall back one ply (search.rs); depth 2 is never capped
 
 
-VNET = re.compile(r"^vnet(\d?):(.+)$")  # vnet:<path> (depth 2) or vnet3:<path> (depth 3)
+VNET = re.compile(r"^vnet(\d?)(o?):(.+)$")  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (3 own actions, opponents never min'ed: search.rs own_turn)
 
 
 def supports(lineup):
@@ -46,7 +46,7 @@ def targets(colors, turns, winner_seat, vps, num_turns):
     return y, vp, turns_left
 
 
-def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=2, keep_log=False):
+def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, batch=64, depth=2, keep_log=False):
     """Yields (seed, winner_color or None, part, extra) per game as they finish.
     `part` is the gen_games shard dict (float16) or None for a game without a
     winner; `extra` is (game, log, snapshot) when keep_log, else None.
@@ -59,12 +59,13 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
     after forward A blocks until a later-queued oneDNN matmul B also finishes."""
     assert supports(lineup), lineup
     nets = [VNET.match(t) for t in lineup if VNET.match(t)]
-    net = load_value_net(nets[0].group(2)).to(DEVICE) if nets else None
+    net = load_value_net(nets[0].group(3)).to(DEVICE) if nets else None
     if nets and nets[0].group(1):
         depth = int(nets[0].group(1))
+    own_turn = bool(nets and nets[0].group(2))
     layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in COLORS], seed=0)))
     n_arenas = 2 if net is not None else 1
-    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES) for _ in range(n_arenas)]  # vnetN: deepens the net only
+    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn) for _ in range(n_arenas)]  # vnetN: deepens the net only
     pool = ThreadPoolExecutor(max_workers=1)
     seeds = iter(seeds)
     games = [{} for _ in arenas]  # per arena: seed -> (game, colors) while in flight
@@ -110,6 +111,7 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, batch=64, depth=
                     X=d["X"].astype(np.float16), y=y, vp=vp, turns_left=turns_left,
                     rank_c=d["rank_c"].astype(np.float16), rank_o=d["rank_o"].astype(np.float16),
                     sib_x=d["sib_x"].astype(np.float16), sib_v=d["sib_v"], sib_n=np.asarray(d["sib_n"], dtype=np.int8), sib_isp0=np.asarray(d["sib_isp0"], dtype=bool),
+                    ts_x=d["ts_x"].astype(np.float16), ts_v=np.asarray(d["ts_v"], dtype=np.float32),
                 )
             finished.append((seed, (None if w < 0 else colors[w]), part, ((game, log, snap) if keep_log else None)))
             add(i)

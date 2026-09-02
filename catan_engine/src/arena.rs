@@ -10,6 +10,7 @@ use crate::search::Search;
 use crate::state::State;
 
 pub const K_SIB: usize = 6;
+pub const K_TS: usize = 5; // children per recorded search tree (plus the root)
 pub const TURNS_LIMIT: i32 = 1000;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -38,6 +39,7 @@ pub struct Recorder {
     sample_p: f64,
     rank_p: f64,
     sib_p: f64,
+    ts_p: f64,
     pub xs: Vec<f32>,
     pub colors: Vec<u8>,
     pub turns: Vec<i32>,
@@ -47,11 +49,39 @@ pub struct Recorder {
     pub sib_v: Vec<f64>,
     pub sib_n: Vec<i8>,
     pub sib_isp0: Vec<bool>,
+    pub ts_x: Vec<f32>, // search-value distillation: root + up to K_TS deterministic children of a value-net decision, decider's perspective
+    pub ts_v: Vec<f64>, // ... each with its backed-up expectimax value (P(decider wins)), a soft target (docs/FINDINGS.md, TreeStrap-lite)
 }
 
 impl Recorder {
-    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![] }
+    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64) -> Recorder {
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![] }
+    }
+
+    /// With probability ts_p: the root state (value = the search's root value)
+    /// and up to K_TS random deterministic children (value = that child's
+    /// expectation), all encoded from the decider's perspective.
+    pub fn record_tree(&mut self, s: &State, root_v: f64, evs: &[(Action, f64)], layout: &Layout) {
+        if self.ts_p <= 0.0 || self.rand() >= self.ts_p {
+            return;
+        }
+        let p0 = s.current_player;
+        let mut row = Vec::with_capacity(layout.n_features);
+        self.encode(s, p0, layout, &mut row);
+        self.ts_x.extend_from_slice(&row);
+        self.ts_v.push(root_v);
+        let det: Vec<(Action, f64)> = evs.iter().copied().filter(|(a, _)| deterministic(*a)).collect();
+        let k = det.len().min(K_TS);
+        for (a, v) in self.sample(det, k) {
+            let mut c = s.clone();
+            if c.apply(a, None).is_err() {
+                continue;
+            }
+            row.clear();
+            self.encode(&c, p0, layout, &mut row);
+            self.ts_x.extend_from_slice(&row);
+            self.ts_v.push(v);
+        }
     }
 
     fn rand(&mut self) -> f64 {
@@ -171,6 +201,7 @@ pub struct ArenaGame {
     pub vnet_depth: u32,
     pub rab_depth: u32, // opponents stay at AlphaBeta's depth 2 while the net searches deeper
     pub max_leaves: usize, // per-decision leaf cap for depth > 2 (search.rs), 0 = unlimited
+    pub own_turn: bool,    // search.rs expand_into: depth counts own actions only
     pub pending: Option<Search>,
     pub leaf_buf: Vec<f32>, // recycled between decisions
     pub offset: usize,
@@ -197,7 +228,9 @@ impl ArenaGame {
             for &(i, x) in &search.fixed {
                 v[i] = x;
             }
-            let action = search.backup(&v).0.unwrap_or_else(|| self.state.playable_actions()[0]);
+            let (best, root_v, evs) = search.backup_full(&v);
+            self.rec.record_tree(&self.state, root_v, &evs, layout);
+            let action = best.unwrap_or_else(|| self.state.playable_actions()[0]);
             self.tick(action, layout);
         }
         loop {
@@ -217,7 +250,7 @@ impl ArenaGame {
                     self.tick(a, layout);
                 }
                 Seat::Vnet => {
-                    self.pending = Some(self.state.expand_into(self.vnet_depth, p, layout, std::mem::take(&mut self.leaf_buf), self.max_leaves));
+                    self.pending = Some(self.state.expand_into(self.vnet_depth, p, layout, std::mem::take(&mut self.leaf_buf), self.max_leaves, self.own_turn));
                     return;
                 }
             }

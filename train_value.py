@@ -34,7 +34,7 @@ def _count(z, name):
     return _shape(z, name)[0]
 
 
-def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sibs=True):
+def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sibs=True, max_ts=None):
     """Returns X, y, game, aux (n, 5) = [vp0..vp3 / 10, turns_left / 100] and
     has_aux (n,) -- shards written before the auxiliary targets existed load
     with has_aux False and contribute only to the win-probability loss.
@@ -51,6 +51,8 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
     tot_s = sum(_count(z, "y") for z in zs)
     tot_p = sum(_count(z, "rank_c") for z in zs)
     tot_b = sum(_count(z, "sib_n") for z in zs if "sib_isp0" in z)  # same condition as the load below
+    tot_t = sum(_count(z, "ts_v") for z in zs)
+    ft = min(1.0, (max_ts or tot_t) / max(tot_t, 1))
     fs = min(1.0, (max_samples or tot_s) / max(tot_s, 1))
     fp = min(1.0, (max_pairs or tot_p) / max(tot_p, 1))
     fb = min(1.0, (max_sibs or tot_b) / max(tot_b, 1))
@@ -61,6 +63,7 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
     X, y, g, aux, has = [], [], [], [], []
     rc, ro = [], []
     sx, sv, sn, sp = [], [], [], []
+    tx, tv = [], []
     for z in zs:
         if True:
             yy = z["y"]
@@ -75,6 +78,10 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
                 v = z["sib_v"][kb]
                 keep = slice(None) if self_sibs else ~((np.nanmax(v, 1) == 1.0) & (np.nanmin(v, 1) == 0.0))  # self-play sets are one-hot; base_fn values never are
                 sx.append(z["sib_x"][kb][keep]); sv.append(v[keep]); sn.append(z["sib_n"][kb][keep]); sp.append(z["sib_isp0"][kb][keep])
+            if "ts_v" in z and _count(z, "ts_v"):
+                kt = pick(_count(z, "ts_v"), ft)
+                tx.append(z["ts_x"][kt]); tv.append(z["ts_v"][kt].astype(np.float32))
+                assert len(tx[-1]) == len(tv[-1])
             if "vp" in z:
                 aux.append(np.concatenate([z["vp"][k].astype(np.float32) / 10.0, z["turns_left"][k].astype(np.float32)[:, None] / 100.0], axis=1))
                 assert len(aux[-1]) == n  # v8 trained its aux heads on unsubsampled (misaligned) targets, docs/FINDINGS.md
@@ -84,7 +91,9 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
     assert X, f"no shard_*.npz under {dirs}"
     pairs = (np.concatenate(rc), np.concatenate(ro)) if rc else (np.zeros((0, X[0].shape[1]), np.float16),) * 2
     sibs = (np.concatenate(sx), np.concatenate(sv), np.concatenate(sn), np.concatenate(sp)) if sx else (np.zeros((0, 1, X[0].shape[1]), np.float16), np.zeros((0, 1)), np.zeros(0, np.int8), np.zeros(0, bool))
-    return np.concatenate(X), np.concatenate(y), np.concatenate(g), np.concatenate(aux), np.concatenate(has), pairs, sibs
+    trees = (np.concatenate(tx), np.concatenate(tv)) if tx else (np.zeros((0, X[0].shape[1]), np.float16), np.zeros(0, np.float32))
+    assert 0.0 <= trees[1].min(initial=0.0) and trees[1].max(initial=0.0) <= 1.0, "ts_v are win probabilities"
+    return np.concatenate(X), np.concatenate(y), np.concatenate(g), np.concatenate(aux), np.concatenate(has), pairs, sibs, trees
 
 
 def sibling_target(sv, isp0):
@@ -113,6 +122,14 @@ def loss_fn(net, x, y, aux, has, aux_weight, win_weight=1.0):
     return loss
 
 
+def tree_loss(net, tx, tv):
+    """Search-value distillation (TreeStrap-lite): the net's win logit on a
+    searched root / child state must match that node's backed-up expectimax
+    value -- a soft, chance-averaged target on states the trajectory never
+    visits. Not v9's hard argmax labels (docs/FINDINGS.md)."""
+    return F.binary_cross_entropy_with_logits(net(tx)[:, 0], tv)
+
+
 def rank_loss(net, xc, xo):
     """Pairwise: the child AlphaBeta chose must score above the other child.
     -log sigmoid(V(chosen) - V(other)) on the win logits."""
@@ -129,6 +146,7 @@ def main():
     parser.add_argument("--max-samples", type=int, default=1_500_000, help="random subsample budgets (memory): outcome samples")
     parser.add_argument("--max-pairs", type=int, default=300_000, help="... chosen-vs-other pairs")
     parser.add_argument("--max-sibs", type=int, default=120_000, help="... sibling sets (each is K x F)")
+    parser.add_argument("--max-ts", type=int, default=300_000, help="... search-value rows (ts_x / ts_v)")
     parser.add_argument("--hidden", type=int, default=256, help="MLP width; 256 is 3x cheaper per leaf than 512 at equal held-out loss (FINDINGS)")
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -137,6 +155,7 @@ def main():
     parser.add_argument("--aux-weight", type=float, default=1.0, help="weight of the final-VPs / turns-left auxiliary heads (0 disables)")
     parser.add_argument("--rank-weight", type=float, default=1.0, help="weight of the AlphaBeta chosen-vs-other pair loss (0 disables)")
     parser.add_argument("--sib-weight", type=float, default=1.0, help="weight of the base_fn sibling-ordering loss (0 disables)")
+    parser.add_argument("--ts-weight", type=float, default=0.0, help="weight of the search-value distillation loss on ts_x / ts_v rows (0 disables)")
     parser.add_argument("--self-sibs", type=int, default=1, help="0 drops the sibling sets labeled by the value net's own search (gen_games self-play), keeping base_fn-labeled ones")
     parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
@@ -144,14 +163,14 @@ def main():
     args = parser.parse_args()
     torch.manual_seed(args.seed)
 
-    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0) = load(
-        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs)
+    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0), (ts_x, ts_v) = load(
+        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs), max_ts=args.max_ts
     )
     rng = np.random.default_rng(args.seed)
     games = np.unique(g)
     held = set(rng.choice(games, size=max(1, len(games) // 10), replace=False).tolist())
     is_held = np.isin(g, list(held))
-    print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games, aux targets on {has.mean():.0%}, {len(rank_c)} rank pairs, {len(sib_n)} sibling sets")
+    print(f"{len(y)} samples from {len(games)} games, base rate {y.mean():.3f}, held-out {is_held.sum()} samples / {len(held)} games, aux targets on {has.mean():.0%}, {len(rank_c)} rank pairs, {len(sib_n)} sibling sets, {len(ts_v)} search-value rows")
 
     dev = torch.device(args.device)
     Xd = torch.from_numpy(X)  # float16, CPU-resident; batches are moved to the device
@@ -170,6 +189,11 @@ def main():
     svd = torch.from_numpy(sib_v)
     spd = torch.from_numpy(sib_isp0)
     use_sib = args.sib_weight > 0 and n_sib_tr > 0
+    n_ts = len(ts_v)
+    n_ts_tr = int(n_ts * 0.9)
+    txd = torch.from_numpy(ts_x)
+    tvd = torch.from_numpy(ts_v)
+    use_ts = args.ts_weight > 0 and n_ts_tr > 0
     D = lambda t: t.to(dev, non_blocking=True)  # noqa: E731
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held))
     ho_idx = torch.from_numpy(np.flatnonzero(is_held))
@@ -200,6 +224,10 @@ def main():
                 top1 = torch.cat(hits).mean().item()
             else:
                 top1 = float("nan")
+            if n_ts > n_ts_tr:
+                ts_bce = np.mean([tree_loss(net, D(txd[i:i + 8192]).float(), D(tvd[i:i + 8192])).item() for i in range(n_ts_tr, n_ts, 8192)])
+            else:
+                ts_bce = float("nan")
             logits = torch.cat([net(D(Xd[ho_idx[i:i + 8192]]).float()).squeeze(1) for i in range(0, len(ho_idx), 8192)])
             yy = D(yd[ho_idx])
             loss = F.binary_cross_entropy_with_logits(logits, yy).item()
@@ -210,7 +238,7 @@ def main():
                 if m.any():
                     buckets.append(f"[{lo:.1f},{lo + 0.2:.1f}) n={int(m.sum())} pred={p[m].mean():.3f} actual={yy[m].mean():.3f}")
         net.train()
-        return loss, buckets, rank_acc, top1
+        return loss, buckets, rank_acc, top1, ts_bce
 
     # Early stopping on held-out: the net memorizes games within an epoch
     # (docs/FINDINGS.md, M4 iteration 0), so the best checkpoint is usually
@@ -219,21 +247,23 @@ def main():
     best, best_state, best_buckets, step = float("inf"), None, [], 0
     best_ho, best_rank, best_step = float("nan"), float("nan"), 0
 
-    best_top1 = float("nan")
+    best_top1, best_ts = float("nan"), float("nan")
 
     def consider():
-        nonlocal best, best_state, best_buckets, best_ho, best_rank, best_step, best_top1
-        ho_loss, buckets, rank_acc, top1 = heldout()
-        score = ho_loss  # nan-safe: only subtract the terms that exist
+        nonlocal best, best_state, best_buckets, best_ho, best_rank, best_step, best_top1, best_ts
+        ho_loss, buckets, rank_acc, top1, ts_bce = heldout()
+        score = ho_loss  # nan-safe: only add the terms that exist
         if rank_acc == rank_acc:
             score -= args.rank_weight * rank_acc
         if top1 == top1:
             score -= args.sib_weight * top1
+        if ts_bce == ts_bce:
+            score += args.ts_weight * ts_bce
         if score < best:
-            best, best_buckets, best_ho, best_rank, best_top1 = score, buckets, ho_loss, rank_acc, top1
+            best, best_buckets, best_ho, best_rank, best_top1, best_ts = score, buckets, ho_loss, rank_acc, top1, ts_bce
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_step = step
-        return ho_loss, buckets, rank_acc, top1
+        return ho_loss, buckets, rank_acc, top1, ts_bce
     for epoch in range(args.epochs):
         t0 = time.time()
         perm = tr_idx[torch.randperm(n)]
@@ -247,13 +277,16 @@ def main():
             if use_sib:
                 sidx = torch.randint(0, n_sib_tr, (min(args.batch_size // 4, n_sib_tr),))
                 loss = loss + args.sib_weight * sibling_loss(net, D(sxd[sidx]).float(), D(svd[sidx]), D(spd[sidx]))
+            if use_ts:
+                tidx = torch.randint(0, n_ts_tr, (min(args.batch_size, n_ts_tr),))
+                loss = loss + args.ts_weight * tree_loss(net, D(txd[tidx]).float(), D(tvd[tidx]))
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
             step += 1
             if step % args.eval_every == 0:
                 consider()
-        ho_loss, _, rank_acc, top1 = consider()
-        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} rank_acc={rank_acc:.3f} sib_top1={top1:.3f} | best@step{best_step}: heldout={best_ho:.4f} rank_acc={best_rank:.3f} sib_top1={best_top1:.3f} ({time.time() - t0:.0f}s)", flush=True)
+        ho_loss, _, rank_acc, top1, ts_bce = consider()
+        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} rank_acc={rank_acc:.3f} sib_top1={top1:.3f} ts_bce={ts_bce:.4f} | best@step{best_step}: heldout={best_ho:.4f} rank_acc={best_rank:.3f} sib_top1={best_top1:.3f} ts_bce={best_ts:.4f} ({time.time() - t0:.0f}s)", flush=True)
     for b in best_buckets:
         print("  calib", b)
 

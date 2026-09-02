@@ -198,6 +198,7 @@ def main():
     parser.add_argument("--sample-p", type=float, default=0.5)
     parser.add_argument("--rank-p", type=float, default=0.0, help="per AlphaBeta decision: probability of recording a (chosen, other) child pair")
     parser.add_argument("--sib-p", type=float, default=0.0, help="per decision: probability of recording a sibling set with base_fn values")
+    parser.add_argument("--ts-p", type=float, default=0.0, help="arena only, per value-net decision: probability of recording the root + up to 5 children with their search values (soft distillation targets ts_x / ts_v)")
     parser.add_argument("--shard", type=int, default=500, help="games per output file")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
@@ -207,7 +208,7 @@ def main():
 
     seeds = range(args.seed, args.seed + args.games)
     t0 = time.time()
-    parts, gs, shard, done, dropped, n_samples, n_pairs, n_sib = [], [], 0, 0, 0, 0, 0, 0
+    parts, gs, shard, done, dropped, n_samples, n_pairs, n_sib, n_ts = [], [], 0, 0, 0, 0, 0, 0, 0
     import contextlib
 
     import arena
@@ -217,8 +218,9 @@ def main():
         # value-net lineups, ~3x for rab-only ones (docs/FINDINGS.md).
         os.environ.setdefault("RAYON_NUM_THREADS", str(args.jobs + 1))
         pool = contextlib.nullcontext()
-        results = ((seed, part) for seed, _, part, _ in arena.play(lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, batch=args.batch))
+        results = ((seed, part) for seed, _, part, _ in arena.play(lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, ts_p=args.ts_p, batch=args.batch))
     else:
+        assert args.ts_p == 0, "--ts-p is recorded by the arena only"
         pool = mp.get_context("spawn").Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p, args.sib_p))
         results = pool.imap_unordered(play_one, seeds, chunksize=1)
     with pool:
@@ -227,15 +229,15 @@ def main():
             if part is None:
                 dropped += 1
             else:
-                parts.append(part); gs.extend([seed] * len(part["y"])); n_samples += len(part["y"]); n_pairs += len(part["rank_c"]); n_sib += len(part["sib_n"])
+                parts.append(part); gs.extend([seed] * len(part["y"])); n_samples += len(part["y"]); n_pairs += len(part["rank_c"]); n_sib += len(part["sib_n"]); n_ts += len(part.get("ts_v", ()))
             if parts and done % args.shard == 0:
-                print(f"  {done}/{args.games} games, {n_samples} samples, {n_pairs} pairs, {n_sib} sibling sets, {done / (time.time() - t0):.2f} games/s -> {_flush(args.out, shard, parts, gs)}", flush=True)
+                print(f"  {done}/{args.games} games, {n_samples} samples, {n_pairs} pairs, {n_sib} sibling sets, {n_ts} tree rows, {done / (time.time() - t0):.2f} games/s -> {_flush(args.out, shard, parts, gs)}", flush=True)
                 parts, gs, shard = [], [], shard + 1
     if parts:
         print(f"  final -> {_flush(args.out, shard, parts, gs)}", flush=True)
     el = time.time() - t0
     print(f"{args.games} games in {el:.0f}s ({args.games / el:.2f} games/s), {dropped} dropped (no winner), "
-          f"{n_samples} samples ({n_samples / max(args.games - dropped, 1):.0f}/game), {n_pairs} rank pairs, {n_sib} sibling sets -> {args.out}", flush=True)
+          f"{n_samples} samples ({n_samples / max(args.games - dropped, 1):.0f}/game), {n_pairs} rank pairs, {n_sib} sibling sets, {n_ts} tree rows -> {args.out}", flush=True)
 
 
 if __name__ == "__main__":

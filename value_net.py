@@ -230,11 +230,12 @@ class ValueNetPlayer(AlphaBetaPlayer):
 
     Construct one per game (the encoder's map template is per-map)."""
 
-    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000):
+    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000, own_turn=False):
         super().__init__(color, depth=depth, prunning=prunning)
         self.use_value_function = True
         self.net_path = net_path
         self.max_leaves = max_leaves  # depth>2 only, see search.rs; arena.MAX_LEAVES is the arena-side twin
+        self.own_turn = own_turn  # search.rs: depth counts own actions, opponent decisions are leaves (Rust path only)
         self._encoder = Encoder()
 
     def value_function(self, game, p0_color):
@@ -264,7 +265,7 @@ class ValueNetPlayer(AlphaBetaPlayer):
 
         rs, ctx = rb.rust_state(game)
         colors = list(game.state.colors)
-        leaves, fixed = rs.expand(rb.layout(ctx), self.depth, colors.index(self.color), self.max_leaves)
+        leaves, fixed = rs.expand(rb.layout(ctx), self.depth, colors.index(self.color), self.max_leaves, self.own_turn)
         net = load_value_net(self.net_path)
         with torch.no_grad():
             values = torch.sigmoid(net(torch.from_numpy(leaves))).squeeze(1).double().numpy()
@@ -388,7 +389,7 @@ def make_player(spec, color):
         return ValueFunctionPlayer(color)
     if spec == "wr":
         return WeightedRandomPlayer(color)
-    m = re.fullmatch(r"vnet(\d?):(.+)", spec)  # vnet:<path> (depth 2) or vnet3:<path> (depth-3 search)
+    m = re.fullmatch(r"vnet(\d?)(o?):(.+)", spec)  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (own-turn depth 3, see arena.VNET)
     if m:
-        return ValueNetPlayer(color, m.group(2), depth=int(m.group(1) or 2))
+        return ValueNetPlayer(color, m.group(3), depth=int(m.group(1) or 2), own_turn=bool(m.group(2)))
     raise ValueError(f"unknown player token {spec!r}")

@@ -24,6 +24,7 @@ pub struct Search {
     pub root: Node,
     cap: usize,
     overflow: bool,
+    own_turn: bool,
 }
 
 impl State {
@@ -77,8 +78,8 @@ impl State {
         }
     }
 
-    pub fn expand(&self, depth: u32, p0: usize, layout: &Layout, max_leaves: usize) -> Search {
-        self.expand_into(depth, p0, layout, Vec::new(), max_leaves)
+    pub fn expand(&self, depth: u32, p0: usize, layout: &Layout, max_leaves: usize, own_turn: bool) -> Search {
+        self.expand_into(depth, p0, layout, Vec::new(), max_leaves, own_turn)
     }
 
     /// `expand` writing leaves into a reused buffer (the arena expands every
@@ -89,13 +90,20 @@ impl State {
     /// 430k rows, 1.8 GB) -- so the cap buys ~20x memory and time for 8%
     /// of decisions at depth 2 (docs/FINDINGS.md). Depth-2 trees are never
     /// capped, so depth-2 play is unchanged whatever the cap.
-    pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>, max_leaves: usize) -> Search {
+    ///
+    /// `own_turn`: depth counts only p0's own actions; an opponent's decision
+    /// node is a leaf (never min'ed over -- measured: paranoid depth 3 scored
+    /// 24.9% vs 30.7% for depth 2, the min over a noisy net's estimates of
+    /// 10-15 replies biases every end-turn branch low), and an end-turn branch
+    /// always finishes with the opponent's ROLL chance node so the leaf is the
+    /// post-roll state whatever depth remains.
+    pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>, max_leaves: usize, own_turn: bool) -> Search {
         buf.clear();
         let cap = if max_leaves == 0 || depth <= 2 { usize::MAX } else { max_leaves };
-        let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, cap, overflow: false };
+        let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, cap, overflow: false, own_turn };
         let root = self.expand_node(depth, p0, layout, &mut search);
         if search.overflow {
-            return self.expand_into(depth - 1, p0, layout, search.leaves, max_leaves);
+            return self.expand_into(depth - 1, p0, layout, search.leaves, max_leaves, own_turn);
         }
         match root {
             Child::Node(n) => search.root = *n,
@@ -110,7 +118,15 @@ impl State {
             return Child::Leaf(0);
         }
         let winner = self.winner();
-        if depth == 0 || winner >= 0 {
+        let maximizing = self.current_player == p0;
+        let actions = self.playable_actions();
+        let roll_only = actions.len() == 1 && actions[0] == Action::Roll;
+        let stop = if search.own_turn {
+            winner >= 0 || (maximizing && depth == 0) || (!maximizing && !roll_only)
+        } else {
+            depth == 0 || winner >= 0
+        };
+        if stop {
             let idx = search.n_leaves;
             search.n_leaves += 1;
             let start = search.leaves.len();
@@ -122,12 +138,11 @@ impl State {
             }
             return Child::Leaf(idx);
         }
-        let maximizing = self.current_player == p0;
-        let actions = self.playable_actions();
+        let next = if search.own_turn && !maximizing { depth } else { depth - 1 }; // an opponent's roll costs no own-action depth
         let children = actions
             .into_iter()
             .map(|a| {
-                let outs = self.outcomes(a).into_iter().map(|(s, p)| (p, s.expand_node(depth - 1, p0, layout, search))).collect();
+                let outs = self.outcomes(a).into_iter().map(|(s, p)| (p, s.expand_node(next, p0, layout, search))).collect();
                 (a, outs)
             })
             .collect();
@@ -138,6 +153,14 @@ impl State {
 impl Search {
     pub fn backup(&self, values: &[f64]) -> (Option<Action>, f64) {
         backup_node(&self.root, values)
+    }
+
+    /// backup() plus every root child's expectation: (action, E[value]) --
+    /// the search-value distillation targets (arena.rs Recorder::record_tree).
+    pub fn backup_full(&self, values: &[f64]) -> (Option<Action>, f64, Vec<(Action, f64)>) {
+        let evs: Vec<(Action, f64)> = self.root.children.iter().map(|(a, outs)| (*a, outs.iter().map(|(p, c)| p * backup_child(c, values)).sum())).collect();
+        let (best, best_v) = backup_node(&self.root, values);
+        (best, best_v, evs)
     }
 }
 

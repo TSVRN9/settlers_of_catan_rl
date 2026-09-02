@@ -353,9 +353,9 @@ impl PyState {
     /// Expands the depth-d tree; returns the leaf feature matrix (n_leaves x
     /// n_features) with terminal leaves as zero rows, plus [(idx, value)] for
     /// those. Call backup(values) afterwards.
-    #[pyo3(signature = (layout, depth, p0, max_leaves=0))]
-    fn expand<'py>(&mut self, py: Python<'py>, layout: &PyLayout, depth: u32, p0: usize, max_leaves: usize) -> PyResult<(Bound<'py, PyArray2<f32>>, Vec<(usize, f64)>)> {
-        let search = self.inner.expand(depth, p0, &layout.inner, max_leaves);
+    #[pyo3(signature = (layout, depth, p0, max_leaves=0, own_turn=false))]
+    fn expand<'py>(&mut self, py: Python<'py>, layout: &PyLayout, depth: u32, p0: usize, max_leaves: usize, own_turn: bool) -> PyResult<(Bound<'py, PyArray2<f32>>, Vec<(usize, f64)>)> {
+        let search = self.inner.expand(depth, p0, &layout.inner, max_leaves, own_turn);
         let nf = search.n_features;
         let n = search.n_leaves;
         let arr = Array2::from_shape_vec((n, nf), search.leaves.clone())
@@ -442,6 +442,8 @@ struct PyArena {
     depth: u32,
     rab_depth: u32,
     max_leaves: usize,
+    ts_p: f64,
+    own_turn: bool,
     sample_p: f64,
     rank_p: f64,
     sib_p: f64,
@@ -453,9 +455,9 @@ struct PyArena {
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize) -> PyArena {
-        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool) -> PyArena {
+        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
@@ -470,10 +472,11 @@ impl PyArena {
             vnet_depth: self.depth,
             rab_depth: self.rab_depth,
             max_leaves: self.max_leaves,
+            own_turn: self.own_turn,
             pending: None,
             leaf_buf: Vec::new(),
             offset: 0,
-            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p),
+            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p),
             log: if self.keep_log { Some(vec![]) } else { None },
             done: false,
         });
@@ -574,6 +577,9 @@ impl PyArena {
             d.set_item("sib_v", Array2::from_shape_vec((k, K_SIB), r.sib_v).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("sib_n", r.sib_n)?;
             d.set_item("sib_isp0", r.sib_isp0)?;
+            let t = r.ts_v.len();
+            d.set_item("ts_x", Array2::from_shape_vec((t, nf), r.ts_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("ts_v", r.ts_v)?;
             let log = g.log.map(|l| l.into_iter().map(|(a, o)| (to_canon(a), o)).collect());
             let snap = if self.keep_log { Some(PyState { inner: g.state.clone(), search: None }.snapshot(py)?) } else { None };
             let vps: Vec<i32> = g.state.players.iter().map(|p| p.actual_vp).collect();
