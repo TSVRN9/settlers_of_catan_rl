@@ -23,6 +23,11 @@ pub struct Layout {
     pub is_discarding_idx: i32,
     pub is_moving_robber_idx: i32,
     pub turn_base: i32,
+    /// Start of the heuristic-summary block (EXTRA_BASE in value_net.py):
+    /// per relative player i: production_score, reach0, reach1, reach2, num_tiles (5 x 4),
+    /// then p0's hand_synergy. These are base_fn's own terms, so the net can
+    /// represent AlphaBeta's ordering without raw (map-fingerprinting) tile features.
+    pub extra_base: i32,
 }
 
 const PLAYABLE_DEVS: [usize; 4] = [KNIGHT, YEAR_OF_PLENTY, MONOPOLY, ROAD_BUILDING];
@@ -103,5 +108,16 @@ impl State {
         out[ix(layout.is_moving_robber_idx)] = (self.prompt == Prompt::MoveRobber) as u8 as f32;
         let rel = (cur + self.n - p0) % self.n;
         out[ix(layout.turn_base) + rel] = 1.0;
+        let eb = ix(layout.extra_base);
+        for i in 0..self.n {
+            let seat = (p0 + i) % self.n;
+            let reach = self.reachable_production(seat);
+            out[eb + i * 5] = self.production_score(seat) as f32;
+            out[eb + i * 5 + 1] = reach[0] as f32;
+            out[eb + i * 5 + 2] = reach[1] as f32;
+            out[eb + i * 5 + 3] = reach[2] as f32;
+            out[eb + i * 5 + 4] = self.num_tiles(seat) as f32;
+        }
+        out[eb + 20] = self.hand_synergy(p0) as f32;
     }
 }

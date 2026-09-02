@@ -518,7 +518,7 @@ def test_seeded_games_are_reproducible_across_processes():
 def test_value_encoding_turn_onehot():
     """value_net.encode_for_value appends a 4-one-hot of whose turn it is,
     relative to the perspective color, after the 1026 base features."""
-    from value_net import N_BASE, N_FEATURES, encode_for_value
+    from value_net import EXTRA_BASE, N_BASE, N_FEATURES, encode_for_value
 
     game = _random_game(3)
     for _ in range(40):
@@ -528,8 +528,8 @@ def test_value_encoding_turn_onehot():
     for p0 in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE):
         x = encode_for_value(enc, game, p0)
         assert x.shape == (N_FEATURES,)
-        assert np.array_equal(x[:N_BASE], enc.encode(game, p0))
-        onehot = x[N_BASE:]
+        assert np.allclose(x[:N_BASE], enc.encode(game, p0), atol=1e-6)
+        onehot = x[N_BASE:EXTRA_BASE]
         rel = {c: i for i, c in iter_players(game.state.colors, p0)}[current]
         assert onehot.sum() == 1.0 and onehot[rel] == 1.0, (p0, current, onehot)
     print("  encode_for_value turn one-hot is perspective-relative: ok")
@@ -728,10 +728,16 @@ def test_rust_engine_replays_python_games():
 
 
 def test_rust_encoder_matches_python():
-    """catan_engine.State.encode == value_net.encode_for_value on live states, all perspectives."""
+    """catan_engine.State.encode: base block + turn one-hot equal the pure-Python
+    encoder; the heuristic-summary block equals catanatron's own base_fn terms
+    (value_production / reachability_features / tiles / hand synergy)."""
     import rust_bridge as rb
-    from value_net import encode_for_value
+    from catanatron.features import build_production_features, reachability_features
+    from catanatron.players.value import value_production
+    from catanatron.models.enums import RESOURCES
+    from value_net import EXTRA_BASE, N_FEATURES, encode_base_python
 
+    prod_fn = build_production_features(True)
     checked = 0
     for seed in range(3):
         game = _random_game(seed)
@@ -742,13 +748,31 @@ def test_rust_encoder_matches_python():
                     game.play_tick()
             rs, ctx = rb.rust_state(game)
             layout = rb.layout(ctx)
+            colors = list(game.state.colors)
             for p0 in range(4):
-                py = encode_for_value(enc, game, game.state.colors[p0])
+                py = encode_base_python(enc, game, colors[p0])
                 ru = rs.encode(layout, p0)
-                bad = np.flatnonzero(~np.isclose(py, ru, atol=1e-6))
+                assert ru.shape == (N_FEATURES,)
+                bad = np.flatnonzero(~np.isclose(py, ru[:EXTRA_BASE], atol=1e-6))
                 assert len(bad) == 0, f"seed {seed} turn {game.state.num_turns} p0={p0}: {[(FEATURES[i] if i < len(FEATURES) else f'turn{i - len(FEATURES)}', py[i], ru[i]) for i in bad[:5]]}"
+                ex = ru[EXTRA_BASE:]
+                for i, color in iter_players(tuple(colors), colors[p0]):
+                    ref_prod = value_production(prod_fn(game, color), "P0")
+                    reach = reachability_features(game, color, 2)
+                    ref_reach = [sum(reach[f"P0_{lvl}_ROAD_REACHABLE_{r}"] for r in RESOURCES) for lvl in range(3)]
+                    b = game.state.buildings_by_color[color]
+                    ref_tiles = len({t.id for n in b["SETTLEMENT"] + b["CITY"] for t in game.state.board.map.adjacent_tiles[n]})
+                    got = ex[i * 5:i * 5 + 5]
+                    exp = [ref_prod, *ref_reach, ref_tiles]
+                    assert np.allclose(got, exp, atol=1e-5), (seed, game.state.num_turns, p0, i, got, exp)
+                ps = game.state.player_state
+                key = f"P{p0}"
+                h = {r: ps[f"{key}_{r}_IN_HAND"] for r in RESOURCES}
+                d_city = (max(2 - h["WHEAT"], 0) + max(3 - h["ORE"], 0)) / 5.0
+                d_set = (max(1 - h["WHEAT"], 0) + max(1 - h["SHEEP"], 0) + max(1 - h["BRICK"], 0) + max(1 - h["WOOD"], 0)) / 4.0
+                assert abs(ex[20] - (2 - d_city - d_set) / 2) < 1e-6
                 checked += 1
-    print(f"  Rust encoder matches Python encoder on {checked} (state, perspective) pairs: ok")
+    print(f"  Rust encoder: base block == Python, heuristic block == catanatron references, on {checked} pairs: ok")
 
 
 def test_rust_search_matches_python():

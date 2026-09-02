@@ -59,13 +59,17 @@ class StateSampler(GameAccumulator):
     """Uses its own random.Random: Game seeds the *global* random module and
     the bots draw from it, so touching it here would change the game."""
 
-    def __init__(self, sample_p, seed, rank_p=0.0):
+    K_SIB = 6  # children per sibling set (padded)
+
+    def __init__(self, sample_p, seed, rank_p=0.0, sib_p=0.0):
         self.sample_p = sample_p
         self.rank_p = rank_p
+        self.sib_p = sib_p
         self.rng = random.Random(seed)
         self.encoder = Encoder()
         self.xs, self.colors, self.turns = [], [], []
         self.rank_c, self.rank_o = [], []  # (chosen child, other child) encodings, decider's perspective
+        self.sib_x, self.sib_v, self.sib_n = [], [], []  # sibling sets: (K, F) encodings, (K,) base_fn values, count
 
     def step(self, game, action):
         if self.rng.random() < self.sample_p:
@@ -75,6 +79,32 @@ class StateSampler(GameAccumulator):
             self.turns.append(game.state.num_turns)
         if self.rank_p and self.rng.random() < self.rank_p and isinstance(game.state.current_player(), (AlphaBetaPlayer, RustAlphaBetaPlayer)):
             self.record_pair(game, action)
+        if self.sib_p and self.rng.random() < self.sib_p:
+            self.record_siblings(game)
+
+    def record_siblings(self, game):
+        """Up to K_SIB deterministic children of this decision, encoded from a
+        random perspective, with AlphaBeta's base_fn value of each from that
+        perspective -- the ordering target that teaches the net AlphaBeta's
+        evaluator (docs/FINDINGS.md, v1 diagnosis: 35% top-1 agreement)."""
+        acts = [a for a in game.playable_actions if _deterministic(a)]
+        if len(acts) < 2:
+            return
+        if len(acts) > self.K_SIB:
+            acts = self.rng.sample(acts, self.K_SIB)
+        rs, ctx = rb.rust_state(game)
+        colors = list(game.state.colors)
+        p0 = self.rng.randrange(len(colors))
+        x, v, kept = rs.children(rb.layout(ctx), [rb.canon(a, ctx, colors) for a in acts], p0)
+        if len(kept) < 2:
+            return
+        pad = np.zeros((self.K_SIB, x.shape[1]), dtype=np.float16)
+        pad[: len(kept)] = x
+        vv = np.full(self.K_SIB, np.nan)
+        vv[: len(kept)] = v
+        self.sib_x.append(pad)
+        self.sib_v.append(vv)
+        self.sib_n.append(len(kept))
 
     def record_pair(self, game, action):
         """AlphaBeta's chosen child vs one random other deterministic legal
@@ -113,13 +143,13 @@ class StateSampler(GameAccumulator):
 _W = {}
 
 
-def _init_worker(lineup, sample_p, rank_p=0.0):
-    _W["lineup"], _W["sample_p"], _W["rank_p"] = lineup, sample_p, rank_p
+def _init_worker(lineup, sample_p, rank_p=0.0, sib_p=0.0):
+    _W["lineup"], _W["sample_p"], _W["rank_p"], _W["sib_p"] = lineup, sample_p, rank_p, sib_p
 
 
 def play_one(seed):
     players = [make_player(spec, c) for spec, c in zip(_W["lineup"], COLORS)]
-    acc = StateSampler(_W["sample_p"], seed, _W["rank_p"])
+    acc = StateSampler(_W["sample_p"], seed, _W["rank_p"], _W["sib_p"])
     game = Game(players, seed=seed)
     winner = game.play(accumulators=[acc])
     if winner is None or not acc.xs:
@@ -130,6 +160,9 @@ def play_one(seed):
         X=np.array(acc.xs, dtype=np.float16), y=y, vp=vp, turns_left=turns_left,
         rank_c=np.array(acc.rank_c, dtype=np.float16).reshape(n_rank, N_FEATURES),
         rank_o=np.array(acc.rank_o, dtype=np.float16).reshape(n_rank, N_FEATURES),
+        sib_x=np.array(acc.sib_x, dtype=np.float16).reshape(len(acc.sib_n), StateSampler.K_SIB, N_FEATURES),
+        sib_v=np.array(acc.sib_v, dtype=np.float64).reshape(len(acc.sib_n), StateSampler.K_SIB),
+        sib_n=np.array(acc.sib_n, dtype=np.int8),
     )
 
 
@@ -147,6 +180,7 @@ def main():
     parser.add_argument("--jobs", type=int, default=7)
     parser.add_argument("--sample-p", type=float, default=0.5)
     parser.add_argument("--rank-p", type=float, default=0.0, help="per AlphaBeta decision: probability of recording a (chosen, other) child pair")
+    parser.add_argument("--sib-p", type=float, default=0.0, help="per decision: probability of recording a sibling set with base_fn values")
     parser.add_argument("--shard", type=int, default=500, help="games per output file")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
@@ -156,23 +190,23 @@ def main():
 
     seeds = range(args.seed, args.seed + args.games)
     t0 = time.time()
-    parts, gs, shard, done, dropped, n_samples, n_pairs = [], [], 0, 0, 0, 0, 0
+    parts, gs, shard, done, dropped, n_samples, n_pairs, n_sib = [], [], 0, 0, 0, 0, 0, 0
     ctx = mp.get_context("spawn")
-    with ctx.Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p)) as pool:
+    with ctx.Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p, args.sib_p)) as pool:
         for seed, part in pool.imap_unordered(play_one, seeds, chunksize=1):
             done += 1
             if part is None:
                 dropped += 1
             else:
-                parts.append(part); gs.extend([seed] * len(part["y"])); n_samples += len(part["y"]); n_pairs += len(part["rank_c"])
+                parts.append(part); gs.extend([seed] * len(part["y"])); n_samples += len(part["y"]); n_pairs += len(part["rank_c"]); n_sib += len(part["sib_n"])
             if parts and done % args.shard == 0:
-                print(f"  {done}/{args.games} games, {n_samples} samples, {n_pairs} pairs, {done / (time.time() - t0):.2f} games/s -> {_flush(args.out, shard, parts, gs)}", flush=True)
+                print(f"  {done}/{args.games} games, {n_samples} samples, {n_pairs} pairs, {n_sib} sibling sets, {done / (time.time() - t0):.2f} games/s -> {_flush(args.out, shard, parts, gs)}", flush=True)
                 parts, gs, shard = [], [], shard + 1
     if parts:
         print(f"  final -> {_flush(args.out, shard, parts, gs)}", flush=True)
     el = time.time() - t0
     print(f"{args.games} games in {el:.0f}s ({args.games / el:.2f} games/s), {dropped} dropped (no winner), "
-          f"{n_samples} samples ({n_samples / max(args.games - dropped, 1):.0f}/game), {n_pairs} rank pairs -> {args.out}", flush=True)
+          f"{n_samples} samples ({n_samples / max(args.games - dropped, 1):.0f}/game), {n_pairs} rank pairs, {n_sib} sibling sets -> {args.out}", flush=True)
 
 
 if __name__ == "__main__":

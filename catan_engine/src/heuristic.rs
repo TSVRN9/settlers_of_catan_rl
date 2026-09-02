@@ -45,33 +45,6 @@ impl State {
         total
     }
 
-    /// reachability_features level 1 for p, summed over resources.
-    fn reachable_production_1(&self, p: usize) -> f64 {
-        let pl = &self.players[p];
-        let mut owned_or_buildable = self.buildable; // board_buildable_ids
-        for &n in pl.settlements.iter().chain(pl.cities.iter()) {
-            owned_or_buildable |= 1u64 << n;
-        }
-        let mut zero = 0u64;
-        for &c in &self.components[p] {
-            zero |= c;
-        }
-        let mut level1 = zero;
-        for n in 0..54u8 {
-            if zero & (1u64 << n) == 0 || self.is_enemy_node(n, p) {
-                continue;
-            }
-            for &v in &self.map.neighbors[n as usize] {
-                let e = self.map.edge(n, v);
-                let ro = self.road_owner[e as usize];
-                if ro < 0 || ro as usize == p {
-                    level1 |= 1u64 << v;
-                }
-            }
-        }
-        self.count_production(owned_or_buildable & level1)
-    }
-
     /// base_fn(DEFAULT_WEIGHTS)(game, p0_color)
     pub fn base_fn(&self, p0: usize) -> f64 {
         let pl = &self.players[p0];
@@ -83,7 +56,7 @@ impl State {
         let production = prod_sum + variety;
         let enemy_production: f64 = enemy.iter().sum();
 
-        let reach1 = self.reachable_production_1(p0);
+        let reach1 = self.reachable_production(p0)[1];
 
         let h = &pl.hand;
         let d_city = ((2 - h[WHEAT]).max(0) + (3 - h[ORE]).max(0)) as f64 / 5.0;
@@ -141,5 +114,66 @@ impl State {
             return Some(actions[0]);
         }
         self.expectimax(depth, self.current_player).0
+    }
+}
+
+impl State {
+    /// reachability_features levels 0..=2 for p, each summed over resources.
+    pub fn reachable_production(&self, p: usize) -> [f64; 3] {
+        let pl = &self.players[p];
+        let mut owned_or_buildable = self.buildable;
+        for &n in pl.settlements.iter().chain(pl.cities.iter()) {
+            owned_or_buildable |= 1u64 << n;
+        }
+        let mut zero = 0u64;
+        for &c in &self.components[p] {
+            zero |= c;
+        }
+        let mut out = [0f64; 3];
+        out[0] = self.count_production(owned_or_buildable & zero);
+        let mut last = zero;
+        for level in 1..=2 {
+            let mut nodes = last;
+            for n in 0..54u8 {
+                if last & (1u64 << n) == 0 || self.is_enemy_node(n, p) {
+                    continue;
+                }
+                for &v in &self.map.neighbors[n as usize] {
+                    let e = self.map.edge(n, v);
+                    let ro = self.road_owner[e as usize];
+                    if ro < 0 || ro as usize == p {
+                        nodes |= 1u64 << v;
+                    }
+                }
+            }
+            out[level] = self.count_production(owned_or_buildable & nodes);
+            last = nodes;
+        }
+        out
+    }
+
+    /// base_fn's production term for p (effective production sum + variety).
+    pub fn production_score(&self, p: usize) -> f64 {
+        let our = self.effective_production(p);
+        let prod_sum: f64 = our.iter().sum();
+        prod_sum + our.iter().filter(|&&x| x != 0.0).count() as f64 * TRANSLATE_VARIETY * PROBA_POINT
+    }
+
+    pub fn num_tiles(&self, p: usize) -> f64 {
+        let pl = &self.players[p];
+        let mut tiles = 0u32;
+        for &n in pl.settlements.iter().chain(pl.cities.iter()) {
+            for &tid in &self.map.node_tiles[n as usize] {
+                tiles |= 1 << tid;
+            }
+        }
+        tiles.count_ones() as f64
+    }
+
+    pub fn hand_synergy(&self, p: usize) -> f64 {
+        let h = &self.players[p].hand;
+        let d_city = ((2 - h[WHEAT]).max(0) + (3 - h[ORE]).max(0)) as f64 / 5.0;
+        let d_settle = ((1 - h[WHEAT]).max(0) + (1 - h[SHEEP]).max(0) + (1 - h[BRICK]).max(0) + (1 - h[WOOD]).max(0)) as f64 / 4.0;
+        (2.0 - d_city - d_settle) / 2.0
     }
 }

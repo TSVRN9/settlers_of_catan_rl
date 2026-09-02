@@ -37,7 +37,13 @@ fast_copy.install()  # 1.3x on every Game.copy()-heavy player, AlphaBeta include
 # it is; a leaf evaluator scoring arbitrary mid-turn states needs that.
 # Appended here (not inside Encoder) so 1026-dim PPO/BC checkpoints stay loadable.
 N_BASE = len(FEATURES)
-N_FEATURES = N_BASE + 4
+EXTRA_BASE = N_BASE + 4  # after the 4 turn one-hots
+# Heuristic summaries (AlphaBeta's base_fn terms), computed by catan_engine:
+# per relative player: production score, reachable production at 0/1/2 roads,
+# tiles touched (5 x 4), then p0's hand synergy. See docs/FINDINGS.md (v1
+# diagnosis): without these the net could not see where a road leads.
+N_EXTRA = 21
+N_FEATURES = EXTRA_BASE + N_EXTRA
 
 # Raw tile/port one-hots (206 features) uniquely fingerprint a map, and every
 # sample from one game shares that map, so an MLP memorizes "this map -> this
@@ -61,7 +67,18 @@ except ImportError:  # pragma: no cover
 
 
 def encode_for_value(encoder, game, p0_color):
-    out = np.zeros(N_FEATURES, dtype=np.float32)
+    """Full feature vector from p0's perspective. The heuristic-summary block
+    comes from catan_engine (rust_bridge); the base block and turn one-hot
+    are checked against this Python version in test_env.py."""
+    import rust_bridge as rb
+
+    rs, ctx = rb.rust_state(game)
+    return rs.encode(rb.layout(ctx), list(game.state.colors).index(p0_color))
+
+
+def encode_base_python(encoder, game, p0_color):
+    """Base 1026 features + turn one-hot, pure Python (reference for tests)."""
+    out = np.zeros(EXTRA_BASE, dtype=np.float32)
     out[:N_BASE] = encoder.encode(game, p0_color)
     current = game.state.current_color()
     for i, color in iter_players(game.state.colors, p0_color):

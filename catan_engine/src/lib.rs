@@ -148,6 +148,7 @@ impl PyLayout {
                 is_discarding_idx: get1("is_discarding_idx")?,
                 is_moving_robber_idx: get1("is_moving_robber_idx")?,
                 turn_base: get1("turn_base")?,
+                extra_base: get1("extra_base")?,
             }),
         })
     }
@@ -378,6 +379,30 @@ impl PyState {
         let mut out = s.map.static_template.clone();
         s.encode_into(p0, &layout.inner, &mut out);
         Ok(Some(out.into_pyarray(py)))
+    }
+
+    /// For each given (deterministic) action: the child's encoding from p0's
+    /// perspective and base_fn(p0) of the child. Unapplicable actions are skipped.
+    fn children<'py>(&self, py: Python<'py>, layout: &PyLayout, actions: Vec<Canon>, p0: usize) -> PyResult<(Bound<'py, PyArray2<f32>>, Vec<f64>, Vec<usize>)> {
+        let nf = layout.inner.n_features;
+        let mut rows: Vec<f32> = Vec::new();
+        let mut vals = Vec::new();
+        let mut kept = Vec::new();
+        for (i, c) in actions.iter().enumerate() {
+            let a = from_canon(c)?;
+            let mut s = self.inner.clone();
+            if s.apply(a, None).is_err() {
+                continue;
+            }
+            let start = rows.len();
+            rows.extend_from_slice(&s.map.static_template);
+            s.encode_into(p0, &layout.inner, &mut rows[start..start + nf]);
+            vals.push(s.base_fn(p0));
+            kept.push(i);
+        }
+        let n = kept.len();
+        let arr = Array2::from_shape_vec((n, nf), rows).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py);
+        Ok((arr, vals, kept))
     }
 
     /// base_fn(DEFAULT_WEIGHTS) from seat p0's perspective.

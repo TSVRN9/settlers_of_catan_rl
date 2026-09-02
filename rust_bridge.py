@@ -22,7 +22,7 @@ from catan_env import (
     PLAYER_SCALAR_STATE_SUFFIX,
     Encoder,
 )
-from value_net import N_BASE, N_FEATURES
+from value_net import EXTRA_BASE, N_BASE, N_FEATURES
 
 RES_IDX = {r: i for i, r in enumerate(RESOURCES)}
 DEV_IDX = {c: i for i, c in enumerate(DEVELOPMENT_CARDS)}
@@ -250,6 +250,7 @@ def layout(ctx):
             "is_discarding_idx": L.is_discarding_idx,
             "is_moving_robber_idx": L.is_moving_robber_idx,
             "turn_base": N_BASE,
+            "extra_base": EXTRA_BASE,
         }
         _LAYOUT = catan_engine.Layout(spec)
     return _LAYOUT
