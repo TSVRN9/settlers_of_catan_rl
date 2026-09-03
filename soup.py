@@ -24,7 +24,7 @@ def mean(sds):
     return {k: (sum(sd[k].float() for sd in sds) / len(sds)).to(sds[0][k].dtype) for k in sds[0]}
 
 
-def greedy(paths, games, seed, out):
+def greedy(paths, games, seed, out, base=None):
     from catanatron import Color
 
     import arena
@@ -41,6 +41,11 @@ def greedy(paths, games, seed, out):
     order = sorted(paths, key=lambda p: -single[p])
     for p in order:
         print(f"  {p}: {single[p]}/{games}")
+    if base:  # the incumbent seeds the soup: draws are added only if they improve on it (monotone on these seeds)
+        sds[base] = torch.load(base, map_location="cpu")
+        single[base] = score(sds[base])
+        print(f"  base {base}: {single[base]}/{games}")
+        order = [base] + order
     kept = [order[0]]
     best = single[order[0]]
     for p in order[1:]:
@@ -60,8 +65,9 @@ if __name__ == "__main__":
     ap.add_argument("--greedy", action="store_true")
     ap.add_argument("--games", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--base", default=None, help="greedy: start the soup from this checkpoint (the incumbent) instead of the best single draw")
     ap.add_argument("paths", nargs="+")
     a = ap.parse_args()
-    sd = greedy(a.paths, a.games, a.seed, a.out) if a.greedy else mean([torch.load(p, map_location="cpu") for p in a.paths])
+    sd = greedy(a.paths, a.games, a.seed, a.out, a.base) if a.greedy else mean([torch.load(p, map_location="cpu") for p in a.paths])
     torch.save(sd, a.out)
     print(f"soup of {len(a.paths)} -> {a.out}")
