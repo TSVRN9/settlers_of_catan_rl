@@ -2252,6 +2252,27 @@ never pass through one) and identically in `catan_engine/src/board.rs`; `test_en
 engines and the replay oracles still hold. **Every number above this line was measured under the old rule**;
 the incumbent is re-scored on fresh seeds by the loop, so the next rounds' incumbent numbers are the new baseline.
 
+### Round 31 on the fast pipeline: the loss optimum and the best player have come apart
+
+Three it31 variants, each 4,000 games from v30, five draws, greedy soup, gate vs v30 on fresh seeds (31000007,
+under the fixed #378 rule; v30 = **2046/4000 = 51.1%** [49.6, 52.7] there):
+
+| variant | gen | draws (1,000-game proxy, seeds 31500000) | greedy soup | gate |
+|---|---|---|---|---|
+| standard (`--roll-p 0.1`, new rollout policy) | 590 s | 52.0 (stopped at step 90 ≈ v30), 43.1, 42.6, 36.8, 35.5 | 1/5 kept, 52.0% | **48.8%** rejected |
+| depth-1 rollout policy | 495 s | — | 2/5, 48.8% | **46.8%** rejected |
+| `--roll-p 0.3` | (running) | | | |
+
+Every draw that actually trained scored 8-16 points *below* the incumbent. Not the engine or the rule change
+(old draws re-score the same under the new engine: v30_s1 46.4% vs 45.6%, v29 50.2% vs 49.0%), not the new
+rollout labels (training on it28-it30 only, seed 1: **37.6%**), and monotone in the learning rate (1e-3 → 37.6%,
+3e-4 → 44.3%, 1e-4 → 47.1%): the less the net moves from v30, the less it loses. Held-out BCE improves throughout.
+So from v30 on, **descending the loss (outcome + aux + rollout values) makes the player worse**; v30's strength
+came from play-selected weight averaging, not from the loss. The greedy soup seeded with the incumbent
+(`soup.py --base`, now in `run_exit.sh`) keeps a round from regressing (v30 + it31_s2 → 52.2% vs 52.0% on the
+selection seeds: a wash), but the loop as configured has plateaued at ~51% vs `rab` / 49% vs Python AB.
+Rounds are now ~27 min, so the remaining levers are cheap to test; first up, a wider net from scratch.
+
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
 (`run_exit.sh 28 40`: rollout labels, no `base_fn` losses, 3-seed soups, incumbent v27d_soup) is running.

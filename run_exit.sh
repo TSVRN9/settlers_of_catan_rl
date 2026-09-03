@@ -43,7 +43,7 @@ for k in $(seq "$first" "$last"); do
   for s in $(seq 0 $((N_SEEDS - 1))); do
     run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v${k}_s$s.pt" --seed "$s" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key ro --ts-weight "$TS_WEIGHT" || exit 1
   done
-  run uv run python soup.py --greedy --games 1000 --seed $((k * 1000000 + 500000)) --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
+  run uv run python soup.py --greedy --base "$prev" --games 1000 --seed $((k * 1000000 + 500000)) --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
   seedk=$((k * 1000000 + 7))
   echo "=== it$k proxy gate: incumbent and v$k vs 3x rab, 4000 fresh games each (seed $seedk)  $(date)"
   inc=$(proxy "$prev" "$seedk") || exit 1; echo "$inc"; best_wins=$(wins_of "$inc")
