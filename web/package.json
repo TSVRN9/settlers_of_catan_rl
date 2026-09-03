@@ -1,0 +1,35 @@
+{
+  "name": "catan-rl-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build:wasm": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build ../catan_engine --release --target web --out-dir ../web/src/engine --no-default-features --features wasm",
+    "dev": "vite",
+    "build": "pnpm build:wasm && tsc -b && vite build",
+    "preview": "vite preview",
+    "smoke": "node tools/smoke.mjs"
+  },
+  "dependencies": {
+    "@zag-js/dialog": "^1.43.3",
+    "@zag-js/menu": "^1.43.3",
+    "@zag-js/react": "^1.43.3",
+    "@zag-js/select": "^1.43.3",
+    "@zag-js/slider": "^1.43.3",
+    "@zag-js/tabs": "^1.43.3",
+    "@zag-js/toggle-group": "^1.43.3",
+    "@zag-js/tooltip": "^1.43.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}

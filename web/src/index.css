@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root { color-scheme: light dark; }
+html, body, #root { height: 100%; }
+body { margin: 0; font-family: var(--font-sans); }
+
+/* zag.js state attributes */
+[data-part="trigger"][data-selected] { @apply text-amber-700 dark:text-amber-300 border-amber-500; }
+[data-part="thumb"] { @apply outline-none; }
+[data-part="thumb"]:focus-visible { @apply ring-2 ring-amber-500; }
+.btn { @apply inline-flex items-center gap-1 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:hover:bg-stone-700; }
+.btn-primary { @apply border-amber-600 bg-amber-500 text-stone-950 hover:bg-amber-400 dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400; }
+.card { @apply rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-stone-800 dark:bg-stone-900; }
+.label { @apply text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400; }
+select, input[type=number] { @apply rounded-md border border-stone-300 bg-white px-2 py-1 text-sm dark:border-stone-700 dark:bg-stone-800; }

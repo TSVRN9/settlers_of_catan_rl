@@ -374,7 +374,7 @@ class RustAlphaBetaPlayer(Player):
 
 
 def make_player(spec, color):
-    """Lineup/--player token -> catanatron Player. Shared by gen_games.py and evaluate.py."""
+    """Lineup/--player token -> catanatron Player. Shared by gen_games.py, evaluate.py and tournament.py."""
     if spec == "ab":
         return AlphaBetaPlayer(color)
     if spec.startswith("ab") and spec[2:].isdigit():  # ab3 = AlphaBetaPlayer(depth=3)
@@ -389,6 +389,28 @@ def make_player(spec, color):
         return ValueFunctionPlayer(color)
     if spec == "wr":
         return WeightedRandomPlayer(color)
+    if spec == "rand":
+        from catanatron.models.player import RandomPlayer
+
+        return RandomPlayer(color)
+    if spec == "vp":
+        from catanatron.players.search import VictoryPointPlayer
+
+        return VictoryPointPlayer(color)
+    if spec == "stab":
+        from catanatron.players.minimax import SameTurnAlphaBetaPlayer
+
+        return SameTurnAlphaBetaPlayer(color)
+    m = re.fullmatch(r"mcts(\d*)", spec)  # mcts = catanatron MCTSPlayer (10 simulations), mcts50 = 50
+    if m:
+        from catanatron.players.mcts import MCTSPlayer
+
+        return MCTSPlayer(color, num_simulations=int(m.group(1) or 10))
+    m = re.fullmatch(r"gp(\d*)", spec)  # gp = GreedyPlayoutsPlayer (25 playouts per action), gp5 = 5
+    if m:
+        from catanatron.players.playouts import GreedyPlayoutsPlayer
+
+        return GreedyPlayoutsPlayer(color, num_playouts=int(m.group(1) or 25))
     m = re.fullmatch(r"vnet(\d?)(o?):(.+)", spec)  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (own-turn depth 3, see arena.VNET)
     if m:
         return ValueNetPlayer(color, m.group(3), depth=int(m.group(1) or 2), own_turn=bool(m.group(2)))
