@@ -60,6 +60,7 @@ deleted. See `docs/FINDINGS.md` "M4 reframed" before touching training.
 ## Docs
 
 - `docs/FINDINGS.md` — measured performance baseline + Catanatron API notes. Read first.
+- `docs/BENCHMARK.md` — the EUMAS 2018 tournament protocol (`tournament.py`), its results, and the jSettlers / thesis-MCTS roadmap.
 - `docs/HANDOFF.md` — milestone-by-milestone implementation instructions.
 - `docs/RUST-ENGINE.md` — evaluated and **deferred**. Don't reopen the "rewrite it in Rust"
   question from scratch; the analysis and the triggers that would change the verdict are
