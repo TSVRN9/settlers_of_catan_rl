@@ -52,7 +52,7 @@ assert len(tiles) == 19 and len(ports) == 9 and len(spiral) == 19 and len(tile_r
 # --- pixel geometry (pointy-top hexes, unit circumradius): tile centre from cube coords, vertices at
 # N, NE, SE, S, SW, NW = -90, -30, 30, 90, 150, 210 degrees.
 def center(coord):
-    q, r, _ = coord
+    q, _, r = coord  # catanatron cube coords: x, y, z with axial q = x, r = z (verified: every shared vertex agrees)
     return (math.sqrt(3) * (q + r / 2), 1.5 * r)
 
 

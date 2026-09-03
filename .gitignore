@@ -11,7 +11,7 @@ wheels/
 
 # Training artifacts
 checkpoints*/
-data/
+/data/
 checkpoints_value/best.txt
 
 # Tool caches
