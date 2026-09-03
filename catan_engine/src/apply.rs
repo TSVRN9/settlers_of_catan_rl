@@ -314,13 +314,15 @@ impl State {
         for i in 0..self.n {
             self.players[i].longest_road_length = self.road_lengths[i];
         }
-        if road_color < 0 || previous_road_color == road_color {
+        if previous_road_color == road_color {
             return;
         }
-        let w = &mut self.players[road_color as usize];
-        w.has_road = true;
-        w.vp += 2;
-        w.actual_vp += 2;
+        if road_color >= 0 {
+            let w = &mut self.players[road_color as usize];
+            w.has_road = true;
+            w.vp += 2;
+            w.actual_vp += 2;
+        }
         if previous_road_color >= 0 {
             let l = &mut self.players[previous_road_color as usize];
             l.has_road = false;
@@ -402,10 +404,18 @@ impl State {
                 totals[r] += amt;
             }
         }
+        // Official rule: a resource the bank cannot fully pay is withheld from everyone,
+        // unless only one player would receive it, who takes what is left.
         for r in 0..5 {
             if self.bank[r] < totals[r] {
-                for p in 0..4 {
-                    payout[p][r] = 0;
+                let recipients: Vec<usize> = (0..self.n).filter(|&p| payout[p][r] > 0).collect();
+                if recipients.len() == 1 && self.bank[r] > 0 {
+                    let p = recipients[0];
+                    payout[p][r] = payout[p][r].min(self.bank[r]);
+                } else {
+                    for p in 0..4 {
+                        payout[p][r] = 0;
+                    }
                 }
             }
         }

@@ -121,15 +121,17 @@ impl State {
                         m = m.max(self.longest_acyclic_path(comp, ec));
                     }
                     self.road_lengths[ec] = m;
-                    // road_color, road_length = max(road_lengths.items(), key=len): first max in seating order
-                    let mut best_c = 0usize;
-                    for c in 1..self.n {
-                        if self.road_lengths[c] > self.road_lengths[best_c] {
-                            best_c = c;
-                        }
+                    // Official rule (mirrors the pinned catanatron fork): after a break the card goes to
+                    // the unique longest road of >= 5, otherwise it is set aside until someone has one.
+                    let best = *self.road_lengths[..self.n].iter().max().unwrap_or(&0);
+                    let holders = self.road_lengths[..self.n].iter().filter(|&&l| l == best).count();
+                    if best >= 5 && holders == 1 {
+                        self.road_color = self.road_lengths[..self.n].iter().position(|&l| l == best).unwrap() as i8;
+                        self.road_length = best;
+                    } else {
+                        self.road_color = -1;
+                        self.road_length = if best >= 5 { best } else { 0 };
                     }
-                    self.road_color = best_c as i8;
-                    self.road_length = self.road_lengths[best_c];
                 } else if vs.len() == 1 {
                     if let Some(b_index) = self.component_index(node, ec) {
                         self.components[ec][b_index] &= !(1u64 << node);

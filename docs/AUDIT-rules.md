@@ -46,15 +46,25 @@ Fixing only the Rust side would break that oracle; fixing neither keeps the game
 a decision for the owner: the target "beat `AlphaBetaPlayer`" is currently measured under the buggy rule, and
 every checkpoint's number would need re-measuring under the fixed one.
 
-## Other deviations from the official rules found while reading (not GitHub issues)
+## Other deviations from the official rules found while reading (not GitHub issues) — fixed 2026-09-02 night
 
-- **Bank shortage on a roll** (`apply_action.yield_resources`, `apply.rs yield_resources`): if the bank cannot pay
-  a resource's full payout, *nobody* receives it. Official rule: only when more than one player would receive it;
-  a single affected player takes what is left. Rare (needs a nearly empty bank), same in both engines.
-- **Win check** (`Game.winning_color`): any player with actual VPs ≥ 10 wins at the moment it happens, counting
-  hidden VP cards; the official rule is "on your own turn, announced". In practice VPs are only gained on one's own
-  turn here (no player trades), so this only skips the announcement.
-- **No player-to-player trading** — a documented simplification of catanatron, not a bug; it does change strategy.
+All four below are fixed in the pinned fork (`TSVRN9/catanatron@855bf0d`) and identically in `catan_engine`, each with a
+scenario test in `test_env.py` that runs the Python and the Rust engine side by side.
+
+- **Bank shortage on a roll** (`apply_action.yield_resources`, `apply.rs yield_resources`): was "if the bank cannot
+  pay a resource's full payout, nobody receives it". Official: only when more than one player would receive it; a
+  single affected player takes what is left. **Fixed.**
+- **Longest Road after a break** (`Board.build_settlement` cut branch, `board.rs board_build_settlement`): was "the
+  card goes to the first player with the maximum length", even when tied or below 5 — so plowing a 6-road into 3+3
+  could hand 2 VP to a player with a 4-road. Official: the card goes to the unique longest road of at least 5,
+  otherwise it is set aside (the holder loses its 2 VP) until someone has one. **Fixed**, incl.
+  `maintain_longest_road` removing the previous holder's points when the card is set aside.
+- **Win check** (`Game.winning_color`, `State::winner`): was "any player with ≥ 10 actual VPs wins the moment it
+  happens" — reachable off-turn through a Longest Road transfer during another player's turn. Official: on the
+  player's own turn. **Fixed** (the turn's player, `current_turn_index`, not whoever is deciding a discard).
+- **No player-to-player trading** — a documented simplification of catanatron (a missing feature, not a wrong rule); it
+  does change strategy. Not changed: it would add a trade protocol to the action space, the encoder, both search
+  players and the Rust port.
 - **Development cards**: one per turn, not on the turn bought (`OWNED_AT_START`) — correct.
 - **Discard**: floor(hand / 2) when the hand exceeds 7 — correct.
 - **Longest road award**: ≥ 5 and strictly longer than the holder — correct (ties keep the holder).

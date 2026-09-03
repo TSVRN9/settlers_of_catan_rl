@@ -87,14 +87,15 @@ pub struct State {
 }
 
 impl State {
+    /// Official rule: a player wins on their own turn (current_turn, not the
+    /// player deciding a discard or robber move). Mirrors the pinned fork.
     pub fn winner(&self) -> i8 {
-        let mut result = -1;
-        for (i, p) in self.players.iter().enumerate() {
-            if p.actual_vp >= self.vps_to_win {
-                result = i as i8;
-            }
+        let t = self.current_turn;
+        if self.players[t].actual_vp >= self.vps_to_win {
+            t as i8
+        } else {
+            -1
         }
-        result
     }
 
     #[inline]

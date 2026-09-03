@@ -922,6 +922,157 @@ def test_longest_road_may_end_at_enemy_settlements():
     print(f"  longest road capped by enemy settlements at both ends counts all 9 edges (python {py}, rust {rust}): ok")
 
 
+def _far_node(G, buildings, extra=()):
+    """A node at distance >= 2 from every building (the distance rule) and from `extra`."""
+    import networkx as nx
+
+    for n in sorted(G.nodes):
+        if all(nx.shortest_path_length(G, n, b) >= 2 for b in list(buildings) + list(extra)):
+            return n
+    raise AssertionError("no free node")
+
+
+def _rust_ready(game, color, **hand):
+    """Hand the Python game to Rust with `color` on turn in PLAY_TURN, rolled, holding `hand`."""
+    from catanatron.models.enums import ActionPrompt
+
+    import rust_bridge as rb
+
+    st = game.state
+    st.current_player_index = st.current_turn_index = list(st.colors).index(color)
+    st.current_prompt = ActionPrompt.PLAY_TURN
+    st.is_initial_build_phase = False
+    key = f"P{st.current_player_index}"
+    st.player_state[f"{key}_HAS_ROLLED"] = True
+    for res, n in hand.items():
+        st.player_state[f"{key}_{res}_IN_HAND"] += n
+    return rb.rust_state(game)
+
+
+def test_longest_road_break_sets_card_aside():
+    """Official rule (docs/AUDIT-rules.md): after a road is broken, the Longest Road card goes to the unique
+    longest road of >= 5, otherwise it is set aside (the previous holder loses its 2 VP) until someone has one.
+    catanatron d3f4ad0 handed it to the first player with the (tied, possibly < 5) maximum. Python fork
+    (Board + maintain_longest_road) and Rust (BUILD_SETTLEMENT / BUILD_ROAD applied) side by side."""
+    import networkx as nx
+    from catanatron import Game, RandomPlayer
+    from catanatron.models.board import STATIC_GRAPH as G
+    from catanatron.state_functions import maintain_longest_road
+
+    path = [0, 5, 16, 18, 17, 15, 14, 13, 12, 3]
+    game = Game([RandomPlayer(c) for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)], seed=0)
+    st, board = game.state, game.state.board
+    colors = list(st.colors)
+    blue = colors.index(Color.BLUE)
+    vp = lambda c: st.player_state[f"P{colors.index(c)}_VICTORY_POINTS"]  # noqa: E731
+
+    def road(color, edge):
+        maintain_longest_road(st, *board.build_road(color, edge))
+
+    board.build_settlement(Color.BLUE, path[2], initial_build_phase=True)
+    for i in range(2, 9):
+        road(Color.BLUE, (path[i], path[i + 1]))
+    for i in range(1, -1, -1):
+        road(Color.BLUE, (path[i], path[i + 1]))
+    assert (board.road_color, board.road_length, vp(Color.BLUE)) == (Color.BLUE, 9, 2)
+    # RED: a 5-road far away
+    rp = [_far_node(G, board.buildings, extra=path)]
+    while len(rp) < 6:
+        rp.append(next(v for v in G.neighbors(rp[-1]) if v not in rp and all(nx.shortest_path_length(G, v, x) >= 2 for x in path)))
+    board.build_settlement(Color.RED, rp[0], initial_build_phase=True)
+    for i in range(5):
+        road(Color.RED, (rp[i], rp[i + 1]))
+    assert board.road_color == Color.BLUE
+    # WHITE plows BLUE at path[4] (2 nodes from BLUE's settlement): pieces of 4 and 5 edges -> tie with RED at 5
+    cut = path[4]
+    off = next(v for v in G.neighbors(cut) if v not in path)
+    w0 = next(v for v in G.neighbors(off) if v != cut and all(nx.shortest_path_length(G, v, b) >= 2 for b in board.buildings))
+    board.build_settlement(Color.WHITE, w0, initial_build_phase=True)
+    road(Color.WHITE, (w0, off))
+    road(Color.WHITE, (off, cut))
+    rs, ctx = _rust_ready(game, Color.WHITE, WOOD=1, BRICK=1, SHEEP=1, WHEAT=1)
+    rs.apply(("BUILD_SETTLEMENT", cut, -1, -1), None)
+    maintain_longest_road(st, *board.build_settlement(Color.WHITE, cut))
+    snap = rs.snapshot()
+    assert board.road_color is None and board.road_length == 5 and vp(Color.BLUE) == 0, (board.road_color, board.road_length, vp(Color.BLUE))
+    assert snap["road_color"] == -1 and snap["road_length"] == 5 and not snap["has_road"][blue] and snap["vp"][blue] == 0, (snap["road_color"], snap["road_length"], snap["vp"])
+    # BLUE extends its 5-piece to 6: unique longest again -> takes the card back
+    end = path[9]
+    ext = next(v for v in G.neighbors(end) if board.get_edge_color((end, v)) is None)
+    rs2, ctx2 = _rust_ready(game, Color.BLUE, WOOD=1, BRICK=1)
+    rs2.apply(("BUILD_ROAD", ctx2.edge_idx[tuple(sorted((end, ext)))], -1, -1), None)
+    road(Color.BLUE, (end, ext))
+    snap2 = rs2.snapshot()
+    assert (board.road_color, board.road_length, vp(Color.BLUE)) == (Color.BLUE, 6, 2)
+    assert snap2["road_color"] == blue and snap2["road_length"] == 6 and snap2["has_road"][blue] and snap2["vp"][blue] == 2, snap2["vp"]
+    print("  longest road: broken into a tie -> card set aside (holder -2 VP), unique 6 takes it back; python == rust: ok")
+
+
+def test_bank_shortage_pays_a_sole_recipient():
+    """Official rule: a resource the bank cannot fully pay is withheld from everyone, unless only one player
+    would receive it, who takes what is left. Python fork (yield_resources) and Rust (ROLL applied)."""
+    from catanatron import Game, RandomPlayer
+    from catanatron.apply_action import yield_resources
+    from catanatron.models.board import STATIC_GRAPH as G
+    from catanatron.models.enums import RESOURCES
+
+    def scenario(two_recipients):
+        game = Game([RandomPlayer(c) for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)], seed=1)
+        board = game.state.board
+        tile = next(t for t in board.map.land_tiles.values() if t.resource is not None)
+        nodes = list(tile.nodes.values())
+        board.build_settlement(Color.BLUE, nodes[0], initial_build_phase=True)
+        board.build_city(Color.BLUE, nodes[0])  # BLUE wants 2
+        if two_recipients:
+            n2 = next(n for n in nodes if n != nodes[0] and n not in G.neighbors(nodes[0]))
+            board.build_settlement(Color.RED, n2, initial_build_phase=True)  # RED wants 1
+        return game, tile, RESOURCES.index(tile.resource)
+
+    # sole recipient, bank holds 1 of 2 wanted -> gets 1
+    game, tile, r = scenario(False)
+    bank = [19] * 5
+    bank[r] = 1
+    pay, _ = yield_resources(game.state.board, bank, tile.number)
+    assert pay[Color.BLUE][r] == 1, pay
+    game.state.resource_freqdeck = bank
+    rs, _ = _rust_ready(game, Color.WHITE)
+    rs.apply(("ROLL", -1, -1, -1), (tile.number // 2, tile.number - tile.number // 2))
+    snap = rs.snapshot()
+    blue = list(game.state.colors).index(Color.BLUE)
+    assert snap["hand"][blue][r] == 1 and snap["bank"][r] == 0, (snap["hand"][blue], snap["bank"])
+    # two recipients want 3, bank holds 2 -> nobody gets any
+    game, tile, r = scenario(True)
+    bank = [19] * 5
+    bank[r] = 2
+    pay, _ = yield_resources(game.state.board, bank, tile.number)
+    assert pay[Color.BLUE][r] == 0 and pay[Color.RED][r] == 0, pay
+    game.state.resource_freqdeck = bank
+    rs, _ = _rust_ready(game, Color.WHITE)
+    rs.apply(("ROLL", -1, -1, -1), (tile.number // 2, tile.number - tile.number // 2))
+    snap = rs.snapshot()
+    red = list(game.state.colors).index(Color.RED)
+    assert snap["hand"][blue][r] == 0 and snap["hand"][red][r] == 0 and snap["bank"][r] == 2, snap["bank"]
+    print("  bank shortage: sole recipient takes what is left, two recipients get nothing; python == rust: ok")
+
+
+def test_win_only_on_own_turn():
+    """Official rule: reaching the target counts on the player's own turn. Python fork (Game.winning_color) and Rust."""
+    from catanatron import Game, RandomPlayer
+
+    import rust_bridge as rb
+
+    game = Game([RandomPlayer(c) for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)], seed=2)
+    st = game.state
+    st.current_turn_index = 0
+    st.player_state["P1_ACTUAL_VICTORY_POINTS"] = 10
+    rs, _ = rb.rust_state(game)
+    assert game.winning_color() is None and rs.winner() == -1
+    st.current_turn_index = 1
+    rs, _ = rb.rust_state(game)
+    assert game.winning_color() == st.colors[1] and rs.winner() == 1
+    print("  10 VP wins on the player's own turn only; python == rust: ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -944,4 +1095,7 @@ if __name__ == "__main__":
     test_rust_search_matches_python()
     test_arena_games_replay_in_python()
     test_longest_road_may_end_at_enemy_settlements()
+    test_longest_road_break_sets_card_aside()
+    test_bank_shortage_pays_a_sole_recipient()
+    test_win_only_on_own_turn()
     print("test_env.py: all invariants passed")

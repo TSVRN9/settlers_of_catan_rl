@@ -2301,3 +2301,21 @@ v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate
   games, ~450M decisions, ~1 month on 32 cores + RTX 3090. Still short of human experts.
   Their forward search was **inference-time only**. Read before attempting factored heads.
 - [Deep Catan (Driss & Cazenave)](https://www.lamsade.dauphine.fr/~cazenave/papers/DeepCatanEvo.pdf) — cross-dimensional NN + PUCT.
+
+## 2026-09-02 (late night) — the remaining rule deviations fixed in both engines
+
+User request: fix the last deviations from the official rules. Three from the audit plus one found on the way, all
+in the pinned fork (`TSVRN9/catanatron@855bf0d`) and in `catan_engine`, each with a side-by-side Python/Rust
+scenario test in `test_env.py` (details in `docs/AUDIT-rules.md`):
+
+- **Bank shortage on a roll**: a resource the bank cannot fully pay is withheld from everyone *unless only one
+  player would receive it*, who takes what is left (was: withheld from everyone).
+- **Longest Road after a break**: the card goes to the unique longest road of ≥ 5, otherwise it is set aside and
+  the previous holder loses the 2 VP (was: first player with the maximum, tied or shorter than 5 — a 4-road could
+  be handed 2 VP when a 6-road was plowed).
+- **Win on your own turn only** (`current_turn`, not whoever is deciding a discard or robber move).
+- `maintain_longest_road` now also handles "card set aside" (holder → nobody).
+
+Not changed: player-to-player trading (a missing feature, not a wrong rule). Replay oracles still hold; every
+strength number before this point was measured under the previous rules, and the loop re-scores the incumbent on
+fresh seeds each round.
