@@ -2279,6 +2279,10 @@ Rounds are now ~27 min, so the remaining levers are cheap to test.
   incumbent-seeded greedy soup (v30 + two draws) gates at **52.3%** [50.8, 53.9] vs v30's 51.1% — the first proxy
   interval entirely above 50%. Accepted as v31. Generation at 0.3 costs ~25 min (contended) vs ~10.
   The loop's default is now `ROLL_P=0.3` with `--max-ts 900000`.
+- **Pairwise ranking between rollout-labeled siblings** (`--ro-rank-weight 1`, 126k pairs from one round, labels
+  from one rollout each): draws **23.6-43.9%** on the selection seeds (v30 51.5%). Binary single-rollout labels
+  turned into hard pairwise targets are noise sharpened into labels — the v9 / v26ts failure again, from the
+  other direction. Stopped after the first variant. Soft BCE on the same rows is the right use of them.
 
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
