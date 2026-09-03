@@ -14,6 +14,7 @@ with the existing evaluate.py unmodified:
     uv run python evaluate.py --model checkpoints_bc/bc_model.zip --opponent weighted_random --games 500
 """
 
+import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # legacy/: import the flat root modules
 import argparse
 import multiprocessing as mp
 import os

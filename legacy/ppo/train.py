@@ -8,6 +8,7 @@ always, per CLAUDE.md, regardless of device.
     uv run python train.py --timesteps 2_000_000 --n-envs 7
 """
 
+import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # legacy/: import the flat root modules
 import argparse
 from pathlib import Path
 

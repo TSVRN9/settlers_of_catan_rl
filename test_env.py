@@ -439,6 +439,7 @@ def test_ppo_player_decodes_valid_actions_for_any_color():
     on the set of colors present) and that PPOPlayer's decoded action is
     always a real legal action for whichever color it's playing -- the
     mirror of FastCatanatronEnv._decode_action's own assertion."""
+    sys.path.insert(0, str(Path(__file__).parent / "legacy" / "ppo"))
     from self_play import PPOPlayer
     from catanatron.gym.envs.action_space import get_action_array
 

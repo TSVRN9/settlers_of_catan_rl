@@ -6,6 +6,7 @@ see docs/FINDINGS.md, `powerprofilesctl` isn't available in this shell.
     uv run python bench_env.py
 """
 
+import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # legacy/: import the flat root modules
 import time
 
 import numpy as np

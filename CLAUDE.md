@@ -20,7 +20,7 @@ uv run python -c "import torch; print(torch.xpu.is_available())"   # must print 
 - **`torch.optim.Adam(foreach=True)` (the default) crashes the Arc iGPU** with
   `UR_RESULT_ERROR_DEVICE_LOST`. Always pass `foreach=False`. See `docs/FINDINGS.md`.
 - **Never call the policy at batch 1.** Batch-1 inference (245 µs) costs more than the
-  observation encoder (239 µs). All inference goes through `inference_server.py`, which
+  observation encoder (239 µs). All inference goes through `legacy/ppo/inference_server.py`, which
   batches to ≥256. This is the whole reason the architecture looks like it does.
   The M4 search player (`value_net.py`) is the measured exception: its leaves are
   batched per decision, and the number to beat there is AlphaBeta's own 80 µs/leaf
@@ -29,7 +29,7 @@ uv run python -c "import torch; print(torch.xpu.is_available())"   # must print 
   Reaching for a bigger net or more GPU is almost always the wrong move.
 - **XPU memory is host RAM and the caching allocator hoards it.** Forwards with varying batch sizes reserved
   4-6 GB for <0.5 GB used and OOM-killed the box. `arena.py` pads forwards to `ROW_BUCKET` rows and sets
-  `PYTORCH_ALLOC_CONF=expandable_segments:True`; keep both. Every long stage runs under `run_exit.sh`'s
+  `PYTORCH_ALLOC_CONF=expandable_segments:True`; keep both. Every long stage runs under `scripts/run_exit.sh`'s
   `systemd-run` memory cap; stop the loop with `kill $(cat checkpoints_value/run_exit.pid)`, never `pkill -f`.
 - **Don't re-benchmark the baseline.** Every number is measured and recorded in
   `docs/FINDINGS.md`. Read it first.
@@ -42,6 +42,9 @@ the venv after any change to `catan_engine/src`:
 ```bash
 uv run maturin develop --release -m catan_engine/Cargo.toml
 ```
+
+The site builds the same crate for the browser (`wasm` feature, no pyo3): `cd web && pnpm build`
+(runs `wasm-pack build ../catan_engine --target web --no-default-features --features wasm`).
 
 `test_env.py` replays Python-played games through it and requires a step-for-step match;
 that replay oracle is the port's correctness argument — never edit the engine without it.
@@ -62,8 +65,18 @@ deleted. See `docs/FINDINGS.md` "M4 reframed" before touching training.
   question from scratch; the analysis and the triggers that would change the verdict are
   there. Re-read it after M1 reports throughput.
 
+## Layout
+
+- Root: the live M4 code, flat (`catan_env.py`, `value_net.py`, `rust_bridge.py`, `arena.py`, `gen_games.py`,
+  `train_value.py`, `soup.py`, `evaluate.py`, `tournament.py`, `test_env.py`).
+- `catan_engine/` Rust engine (features `python` default, `wasm` for the site). `scripts/` loop drivers.
+- `legacy/ppo/` the dormant PPO/self-play era (M1-M3), runnable via sys.path shims. `bench/` micro-benchmarks.
+- `web/` the static site (React + Vite + Tailwind + zag.js, engine via wasm-pack). `docs/` findings and plans.
+- Training artefacts (`checkpoints*/`, `data/`) and `docs/papers/` are gitignored.
+
 ## Conventions
 
-- The agent is always `Color.BLUE` (the env asserts enemies don't collide with it).
-- Keep the layout flat. No package scaffolding until it earns it.
+- The agent is always `Color.BLUE` in the gym env (it asserts enemies don't collide with it); the search
+  players (`value_net.make_player`) play any seat.
+- Keep new Python flat at the root unless it is a separate deliverable (`web/`, `legacy/`).
 - Non-trivial logic leaves one runnable `assert`-based check behind. No test frameworks.

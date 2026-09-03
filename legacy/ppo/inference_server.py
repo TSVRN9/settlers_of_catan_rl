@@ -16,6 +16,7 @@ machine, and if not, what does it actually reach.
     uv run python inference_server.py [--workers 7] [--games-per-worker 37] [--seconds 15]
 """
 
+import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # legacy/: import the flat root modules
 import argparse
 import queue
 import time

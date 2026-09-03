@@ -19,7 +19,7 @@ measured baseline and the Catanatron API notes, and will save you a day of redis
 ## Design invariants — violating these silently ruins training
 
 - **The agent is `Color.BLUE`.** The env asserts enemies don't collide with it.
-- **Never call the policy at batch 1.** All inference goes through `inference_server.py`.
+- **Never call the policy at batch 1.** All inference goes through `legacy/ppo/inference_server.py`.
   Batch-1 costs more than the obs encoder (245 µs vs 239 µs); the 19x XPU speedup only
   exists at batch ≥256.
 - **`Adam(foreach=False)`, always.** The default `foreach=True` resets the iGPU.
@@ -96,7 +96,7 @@ while len(game.playable_actions) == 1:
 Only encode and query when `len(playable_actions) > 1`. Expect ~435 policy calls/game
 instead of 1010. Do not push the skipped steps into the rollout buffer.
 
-### 4. Batched inference server (`inference_server.py`)
+### 4. Batched inference server (`legacy/ppo/inference_server.py`)
 
 Worker processes step envs and push `(worker_id, game_id, obs, mask)` onto a queue. One
 server process gathers requests (up to a max batch, or a short timeout), runs one batched
@@ -129,7 +129,7 @@ initialize torch XPU in workers.
 
 **Gate (all three, with pasted output):**
 - Encoder **≥3x faster** than `create_sample_vector` at 4 players (i.e. ≤80 µs), measured
-  by a benchmark you add as `bench_env.py`.
+  by a benchmark you add as `legacy/ppo/bench_env.py`.
 - `test_env.py` passes: mask matches `playable_actions`; encoder leaks no hidden info
   (encode a real state, mutate an opponent's resource counts in `state.player_state` in
   place, re-encode, assert the two arrays are identical); forced-decision skip drops no
@@ -225,20 +225,20 @@ Keep this out of the training loop.
 |---|---|
 | `pyproject.toml` | uv, Python 3.12, torch+xpu index |
 | `catan_env.py` | gym env: obs encoder, mask, forced-decision skip, reward |
-| `inference_server.py` | batching queue + XPU forward |
-| `train.py` | MaskablePPO + self-play opponent pool (M2/M3, dormant since M4's reframe) |
+| `legacy/ppo/inference_server.py` | batching queue + XPU forward |
+| `legacy/ppo/train.py` | MaskablePPO + self-play opponent pool (M2/M3, dormant since M4's reframe) |
 | `value_net.py` | M4: `ValueNet`, `ValueNetPlayer(AlphaBetaPlayer)`, `make_player` |
 | `gen_games.py` | M4: parallel games → (state, perspective, won) samples |
 | `train_value.py` | M4: value-net regression |
 | `evaluate.py` | win rate vs a named bot, with Wilson CI |
 | `test_env.py` | assert-based invariants (mask, info leakage, skip correctness) |
-| `bench_env.py` | encoder + throughput, compared against `docs/FINDINGS.md` |
+| `legacy/ppo/bench_env.py` | encoder + throughput, compared against `docs/FINDINGS.md` |
 
 ## Verification commands
 
 ```bash
 uv run python test_env.py                                        # invariants
-uv run python bench_env.py                                       # M1 gate
+uv run python legacy/ppo/bench_env.py                                       # M1 gate
 uv run python evaluate.py --opponent weighted_random --games 200  # M2 gate
 uv run python evaluate.py --opponent value_function  --games 200  # M3 gate
 uv run python evaluate.py --opponent alpha_beta      --games 1000 # M4 gate (~1 h)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# M4 expert-iteration loop, unattended. Usage: [ROLL_P=0.1 ROLL_M=1 TS_WEIGHT=3] ./run_exit.sh <first_k> <last_k> [games] [ab_gate_every]
+# M4 expert-iteration loop, unattended. Usage: [ROLL_P=0.1 ROLL_M=1 TS_WEIGHT=3] scripts/run_exit.sh <first_k> <last_k> [games] [ab_gate_every]
 # Iteration k: 2 seats of the incumbent (best proxy score so far, checkpoints_value/best.txt) + 2 Rust-AlphaBeta
 # seats in the Rust arena (gen_games.py / arena.py) -> data/itk; train vk on the last 4 iterations' data
 # (outcome + aux + rank + sibling losses), warm-started from the incumbent; 4000-game proxy gate vs 3x Rust
@@ -11,7 +11,7 @@
 set -u
 export PYTHONUNBUFFERED=1
 export PYTORCH_ALLOC_CONF=expandable_segments:True  # XPU caching allocator otherwise hoards 4-6 GB (docs/FINDINGS.md)
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."  # repo root
 first=$1; last=$2; games=${3:-4000}; every=${4:-3}
 # 2026-09-02 evening (docs/FINDINGS.md): rollout-labeled children replace the base_fn pair / sibling losses --
 # v27d (outcome + rollout values, no base_fn imitation) 38.2% vs v25's 32.6% on the same seeds. Generation is

@@ -33,6 +33,7 @@ one of 7 already competing for 8 hardware threads is a different regime,
 where per-call thread-pool spin-up is pure overhead.
 """
 
+import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # legacy/: import the flat root modules
 import glob
 import os
 
