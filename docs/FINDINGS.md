@@ -2345,3 +2345,10 @@ with `--win-weight 0 --aux-weight 0` (rollout values only).
 
 **v35 vs 3x Python AlphaBeta, 1,000 games (fixed rules): 528/1000 = 52.8% [49.7%, 55.9%]** (v31: 52.2% under the
 old rules). Loop rounds 35-45 running with rollout-only training (`exit35.log`).
+
+**Round 35 (rollout-only draws from the ablation soup):** the loop's soup overwrote `v35.pt` (a naming slip: the
+ablation soup had been promoted under the same name; it survives as `abl35.pt`). Head-to-head on fresh seeds
+(35100007): **round-35 soup (`v35.pt`, abl35 + 2 rollout-only draws) 2339/4000 = 58.5% [56.9, 60.0] vs abl35
+2197/4000 = 54.9%.** With rollout-only draws the line climbs again: v31 53.0 → abl35 54.9 → v35 58.5 (vs `rab`).
+Note the proxy's run-to-run noise on identical seeds is ~1.5 pt beyond binomial (XPU forward non-determinism
+flips near-tie decisions); the loop's within-run head-to-head is the protocol.
