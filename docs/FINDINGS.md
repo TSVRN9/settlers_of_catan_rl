@@ -2352,3 +2352,8 @@ ablation soup had been promoted under the same name; it survives as `abl35.pt`).
 2197/4000 = 54.9%.** With rollout-only draws the line climbs again: v31 53.0 → abl35 54.9 → v35 58.5 (vs `rab`).
 Note the proxy's run-to-run noise on identical seeds is ~1.5 pt beyond binomial (XPU forward non-determinism
 flips near-tie decisions); the loop's within-run head-to-head is the protocol.
+
+**Round 36:** v36 (v35 + one rollout-only draw) 2295/4000 = 57.4% vs v35 2269/4000 = 56.7% on fresh seeds, accepted.
+**v36 vs 3x Python AlphaBeta, 300 games: 171/300 = 57.0% [51.3%, 62.5%]** — the first headline interval entirely
+above the M4 gate (>50%). Line on this gate: v25 30.9 → v30 49.1 → v31 52.2 → v35 52.8 (1,000 games each) →
+**v36 57.0 (300)**. A 1,000-game confirmation follows when the loop pauses.
