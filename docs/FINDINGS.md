@@ -2357,3 +2357,7 @@ flips near-tie decisions); the loop's within-run head-to-head is the protocol.
 **v36 vs 3x Python AlphaBeta, 300 games: 171/300 = 57.0% [51.3%, 62.5%]** — the first headline interval entirely
 above the M4 gate (>50%). Line on this gate: v25 30.9 → v30 49.1 → v31 52.2 → v35 52.8 (1,000 games each) →
 **v36 57.0 (300)**. A 1,000-game confirmation follows when the loop pauses.
+
+**Rounds 37-39:** v37 accepted (57.3 vs 57.0), v38/v39 rejected at parity (the line is flat at 56-58% vs `rab`).
+**v39 (≈ v37) vs 3x Python AlphaBeta, 300 games: 176/300 = 58.7% [53.0%, 64.1%]** — second independent 300-game
+interval above 50%.
