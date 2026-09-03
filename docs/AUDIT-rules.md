@@ -8,7 +8,7 @@ opponents and the Rust engine** — games are internally consistent, but not all
 
 | Issue | Status upstream | In this build | Verified how |
 |---|---|---|---|
-| #378 longest road with both ends capped by enemy settlements | **open** | **present, both engines** | repro below: a 9-edge road scored **7** |
+| #378 longest road with both ends capped by enemy settlements | **open** | **fixed in both engines (2026-09-02, fork + `board.rs`; `test_env.py::test_longest_road_may_end_at_enemy_settlements`)** | repro below scored 7 before the fix |
 | #376 road built through an enemy settlement on the road's end node | open, fixed by #377 (= pinned commit) | fixed | repro: BLUE's road ends at node N, RED (connected, non-initial) settles on N, the edge beyond N is not in BLUE's buildable edges; Rust `board_build_settlement` has the same endpoint-removal branch |
 | #350 robber voided every tile touching the robbed tile's corners in `production_features` | closed (#358) | fixed | `encode.rs node_production` skips only the robbed tile; parity-tested vs catanatron in `test_env.py` |
 | #361 discards were forced "half the hand at random" | closed (#362) | fixed (one card per DISCARD action, `Prompt::Discard`, `discard_counts`) | replay oracle |

@@ -68,7 +68,7 @@ sets; the 7 default bots are a mix. No Python or Rust port of that robot, and no
    catanatron's template, which `Map::new` (arbitrary tiles/ports) already accepts — build the `Map` from the
    JSettlers layout, not from the template.
 4. Rule gaps to record, not fix: JSettlers robots offer trades (we reject; the paper's DRRL did the opposite);
-   JSettlers' Longest Road has no catanatron-#378 quirk; `jsettlers.bots.timeout.turn` must exceed our search time.
+   `jsettlers.bots.timeout.turn` must exceed our search time.
 5. Runs: headless server with 3 built-ins (pin names for a fast-only and a smart-only series, plus the default
    mix), our client connected with the cookie, `botgames.total=100` per series; parse `SOCGameStats` or the game
    DB for wins. Report v40 vs 3x jSettler next to DRRL 45%/56% and DRL 53.36%.

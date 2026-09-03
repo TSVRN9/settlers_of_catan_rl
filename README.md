@@ -1,12 +1,12 @@
 # Catan RL
 
-A search-based agent for 4-player Settlers of Catan that beats Catanatron's `AlphaBetaPlayer`, plus a
-static website where you can play against it and watch it think.
+A search-based agent for 4-player Settlers of Catan that beats Catanatron's `AlphaBetaPlayer`, and a static
+site to play against it and replay bot games.
 
 **Headline result (2026-09-03):** `v40` — depth-2 expectimax over a learned win-probability net — wins
 **55.2% [52.1%, 58.3%]** of 1,000 games against three `AlphaBetaPlayer`s (symmetry 25%, AlphaBeta against
-itself 26.3%). The net was trained by expert iteration on rollout-labelled child states; the full story, every
-number, and every dead end are in [`docs/FINDINGS.md`](docs/FINDINGS.md). The paper-protocol tournament
+itself 26.3%). The net was trained by expert iteration on rollout-labelled child states; measurements and negative results
+are in [`docs/FINDINGS.md`](docs/FINDINGS.md). The paper-protocol tournament
 (Xenou et al., EUMAS 2018) and the roadmap for real jSettlers / thesis-MCTS opponents are in
 [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 
@@ -18,8 +18,8 @@ number, and every dead end are in [`docs/FINDINGS.md`](docs/FINDINGS.md). The pa
 - **Player:** AlphaBeta's depth-2 expectimax search with its hand heuristic replaced by a 403k-parameter MLP
   (`value_net.py`) that predicts P(win), final victory points per seat, and turns remaining.
 - **Training loop:** `gen_games.py` → `train_value.py` → `soup.py` → gate (`scripts/run_exit.sh`).
-- **Site:** [`web/`](web/), live at https://owenwang.dev/settlers_of_catan_rl/ — play against the bots in the browser, step through bot-vs-bot games, and see
-  win-probability timelines, action rankings, feature attributions and the search tree.
+- **Site:** [`web/`](web/), live at https://owenwang.dev/settlers_of_catan_rl/ — play against the bots in the browser, step through bot-vs-bot games with
+  win-probability timelines, action rankings and feature attributions.
 
 ## Setup
 
@@ -54,6 +54,5 @@ Deployed from `.github/workflows/pages.yml` to GitHub Pages on every push to `ma
 | `bench/` | micro-benchmarks behind the numbers in `docs/FINDINGS.md` |
 | `docs/` | `FINDINGS.md` (read first), `HANDOFF.md`, `BENCHMARK.md`, `RUST-ENGINE.md`, `AUDIT-rules.md` |
 
-Rule caveats: no player-to-player trading (Catanatron simplification), and Catanatron issue #378 (a road with
-both ends capped by enemy settlements can be under-counted for Longest Road) is mirrored deliberately so the
-two engines stay step-for-step identical.
+Rule caveat: no player-to-player trading yet. The other deviations found in the audit (`docs/AUDIT-rules.md`),
+including catanatron issue #378, are fixed in the pinned fork and in the Rust engine.

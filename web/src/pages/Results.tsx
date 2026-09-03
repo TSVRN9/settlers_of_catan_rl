@@ -9,7 +9,7 @@ export default function Results() {
   return (
     <div className="prose prose-stone max-w-3xl dark:prose-invert">
       <h2>Headline: 55.2% against three AlphaBeta players</h2>
-      <p>Over 1,000 seeded games with the agent at seat Blue against three copies of Catanatron's <code>AlphaBetaPlayer</code>, <b>v40</b> won <b>552 (55.2%, Wilson 95% interval 52.1–58.3%)</b>. Symmetry would be 25%; AlphaBeta against itself scores 26.3%. Every number and dead end is in <a href="https://github.com/TSVRN9/settlers_of_catan_rl/blob/main/docs/FINDINGS.md">docs/FINDINGS.md</a>.</p>
+      <p>Over 1,000 seeded games with the agent at seat Blue against three copies of Catanatron's <code>AlphaBetaPlayer</code>, <b>v40</b> won <b>552 (55.2%, Wilson 95% interval 52.1–58.3%)</b>. Symmetry would be 25%; AlphaBeta against itself scores 26.3%. Details in <a href="https://github.com/TSVRN9/settlers_of_catan_rl/blob/main/docs/FINDINGS.md">docs/FINDINGS.md</a>.</p>
       <h2>Paper-protocol tournament (Xenou et al., EUMAS 2018)</h2>
       <p>The DRRL paper ranks agents with five 4-player tournaments drawn from a pool of five, each leaving one agent out, and reports each agent's win ratio over its games. We ran that protocol with {b.games_per_tournament} games per tournament{done ? "" : ` (${b.done}/${b.total} games played so far)`}. Seats are randomly permuted per game.</p>
       <table>
