@@ -2361,3 +2361,6 @@ above the M4 gate (>50%). Line on this gate: v25 30.9 → v30 49.1 → v31 52.2 
 **Rounds 37-39:** v37 accepted (57.3 vs 57.0), v38/v39 rejected at parity (the line is flat at 56-58% vs `rab`).
 **v39 (≈ v37) vs 3x Python AlphaBeta, 300 games: 176/300 = 58.7% [53.0%, 64.1%]** — second independent 300-game
 interval above 50%.
+
+**Rounds 40-42:** v40 accepted (58.4 vs 56.8), v41/v42 rejected at parity. **v42 (≈ v40) vs 3x Python AlphaBeta,
+300 games: 183/300 = 61.0% [55.4%, 66.3%]** — third consecutive 300-game interval above 50% (57.0, 58.7, 61.0).
