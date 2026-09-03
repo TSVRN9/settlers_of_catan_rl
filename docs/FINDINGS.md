@@ -2342,3 +2342,6 @@ Rollout values (one measured playout per child state) alone train a draw at the 
 from v31 over the eight draws kept rollout-only, lr 1e-4 and 2-epoch (58.4% on selection seeds); on fresh seeds
 (35000007): **v35 = 2198/4000 = 54.9% [53.4, 56.5] vs v31 2122/4000 = 53.0%** — accepted. The loop now trains
 with `--win-weight 0 --aux-weight 0` (rollout values only).
+
+**v35 vs 3x Python AlphaBeta, 1,000 games (fixed rules): 528/1000 = 52.8% [49.7%, 55.9%]** (v31: 52.2% under the
+old rules). Loop rounds 35-45 running with rollout-only training (`exit35.log`).
