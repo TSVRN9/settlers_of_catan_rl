@@ -591,6 +591,7 @@ impl PyArena {
             let q = r.ro_v.len();
             d.set_item("ro_x", Array2::from_shape_vec((q, nf), r.ro_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("ro_v", r.ro_v)?;
+            d.set_item("ro_n", r.ro_n)?;
             let log = g.log.map(|l| l.into_iter().map(|(a, o)| (to_canon(a), o)).collect());
             let snap = if self.keep_log { Some(PyState { inner: g.state.clone(), search: None }.snapshot(py)?) } else { None };
             let vps: Vec<i32> = g.state.players.iter().map(|p| p.actual_vp).collect();

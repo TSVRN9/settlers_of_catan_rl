@@ -64,7 +64,7 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
     X, y, g, aux, has = [], [], [], [], []
     rc, ro = [], []
     sx, sv, sn, sp = [], [], [], []
-    tx, tv = [], []
+    tx, tv, tn = [], [], []
     for z in zs:
         if True:
             yy = z["y"]
@@ -80,7 +80,15 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
                 keep = slice(None) if self_sibs else ~((np.nanmax(v, 1) == 1.0) & (np.nanmin(v, 1) == 0.0))  # self-play sets are one-hot; base_fn values never are
                 sx.append(z["sib_x"][kb][keep]); sv.append(v[keep]); sn.append(z["sib_n"][kb][keep]); sp.append(z["sib_isp0"][kb][keep])
             if kv in z and _count(z, kv):
-                kt = pick(_count(z, kv), ft)
+                gk = kv[:-2] + "_n"  # children per decision, e.g. ro_n: subsample whole decisions so sibling pairs survive
+                if gk in z:
+                    gn = z[gk].astype(np.int64)
+                    ends = np.cumsum(gn)
+                    kg = np.flatnonzero(rng.random(len(gn)) < ft) if ft < 1.0 else np.arange(len(gn))
+                    kt = np.concatenate([np.arange(e - n, e) for n, e in zip(gn[kg], ends[kg])]) if len(kg) else np.zeros(0, np.int64)
+                    tn.append(gn[kg])
+                else:
+                    kt = pick(_count(z, kv), ft)
                 tx.append(z[kx][kt]); tv.append(z[kv][kt].astype(np.float32))
                 assert len(tx[-1]) == len(tv[-1])
             if "vp" in z:
@@ -92,7 +100,7 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
     assert X, f"no shard_*.npz under {dirs}"
     pairs = (np.concatenate(rc), np.concatenate(ro)) if rc else (np.zeros((0, X[0].shape[1]), np.float16),) * 2
     sibs = (np.concatenate(sx), np.concatenate(sv), np.concatenate(sn), np.concatenate(sp)) if sx else (np.zeros((0, 1, X[0].shape[1]), np.float16), np.zeros((0, 1)), np.zeros(0, np.int8), np.zeros(0, bool))
-    trees = (np.concatenate(tx), np.concatenate(tv)) if tx else (np.zeros((0, X[0].shape[1]), np.float16), np.zeros(0, np.float32))
+    trees = (np.concatenate(tx), np.concatenate(tv), np.concatenate(tn) if tn else None) if tx else (np.zeros((0, X[0].shape[1]), np.float16), np.zeros(0, np.float32), None)
     assert 0.0 <= trees[1].min(initial=0.0) and trees[1].max(initial=0.0) <= 1.0, "ts_v are win probabilities"
     return np.concatenate(X), np.concatenate(y), np.concatenate(g), np.concatenate(aux), np.concatenate(has), pairs, sibs, trees
 
@@ -131,6 +139,22 @@ def tree_loss(net, tx, tv):
     return F.binary_cross_entropy_with_logits(net(tx)[:, 0], tv)
 
 
+def sibling_pairs(tn, tv):
+    """(i, j) row pairs of one decision's rollout-labeled children with v[i] > v[j]: a measured
+    ranking target for the choice the search makes among siblings (base_fn's version of this was
+    what lifted v0 -> v5; this one owes nothing to AlphaBeta)."""
+    pi, pj = [], []
+    start = 0
+    for n in tn:
+        v = tv[start:start + n]
+        for a in range(n):
+            for b in range(n):
+                if v[a] > v[b]:
+                    pi.append(start + a); pj.append(start + b)
+        start += n
+    return np.asarray(pi, np.int64), np.asarray(pj, np.int64)
+
+
 def rank_loss(net, xc, xo):
     """Pairwise: the child AlphaBeta chose must score above the other child.
     -log sigmoid(V(chosen) - V(other)) on the win logits."""
@@ -158,6 +182,7 @@ def main():
     parser.add_argument("--sib-weight", type=float, default=1.0, help="weight of the base_fn sibling-ordering loss (0 disables)")
     parser.add_argument("--ts-weight", type=float, default=0.0, help="weight of the soft-value loss on <ts-key>_x / <ts-key>_v rows (0 disables)")
     parser.add_argument("--ts-key", default="ts", help="ts = search-value distillation rows, ro = rollout-labeled children")
+    parser.add_argument("--ro-rank-weight", type=float, default=0.0, help="pairwise ranking loss between rollout-labeled siblings of one decision (needs ro_n in the shards; 0 disables)")
     parser.add_argument("--self-sibs", type=int, default=1, help="0 drops the sibling sets labeled by the value net's own search (gen_games self-play), keeping base_fn-labeled ones")
     parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
@@ -165,7 +190,7 @@ def main():
     args = parser.parse_args()
     torch.manual_seed(args.seed)
 
-    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0), (ts_x, ts_v) = load(
+    X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0), (ts_x, ts_v, ts_n) = load(
         args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs), max_ts=args.max_ts, ts_key=args.ts_key
     )
     rng = np.random.default_rng(args.seed)
@@ -196,6 +221,19 @@ def main():
     txd = torch.from_numpy(ts_x)
     tvd = torch.from_numpy(ts_v)
     use_ts = args.ts_weight > 0 and n_ts_tr > 0
+    # sibling pairs among rollout-labeled children; the last 10% of decisions are held out
+    n_grp = len(ts_n) if ts_n is not None else 0
+    n_grp_tr = int(n_grp * 0.9)
+    if n_grp and args.ro_rank_weight > 0:
+        cut = int(ts_n[:n_grp_tr].sum())
+        pi_tr, pj_tr = sibling_pairs(ts_n[:n_grp_tr], ts_v)
+        pi_ho, pj_ho = sibling_pairs(ts_n[n_grp_tr:], ts_v[cut:])
+        pi_ho, pj_ho = pi_ho + cut, pj_ho + cut
+        print(f"{len(pi_tr)} rollout sibling pairs (train), {len(pi_ho)} held out")
+    else:
+        pi_tr = pj_tr = pi_ho = pj_ho = np.zeros(0, np.int64)
+    use_ro_rank = args.ro_rank_weight > 0 and len(pi_tr) > 0
+    pi_trd, pj_trd = torch.from_numpy(pi_tr), torch.from_numpy(pj_tr)
     D = lambda t: t.to(dev, non_blocking=True)  # noqa: E731
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held))
     ho_idx = torch.from_numpy(np.flatnonzero(is_held))
@@ -230,6 +268,14 @@ def main():
                 ts_bce = np.mean([tree_loss(net, D(txd[i:i + 8192]).float(), D(tvd[i:i + 8192])).item() for i in range(n_ts_tr, n_ts, 8192)])
             else:
                 ts_bce = float("nan")
+            if len(pi_ho):
+                hits = []
+                for i in range(0, len(pi_ho), 8192):
+                    a, b = pi_ho[i:i + 8192], pj_ho[i:i + 8192]
+                    hits.append((net(D(txd[a]).float())[:, 0] > net(D(txd[b]).float())[:, 0]).float())
+                ro_rank_acc = torch.cat(hits).mean().item()
+            else:
+                ro_rank_acc = float("nan")
             logits = torch.cat([net(D(Xd[ho_idx[i:i + 8192]]).float()).squeeze(1) for i in range(0, len(ho_idx), 8192)])
             yy = D(yd[ho_idx])
             loss = F.binary_cross_entropy_with_logits(logits, yy).item()
@@ -240,7 +286,7 @@ def main():
                 if m.any():
                     buckets.append(f"[{lo:.1f},{lo + 0.2:.1f}) n={int(m.sum())} pred={p[m].mean():.3f} actual={yy[m].mean():.3f}")
         net.train()
-        return loss, buckets, rank_acc, top1, ts_bce
+        return loss, buckets, rank_acc, top1, ts_bce, ro_rank_acc
 
     # Early stopping on held-out: the net memorizes games within an epoch
     # (docs/FINDINGS.md, M4 iteration 0), so the best checkpoint is usually
@@ -253,8 +299,10 @@ def main():
 
     def consider():
         nonlocal best, best_state, best_buckets, best_ho, best_rank, best_step, best_top1, best_ts
-        ho_loss, buckets, rank_acc, top1, ts_bce = heldout()
+        ho_loss, buckets, rank_acc, top1, ts_bce, ro_rank_acc = heldout()
         score = ho_loss  # nan-safe: only add the terms that exist
+        if ro_rank_acc == ro_rank_acc:
+            score -= args.ro_rank_weight * ro_rank_acc
         if rank_acc == rank_acc:
             score -= args.rank_weight * rank_acc
         if top1 == top1:
@@ -265,7 +313,7 @@ def main():
             best, best_buckets, best_ho, best_rank, best_top1, best_ts = score, buckets, ho_loss, rank_acc, top1, ts_bce
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_step = step
-        return ho_loss, buckets, rank_acc, top1, ts_bce
+        return ho_loss, buckets, rank_acc, top1, ts_bce, ro_rank_acc
     for epoch in range(args.epochs):
         t0 = time.time()
         perm = tr_idx[torch.randperm(n)]
@@ -282,13 +330,16 @@ def main():
             if use_ts:
                 tidx = torch.randint(0, n_ts_tr, (min(args.batch_size, n_ts_tr),))
                 loss = loss + args.ts_weight * tree_loss(net, D(txd[tidx]).float(), D(tvd[tidx]))
+            if use_ro_rank:
+                k = torch.randint(0, len(pi_trd), (min(args.batch_size, len(pi_trd)),))
+                loss = loss + args.ro_rank_weight * rank_loss(net, D(txd[pi_trd[k]]).float(), D(txd[pj_trd[k]]).float())
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
             step += 1
             if step % args.eval_every == 0:
                 consider()
-        ho_loss, _, rank_acc, top1, ts_bce = consider()
-        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} rank_acc={rank_acc:.3f} sib_top1={top1:.3f} ts_bce={ts_bce:.4f} | best@step{best_step}: heldout={best_ho:.4f} rank_acc={best_rank:.3f} sib_top1={best_top1:.3f} ts_bce={best_ts:.4f} ({time.time() - t0:.0f}s)", flush=True)
+        ho_loss, _, rank_acc, top1, ts_bce, ro_rank_acc = consider()
+        print(f"epoch {epoch}: train={total / n:.4f} heldout={ho_loss:.4f} rank_acc={rank_acc:.3f} sib_top1={top1:.3f} ts_bce={ts_bce:.4f} ro_rank={ro_rank_acc:.3f} | best@step{best_step}: heldout={best_ho:.4f} rank_acc={best_rank:.3f} sib_top1={best_top1:.3f} ts_bce={best_ts:.4f} ({time.time() - t0:.0f}s)", flush=True)
     for b in best_buckets:
         print("  calib", b)
 

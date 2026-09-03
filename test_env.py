@@ -876,6 +876,7 @@ def test_arena_games_replay_in_python(n_games=6):
                 n_ts += len(tv)
                 rx, rv = part["ro_x"], part["ro_v"]
                 assert rx.shape == (len(rv), rb.N_FEATURES) and set(np.unique(rv)) <= {0.0, 0.5, 1.0}, (rx.shape, rv[:5])
+                assert part["ro_n"].sum() == len(rv) and (part["ro_n"] >= 1).all(), "ro_n groups the rollout rows by decision"
                 n_ro += len(rv)
         assert n_self > 0 and n_ro > 0
     print(f"  arena games replay in catanatron ({n_games} games, {steps} steps, final states equal, {n_self} self-play sibling sets, {n_ts} search-value rows, {n_ro} rollout-labeled rows): ok")

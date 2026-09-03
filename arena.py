@@ -112,7 +112,7 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
                     rank_c=d["rank_c"].astype(np.float16), rank_o=d["rank_o"].astype(np.float16),
                     sib_x=d["sib_x"].astype(np.float16), sib_v=d["sib_v"], sib_n=np.asarray(d["sib_n"], dtype=np.int8), sib_isp0=np.asarray(d["sib_isp0"], dtype=bool),
                     ts_x=d["ts_x"].astype(np.float16), ts_v=np.asarray(d["ts_v"], dtype=np.float32),
-                    ro_x=d["ro_x"].astype(np.float16), ro_v=np.asarray(d["ro_v"], dtype=np.float32),
+                    ro_x=d["ro_x"].astype(np.float16), ro_v=np.asarray(d["ro_v"], dtype=np.float32), ro_n=np.asarray(d["ro_n"], dtype=np.int8),
                 )
             finished.append((seed, (None if w < 0 else colors[w]), part, ((game, log, snap) if keep_log else None)))
             add(i)

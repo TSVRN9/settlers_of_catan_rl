@@ -56,11 +56,12 @@ pub struct Recorder {
     pub ts_v: Vec<f64>, // ... each with its backed-up expectimax value (P(decider wins)), a soft target (docs/FINDINGS.md, TreeStrap-lite)
     pub ro_x: Vec<f32>, // rollout-labeled children of a decision (any seat), decider's perspective
     pub ro_v: Vec<f64>, // ... fraction of roll_m rab-vs-rab rollouts from that child the decider won: a value target that owes nothing to the net
+    pub ro_n: Vec<i8>,  // children recorded per labeled decision (consecutive rows), for sibling-ranking losses
 }
 
 impl Recorder {
     pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32, roll_depth: u32) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![] }
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
     }
 
     /// One rab-vs-rab playout from `s` (own RNG stream; the game's chance
@@ -91,11 +92,13 @@ impl Recorder {
         let acts = self.sample(acts, k);
         let p0 = s.current_player;
         let mut row = Vec::with_capacity(layout.n_features);
+        let mut kept = 0i8;
         for a in acts {
             let mut c = s.clone();
             if c.apply(a, None).is_err() {
                 continue;
             }
+            kept += 1;
             let mut wins = 0.0;
             for _ in 0..self.roll_m {
                 wins += self.rollout(c.clone(), p0);
@@ -104,6 +107,9 @@ impl Recorder {
             self.encode(&c, p0, layout, &mut row);
             self.ro_x.extend_from_slice(&row);
             self.ro_v.push(wins / self.roll_m as f64);
+        }
+        if kept > 0 {
+            self.ro_n.push(kept);
         }
     }
 
