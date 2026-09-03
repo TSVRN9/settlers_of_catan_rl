@@ -18,7 +18,7 @@ number, and every dead end are in [`docs/FINDINGS.md`](docs/FINDINGS.md). The pa
 - **Player:** AlphaBeta's depth-2 expectimax search with its hand heuristic replaced by a 403k-parameter MLP
   (`value_net.py`) that predicts P(win), final victory points per seat, and turns remaining.
 - **Training loop:** `gen_games.py` → `train_value.py` → `soup.py` → gate (`scripts/run_exit.sh`).
-- **Site:** [`web/`](web/) — play against the bots in the browser, step through bot-vs-bot games, and see
+- **Site:** [`web/`](web/), live at https://owenwang.dev/settlers_of_catan_rl/ — play against the bots in the browser, step through bot-vs-bot games, and see
   win-probability timelines, action rankings, feature attributions and the search tree.
 
 ## Setup

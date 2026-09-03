@@ -1,7 +1,7 @@
 import type { Attribution } from "../engine";
 import { SEAT_NAMES } from "../labels";
 
-const GROUP: Record<string, string> = { hand: "hand", production: "production", buildings: "buildings", roads: "roads", devs: "dev cards", score: "victory points", robber: "robber", bank: "bank" };
+const GROUP: Record<string, string> = { hand: "hand", production: "production", buildings: "buildings", roads: "roads", pieces: "pieces left", devs: "dev cards", score: "victory points", robber: "robber", bank: "bank" };
 
 /** Leave-one-group-out: how P(win) for `seat` moves when a group of input features is zeroed. */
 export default function AttributionPanel({ rows, seat, n }: { rows: Attribution[]; seat: number; n: number }) {

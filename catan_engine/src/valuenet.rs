@@ -158,11 +158,12 @@ impl State {
             prod.extend((0..5).map(|k| eb + (i as i32) * 5 + k));
             probe("production", i as i32, &prod);
             let mut b: Vec<i32> = layout.node_idx[i * 108..i * 108 + 108].to_vec();
-            b.extend([layout.buildable_nodes_idx[i], sc[4], sc[5]]);
+            b.push(layout.buildable_nodes_idx[i]);
             probe("buildings", i as i32, &b);
             let mut r: Vec<i32> = layout.edge_idx[i * 72..i * 72 + 72].to_vec();
-            r.extend([sc[2], sc[3], sc[7]]);
+            r.extend([sc[2], sc[7]]);
             probe("roads", i as i32, &r);
+            probe("pieces", i as i32, &[sc[3], sc[4], sc[5]]); // roads / settlements / cities still in the box
             let mut d: Vec<i32> = layout.dev_played_idx[i * 4..i * 4 + 4].to_vec();
             d.extend([layout.num_devs_idx[i], sc[1]]);
             if i == 0 {
