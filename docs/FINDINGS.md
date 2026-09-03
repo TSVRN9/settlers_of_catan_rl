@@ -2364,3 +2364,24 @@ interval above 50%.
 
 **Rounds 40-42:** v40 accepted (58.4 vs 56.8), v41/v42 rejected at parity. **v42 (≈ v40) vs 3x Python AlphaBeta,
 300 games: 183/300 = 61.0% [55.4%, 66.3%]** — third consecutive 300-game interval above 50% (57.0, 58.7, 61.0).
+
+## 2026-09-03 — M4 gate met: v40 beats 3x AlphaBeta, 55.2% [52.1%, 58.3%] over 1,000 games
+
+Rounds 43-45 rejected at parity (v45 vs Python AB, 300 games: 177/300 = 59.0% [53.4, 64.4]); **v40 is the final
+incumbent** of the rollout-only loop (rounds 35-45, `exit35.log`). Headline, seeds 0-999, official rules (fork
+855bf0d): **`vnet:checkpoints_value/v40.pt`: 552/1000 = 55.2% [52.1%, 58.3%] vs 3x `AlphaBetaPlayer`** — the
+first 1,000-game interval entirely above the >50% gate (symmetry 25%, AlphaBeta itself 26.3%).
+
+The line on this gate: v0 6.0 → v5 25.3 (parity) → v25 30.9 → v30 49.1 → v31 52.2 → v35 52.8 → **v40 55.2**; the
+300-game readings of the last rounds (57.0, 58.7, 61.0, 59.0) sit above it, consistent with ±5.6-pt intervals.
+
+What got it there, in order of effect (each measured against the incumbent on fresh seeds; details above):
+1. rollout-labeled child values as the training target (v27 line), 2. dropping the base_fn imitation losses
+(v27d), 3. play-selected weight averaging of same-init draws (soups; greedy, seeded with the incumbent),
+4. 3x denser rollout labels, 5. **dropping the outcome loss** (rollout values only), plus the 4.8x faster
+generation that made rounds cheap enough to find 4 and 5. The plain expert-iteration recipe that started the day
+(outcome + base_fn labels) had saturated at 31%.
+
+Still open: the loop is flat at 56-60% vs `rab` since round 36; rollout labels are AlphaBeta-continuation values,
+which cap what the net can learn about its own (now stronger) play — a net-in-the-loop rollout policy is the
+natural next lever. Player-to-player trading remains unimplemented (catanatron simplification).
