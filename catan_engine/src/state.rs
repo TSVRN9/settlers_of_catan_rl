@@ -87,6 +87,52 @@ pub struct State {
 }
 
 impl State {
+    /// catanatron's initial state (State.__init__ + Board): empty board, bank 19 x 5, the 25-card dev deck
+    /// shuffled with the state's own RNG, robber on the desert, seat 0 to place first.
+    pub fn new(map: Arc<Map>, n: usize, seed: u64, vps_to_win: i32) -> State {
+        let players = (0..n).map(|_| Player { roads_available: 15, settlements_available: 5, cities_available: 4, ..Default::default() }).collect();
+        let mut dev_deck: Vec<u8> = Vec::with_capacity(25);
+        for (card, count) in [(KNIGHT, 14), (YEAR_OF_PLENTY, 2), (ROAD_BUILDING, 2), (MONOPOLY, 2), (VICTORY_POINT, 5)] {
+            dev_deck.extend(std::iter::repeat(card as u8).take(count));
+        }
+        let robber = map.tiles.iter().position(|t| t.resource < 0).expect("a BASE map has a desert") as u8;
+        let mut s = State {
+            map,
+            n,
+            players,
+            bank: [19; 5],
+            dev_deck,
+            owner: [-1; NUM_NODES],
+            is_city: [false; NUM_NODES],
+            road_owner: [-1; NUM_EDGES],
+            components: vec![vec![]; n],
+            buildable: (1u64 << NUM_NODES) - 1,
+            road_lengths: [0; 4],
+            road_color: -1,
+            road_length: 0,
+            robber,
+            current_player: 0,
+            current_turn: 0,
+            prompt: Prompt::InitialSettlement,
+            initial_phase: true,
+            is_discarding: false,
+            discard_counts: [0; 4],
+            is_moving_knight: false,
+            is_road_building: false,
+            free_roads: 0,
+            num_turns: 0,
+            discard_limit: 7,
+            vps_to_win,
+            friendly_robber: false,
+            rng: seed,
+        };
+        for i in (1..s.dev_deck.len()).rev() {
+            let j = s.rand_below(i as u64 + 1) as usize;
+            s.dev_deck.swap(i, j);
+        }
+        s
+    }
+
     /// Official rule: a player wins on their own turn (current_turn, not the
     /// player deciding a discard or robber move). Mirrors the pinned fork.
     pub fn winner(&self) -> i8 {

@@ -19,6 +19,48 @@ pub enum Action {
     EndTurn,
 }
 
+/// Canonical tuple form (type, a, b, c) with -1 padding: the shape actions take across the Python
+/// boundary (rust_bridge.py) and, as a JSON array, across the wasm boundary.
+pub type Canon = (String, i32, i32, i32);
+
+pub fn to_canon(a: Action) -> Canon {
+    match a {
+        Action::Roll => ("ROLL".into(), -1, -1, -1),
+        Action::MoveRobber { tile, victim } => ("MOVE_ROBBER".into(), tile as i32, victim as i32, -1),
+        Action::Discard(r) => ("DISCARD_RESOURCE".into(), r as i32, -1, -1),
+        Action::BuildRoad(e) => ("BUILD_ROAD".into(), e as i32, -1, -1),
+        Action::BuildSettlement(n) => ("BUILD_SETTLEMENT".into(), n as i32, -1, -1),
+        Action::BuildCity(n) => ("BUILD_CITY".into(), n as i32, -1, -1),
+        Action::BuyDev => ("BUY_DEVELOPMENT_CARD".into(), -1, -1, -1),
+        Action::PlayKnight => ("PLAY_KNIGHT_CARD".into(), -1, -1, -1),
+        Action::PlayYop(a, b) => ("PLAY_YEAR_OF_PLENTY".into(), a as i32, b as i32, -1),
+        Action::PlayMonopoly(r) => ("PLAY_MONOPOLY".into(), r as i32, -1, -1),
+        Action::PlayRoadBuilding => ("PLAY_ROAD_BUILDING".into(), -1, -1, -1),
+        Action::MaritimeTrade { give, rate, get } => ("MARITIME_TRADE".into(), give as i32, rate as i32, get as i32),
+        Action::EndTurn => ("END_TURN".into(), -1, -1, -1),
+    }
+}
+
+pub fn from_canon(c: &Canon) -> Result<Action, String> {
+    let (t, a, b, d) = (c.0.as_str(), c.1, c.2, c.3);
+    Ok(match t {
+        "ROLL" => Action::Roll,
+        "MOVE_ROBBER" => Action::MoveRobber { tile: a as u8, victim: b as i8 },
+        "DISCARD_RESOURCE" => Action::Discard(a as u8),
+        "BUILD_ROAD" => Action::BuildRoad(a as u8),
+        "BUILD_SETTLEMENT" => Action::BuildSettlement(a as u8),
+        "BUILD_CITY" => Action::BuildCity(a as u8),
+        "BUY_DEVELOPMENT_CARD" => Action::BuyDev,
+        "PLAY_KNIGHT_CARD" => Action::PlayKnight,
+        "PLAY_YEAR_OF_PLENTY" => Action::PlayYop(a as u8, b as i8),
+        "PLAY_MONOPOLY" => Action::PlayMonopoly(a as u8),
+        "PLAY_ROAD_BUILDING" => Action::PlayRoadBuilding,
+        "MARITIME_TRADE" => Action::MaritimeTrade { give: a as u8, rate: b as u8, get: d as u8 },
+        "END_TURN" => Action::EndTurn,
+        _ => return Err(format!("unknown action type {t}")),
+    })
+}
+
 impl State {
     pub fn playable_actions(&self) -> Vec<Action> {
         let p = self.current_player;

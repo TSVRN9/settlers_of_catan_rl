@@ -3,6 +3,7 @@
 
 use crate::state::*;
 
+#[cfg_attr(feature = "wasm", derive(serde::Deserialize))]
 pub struct Layout {
     pub n_features: usize,
     pub robber_idx: Vec<i32>,            // [19]
@@ -28,6 +29,10 @@ pub struct Layout {
     /// then p0's hand_synergy. These are base_fn's own terms, so the net can
     /// represent AlphaBeta's ordering without raw (map-fingerprinting) tile features.
     pub extra_base: i32,
+    // static (per-map) features, so mapgen.rs can fill the template without catanatron
+    pub tile_proba_idx: Vec<i32>, // [19]
+    pub tile_is_idx: Vec<i32>,    // [19][6] WOOD, BRICK, SHEEP, WHEAT, ORE, DESERT (-1 = no such feature)
+    pub port_is_idx: Vec<i32>,    // [9][6]  WOOD, BRICK, SHEEP, WHEAT, ORE, THREE_TO_ONE
 }
 
 const PLAYABLE_DEVS: [usize; 4] = [KNIGHT, YEAR_OF_PLENTY, MONOPOLY, ROAD_BUILDING];

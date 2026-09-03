@@ -167,6 +167,24 @@ impl State {
         self.expectimax_rollout(depth, self.current_player).0
     }
 
+    /// decide_heuristic plus every root action's expectation (for the site's decision panel).
+    pub fn decide_heuristic_full(&self, depth: u32) -> (Option<Action>, f64, Vec<(Action, f64)>) {
+        let actions = self.playable_actions();
+        if actions.len() == 1 {
+            return (Some(actions[0]), f64::NAN, vec![]);
+        }
+        let p0 = self.current_player;
+        let root: Vec<(Action, f64)> = actions
+            .into_iter()
+            .map(|a| (a, self.outcomes(a).iter().map(|(s, p)| p * s.expectimax(depth.saturating_sub(1), p0).1).sum()))
+            .collect();
+        let best = root.iter().cloned().fold(None, |acc: Option<(Action, f64)>, (a, v)| match acc {
+            Some((_, bv)) if bv >= v => acc,
+            _ => Some((a, v)),
+        });
+        (best.map(|b| b.0), best.map(|b| b.1).unwrap_or(f64::NAN), root)
+    }
+
     /// AlphaBetaPlayer.decide with exact chance nodes and no cutoffs.
     pub fn decide_heuristic(&self, depth: u32) -> Option<Action> {
         let actions = self.playable_actions();

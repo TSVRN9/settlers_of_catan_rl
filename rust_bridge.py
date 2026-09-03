@@ -223,34 +223,52 @@ def rust_state(game, ctx=None):
 _LAYOUT = None
 
 
+def layout_spec(ctx):
+    """The index tables catan_engine.Layout needs, from catan_env.LAYOUT (edge numbering from ctx; same for every BASE map)."""
+    L = LAYOUT
+    node_idx = [L.node_idx[(i, n, kind)] for i in range(4) for n in range(54) for kind in (SETTLEMENT, CITY)]
+    edge_idx = [L.edge_idx[(i, e)] for i in range(4) for e in ctx.edges]
+    tile_proba_idx, tile_is_idx, port_is_idx = [-1] * 19, [-1] * (19 * 6), [-1] * (9 * 6)
+    static_names = list(RESOURCES) + ["DESERT"]
+    for idx, kind, arg in L.tile_static_idx:
+        if kind == "PROBA":
+            tile_proba_idx[arg] = idx
+        else:
+            tile_is_idx[arg[0] * 6 + static_names.index(arg[1])] = idx
+    port_names = list(RESOURCES) + ["THREE_TO_ONE"]
+    for idx, port_id, name in L.port_static_idx:
+        port_is_idx[port_id * 6 + port_names.index(name)] = idx
+    return {
+        "n_features": N_FEATURES,
+        "robber_idx": [L.robber_idx[t] for t in range(19)],
+        "node_idx": node_idx,
+        "edge_idx": edge_idx,
+        "player_scalar_idx": [L.player_scalar_idx[(suffix, i)] for i in range(4) for suffix in PLAYER_SCALAR_STATE_SUFFIX],
+        "dev_played_idx": [L.dev_played_idx[(card, i)] for i in range(4) for card in PLAYABLE_DEV_CARDS],
+        "num_resources_idx": [L.num_resources_idx[i] for i in range(4)],
+        "num_devs_idx": [L.num_devs_idx[i] for i in range(4)],
+        "production_idx": [L.production_idx[(i, r)] for i in range(4) for r in RESOURCES],
+        "buildable_nodes_idx": [L.buildable_nodes_idx[i] for i in range(4)],
+        "p0_actual_vps_idx": L.p0_actual_vps_idx,
+        "p0_resource_in_hand_idx": [L.p0_resource_in_hand_idx[r] for r in RESOURCES],
+        "p0_dev_in_hand_idx": [L.p0_dev_in_hand_idx[c] for c in DEVELOPMENT_CARDS],
+        "p0_has_played_dev_idx": L.p0_has_played_dev_idx,
+        "bank_resource_idx": [L.bank_resource_idx[r] for r in RESOURCES],
+        "bank_dev_cards_idx": L.bank_dev_cards_idx,
+        "is_discarding_idx": L.is_discarding_idx,
+        "is_moving_robber_idx": L.is_moving_robber_idx,
+        "turn_base": N_BASE,
+        "extra_base": EXTRA_BASE,
+        "tile_proba_idx": tile_proba_idx,
+        "tile_is_idx": tile_is_idx,
+        "port_is_idx": port_is_idx,
+    }
+
+
 def layout(ctx):
-    """catan_engine.Layout built from catan_env.LAYOUT; edge numbering from ctx (same for every BASE map)."""
+    """catan_engine.Layout built from catan_env.LAYOUT (cached; same for every BASE map)."""
     global _LAYOUT
     if _LAYOUT is None:
-        L = LAYOUT
-        node_idx = [L.node_idx[(i, n, kind)] for i in range(4) for n in range(54) for kind in (SETTLEMENT, CITY)]
-        edge_idx = [L.edge_idx[(i, e)] for i in range(4) for e in ctx.edges]
-        spec = {
-            "n_features": N_FEATURES,
-            "robber_idx": [L.robber_idx[t] for t in range(19)],
-            "node_idx": node_idx,
-            "edge_idx": edge_idx,
-            "player_scalar_idx": [L.player_scalar_idx[(suffix, i)] for i in range(4) for suffix in PLAYER_SCALAR_STATE_SUFFIX],
-            "dev_played_idx": [L.dev_played_idx[(card, i)] for i in range(4) for card in PLAYABLE_DEV_CARDS],
-            "num_resources_idx": [L.num_resources_idx[i] for i in range(4)],
-            "num_devs_idx": [L.num_devs_idx[i] for i in range(4)],
-            "production_idx": [L.production_idx[(i, r)] for i in range(4) for r in RESOURCES],
-            "buildable_nodes_idx": [L.buildable_nodes_idx[i] for i in range(4)],
-            "p0_actual_vps_idx": L.p0_actual_vps_idx,
-            "p0_resource_in_hand_idx": [L.p0_resource_in_hand_idx[r] for r in RESOURCES],
-            "p0_dev_in_hand_idx": [L.p0_dev_in_hand_idx[c] for c in DEVELOPMENT_CARDS],
-            "p0_has_played_dev_idx": L.p0_has_played_dev_idx,
-            "bank_resource_idx": [L.bank_resource_idx[r] for r in RESOURCES],
-            "bank_dev_cards_idx": L.bank_dev_cards_idx,
-            "is_discarding_idx": L.is_discarding_idx,
-            "is_moving_robber_idx": L.is_moving_robber_idx,
-            "turn_base": N_BASE,
-            "extra_base": EXTRA_BASE,
-        }
+        spec = layout_spec(ctx)
         _LAYOUT = catan_engine.Layout(spec)
     return _LAYOUT

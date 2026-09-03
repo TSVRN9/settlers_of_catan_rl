@@ -1074,6 +1074,41 @@ def test_win_only_on_own_turn():
     print("  10 VP wins on the player's own turn only; python == rust: ok")
 
 
+def test_rust_generated_board_and_initial_state_match_catanatron():
+    """mapgen.rs + State::new (the site's game constructor): a Rust-generated board rebuilt in
+    catanatron with the same resource assignment has the same numbers, ports, edges and static
+    template, and a fresh Rust game equals catanatron's initial state spec (dev deck as a multiset)."""
+    import catan_engine
+    import rust_bridge as rb
+    from catanatron.game import Game
+    from catanatron.models.enums import RESOURCES
+    from catanatron.models.map import BASE_MAP_TEMPLATE, CatanMap, initialize_tiles
+    from catanatron.models.player import Color, RandomPlayer
+
+    colors = [Color.RED, Color.BLUE, Color.ORANGE, Color.WHITE]
+    layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in colors], seed=1)))
+    for seed in (0, 1, 7, 123456):
+        rmap = catan_engine.Map.generate(layout, seed)
+        tiles, ports = rmap.tiles(), rmap.ports()
+        tile_res = [None if r < 0 else RESOURCES[r] for r, _ in tiles]
+        port_res = [None if r < 0 else RESOURCES[r] for r, _, _ in ports]
+        cm = CatanMap.from_tiles(initialize_tiles(BASE_MAP_TEMPLATE, shuffled_port_resources_param=list(reversed(port_res)), shuffled_tile_resources_param=list(reversed(tile_res))))
+        game = Game([RandomPlayer(c) for c in colors], seed=seed, catan_map=cm)
+        ctx = rb.ctx_for(game)
+        assert ctx.map.tiles() == tiles, (seed, "tiles")
+        assert ctx.map.ports() == ports, (seed, "ports")
+        assert ctx.map.edges() == rmap.edges(), (seed, "edges")
+        assert np.allclose(ctx.map.static_template(), rmap.static_template(), atol=1e-6), (seed, "template")
+        py = rb.state_spec(game, ctx)
+        rs = catan_engine.State.new_game(rmap, 4, seed, 10).snapshot()
+        for k, v in py.items():
+            if k == "dev_deck":
+                assert sorted(v) == sorted(rs[k]), (seed, k)
+            else:
+                assert v == rs[k], (seed, k, v, rs[k])
+    print("  rust-generated boards + initial state == catanatron (4 seeds): ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -1095,6 +1130,7 @@ if __name__ == "__main__":
     test_rust_encoder_matches_python()
     test_rust_search_matches_python()
     test_arena_games_replay_in_python()
+    test_rust_generated_board_and_initial_state_match_catanatron()
     test_longest_road_may_end_at_enemy_settlements()
     test_longest_road_break_sets_card_aside()
     test_bank_shortage_pays_a_sole_recipient()

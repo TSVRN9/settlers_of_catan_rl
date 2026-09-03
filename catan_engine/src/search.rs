@@ -3,7 +3,17 @@
 //! one flat matrix so Python can score them in a single forward pass.
 
 use std::cell::Cell;
-use std::time::Instant;
+
+/// Monotonic ns for the expansion profile; 0 on wasm32 (no clock without JS).
+#[cfg(not(target_arch = "wasm32"))]
+fn now_ns() -> u64 {
+    thread_local! { static T0: std::time::Instant = std::time::Instant::now(); }
+    T0.with(|t| t.elapsed().as_nanos() as u64)
+}
+#[cfg(target_arch = "wasm32")]
+fn now_ns() -> u64 {
+    0
+}
 
 use crate::actions::Action;
 use crate::encode::Layout;
@@ -117,14 +127,14 @@ impl State {
     /// post-roll state whatever depth remains.
     pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>, max_leaves: usize, own_turn: bool) -> Search {
         buf.clear();
-        let t0 = Instant::now();
+        let t0 = now_ns();
         let cap = if max_leaves == 0 || depth <= 2 { usize::MAX } else { max_leaves };
         let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, cap, overflow: false, own_turn, t_enc: 0, t_child: 0 };
         let root = self.expand_node(depth, p0, layout, &mut search);
         if search.overflow {
             return self.expand_into(depth - 1, p0, layout, search.leaves, max_leaves, own_turn);
         }
-        prof_add(search.n_leaves as u64, search.t_enc, search.t_child, t0.elapsed().as_nanos() as u64);
+        prof_add(search.n_leaves as u64, search.t_enc, search.t_child, now_ns() - t0);
         match root {
             Child::Node(n) => search.root = *n,
             Child::Leaf(_) => {}
@@ -149,7 +159,7 @@ impl State {
         if stop {
             let idx = search.n_leaves;
             search.n_leaves += 1;
-            let t = Instant::now();
+            let t = now_ns();
             let start = search.leaves.len();
             search.leaves.extend_from_slice(&self.map.static_template);
             if winner >= 0 {
@@ -157,16 +167,16 @@ impl State {
             } else {
                 self.encode_into(p0, layout, &mut search.leaves[start..start + layout.n_features]);
             }
-            search.t_enc += t.elapsed().as_nanos() as u64;
+            search.t_enc += now_ns() - t;
             return Child::Leaf(idx);
         }
         let next = if search.own_turn && !maximizing { depth } else { depth - 1 }; // an opponent's roll costs no own-action depth
         let children = actions
             .into_iter()
             .map(|a| {
-                let t = Instant::now();
+                let t = now_ns();
                 let outcomes = self.outcomes(a);
-                search.t_child += t.elapsed().as_nanos() as u64;
+                search.t_child += now_ns() - t;
                 let outs = outcomes.into_iter().map(|(s, p)| (p, s.expand_node(next, p0, layout, search))).collect();
                 (a, outs)
             })
