@@ -13,6 +13,7 @@ pub mod map;
 pub mod mapgen;
 pub mod search;
 pub mod state;
+pub mod trade;
 pub mod valuenet;
 
 #[cfg(feature = "python")]

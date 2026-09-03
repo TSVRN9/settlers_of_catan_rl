@@ -28,6 +28,8 @@ pub enum Prompt {
     PlayTurn,
     Discard,
     MoveRobber,
+    DecideTrade,     // an opponent answers the current offer (accept / reject)
+    DecideAcceptees, // the offerer confirms one acceptee or cancels
 }
 
 #[derive(Clone, Debug, Default)]
@@ -83,6 +85,13 @@ pub struct State {
     pub discard_limit: i32,
     pub vps_to_win: i32,
     pub friendly_robber: bool,
+    // domestic trading (catanatron's state machine: OFFER -> each opponent DECIDE_TRADE -> offerer
+    // DECIDE_ACCEPTEES -> CONFIRM/CANCEL)
+    pub is_resolving_trade: bool,
+    pub current_trade: [i32; 11], // give[5], get[5], offerer seat
+    pub acceptees: [bool; 4],
+    /// House rule so trading terminates: offers rejected by everyone or cancelled this turn.
+    pub spent_offers: Vec<[u8; 10]>,
     pub rng: u64,
 }
 
@@ -124,6 +133,10 @@ impl State {
             discard_limit: 7,
             vps_to_win,
             friendly_robber: false,
+            is_resolving_trade: false,
+            current_trade: [0; 11],
+            acceptees: [false; 4],
+            spent_offers: vec![],
             rng: seed,
         };
         for i in (1..s.dev_deck.len()).rev() {

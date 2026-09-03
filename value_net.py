@@ -218,6 +218,66 @@ def expand_outcomes(game, actions):
     return out
 
 
+_RUST_NETS = {}
+
+
+def rust_value_net(path):
+    """The checkpoint's weights as a catan_engine.ValueNet (tools/export_valuenet.py layout), per process,
+    for the Rust trade policy; the search still scores leaves with torch."""
+    if path not in _RUST_NETS:
+        import catan_engine
+
+        net = load_value_net(path)
+        linears = [m for m in net.mlp if isinstance(m, nn.Linear)]
+        parts = [net.mask.numpy()]
+        for lin in linears:
+            parts += [lin.weight.detach().numpy(), lin.bias.detach().numpy()]
+        blob = np.concatenate([q.astype("<f4").ravel() for q in parts]).tobytes()
+        _RUST_NETS[path] = catan_engine.ValueNet(list(blob), N_FEATURES, linears[0].out_features)
+    return _RUST_NETS[path]
+
+
+def trade_action(game, color, net_path=None):
+    """The 1-ply trade policy (catan_engine trade.rs) as a catanatron Action, or None when the search
+    should decide. Evaluator: the value net at `net_path`, else AlphaBeta's base_fn."""
+    import rust_bridge as rb
+
+    rs, ctx = rb.rust_state(game)
+    a = rs.trade_action(rb.layout(ctx), rust_value_net(net_path) if net_path else None)
+    return None if a is None else rb.uncanon(a, color, ctx, list(game.state.colors), state=game.state)
+
+
+def without_offers(actions):
+    kept = [a for a in actions if a.action_type != ActionType.OFFER_TRADE]
+    return kept or list(actions)
+
+
+class TradingAlphaBetaPlayer(AlphaBetaPlayer):
+    """catanatron's AlphaBetaPlayer with domestic trading: offers, replies and confirmations come from the
+    Rust 1-ply policy over base_fn; everything else is the shipped depth-2 search (which never branches
+    over offers, see the fork's minimax.py). Token `ab`."""
+
+    def decide(self, game, playable_actions):
+        return trade_action(game, self.color) or super().decide(game, without_offers(playable_actions))
+
+
+def no_offers(cls):
+    """catanatron's other bots, made trade-aware without changing their play: they answer offers with the
+    base_fn policy and never offer themselves (their measured strength predates trading)."""
+
+    class NoOffer(cls):
+        def decide(self, game, playable_actions):
+            if game.state.current_prompt.value in ("DECIDE_TRADE", "DECIDE_ACCEPTEES"):
+                return trade_action(game, self.color)
+            return super().decide(game, without_offers(playable_actions))
+
+        def __repr__(self):
+            return f"NoOffer{super().__repr__()}"
+
+    NoOffer.__name__ = f"NoOffer{cls.__name__}"
+    return NoOffer
+
+
 class ValueNetPlayer(AlphaBetaPlayer):
     """AlphaBetaPlayer whose leaves are scored by a ValueNet as P(p0 wins).
 
@@ -250,6 +310,10 @@ class ValueNetPlayer(AlphaBetaPlayer):
             return torch.sigmoid(net(x)).item()
 
     def decide(self, game, playable_actions):
+        a = trade_action(game, self.color, self.net_path)
+        if a is not None:
+            return a
+        playable_actions = without_offers(playable_actions)
         if USE_RUST:
             return self.decide_rust(game, playable_actions)
         return self.decide_python(game, playable_actions)
@@ -273,7 +337,7 @@ class ValueNetPlayer(AlphaBetaPlayer):
             values[i] = v
         self._n_leaves = leaves.shape[0]
         best, _ = rs.backup(values)
-        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, colors)
+        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, colors, state=game.state)
 
     def decide_python(self, game, playable_actions):
         """Same expectimax as AlphaBetaPlayer.alphabeta, but the whole depth-d
@@ -344,13 +408,17 @@ class RustSmoothPlayer(Player):
         self.depth = depth
 
     def decide(self, game, playable_actions):
+        a = trade_action(game, self.color)
+        if a is not None:
+            return a
+        playable_actions = without_offers(playable_actions)
         if len(playable_actions) == 1:
             return playable_actions[0]
         import rust_bridge as rb
 
         rs, ctx = rb.rust_state(game)
         best = rs.decide_smooth(self.depth)
-        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, list(game.state.colors))
+        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, list(game.state.colors), state=game.state)
 
 
 class RustAlphaBetaPlayer(Player):
@@ -364,21 +432,25 @@ class RustAlphaBetaPlayer(Player):
         self.depth = depth
 
     def decide(self, game, playable_actions):
+        a = trade_action(game, self.color)
+        if a is not None:
+            return a
+        playable_actions = without_offers(playable_actions)
         if len(playable_actions) == 1:
             return playable_actions[0]
         import rust_bridge as rb
 
         rs, ctx = rb.rust_state(game)
         best = rs.decide_heuristic(self.depth)
-        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, list(game.state.colors))
+        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, list(game.state.colors), state=game.state)
 
 
 def make_player(spec, color):
     """Lineup/--player token -> catanatron Player. Shared by gen_games.py, evaluate.py and tournament.py."""
     if spec == "ab":
-        return AlphaBetaPlayer(color)
+        return TradingAlphaBetaPlayer(color)
     if spec.startswith("ab") and spec[2:].isdigit():  # ab3 = AlphaBetaPlayer(depth=3)
-        return AlphaBetaPlayer(color, depth=int(spec[2:]))
+        return TradingAlphaBetaPlayer(color, depth=int(spec[2:]))
     if spec == "rsab":
         return RustSmoothPlayer(color)
     if spec == "rab":
@@ -386,31 +458,31 @@ def make_player(spec, color):
     if spec.startswith("rab") and spec[3:].isdigit():
         return RustAlphaBetaPlayer(color, depth=int(spec[3:]))
     if spec == "vf":
-        return ValueFunctionPlayer(color)
+        return no_offers(ValueFunctionPlayer)(color)
     if spec == "wr":
-        return WeightedRandomPlayer(color)
+        return no_offers(WeightedRandomPlayer)(color)
     if spec == "rand":
         from catanatron.models.player import RandomPlayer
 
-        return RandomPlayer(color)
+        return no_offers(RandomPlayer)(color)
     if spec == "vp":
         from catanatron.players.search import VictoryPointPlayer
 
-        return VictoryPointPlayer(color)
+        return no_offers(VictoryPointPlayer)(color)
     if spec == "stab":
         from catanatron.players.minimax import SameTurnAlphaBetaPlayer
 
-        return SameTurnAlphaBetaPlayer(color)
+        return no_offers(SameTurnAlphaBetaPlayer)(color)
     m = re.fullmatch(r"mcts(\d*)", spec)  # mcts = catanatron MCTSPlayer (10 simulations), mcts50 = 50
     if m:
         from catanatron.players.mcts import MCTSPlayer
 
-        return MCTSPlayer(color, num_simulations=int(m.group(1) or 10))
+        return no_offers(MCTSPlayer)(color, num_simulations=int(m.group(1) or 10))
     m = re.fullmatch(r"gp(\d*)", spec)  # gp = GreedyPlayoutsPlayer (25 playouts per action), gp5 = 5
     if m:
         from catanatron.players.playouts import GreedyPlayoutsPlayer
 
-        return GreedyPlayoutsPlayer(color, num_playouts=int(m.group(1) or 25))
+        return no_offers(GreedyPlayoutsPlayer)(color, num_playouts=int(m.group(1) or 25))
     m = re.fullmatch(r"vnet(\d?)(o?):(.+)", spec)  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (own-turn depth 3, see arena.VNET)
     if m:
         return ValueNetPlayer(color, m.group(3), depth=int(m.group(1) or 2), own_turn=bool(m.group(2)))

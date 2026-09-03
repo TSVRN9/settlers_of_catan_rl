@@ -54,5 +54,7 @@ Deployed from `.github/workflows/pages.yml` to GitHub Pages on every push to `ma
 | `bench/` | micro-benchmarks behind the numbers in `docs/FINDINGS.md` |
 | `docs/` | `FINDINGS.md` (read first), `HANDOFF.md`, `BENCHMARK.md`, `RUST-ENGINE.md`, `AUDIT-rules.md` |
 
-Rule caveat: no player-to-player trading yet. The other deviations found in the audit (`docs/AUDIT-rules.md`),
-including catanatron issue #378, are fixed in the pinned fork and in the Rust engine.
+Rules: the deviations found in the audit (`docs/AUDIT-rules.md`), including catanatron issue #378, are fixed in
+the pinned fork and in the Rust engine, and player-to-player trading follows the official rules with one house
+rule (an offer everyone rejected or the offerer cancelled cannot be repeated that turn). Bots trade through a 1-ply
+policy over their own evaluator; the searches never branch over offers.

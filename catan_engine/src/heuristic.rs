@@ -87,7 +87,7 @@ impl State {
         let maximizing = self.current_player == p0;
         let mut best: Option<Action> = None;
         let mut best_v = if maximizing { f64::NEG_INFINITY } else { f64::INFINITY };
-        for a in self.playable_actions() {
+        for a in self.search_actions() {
             let ev: f64 = self.outcomes(a).iter().map(|(s, p)| p * s.expectimax(depth - 1, p0).1).sum();
             if (maximizing && ev > best_v) || (!maximizing && ev < best_v) {
                 best = Some(a);
@@ -110,7 +110,7 @@ impl State {
     /// Only the rollout policy uses this; `rab` seats and gates stay exact.
     fn rollout_actions(&self, second_ply: bool) -> Vec<Action> {
         let p = self.current_player;
-        let acts = self.playable_actions();
+        let acts = self.search_actions();
         let mut enemy_tiles = 0u32;
         for i in 0..self.n {
             if i == p {
@@ -156,7 +156,7 @@ impl State {
     /// moves x 5 steal outcomes x the whole post-roll action list: half of all
     /// rollout leaves, and what one builds afterwards barely depends on the tile).
     pub fn decide_rollout(&self) -> Option<Action> {
-        let actions = self.playable_actions();
+        let actions = self.search_actions();
         if actions.len() == 1 {
             return Some(actions[0]);
         }
@@ -169,7 +169,7 @@ impl State {
 
     /// decide_heuristic plus every root action's expectation (for the site's decision panel).
     pub fn decide_heuristic_full(&self, depth: u32) -> (Option<Action>, f64, Vec<(Action, f64)>) {
-        let actions = self.playable_actions();
+        let actions = self.search_actions();
         if actions.len() == 1 {
             return (Some(actions[0]), f64::NAN, vec![]);
         }
@@ -187,7 +187,7 @@ impl State {
 
     /// AlphaBetaPlayer.decide with exact chance nodes and no cutoffs.
     pub fn decide_heuristic(&self, depth: u32) -> Option<Action> {
-        let actions = self.playable_actions();
+        let actions = self.search_actions();
         if actions.len() == 1 {
             return Some(actions[0]);
         }
@@ -291,7 +291,7 @@ impl State {
         let maximizing = self.current_player == p0;
         let mut best: Option<Action> = None;
         let mut best_v = if maximizing { f64::NEG_INFINITY } else { f64::INFINITY };
-        for a in self.playable_actions() {
+        for a in self.search_actions() {
             let ev: f64 = self.outcomes(a).iter().map(|(s, p)| p * s.expectimax_smooth(depth - 1, p0).1).sum();
             if (maximizing && ev > best_v) || (!maximizing && ev < best_v) {
                 best = Some(a);
@@ -302,7 +302,7 @@ impl State {
     }
 
     pub fn decide_smooth(&self, depth: u32) -> Option<Action> {
-        let actions = self.playable_actions();
+        let actions = self.search_actions();
         if actions.len() == 1 {
             return Some(actions[0]);
         }

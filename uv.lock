@@ -80,7 +80,7 @@ wheels = [
 [[package]]
 name = "catanatron"
 version = "3.3.0"
-source = { git = "https://github.com/TSVRN9/catanatron?rev=855bf0d62de5b59b90aa7f72bc9ad5fd238d0146#855bf0d62de5b59b90aa7f72bc9ad5fd238d0146" }
+source = { git = "https://github.com/TSVRN9/catanatron?rev=1937321d1c8c22260fe6bbaba5e134b159ddaab2#1937321d1c8c22260fe6bbaba5e134b159ddaab2" }
 dependencies = [
     { name = "click" },
     { name = "networkx" },
@@ -1098,7 +1098,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "catanatron", extras = ["gym"], git = "https://github.com/TSVRN9/catanatron?rev=855bf0d62de5b59b90aa7f72bc9ad5fd238d0146" },
+    { name = "catanatron", extras = ["gym"], git = "https://github.com/TSVRN9/catanatron?rev=1937321d1c8c22260fe6bbaba5e134b159ddaab2" },
     { name = "gymnasium" },
     { name = "numpy" },
     { name = "sb3-contrib" },

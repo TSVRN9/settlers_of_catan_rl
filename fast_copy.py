@@ -59,6 +59,7 @@ def _state_copy(self):
     s.is_resolving_trade = self.is_resolving_trade
     s.current_trade = self.current_trade
     s.acceptees = self.acceptees
+    s.spent_offers = self.spent_offers
     s.discard_counts = self.discard_counts.copy()  # apply_discard decrements in place
     return s
 

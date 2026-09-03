@@ -17,6 +17,62 @@ pub enum Action {
     PlayRoadBuilding,
     MaritimeTrade { give: u8, rate: u8, get: u8 },
     EndTurn,
+    OfferTrade { give: [u8; 5], get: [u8; 5] },
+    AcceptTrade,
+    RejectTrade,
+    ConfirmTrade { partner: u8 },
+    CancelTrade,
+}
+
+/// Five resource counts in 5 bits each (hands never exceed 19 of a kind), so an offer fits the (a, b) ints.
+pub fn pack_bundle(b: &[u8; 5]) -> i32 {
+    b.iter().enumerate().map(|(i, &c)| (c as i32 & 31) << (5 * i)).sum()
+}
+
+pub fn unpack_bundle(x: i32) -> [u8; 5] {
+    let mut b = [0u8; 5];
+    for (i, v) in b.iter_mut().enumerate() {
+        *v = ((x >> (5 * i)) & 31) as u8;
+    }
+    b
+}
+
+/// The 20 one- or two-card bundles, singles first then pairs i <= j (catanatron.models.actions.TRADE_BUNDLES).
+pub const TRADE_BUNDLES: [[u8; 5]; 20] = {
+    let mut out = [[0u8; 5]; 20];
+    let mut k = 0;
+    let mut i = 0;
+    while i < 5 {
+        out[k][i] = 1;
+        k += 1;
+        i += 1;
+    }
+    let mut i = 0;
+    while i < 5 {
+        let mut j = i;
+        while j < 5 {
+            out[k][i] += 1;
+            out[k][j] += 1;
+            k += 1;
+            j += 1;
+        }
+        i += 1;
+    }
+    out
+};
+
+/// catanatron.game.is_valid_trade: no giveaways, no like-for-like resource on both sides.
+pub fn valid_offer(give: &[u8; 5], get: &[u8; 5]) -> bool {
+    let g: u32 = give.iter().map(|&x| x as u32).sum();
+    let r: u32 = get.iter().map(|&x| x as u32).sum();
+    g > 0 && r > 0 && !(0..5).any(|i| give[i] > 0 && get[i] > 0)
+}
+
+pub fn offer_key(give: &[u8; 5], get: &[u8; 5]) -> [u8; 10] {
+    let mut k = [0u8; 10];
+    k[..5].copy_from_slice(give);
+    k[5..].copy_from_slice(get);
+    k
 }
 
 /// Canonical tuple form (type, a, b, c) with -1 padding: the shape actions take across the Python
@@ -38,6 +94,11 @@ pub fn to_canon(a: Action) -> Canon {
         Action::PlayRoadBuilding => ("PLAY_ROAD_BUILDING".into(), -1, -1, -1),
         Action::MaritimeTrade { give, rate, get } => ("MARITIME_TRADE".into(), give as i32, rate as i32, get as i32),
         Action::EndTurn => ("END_TURN".into(), -1, -1, -1),
+        Action::OfferTrade { give, get } => ("OFFER_TRADE".into(), pack_bundle(&give), pack_bundle(&get), -1),
+        Action::AcceptTrade => ("ACCEPT_TRADE".into(), -1, -1, -1),
+        Action::RejectTrade => ("REJECT_TRADE".into(), -1, -1, -1),
+        Action::ConfirmTrade { partner } => ("CONFIRM_TRADE".into(), partner as i32, -1, -1),
+        Action::CancelTrade => ("CANCEL_TRADE".into(), -1, -1, -1),
     }
 }
 
@@ -57,11 +118,52 @@ pub fn from_canon(c: &Canon) -> Result<Action, String> {
         "PLAY_ROAD_BUILDING" => Action::PlayRoadBuilding,
         "MARITIME_TRADE" => Action::MaritimeTrade { give: a as u8, rate: b as u8, get: d as u8 },
         "END_TURN" => Action::EndTurn,
+        "OFFER_TRADE" => Action::OfferTrade { give: unpack_bundle(a), get: unpack_bundle(b) },
+        "ACCEPT_TRADE" => Action::AcceptTrade,
+        "REJECT_TRADE" => Action::RejectTrade,
+        "CONFIRM_TRADE" => Action::ConfirmTrade { partner: a as u8 },
+        "CANCEL_TRADE" => Action::CancelTrade,
         _ => return Err(format!("unknown action type {t}")),
     })
 }
 
 impl State {
+    /// playable_actions minus domestic trade offers: what the searches branch over (offers are decided
+    /// by the 1-ply policy in trade.rs, never inside a tree).
+    pub fn search_actions(&self) -> Vec<Action> {
+        let acts = self.playable_actions();
+        let kept: Vec<Action> = acts.iter().copied().filter(|a| !matches!(a, Action::OfferTrade { .. })).collect();
+        if kept.is_empty() { acts } else { kept }
+    }
+
+    pub fn can_accept_offer(&self, p: usize) -> bool {
+        (0..5).all(|r| self.players[p].hand[r] >= self.current_trade[5 + r])
+    }
+
+    /// Offers with up to two cards per side that `p` can make now (catanatron domestic_trade_possibilities).
+    pub fn domestic_trade_possibilities(&self, p: usize) -> Vec<Action> {
+        if self.is_road_building {
+            return vec![];
+        }
+        let hand = &self.players[p].hand;
+        let mut out = Vec::new();
+        for give in TRADE_BUNDLES.iter() {
+            if (0..5).any(|r| hand[r] < give[r] as i32) {
+                continue;
+            }
+            for get in TRADE_BUNDLES.iter() {
+                if (0..5).any(|r| give[r] > 0 && get[r] > 0) {
+                    continue;
+                }
+                if self.spent_offers.contains(&offer_key(give, get)) {
+                    continue;
+                }
+                out.push(Action::OfferTrade { give: *give, get: *get });
+            }
+        }
+        out
+    }
+
     pub fn playable_actions(&self) -> Vec<Action> {
         let p = self.current_player;
         match self.prompt {
@@ -78,6 +180,22 @@ impl State {
                     .collect()
             }
             Prompt::MoveRobber => self.robber_possibilities(p),
+            Prompt::DecideTrade => {
+                let mut actions = vec![Action::RejectTrade];
+                if self.can_accept_offer(p) {
+                    actions.push(Action::AcceptTrade);
+                }
+                actions
+            }
+            Prompt::DecideAcceptees => {
+                let mut actions = vec![Action::CancelTrade];
+                for (i, &ok) in self.acceptees.iter().enumerate().take(self.n) {
+                    if ok {
+                        actions.push(Action::ConfirmTrade { partner: i as u8 });
+                    }
+                }
+                actions
+            }
             Prompt::PlayTurn => {
                 if self.is_road_building {
                     return self.road_building_possibilities(p, false);
@@ -108,6 +226,7 @@ impl State {
                         actions.push(Action::BuyDev);
                     }
                     actions.extend(self.maritime_trade_possibilities(p));
+                    actions.extend(self.domestic_trade_possibilities(p));
                 }
                 actions
             }

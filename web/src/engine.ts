@@ -16,13 +16,14 @@ export interface View {
   current_player: number; current_turn: number; prompt: string; initial_phase: boolean; is_discarding: boolean;
   discard_counts: number[]; is_moving_knight: boolean; is_road_building: boolean; free_roads: number;
   num_turns: number; winner: number; steps: number;
+  is_resolving_trade: boolean; current_trade: number[]; acceptees: boolean[]; spent_offers: number[][];
 }
 export interface MapView {
   tiles: { id: number; resource: number; number: number; nodes: number[] }[];
   ports: { id: number; resource: number; nodes: number[] }[];
   edges: [number, number][];
 }
-export interface Decision { bot: BotKind; action: Canon; value: number | null; root: [Canon, number | null][]; leaves: number; ms: number }
+export interface Decision { bot: BotKind; action: Canon; value: number | null; root: [Canon, number | null][]; leaves: number; ms: number; trade?: boolean }
 export interface Evaluation { win: number; vps: number[]; turns_left: number }
 export interface Attribution { group: string; seat: number; delta: number }
 export interface Frame {

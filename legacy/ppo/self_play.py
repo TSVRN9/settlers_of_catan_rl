@@ -94,6 +94,11 @@ class PPOPlayer(Player):
         self._rng = np.random.default_rng()
 
     def decide(self, game, playable_actions):
+        from value_net import trade_action, without_offers  # the PPO action space has no domestic trades
+
+        if game.state.current_prompt.value in ("DECIDE_TRADE", "DECIDE_ACCEPTEES"):
+            return trade_action(game, self.color)
+        playable_actions = without_offers(playable_actions)
         if len(playable_actions) == 1:
             return playable_actions[0]
 

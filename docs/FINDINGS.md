@@ -2413,3 +2413,32 @@ an initial-state constructor, the value-net forward pass and a JSON API (`catan_
 oracle in `test_env.py::test_rust_generated_board_and_initial_state_match_catanatron`), and the site in `web/` plays
 the bots in the browser (https://owenwang.dev/settlers_of_catan_rl/). Note for the site: v40's auxiliary heads
 (final VPs, turns left) are untrained — the winning recipe used rollout values only — so only P(win) is shown.
+
+## 2026-09-03 — official domestic trading in both engines; v40 58.3% [52.7, 63.8] vs 3x trading AlphaBeta (300 games)
+
+Player-to-player trading was the last official rule missing (`docs/AUDIT-rules.md`). Catanatron already had the
+state machine (OFFER -> each opponent DECIDE_TRADE -> DECIDE_ACCEPTEES -> CONFIRM/CANCEL) but never generated an
+offer. The fork (`TSVRN9/catanatron@1937321`, pinned) now lists offers of up to two cards per side after the roll,
+rejects giveaways and like-for-like, never asks the offerer to answer its own offer (an upstream bug), and adds one
+house rule so games terminate: an offer everyone rejected or the offerer cancelled is spent for the turn. The Rust
+engine mirrors it (`state.rs`, `actions.rs`, `apply.rs`); `test_env.py::test_domestic_trading_matches_between_engines`
+walks a trade through both engines step by step and the replay oracle now replays random games that trade thousands
+of times per game (RandomPlayer offers whenever it can; the spent-offer rule bounds every turn).
+
+Bots trade 1-ply (`catan_engine/src/trade.rs`), never inside the search tree: an offer is scored by an additive
+decomposition — value of the hand plus the bundle received, minus the cost of the bundle given, each one evaluation
+of the bot's own evaluator — so 40 evaluations rank the ~400 candidates; the top 8 are re-scored exactly and an
+offer is made only if some opponent, predicted with the same evaluator from its seat, would accept. Responders
+accept when their own value improves (min gain 0.003 P(win) for the net, strict for base_fn); the offerer confirms
+the acceptee that leaves it best off. Rust `search_actions()` = playable minus offers, used by every search and by
+the arena; catanatron's AlphaBeta/MCTS/playouts skip offers likewise in the fork. The value-net player's trade
+decisions use the same weights through `catan_engine.ValueNet` (`value_net.rust_value_net`); the arena uses base_fn
+for trade decisions of both seats (ponytail: trade candidates are not batched like leaves). The roster tokens
+`vf wr rand vp stab mcts gp` are wrapped by `no_offers` — they answer offers with base_fn and never make them —
+so their measured behaviour is unchanged; `ab` is `TradingAlphaBetaPlayer`.
+
+Strength under the new rules (seeds 0-299, agent at Blue, 3x `TradingAlphaBetaPlayer`, ~20 s/game):
+**v40 175/300 = 58.3% [52.7%, 63.8%]** (`docs/benchmark/v40_vs_ab_trading.log`), in line with the 300-game
+readings taken without trading (57.0 / 58.7 / 61.0 / 59.0) and the 1,000-game 55.2%. Trading did not change the
+ordering; a 1,000-game confirmation and the paper-protocol tournament under trading are still to run. Every number
+above this entry was measured without trading.

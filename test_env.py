@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from catanatron.models.enums import ActionType
+from value_net import no_offers
 from catanatron import Color, Game, RandomPlayer
 from catanatron.features import create_sample_vector, iter_players
 from catanatron.game import TURNS_LIMIT
@@ -240,10 +242,11 @@ def test_mask_and_forced_decision_skip(n_episodes=4, seed=0):
             expected = {
                 to_action_space(a, env.player_colors, env.map_type)
                 for a in env.game.playable_actions
+                if a.action_type != ActionType.OFFER_TRADE  # the gym action space has no domestic trades
             }
             actual = {i for i, v in enumerate(mask) if v}
             assert actual == expected, "mask does not match playable_actions"
-            assert sum(mask) == len(env.game.playable_actions), (
+            assert sum(mask) == len([a for a in env.game.playable_actions if a.action_type != ActionType.OFFER_TRADE]), (
                 "mask.sum() != len(playable_actions) -- two actions may have "
                 "collapsed onto one index"
             )
@@ -338,7 +341,7 @@ def test_search_boundary_alignment_matches_env_step(n_games=4, checks_per_game=4
 
     checks = 0
     for gi in range(n_games):
-        enemies = [WeightedRandomPlayer(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)]
+        enemies = [no_offers(WeightedRandomPlayer)(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)]  # search tests: opponents answer offers but never make them
         env = FastCatanatronEnv({"enemies": enemies})
         env.reset(seed=300 + gi)
         terminated = truncated = False
@@ -453,8 +456,10 @@ def test_ppo_player_decodes_valid_actions_for_any_color():
     for seat_color in (Color.RED, Color.WHITE, Color.ORANGE, Color.BLUE):
         others = [c for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE) if c != seat_color]
         players = {seat_color: PPOPlayer(seat_color, str(checkpoint))}
+        from value_net import no_offers
+
         for c in others:
-            players[c] = RandomPlayer(c)
+            players[c] = no_offers(RandomPlayer)(c)  # the PPO action space has no trades
         ordered = [players[c] for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)]
         game = Game(ordered, seed=42)
         checks = 0
@@ -543,7 +548,7 @@ def test_gen_labels():
     gen_games._init_worker(["wr", "wr", "wr", "wr"], 1.0)
     seed, part = gen_games.play_one(7)
     X, y, vp, turns_left = part["X"], part["y"], part["vp"], part["turns_left"]
-    game = Game([WeightedRandomPlayer(c) for c in gen_games.COLORS], seed=7)
+    game = Game([gen_games.make_player("wr", c) for c in gen_games.COLORS], seed=7)  # the same non-offering bots play_one uses
     acc = gen_games.StateSampler(1.0, 7)
     winner = game.play(accumulators=[acc])
     from value_net import N_FEATURES
@@ -604,7 +609,7 @@ def test_batched_search_matches_recursive():
         path = os.path.join(d, "rand.pt")
         torch.save(vn.ValueNet().state_dict(), path)
         p = vn.ValueNetPlayer(Color.BLUE, path, depth=1)
-        enemies = [WeightedRandomPlayer(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)]
+        enemies = [no_offers(WeightedRandomPlayer)(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)]  # search tests: opponents answer offers but never make them
         game = Game([p] + enemies, seed=5)
         for _ in range(60):
             game.play_tick()
@@ -791,10 +796,10 @@ def test_rust_search_matches_python():
         torch.save(ValueNet().state_dict(), path)
         net = load_value_net(path)
         p = ValueNetPlayer(Color.BLUE, path, depth=2)
-        game = Game([p] + [WeightedRandomPlayer(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)], seed=8)
+        game = Game([p] + [no_offers(WeightedRandomPlayer)(c) for c in (Color.RED, Color.WHITE, Color.ORANGE)], seed=8)  # decide_python is search-only; trade prompts go to the policy in decide()
         checked = 0
         while game.winning_color() is None and checked < 25:
-            if game.state.current_color() == Color.BLUE and len(game.playable_actions) > 1:
+            if game.state.current_color() == Color.BLUE and len(p.get_actions(game)) > 1:  # >1 non-offer actions, else decide_python returns without expanding
                 a_py = p.decide_python(game, game.playable_actions)
                 n_py = len(p._leaf_obs)
                 _, v_py = p._backup(p._expand(game, 2), p._score_leaves())
@@ -850,7 +855,7 @@ def test_arena_games_replay_in_python(n_games=6):
             ctx = rb.ctx_for(game)
             colors = list(game.state.colors)
             for canon, outcome in log:
-                action = rb.uncanon(canon, game.state.current_color(), ctx, colors)
+                action = rb.uncanon(canon, game.state.current_color(), ctx, colors, state=game.state)
                 assert action in game.playable_actions, (seed, steps, action, game.playable_actions[:4])
                 game.execute(action, action_record=ActionRecord(action, py_result(action.action_type, outcome)))
                 steps += 1
@@ -1109,6 +1114,84 @@ def test_rust_generated_board_and_initial_state_match_catanatron():
     print("  rust-generated boards + initial state == catanatron (4 seeds): ok")
 
 
+def test_domestic_trading_matches_between_engines():
+    """Official domestic trading in the fork and in catan_engine, side by side: an offer goes round the
+    table, cards move on confirmation, an offer everyone rejects is spent for the turn (house rule),
+    like-for-like and giveaway offers are invalid, END_TURN clears the spent list. Legal-action sets and
+    full state snapshots are compared after every step."""
+    import rust_bridge as rb
+    from catanatron import Game
+    from catanatron.game import is_valid_action
+    from catanatron.models.enums import RESOURCES, Action, ActionPrompt, ActionType
+    from catanatron.models.player import Color, RandomPlayer
+    from value_net import no_offers
+
+    game = Game([no_offers(RandomPlayer)(c) for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)], seed=5)
+    while not (game.state.current_prompt == ActionPrompt.PLAY_TURN and game.state.player_state[f"P{game.state.current_player_index}_HAS_ROLLED"]
+               and sum(rb.state_spec(game)["hand"][game.state.current_player_index]) > 0):
+        game.play_tick()
+    colors = list(game.state.colors)
+    me = game.state.current_color()
+    spec = rb.state_spec(game)
+    hand = spec["hand"][colors.index(me)]
+    give_r = next(i for i in range(5) if hand[i] > 0)
+    get_r = (give_r + 1) % 5
+    game.state.player_state[f"P{colors.index(me)}_{RESOURCES[give_r]}_IN_HAND"] += 1  # enough to offer twice
+    for q in range(4):  # everyone but me holds one of the asked resource, so all can accept
+        if colors[q] != me:
+            game.state.player_state[f"P{q}_{RESOURCES[get_r]}_IN_HAND"] += 1
+    rs, ctx = rb.rust_state(game)
+
+    def both(action):
+        canon = rb.canon(action, ctx, colors)
+        assert is_valid_action(game.playable_actions, game.state, action), action
+        game.execute(action)
+        rs.apply(canon)
+        py = rb.state_spec(game, ctx)
+        rust = rs.snapshot()
+        for k, v in py.items():
+            assert v == rust[k], (action.action_type, k, v, rust[k])
+        py_legal = {rb.canon(a, ctx, colors) for a in game.playable_actions}
+        assert py_legal == set(rs.playable_actions()), (action.action_type, py_legal ^ set(rs.playable_actions()))
+
+    offer = tuple(1 if i == give_r else 0 for i in range(5)) + tuple(1 if i == get_r else 0 for i in range(5))
+    assert Action(me, ActionType.OFFER_TRADE, offer) in game.playable_actions
+    assert not is_valid_action(game.playable_actions, game.state, Action(me, ActionType.OFFER_TRADE, offer[:5] + offer[:5])), "like-for-like"
+    assert not is_valid_action(game.playable_actions, game.state, Action(me, ActionType.OFFER_TRADE, offer[:5] + (0,) * 5)), "giveaway"
+    both(Action(me, ActionType.OFFER_TRADE, offer))
+    assert game.state.current_prompt == ActionPrompt.DECIDE_TRADE
+    replies = 0
+    while game.state.current_prompt == ActionPrompt.DECIDE_TRADE:
+        c = game.state.current_color()
+        assert c != me, "the offerer never answers its own offer"
+        both(Action(c, ActionType.ACCEPT_TRADE if replies == 1 else ActionType.REJECT_TRADE, game.state.current_trade))
+        replies += 1
+    assert replies == 3 and game.state.current_prompt == ActionPrompt.DECIDE_ACCEPTEES
+    partner = next(c for c, ok in zip(colors, game.state.acceptees) if ok)
+    before = rb.state_spec(game)["hand"]
+    both(Action(me, ActionType.CONFIRM_TRADE, (*game.state.current_trade[:10], partner)))
+    after = rb.state_spec(game)["hand"]
+    i, j = colors.index(me), colors.index(partner)
+    assert after[i][give_r] == before[i][give_r] - 1 and after[i][get_r] == before[i][get_r] + 1
+    assert after[j][give_r] == before[j][give_r] + 1 and after[j][get_r] == before[j][get_r] - 1
+    assert game.state.current_prompt == ActionPrompt.PLAY_TURN and not game.state.is_resolving_trade
+    # an offer everyone rejects is spent until END_TURN
+    both(Action(me, ActionType.OFFER_TRADE, offer))
+    while game.state.current_prompt == ActionPrompt.DECIDE_TRADE:
+        both(Action(game.state.current_color(), ActionType.REJECT_TRADE, game.state.current_trade))
+    assert game.state.current_prompt == ActionPrompt.PLAY_TURN
+    assert offer in game.state.spent_offers and list(offer) in rs.snapshot()["spent_offers"]
+    assert not is_valid_action(game.playable_actions, game.state, Action(me, ActionType.OFFER_TRADE, offer))
+    try:
+        rs.copy().apply(rb.canon(Action(me, ActionType.OFFER_TRADE, offer), ctx, colors))
+        raise AssertionError("rust accepted a spent offer")
+    except ValueError:
+        pass
+    both(Action(me, ActionType.END_TURN, None))
+    assert game.state.spent_offers == () and rs.snapshot()["spent_offers"] == []
+    print("  domestic trading: offer / replies / confirm / spent-offer rule; python == rust: ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -1135,4 +1218,5 @@ if __name__ == "__main__":
     test_longest_road_break_sets_card_aside()
     test_bank_shortage_pays_a_sole_recipient()
     test_win_only_on_own_turn()
+    test_domestic_trading_matches_between_engines()
     print("test_env.py: all invariants passed")

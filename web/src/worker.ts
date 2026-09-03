@@ -41,7 +41,7 @@ function decide(e: Engine, bot: BotKind, depth: number): Decision {
   if (bot === "human") throw new Error("a human seat has no bot");
   const t0 = performance.now();
   const d = JSON.parse(e.decide(bot, depth));
-  return { bot, action: d.action, value: d.value, root: d.root, leaves: d.leaves, ms: performance.now() - t0 };
+  return { bot, action: d.action, value: d.value, root: d.root, leaves: d.leaves, ms: performance.now() - t0, trade: !!d.trade };
 }
 
 async function handle(req: Request, post: (frames: Frame[]) => void): Promise<unknown> {

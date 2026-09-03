@@ -18,6 +18,8 @@ use crate::encode::Layout;
 use crate::map::{Map, Port, Tile};
 use crate::search::Search;
 use crate::state::{Player, Prompt, State};
+use crate::trade::Eval;
+use crate::valuenet::{ValueNet, N_HEADS};
 
 fn prompt_str(p: Prompt) -> &'static str {
     match p {
@@ -26,6 +28,8 @@ fn prompt_str(p: Prompt) -> &'static str {
         Prompt::PlayTurn => "PLAY_TURN",
         Prompt::Discard => "DISCARD",
         Prompt::MoveRobber => "MOVE_ROBBER",
+        Prompt::DecideTrade => "DECIDE_TRADE",
+        Prompt::DecideAcceptees => "DECIDE_ACCEPTEES",
     }
 }
 
@@ -36,7 +40,9 @@ fn prompt_from(s: &str) -> PyResult<Prompt> {
         "PLAY_TURN" => Prompt::PlayTurn,
         "DISCARD" => Prompt::Discard,
         "MOVE_ROBBER" => Prompt::MoveRobber,
-        _ => return Err(PyValueError::new_err(format!("unsupported prompt {s} (trading is out of scope)"))),
+        "DECIDE_TRADE" => Prompt::DecideTrade,
+        "DECIDE_ACCEPTEES" => Prompt::DecideAcceptees,
+        _ => return Err(PyValueError::new_err(format!("unsupported prompt {s}"))),
     })
 }
 
@@ -216,6 +222,14 @@ impl PyState {
         bank.copy_from_slice(&bank_v);
         let prompt: String = d_get(spec, "prompt")?;
         let seed: u64 = spec.get_item("seed")?.map(|v| v.extract()).transpose()?.unwrap_or(0x1234_5678);
+        let ct: Vec<i32> = d_get(spec, "current_trade")?;
+        let mut current_trade = [0i32; 11];
+        current_trade.copy_from_slice(&ct);
+        let acc: Vec<bool> = d_get(spec, "acceptees")?;
+        let mut acceptees = [false; 4];
+        acceptees[..n].copy_from_slice(&acc[..n]);
+        let spent: Vec<Vec<u8>> = d_get(spec, "spent_offers")?;
+        let spent_offers = spent.iter().map(|o| { let mut k = [0u8; 10]; k.copy_from_slice(o); k }).collect();
         Ok(PyState {
             inner: State {
                 map: map.inner.clone(),
@@ -245,6 +259,10 @@ impl PyState {
                 discard_limit: d_get(spec, "discard_limit")?,
                 vps_to_win: d_get(spec, "vps_to_win")?,
                 friendly_robber: d_get(spec, "friendly_robber")?,
+                is_resolving_trade: d_get(spec, "is_resolving_trade")?,
+                current_trade,
+                acceptees,
+                spent_offers,
                 rng: seed,
             },
             search: None,
@@ -297,6 +315,10 @@ impl PyState {
         d.set_item("discard_limit", s.discard_limit)?;
         d.set_item("vps_to_win", s.vps_to_win)?;
         d.set_item("friendly_robber", s.friendly_robber)?;
+        d.set_item("is_resolving_trade", s.is_resolving_trade)?;
+        d.set_item("current_trade", s.current_trade.to_vec())?;
+        d.set_item("acceptees", s.acceptees[..n].to_vec())?;
+        d.set_item("spent_offers", s.spent_offers.iter().map(|o| ints(o)).collect::<Vec<_>>())?;
         Ok(d)
     }
 
@@ -418,6 +440,40 @@ impl PyState {
 
     fn leaf_count(&self) -> usize {
         self.search.as_ref().map(|s| s.n_leaves).unwrap_or(0)
+    }
+
+    /// The 1-ply trade policy (trade.rs): a reply / confirmation / worthwhile offer, or None when the
+    /// search should decide. `net` = a ValueNet for the value-net player, None for base_fn.
+    #[pyo3(signature = (layout, net=None))]
+    fn trade_action(&self, layout: &PyLayout, net: Option<&PyValueNet>) -> Option<Canon> {
+        let eval = match net {
+            Some(n) => Eval::Net(&n.inner, &layout.inner),
+            None => Eval::Heuristic,
+        };
+        self.inner.trade_action(&eval).map(to_canon)
+    }
+
+    /// playable_actions minus domestic trade offers (what the searches branch over).
+    fn search_actions(&self) -> Vec<Canon> {
+        self.inner.search_actions().into_iter().map(to_canon).collect()
+    }
+}
+
+/// value_net.ValueNet weights in Rust (tools/export_valuenet.py layout), for the trade policy.
+#[pyclass(name = "ValueNet")]
+struct PyValueNet {
+    inner: ValueNet,
+}
+
+#[pymethods]
+impl PyValueNet {
+    #[new]
+    fn new(bytes: Vec<u8>, n_features: usize, hidden: usize) -> PyResult<PyValueNet> {
+        Ok(PyValueNet { inner: ValueNet::from_bytes(&bytes, n_features, hidden, N_HEADS).map_err(PyValueError::new_err)? })
+    }
+
+    fn win_prob(&self, state: &PyState, layout: &PyLayout, p0: usize) -> f64 {
+        self.inner.win_prob(&state.inner.encoded(p0, &layout.inner))
     }
 }
 
@@ -602,6 +658,7 @@ fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyLayout>()?;
     m.add_class::<PyState>()?;
     m.add_class::<PyArena>()?;
+    m.add_class::<PyValueNet>()?;
     m.add_function(wrap_pyfunction!(action_types, m)?)?;
     m.add_function(wrap_pyfunction!(prof, m)?)?;
     Ok(())

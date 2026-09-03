@@ -7,7 +7,7 @@ import PlayerCards from "../analysis/PlayerCards";
 import Forecast from "../analysis/Forecast";
 import DecisionPanel from "../analysis/DecisionPanel";
 import { engine, type BotKind, type BotSpec, type Canon, type Decision, type Evaluation, type GameState } from "../engine";
-import { BOT_SHORT, PROMPTS, RESOURCES, SEAT_NAMES, actionKey, fmtPct, label, outcomeText } from "../labels";
+import { BOT_SHORT, PROMPTS, RESOURCES, RESOURCE_EMOJI, SEAT_NAMES, actionKey, fmtPct, label, outcomeText, packBundle, tradeText } from "../labels";
 
 const BOT_OPTIONS = (["vnet", "heuristic", "random"] as BotKind[]).map((k) => ({ value: k, label: BOT_SHORT[k] }));
 const SEAT_OPTIONS = SEAT_NAMES.map((n, i) => ({ value: String(i), label: n }));
@@ -92,6 +92,12 @@ export default function Play() {
     advance(a, game.view.current_player, game).catch((e) => { console.error(e); inflight.current = false; setBusy(String(e)); });
   }, [game, advance]);
 
+  useEffect(() => {
+    if (!game || game.view.current_player !== human) return;
+    if (game.view.prompt === "DECIDE_TRADE") setDialog("reply");
+    else if (game.view.prompt === "DECIDE_ACCEPTEES") setDialog("confirm");
+  }, [game, human]);
+
   const heat: Heat | undefined = useMemo(() => {
     if (!advice || !coach) return undefined;
     const vals = advice.root.map(([, v]) => v ?? 0);
@@ -127,7 +133,7 @@ export default function Play() {
             ))}
             <div className="md:col-span-2 flex flex-wrap items-center gap-3">
               <button className="btn btn-primary" onClick={start}>Start game</button>
-              <span className="text-xs text-stone-500">Seat order is Red → Blue → Orange → White. No player-to-player trading (bank and port trades only).</span>
+              <span className="text-xs text-stone-500">Seat order is Red → Blue → Orange → White. Trade with the bank, at ports, or with other players.</span>
             </div>
           </div>
         )}
@@ -151,9 +157,12 @@ export default function Play() {
                   {groups.MARITIME_TRADE && <button className="btn" onClick={() => setDialog("trade")}>Trade with the bank… ({groups.MARITIME_TRADE.length})</button>}
                   {groups.DISCARD_RESOURCE && <button className="btn btn-primary" onClick={() => setDialog("discard")}>Discard…</button>}
                   {groups.MOVE_ROBBER && <button className="btn" onClick={() => setDialog("all")}>Choose robber target…</button>}
+                  {groups.OFFER_TRADE && <button className="btn" onClick={() => setDialog("offer")}>Offer a trade…</button>}
+                  {(groups.ACCEPT_TRADE || groups.REJECT_TRADE) && <button className="btn btn-primary" onClick={() => setDialog("reply")}>Answer the offer…</button>}
+                  {(groups.CONFIRM_TRADE || groups.CANCEL_TRADE) && <button className="btn btn-primary" onClick={() => setDialog("confirm")}>Close the trade…</button>}
                   <button className="btn" onClick={() => setDialog("all")}>All {legal.length} legal actions…</button>
                 </div>
-                <p className="text-xs text-stone-500">{groups.BUILD_SETTLEMENT || groups.BUILD_CITY || groups.BUILD_ROAD ? "Click a highlighted node or edge on the board to build. " : ""}{groups.MOVE_ROBBER ? "Click a highlighted tile to move the robber (the list picks who to rob). " : ""}{coach && advice ? `Coach: best is “${label(advice.action, game.map)}” at ${fmtPct(advice.value)}.` : coach ? "Coach is thinking…" : ""}</p>
+                <p className="text-xs text-stone-500">{v.is_resolving_trade && v.prompt !== "DECIDE_TRADE" && v.prompt !== "DECIDE_ACCEPTEES" ? "" : ""}{groups.BUILD_SETTLEMENT || groups.BUILD_CITY || groups.BUILD_ROAD ? "Click a highlighted node or edge on the board to build. " : ""}{groups.MOVE_ROBBER ? "Click a highlighted tile to move the robber (the list picks who to rob). " : ""}{coach && advice ? `Coach: best is “${label(advice.action, game.map)}” at ${fmtPct(advice.value)}.` : coach ? "Coach is thinking…" : ""}</p>
               </div>
             )}
             <Dialog open={dialog === "all"} onClose={() => setDialog(null)} title="Legal actions">
@@ -164,6 +173,16 @@ export default function Play() {
             </Dialog>
             <Dialog open={dialog === "discard"} onClose={() => setDialog(null)} title={`Discard ${v.discard_counts[human] ?? ""} card${(v.discard_counts[human] ?? 0) === 1 ? "" : "s"} (one at a time)`}>
               <ActionList actions={groups.DISCARD_RESOURCE ?? []} onPick={act} adviceOf={coach ? adviceOf : undefined} mapOf={game.map} />
+            </Dialog>
+            <Dialog open={dialog === "offer"} onClose={() => setDialog(null)} title="Offer a trade">
+              <OfferBuilder hand={v.players[human].hand} spent={v.spent_offers} onOffer={(give, get) => act(["OFFER_TRADE", packBundle(give), packBundle(get), -1])} />
+            </Dialog>
+            <Dialog open={dialog === "reply"} onClose={() => setDialog(null)} title={tradeText(v.current_trade)}>
+              <ActionList actions={[...(groups.ACCEPT_TRADE ?? []), ...(groups.REJECT_TRADE ?? [])]} onPick={act} adviceOf={coach ? adviceOf : undefined} mapOf={game.map} />
+              {!groups.ACCEPT_TRADE && <p className="mt-2 text-xs text-stone-500">You do not hold what is asked, so you can only reject.</p>}
+            </Dialog>
+            <Dialog open={dialog === "confirm"} onClose={() => setDialog(null)} title="Who accepted your offer">
+              <ActionList actions={[...(groups.CONFIRM_TRADE ?? []), ...(groups.CANCEL_TRADE ?? [])]} onPick={act} adviceOf={coach ? adviceOf : undefined} mapOf={game.map} />
             </Dialog>
             <Dialog open={dialog === "dev"} onClose={() => setDialog(null)} title="Play a development card">
               <ActionList actions={[...(groups.PLAY_KNIGHT_CARD ?? []), ...(groups.PLAY_ROAD_BUILDING ?? []), ...(groups.PLAY_MONOPOLY ?? []), ...(groups.PLAY_YEAR_OF_PLENTY ?? [])]} onPick={act} adviceOf={coach ? adviceOf : undefined} mapOf={game.map} />
@@ -193,6 +212,40 @@ export default function Play() {
 }
 
 function legalCount(g: GameState | null) { return g ? g.legal.length : 0; }
+
+/** Any valid offer (the engine validates: hold what you give, no giveaways, no like-for-like, not spent this turn). */
+function OfferBuilder({ hand, spent, onOffer }: { hand: number[]; spent: number[][]; onOffer: (give: number[], get: number[]) => void }) {
+  const [give, setGive] = useState([0, 0, 0, 0, 0]);
+  const [get, setGet] = useState([0, 0, 0, 0, 0]);
+  const bump = (arr: number[], set: (a: number[]) => void, i: number, d: number, max: number) => set(arr.map((c, k) => (k === i ? Math.max(0, Math.min(max, c + d)) : c)));
+  const sumGive = give.reduce((a, b) => a + b, 0), sumGet = get.reduce((a, b) => a + b, 0);
+  const likeForLike = give.some((c, i) => c > 0 && get[i] > 0);
+  const isSpent = spent.some((o) => o.every((c, i) => c === (i < 5 ? give[i] : get[i - 5])));
+  const problem = sumGive === 0 || sumGet === 0 ? "give and receive at least one card" : likeForLike ? "the same resource cannot be on both sides" : isSpent ? "this offer was already rejected or cancelled this turn" : null;
+  const row = (title: string, arr: number[], set: (a: number[]) => void, max: (i: number) => number) => (
+    <div>
+      <div className="label mb-1">{title}</div>
+      <div className="grid grid-cols-5 gap-1">
+        {RESOURCES.map((r, i) => (
+          <div key={r} className="flex flex-col items-center rounded border border-stone-200 p-1 text-xs dark:border-stone-700">
+            <span title={r}>{RESOURCE_EMOJI[i]}</span>
+            <div className="flex items-center gap-1"><button className="btn px-1.5 py-0" onClick={() => bump(arr, set, i, -1, max(i))} aria-label={`fewer ${r}`}>−</button><b className="w-4 text-center">{arr[i]}</b><button className="btn px-1.5 py-0" onClick={() => bump(arr, set, i, 1, max(i))} aria-label={`more ${r}`}>+</button></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="space-y-3">
+      {row("You give (from your hand)", give, setGive, (i) => hand[i])}
+      {row("You want", get, setGet, () => 19)}
+      <div className="flex items-center gap-2">
+        <button className="btn btn-primary" disabled={!!problem} onClick={() => onOffer(give, get)}>Offer</button>
+        <span className="text-xs text-stone-500">{problem ?? "Each opponent answers in seat order; you then confirm one partner or cancel."}</span>
+      </div>
+    </div>
+  );
+}
 
 function Adv({ v }: { v: number | null | undefined }) {
   return v == null ? null : <span className="ml-1 rounded bg-amber-200 px-1 text-[10px] text-stone-900">{fmtPct(v)}</span>;

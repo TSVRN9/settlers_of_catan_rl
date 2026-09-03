@@ -13,7 +13,7 @@ export default function About() {
       </ul>
       <h2>Rule caveats</h2>
       <ul>
-        <li>No player-to-player trading yet (bank and port trades work).</li>
+        <li>Player-to-player trading follows the official rules (on your turn after rolling, no giveaways, no like-for-like), with one house rule so games always end: an offer everyone rejected or the offerer cancelled cannot be repeated that turn. Bots decide trades 1-ply with their own evaluator; they never search over offers.</li>
         <li>Opponent hands are visible to the bots' search (the engine is fully observable), as in Catanatron.</li>
       </ul>
       <h2>Links</h2>

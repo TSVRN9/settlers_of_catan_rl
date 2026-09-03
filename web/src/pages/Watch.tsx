@@ -9,7 +9,7 @@ import DecisionPanel from "../analysis/DecisionPanel";
 import AttributionPanel from "../analysis/Attribution";
 import PlayerCards from "../analysis/PlayerCards";
 import { engine, type BotKind, type BotSpec, type Canon, type Frame, type MapView } from "../engine";
-import { BOT_SHORT, PROMPTS, SEAT_NAMES, actionKey, label, outcomeText } from "../labels";
+import { BOT_SHORT, PROMPTS, SEAT_NAMES, actionKey, label, outcomeText, tradeText } from "../labels";
 
 const BOT_OPTIONS = (["vnet", "heuristic", "random"] as BotKind[]).map((k) => ({ value: k, label: BOT_SHORT[k] }));
 
@@ -117,7 +117,7 @@ export default function Watch() {
             </div>
             <Slider value={Math.min(step, frames.length - 1)} min={0} max={Math.max(frames.length - 1, 0)} onChange={setStep} label="step" />
             <p className="my-2 text-sm">
-              {f.action ? <><span className="font-semibold">{SEAT_NAMES[f.seat]}</span> ({BOT_SHORT[bots[f.seat].kind]}) {PROMPTS[f.view.prompt] ? `— ${PROMPTS[f.view.prompt]}: ` : ": "}<span className="font-semibold">{label(f.action, map)}</span>{outcomeText(f.action, f.outcome) ? <span className="text-stone-500"> — {outcomeText(f.action, f.outcome)}</span> : null}</> : <span className="text-stone-500">Final position.</span>}
+              {f.action ? <><span className="font-semibold">{SEAT_NAMES[f.seat]}</span> ({BOT_SHORT[bots[f.seat].kind]}) {PROMPTS[f.view.prompt] ? `— ${PROMPTS[f.view.prompt]}: ` : ": "}<span className="font-semibold">{label(f.action, map)}</span>{outcomeText(f.action, f.outcome) ? <span className="text-stone-500"> — {outcomeText(f.action, f.outcome)}</span> : null}{f.view.is_resolving_trade ? <span className="text-stone-500"> · {tradeText(f.view.current_trade)}</span> : null}</> : <span className="text-stone-500">Final position.</span>}
             </p>
             <Board map={map} view={f.view} legal={f.decision?.root.length ? f.decision.root.map(([a]) => a) : []} heat={heat} highlight={hover ?? f.action} lastAction={frames[step - 1]?.action ?? null} />
             <div className="card mt-3"><div className="label mb-1">Win probability over the game</div><WinProbTimeline frames={frames} step={Math.min(step, frames.length - 1)} onSeek={setStep} n={f.view.n} /></div>

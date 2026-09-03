@@ -359,6 +359,11 @@ class FastCatanatronEnv(CatanatronEnv):
         config = dict(config or {})
         self._step_reward_fn = config.pop("step_reward_function", vp_shaped_reward())
         super().__init__(config)
+        # The gym action space has no trades: enemies answer offers with the base_fn policy but never make them.
+        from value_net import no_offers
+
+        self.enemies = [e if type(e).__name__.startswith("NoOffer") else no_offers(type(e))(e.color) for e in self.enemies]
+        self.players = [self.p0] + self.enemies
         # base __init__ sizes observation_space from catanatron's own
         # get_feature_ordering (1002); ours is 1002 + EXTRA_FEATURES (see
         # FEATURES above).

@@ -1,7 +1,7 @@
 //! catanatron.apply_action semantics. `result` pins the stochastic outcome
 //! (dice, drawn card, stolen resource); None draws from the state's RNG.
 
-use crate::actions::Action;
+use crate::actions::{offer_key, valid_offer, Action};
 use crate::state::*;
 
 /// Realized outcome of a stochastic action: (a, b) with -1 = none.
@@ -13,7 +13,84 @@ impl State {
         match action {
             Action::EndTurn => {
                 self.clean_turn(p);
+                self.spent_offers.clear();
                 self.advance_turn(1);
+                self.prompt = Prompt::PlayTurn;
+                Ok((-1, -1))
+            }
+            Action::OfferTrade { give, get } => {
+                if self.prompt != Prompt::PlayTurn || !self.players[p].has_rolled || self.is_road_building || self.is_resolving_trade {
+                    return Err("offers are made on your own turn after rolling".into());
+                }
+                if !valid_offer(&give, &get) {
+                    return Err("an offer must give and receive cards and not the same resource on both sides".into());
+                }
+                if (0..5).any(|r| self.players[p].hand[r] < give[r] as i32) {
+                    return Err("you do not hold what you offer".into());
+                }
+                if self.spent_offers.contains(&offer_key(&give, &get)) {
+                    return Err("that offer was already rejected or cancelled this turn".into());
+                }
+                self.is_resolving_trade = true;
+                for r in 0..5 {
+                    self.current_trade[r] = give[r] as i32;
+                    self.current_trade[5 + r] = get[r] as i32;
+                }
+                self.current_trade[10] = p as i32;
+                self.acceptees = [false; 4];
+                self.current_player = (0..self.n).find(|&i| i != self.current_turn).expect("another player");
+                self.prompt = Prompt::DecideTrade;
+                Ok((-1, -1))
+            }
+            Action::AcceptTrade | Action::RejectTrade => {
+                if self.prompt != Prompt::DecideTrade {
+                    return Err("no offer to answer".into());
+                }
+                if action == Action::AcceptTrade {
+                    if !self.can_accept_offer(p) {
+                        return Err("you do not hold what is asked".into());
+                    }
+                    self.acceptees[p] = true;
+                }
+                // keep going around the table without asking the offerer or players who answered
+                match (p + 1..self.n).find(|&i| i != self.current_turn) {
+                    Some(next) => self.current_player = next,
+                    None => {
+                        self.current_player = self.current_turn;
+                        if self.acceptees.iter().any(|&a| a) {
+                            self.prompt = Prompt::DecideAcceptees;
+                        } else {
+                            self.spend_current_offer();
+                            self.reset_trade();
+                            self.prompt = Prompt::PlayTurn;
+                        }
+                    }
+                }
+                Ok((-1, -1))
+            }
+            Action::ConfirmTrade { partner } => {
+                let q = partner as usize;
+                if self.prompt != Prompt::DecideAcceptees || q >= self.n || !self.acceptees[q] {
+                    return Err("that player did not accept".into());
+                }
+                for r in 0..5 {
+                    let give = self.current_trade[r];
+                    let get = self.current_trade[5 + r];
+                    self.players[p].hand[r] += get - give;
+                    self.players[q].hand[r] += give - get;
+                }
+                self.reset_trade();
+                self.current_player = self.current_turn;
+                self.prompt = Prompt::PlayTurn;
+                Ok((-1, -1))
+            }
+            Action::CancelTrade => {
+                if self.prompt != Prompt::DecideAcceptees {
+                    return Err("nothing to cancel".into());
+                }
+                self.spend_current_offer();
+                self.reset_trade();
+                self.current_player = self.current_turn;
                 self.prompt = Prompt::PlayTurn;
                 Ok((-1, -1))
             }
@@ -367,6 +444,20 @@ impl State {
                 l.actual_vp -= 2;
             }
         }
+    }
+
+    fn spend_current_offer(&mut self) {
+        let mut k = [0u8; 10];
+        for i in 0..10 {
+            k[i] = self.current_trade[i] as u8;
+        }
+        self.spent_offers.push(k);
+    }
+
+    fn reset_trade(&mut self) {
+        self.is_resolving_trade = false;
+        self.current_trade = [0; 11];
+        self.acceptees = [false; 4];
     }
 
     fn clean_turn(&mut self, p: usize) {

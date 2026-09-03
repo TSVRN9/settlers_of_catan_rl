@@ -149,7 +149,7 @@ impl State {
         }
         let winner = self.winner();
         let maximizing = self.current_player == p0;
-        let actions = self.playable_actions();
+        let actions = self.search_actions();
         let roll_only = actions.len() == 1 && actions[0] == Action::Roll;
         let stop = if search.own_turn {
             winner >= 0 || (maximizing && depth == 0) || (!maximizing && !roll_only)

@@ -11,6 +11,7 @@ use crate::apply::Outcome;
 use crate::encode::Layout;
 use crate::map::Map;
 use crate::state::{Prompt, State};
+use crate::trade::Eval;
 use crate::valuenet::{sigmoid, ValueNet, N_HEADS};
 
 static LAYOUT: OnceLock<Arc<Layout>> = OnceLock::new();
@@ -39,6 +40,8 @@ fn prompt_name(p: Prompt) -> &'static str {
         Prompt::PlayTurn => "PLAY_TURN",
         Prompt::Discard => "DISCARD",
         Prompt::MoveRobber => "MOVE_ROBBER",
+        Prompt::DecideTrade => "DECIDE_TRADE",
+        Prompt::DecideAcceptees => "DECIDE_ACCEPTEES",
     }
 }
 
@@ -149,6 +152,8 @@ impl Engine {
             "initial_phase": s.initial_phase, "is_discarding": s.is_discarding, "discard_counts": s.discard_counts.to_vec(),
             "is_moving_knight": s.is_moving_knight, "is_road_building": s.is_road_building, "free_roads": s.free_roads,
             "num_turns": s.num_turns, "winner": s.winner(), "steps": self.log.len(),
+            "is_resolving_trade": s.is_resolving_trade, "current_trade": s.current_trade.to_vec(), "acceptees": s.acceptees[..s.n].to_vec(),
+            "spent_offers": s.spent_offers,
         })
         .to_string()
     }
@@ -175,6 +180,19 @@ impl Engine {
         if actions.is_empty() {
             return Err(err("no legal actions"));
         }
+        // Trade prompts and worthwhile offers: the 1-ply policy with the bot's own evaluator.
+        let policy = match bot {
+            "heuristic" => self.state.trade_action(&Eval::Heuristic),
+            "vnet" => {
+                let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
+                self.state.trade_action(&Eval::Net(net, &layout()))
+            }
+            _ => None,
+        };
+        if let Some(a) = policy {
+            return Ok(json!({"action": canon_json(a), "value": Value::Null, "root": [], "leaves": 0, "trade": true}).to_string());
+        }
+        let actions = self.state.search_actions();
         let (action, value, root, leaves) = match bot {
             "random" => {
                 self.bot_rng = self.bot_rng.wrapping_add(0x9E3779B97F4A7C15);

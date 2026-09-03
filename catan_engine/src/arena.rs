@@ -6,6 +6,7 @@
 use crate::actions::Action;
 use crate::apply::Outcome;
 use crate::encode::Layout;
+use crate::trade::Eval;
 use crate::search::Search;
 use crate::state::State;
 
@@ -69,7 +70,7 @@ impl Recorder {
     fn rollout(&mut self, mut s: State, p0: usize) -> f64 {
         s.rng = splitmix(&mut self.rng);
         while s.winner() < 0 && s.num_turns < TURNS_LIMIT {
-            let acts = s.playable_actions();
+            let acts = s.search_actions();
             let a = if acts.len() == 1 { acts[0] } else if self.roll_depth == 1 { s.decide_heuristic(1).unwrap_or(acts[0]) } else { s.decide_rollout().unwrap_or(acts[0]) };
             if s.apply(a, None).is_err() {
                 return 0.0;
@@ -84,7 +85,7 @@ impl Recorder {
     /// every target derived from the net's own search regressed; this one is
     /// the value of the AlphaBeta continuation, measured).
     fn record_rollouts(&mut self, s: &State, layout: &Layout) {
-        let acts: Vec<Action> = s.playable_actions().into_iter().filter(|&a| deterministic(a)).collect();
+        let acts: Vec<Action> = s.search_actions().into_iter().filter(|&a| deterministic(a)).collect();
         if acts.len() < 2 {
             return;
         }
@@ -188,7 +189,7 @@ impl Recorder {
         if !deterministic(action) {
             return;
         }
-        let others: Vec<Action> = s.playable_actions().into_iter().filter(|&a| a != action && deterministic(a)).collect();
+        let others: Vec<Action> = s.search_actions().into_iter().filter(|&a| a != action && deterministic(a)).collect();
         if others.is_empty() {
             return;
         }
@@ -208,7 +209,7 @@ impl Recorder {
     }
 
     fn record_siblings(&mut self, s: &State, action: Action, self_play: bool, layout: &Layout) {
-        let mut acts: Vec<Action> = s.playable_actions().into_iter().filter(|&a| deterministic(a)).collect();
+        let mut acts: Vec<Action> = s.search_actions().into_iter().filter(|&a| deterministic(a)).collect();
         if acts.len() < 2 {
             return;
         }
@@ -296,8 +297,15 @@ impl ArenaGame {
                 self.done = true;
                 return;
             }
-            let acts = self.state.playable_actions();
+            let acts = self.state.search_actions();
             let p = self.state.current_player;
+            // Trade prompts and offers go through the 1-ply policy; both seats use the heuristic
+            // evaluator here (the arena scores value-net leaves in Python, batched, and trade
+            // decisions are not batched -- ponytail: park trade candidates like leaves if it matters).
+            if let Some(a) = self.state.trade_action(&Eval::Heuristic) {
+                self.tick(a, layout);
+                continue;
+            }
             if acts.len() == 1 {
                 self.tick(acts[0], layout);
                 continue;

@@ -62,9 +62,19 @@ scenario test in `test_env.py` that runs the Python and the Rust engine side by 
 - **Win check** (`Game.winning_color`, `State::winner`): was "any player with ≥ 10 actual VPs wins the moment it
   happens" — reachable off-turn through a Longest Road transfer during another player's turn. Official: on the
   player's own turn. **Fixed** (the turn's player, `current_turn_index`, not whoever is deciding a discard).
-- **No player-to-player trading** — a documented simplification of catanatron (a missing feature, not a wrong rule); it
-  does change strategy. Not changed: it would add a trade protocol to the action space, the encoder, both search
-  players and the Rust port.
+- **Player-to-player trading** — was missing (a catanatron simplification). **Implemented 2026-09-03** in the fork
+  (`e5bc41d`) and in `catan_engine` (`trade.rs`, `state.rs`, `actions.rs`, `apply.rs`), scenario test
+  `test_env.py::test_domestic_trading_matches_between_engines` plus the replay oracle over random games that now
+  trade thousands of times. Official rules kept: offers only on your own turn after rolling, no giveaways, no
+  like-for-like resource on both sides, responders must hold what is asked, the offerer confirms exactly one
+  acceptee or cancels. Catanatron already had the state machine (OFFER -> each opponent DECIDE_TRADE ->
+  DECIDE_ACCEPTEES -> CONFIRM/CANCEL) but never generated offers; two of its details were fixed on the way:
+  the offerer could be asked to answer its own offer, and the search bots would have branched over every offer.
+  **House rule (deviation, deliberate):** an offer that every opponent rejected, or that the offerer cancelled,
+  cannot be repeated in the same turn (`spent_offers`, cleared on END_TURN). The rulebook allows repeats; without
+  the rule a bot or a human could stall a game forever. The engines list offers of up to two cards per side for
+  the bots (~400 at most); `Game.execute` / `State::apply` accept any valid offer, so humans may offer more.
+  Bots decide trades 1-ply with their own evaluator (`trade.rs`), never inside the search tree.
 - **Development cards**: one per turn, not on the turn bought (`OWNED_AT_START`) — correct.
 - **Discard**: floor(hand / 2) when the hand exceeds 7 — correct.
 - **Longest road award**: ≥ 5 and strictly longer than the holder — correct (ties keep the holder).

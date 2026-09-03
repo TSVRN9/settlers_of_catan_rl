@@ -35,12 +35,12 @@ from catanatron.players.weighted_random import WeightedRandomPlayer
 from sb3_contrib import MaskablePPO
 
 from catan_env import FastCatanatronEnv, advance_until_decision
-from value_net import make_player
+from value_net import TradingAlphaBetaPlayer, make_player, no_offers
 
-OPPONENTS = {
-    "weighted_random": WeightedRandomPlayer,
-    "value_function": ValueFunctionPlayer,
-    "alpha_beta": AlphaBetaPlayer,
+OPPONENTS = {  # trade-aware (value_net.py): AlphaBeta offers via the 1-ply policy, the others only answer offers
+    "weighted_random": no_offers(WeightedRandomPlayer),
+    "value_function": no_offers(ValueFunctionPlayer),
+    "alpha_beta": TradingAlphaBetaPlayer,
     "rab": None,  # Rust AlphaBeta, arena only (see evaluate): the fast proxy gate; the reported gate stays alpha_beta
 }
 

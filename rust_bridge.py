@@ -101,10 +101,30 @@ def canon(action, ctx, colors):
         return ("MARITIME_TRADE", RES_IDX[give[0]], len(give), RES_IDX[v[4]])
     if t == ActionType.END_TURN:
         return ("END_TURN", -1, -1, -1)
+    if t == ActionType.OFFER_TRADE:
+        return ("OFFER_TRADE", pack_bundle(v[:5]), pack_bundle(v[5:10]), -1)
+    if t == ActionType.ACCEPT_TRADE:
+        return ("ACCEPT_TRADE", -1, -1, -1)
+    if t == ActionType.REJECT_TRADE:
+        return ("REJECT_TRADE", -1, -1, -1)
+    if t == ActionType.CONFIRM_TRADE:
+        return ("CONFIRM_TRADE", colors.index(v[10]), -1, -1)
+    if t == ActionType.CANCEL_TRADE:
+        return ("CANCEL_TRADE", -1, -1, -1)
     raise ValueError(f"unsupported action {action}")
 
 
-def uncanon(c, color, ctx, colors):
+def pack_bundle(counts):
+    """Five resource counts in 5 bits each (actions.rs pack_bundle)."""
+    return sum((int(c) & 31) << (5 * i) for i, c in enumerate(counts))
+
+
+def unpack_bundle(x):
+    return tuple((x >> (5 * i)) & 31 for i in range(5))
+
+
+def uncanon(c, color, ctx, colors, state=None):
+    """Canon tuple -> catanatron Action. Trade replies carry the game's current offer, so they need `state`."""
     t, a, b, d = c
     if t == "ROLL":
         return Action(color, ActionType.ROLL, None)
@@ -132,6 +152,17 @@ def uncanon(c, color, ctx, colors):
         return Action(color, ActionType.MARITIME_TRADE, tuple([RESOURCES[a]] * b + [None] * (4 - b) + [RESOURCES[d]]))
     if t == "END_TURN":
         return Action(color, ActionType.END_TURN, None)
+    if t == "OFFER_TRADE":
+        return Action(color, ActionType.OFFER_TRADE, unpack_bundle(a) + unpack_bundle(b))
+    if t in ("ACCEPT_TRADE", "REJECT_TRADE", "CONFIRM_TRADE", "CANCEL_TRADE"):
+        assert state is not None, "trade replies need the game state (current_trade)"
+        if t == "ACCEPT_TRADE":
+            return Action(color, ActionType.ACCEPT_TRADE, state.current_trade)
+        if t == "REJECT_TRADE":
+            return Action(color, ActionType.REJECT_TRADE, state.current_trade)
+        if t == "CONFIRM_TRADE":
+            return Action(color, ActionType.CONFIRM_TRADE, (*state.current_trade[:10], colors[a]))
+        return Action(color, ActionType.CANCEL_TRADE, None)
     raise ValueError(c)
 
 
@@ -212,6 +243,10 @@ def state_spec(game, ctx=None):
         "discard_limit": s.discard_limit,
         "vps_to_win": game.vps_to_win,
         "friendly_robber": s.friendly_robber,
+        "is_resolving_trade": s.is_resolving_trade,
+        "current_trade": list(s.current_trade),
+        "acceptees": list(s.acceptees),
+        "spent_offers": [list(o) for o in s.spent_offers],
     }
 
 

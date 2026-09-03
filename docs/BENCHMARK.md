@@ -43,6 +43,10 @@ site's Results page. The Fig. 3b analogue is the existing headline: **v40 552/10
 
 Read against the paper's Fig. 3a (DRRL 31%, jSettler 21%, VPI 22%, BUCT 26%, UCT 23%): our learned agent's win ratio is 72.0% [67.4, 76.2] in a pool where the hand-heuristic search (the jSettler analogue) gets 32.2% and catanatron's MCTS player, with random playouts, 0.0%. The MCTS number says more about random-playout MCTS on Catan's branching factor than about search in general — the paper's own MCTS agents also trailed jSettler — and is the reason Phase 3 implements the thesis agents instead of scaling this one.
 
+Domestic trading was added to both engines after this run (docs/FINDINGS.md 2026-09-03, trading entry); v40 scores
+58.3% [52.7, 63.8] over 300 games vs 3x trading AlphaBeta. The table above was measured without trading and has not
+been re-run yet.
+
 ## Phase 2 (planned, ~1 week): real jSettlers, the literal Fig. 3b number
 
 Facts checked 2026-09-03: JSettlers2 (github.com/jdmonin/JSettlers2, GPL-3) is at release 2.6.10 / main 2.7.00.
@@ -67,7 +71,7 @@ sets; the 7 default bots are a mix. No Python or Rust port of that robot, and no
    classic 4-player hex/node/edge coordinates to the engine's node ids; JSettlers' port positions differ from
    catanatron's template, which `Map::new` (arbitrary tiles/ports) already accepts — build the `Map` from the
    JSettlers layout, not from the template.
-4. Rule gaps to record, not fix: JSettlers robots offer trades (we reject; the paper's DRRL did the opposite);
+4. Rule gaps to record, not fix: JSettlers robots negotiate in their own dialogue (our bot answers with the 1-ply trade policy and makes offers from its ≤2-card menu);
    `jsettlers.bots.timeout.turn` must exceed our search time.
 5. Runs: headless server with 3 built-ins (pin names for a fast-only and a smart-only series, plus the default
    mix), our client connected with the cookie, `botgames.total=100` per series; parse `SOCGameStats` or the game
