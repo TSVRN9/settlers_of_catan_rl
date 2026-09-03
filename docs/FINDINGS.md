@@ -2319,3 +2319,26 @@ scenario test in `test_env.py` (details in `docs/AUDIT-rules.md`):
 Not changed: player-to-player trading (a missing feature, not a wrong rule). Replay oracles still hold; every
 strength number before this point was measured under the previous rules, and the loop re-scores the incumbent on
 fresh seeds each round.
+
+## 2026-09-03 — the outcome loss was the drag: rollout values alone train the better player
+
+Rounds 32-34 of the loop (dense labels, incumbent-seeded soups, fixed rules) each kept only the incumbent: no draw
+trained with the full loss improved on v31 by averaging. Loss-mix ablation from v31 on it33+it34 (one draw per
+config, 1,000-game proxy on seeds 35500000; v31 = 56.3% there):
+
+| config | proxy |
+|---|---|
+| full recipe (outcome + aux + rollout 3) | 30.1% |
+| lr 3e-4 / lr 1e-4 (full recipe) | 34.9% / 46.7% |
+| 2 epochs (full recipe) | 41.5% |
+| no aux heads | 36.0% |
+| **no outcome loss** (aux + rollout 3) | 51.1% |
+| rollout 10, no outcome | 42.9% |
+| **rollout values only** (no outcome, no aux) | **53.0%** |
+
+The outcome loss is what damages the net: one bit per game shared by ~150 correlated states (the memorization
+problem from iteration 0) pulls the evaluator away from good play, and the more it is fitted the worse the player.
+Rollout values (one measured playout per child state) alone train a draw at the incumbent's level. Greedy soup
+from v31 over the eight draws kept rollout-only, lr 1e-4 and 2-epoch (58.4% on selection seeds); on fresh seeds
+(35000007): **v35 = 2198/4000 = 54.9% [53.4, 56.5] vs v31 2122/4000 = 53.0%** — accepted. The loop now trains
+with `--win-weight 0 --aux-weight 0` (rollout values only).

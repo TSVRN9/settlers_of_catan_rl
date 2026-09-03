@@ -16,7 +16,9 @@ first=$1; last=$2; games=${3:-4000}; every=${4:-3}
 # 2026-09-02 evening (docs/FINDINGS.md): rollout-labeled children replace the base_fn pair / sibling losses --
 # v27d (outcome + rollout values, no base_fn imitation) 38.2% vs v25's 32.6% on the same seeds. Generation is
 # ~40 min/round at roll_p 0.1 (one rab-vs-rab playout per labeled child, ~110 ms CPU each).
-ROLL_P=${ROLL_P:-0.3}; ROLL_M=${ROLL_M:-1}; TS_WEIGHT=${TS_WEIGHT:-3}; N_SEEDS=${N_SEEDS:-5}; MAX_TS=${MAX_TS:-900000}
+ROLL_P=${ROLL_P:-0.3}; ROLL_M=${ROLL_M:-1}; TS_WEIGHT=${TS_WEIGHT:-3}; N_SEEDS=${N_SEEDS:-5}; MAX_TS=${MAX_TS:-900000}; WIN_WEIGHT=${WIN_WEIGHT:-0}; AUX_WEIGHT=${AUX_WEIGHT:-0}
+# Rollout values only (docs/FINDINGS.md 2026-09-03): with the outcome loss on, a draw from v31 scored 30%; without it 51%;
+# rollout-only 53% -- the 1-bit game outcome shared by ~150 correlated states per game was pulling the net away from play.
 # The candidate is a greedy weight average (soup.py --greedy) of N_SEEDS trainings from the same warm start: one
 # draw swings ±5 points, the plain average of three scored +4.7 over the best draw, and the greedy soup (add a draw
 # only if a 1,000-game proxy does not drop) rejected the two bad draws out of five (docs/FINDINGS.md).
@@ -41,7 +43,7 @@ for k in $(seq "$first" "$last"); do
   run uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0.5 --sib-p 0.3 --roll-p "$ROLL_P" --roll-m "$ROLL_M" --out "data/it$k" || exit 1; fi
   echo "=== it$k train  $(date)"
   for s in $(seq 0 $((N_SEEDS - 1))); do
-    run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v${k}_s$s.pt" --seed "$s" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key ro --ts-weight "$TS_WEIGHT" --max-ts "$MAX_TS" || exit 1
+    run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -4) --init "$prev" --out "checkpoints_value/v${k}_s$s.pt" --seed "$s" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key ro --ts-weight "$TS_WEIGHT" --max-ts "$MAX_TS" --win-weight "$WIN_WEIGHT" --aux-weight "$AUX_WEIGHT" || exit 1
   done
   run uv run python soup.py --greedy --base "$prev" --games 1000 --seed $((k * 1000000 + 500000)) --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
   seedk=$((k * 1000000 + 7))
