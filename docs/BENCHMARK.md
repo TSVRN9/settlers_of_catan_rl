@@ -31,7 +31,17 @@ Results: see the table below (filled in from `docs/benchmark/paper_protocol.json
 site's Results page. The Fig. 3b analogue is the existing headline: **v40 552/1000 = 55.2% [52.1, 58.3] vs 3x
 `AlphaBetaPlayer`** (docs/FINDINGS.md 2026-09-03).
 
-RESULTS_TABLE
+| agent | games | wins | win ratio | 95% CI | mean VP | T0 (no vnet(v40)) | T1 (no ab) | T2 (no mcts100) | T3 (no vf) | T4 (no wr) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| vnet(v40) | 400 | 288 | 72.0% | [67.4, 76.2] | 9.07 | – | 83/100 | 70/100 | 71/100 | 64/100 |
+| ab | 400 | 129 | 32.2% | [27.9, 37.0] | 7.07 | 61/100 | – | 21/100 | 29/100 | 18/100 |
+| mcts100 | 400 | 0 | 0.0% | [0.0, 1.0] | 2.50 | 0/100 | 0/100 | – | 0/100 | 0/100 |
+| vf | 400 | 83 | 20.8% | [17.1, 25.0] | 6.36 | 39/100 | 17/100 | 9/100 | – | 18/100 |
+| wr | 400 | 0 | 0.0% | [0.0, 1.0] | 2.67 | 0/100 | 0/100 | 0/100 | 0/100 | – |
+
+500 games, 2811 s wall-clock on 7 workers, 39.1 s/game on average, 0 games without a winner. Seeds 1000000–1000499, tournament k uses seeds 1000000+100k…; `uv run python tournament.py --games 100` reproduces it.
+
+Read against the paper's Fig. 3a (DRRL 31%, jSettler 21%, VPI 22%, BUCT 26%, UCT 23%): our learned agent's win ratio is 72.0% [67.4, 76.2] in a pool where the hand-heuristic search (the jSettler analogue) gets 32.2% and catanatron's MCTS player, with random playouts, 0.0%. The MCTS number says more about random-playout MCTS on Catan's branching factor than about search in general — the paper's own MCTS agents also trailed jSettler — and is the reason Phase 3 implements the thesis agents instead of scaling this one.
 
 ## Phase 2 (planned, ~1 week): real jSettlers, the literal Fig. 3b number
 

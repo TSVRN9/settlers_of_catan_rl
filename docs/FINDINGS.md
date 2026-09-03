@@ -2385,3 +2385,31 @@ generation that made rounds cheap enough to find 4 and 5. The plain expert-itera
 Still open: the loop is flat at 56-60% vs `rab` since round 36; rollout labels are AlphaBeta-continuation values,
 which cap what the net can learn about its own (now stronger) play — a net-in-the-loop rollout policy is the
 natural next lever. Player-to-player trading remains unimplemented (catanatron simplification).
+
+## 2026-09-03 — the EUMAS 2018 protocol: v40 72.0% win ratio in the paper's tournament format
+
+`tournament.py` runs Xenou, Chalkiadakis & Afantenos' Fig. 3a protocol (pool of 5, five 4-player tournaments each
+leaving one agent out, seats permuted per game, win ratio per agent) at 100 games per tournament with catanatron's
+roster standing in for jSettler and the thesis MCTS agents (`docs/BENCHMARK.md` has the mapping, the timing, and the
+Phase 2-3 plan for the real opponents):
+
+| agent | games | wins | win ratio | 95% CI | mean VP | T0 (no vnet(v40)) | T1 (no ab) | T2 (no mcts100) | T3 (no vf) | T4 (no wr) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| vnet(v40) | 400 | 288 | 72.0% | [67.4, 76.2] | 9.07 | – | 83/100 | 70/100 | 71/100 | 64/100 |
+| ab | 400 | 129 | 32.2% | [27.9, 37.0] | 7.07 | 61/100 | – | 21/100 | 29/100 | 18/100 |
+| mcts100 | 400 | 0 | 0.0% | [0.0, 1.0] | 2.50 | 0/100 | 0/100 | – | 0/100 | 0/100 |
+| vf | 400 | 83 | 20.8% | [17.1, 25.0] | 6.36 | 39/100 | 17/100 | 9/100 | – | 18/100 |
+| wr | 400 | 0 | 0.0% | [0.0, 1.0] | 2.67 | 0/100 | 0/100 | 0/100 | 0/100 | – |
+
+`vnet` = `vnet:checkpoints_value/v40.pt`; `mcts100` = `MCTSPlayer(num_simulations=100)` (random playouts; 25 s/game);
+`GreedyPlayoutsPlayer` excluded at 34 s/game. 0 of 500 games ended without a winner. The value-net player
+was also checked at every seat colour (12 games vs 3x `ValueFunctionPlayer`, wins from all four seats) since every
+earlier number had it at Blue. The paper's DRRL scored 31% in its pool; the comparable "vs 3x the standard heuristic"
+number remains the 1,000-game 55.2% above.
+
+Also today: repository cleaned (199 GB of regenerable shards and the unloadable PPO checkpoints deleted, build
+artefacts untracked, PPO era moved to `legacy/ppo/`), the Rust engine gained a `wasm` feature with board generation,
+an initial-state constructor, the value-net forward pass and a JSON API (`catan_engine/src/{mapgen,valuenet,wasm}.rs`,
+oracle in `test_env.py::test_rust_generated_board_and_initial_state_match_catanatron`), and the site in `web/` plays
+the bots in the browser (https://owenwang.dev/settlers_of_catan_rl/). Note for the site: v40's auxiliary heads
+(final VPs, turns left) are untrained — the winning recipe used rollout values only — so only P(win) is shown.
