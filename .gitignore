@@ -13,3 +13,16 @@ wheels/
 checkpoints*/
 data/
 checkpoints_value/best.txt
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+
+# Third-party PDFs, vendored sources
+docs/papers/
+vendor/
+
+# Website build outputs
+web/node_modules/
+web/dist/
+web/src/engine/
