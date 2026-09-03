@@ -2261,7 +2261,7 @@ under the fixed #378 rule; v30 = **2046/4000 = 51.1%** [49.6, 52.7] there):
 |---|---|---|---|---|
 | standard (`--roll-p 0.1`, new rollout policy) | 590 s | 52.0 (stopped at step 90 ≈ v30), 43.1, 42.6, 36.8, 35.5 | 1/5 kept, 52.0% | **48.8%** rejected |
 | depth-1 rollout policy | 495 s | — | 2/5, 48.8% | **46.8%** rejected |
-| `--roll-p 0.3` | (running) | | | |
+| **`--roll-p 0.3`** (957k rows, `--max-ts 900000`) | 1511 s | 51.4, 46.6, 45.8, 44.0, 40.7 | v30 + 2 draws: 54.3% (v30 alone 51.8%) | **2094/4000 = 52.3%** [50.8, 53.9] — accepted as **v31** |
 
 Every draw that actually trained scored 8-16 points *below* the incumbent. Not the engine or the rule change
 (old draws re-score the same under the new engine: v30_s1 46.4% vs 45.6%, v29 50.2% vs 49.0%), not the new
@@ -2271,7 +2271,14 @@ So from v30 on, **descending the loss (outcome + aux + rollout values) makes the
 came from play-selected weight averaging, not from the loss. The greedy soup seeded with the incumbent
 (`soup.py --base`, now in `run_exit.sh`) keeps a round from regressing (v30 + it31_s2 → 52.2% vs 52.0% on the
 selection seeds: a wash), but the loop as configured has plateaued at ~51% vs `rab` / 49% vs Python AB.
-Rounds are now ~27 min, so the remaining levers are cheap to test; first up, a wider net from scratch.
+Rounds are now ~27 min, so the remaining levers are cheap to test.
+
+- **Wider net from scratch** (hidden 512, 3 draws on it28-it31, best held-out ever at 0.401-0.406): **30.8-40.4%**.
+  The warm-start lineage carries what the loss does not measure; width is not the lever.
+- **3x denser rollout labels** (`--roll-p 0.3`, all 957k rows used): draws 40.7-51.4% (vs 35-43% at 0.1), and the
+  incumbent-seeded greedy soup (v30 + two draws) gates at **52.3%** [50.8, 53.9] vs v30's 51.1% — the first proxy
+  interval entirely above 50%. Accepted as v31. Generation at 0.3 costs ~25 min (contended) vs ~10.
+  The loop's default is now `ROLL_P=0.3` with `--max-ts 900000`.
 
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
