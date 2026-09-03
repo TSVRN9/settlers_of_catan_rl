@@ -2284,6 +2284,11 @@ Rounds are now ~27 min, so the remaining levers are cheap to test.
   turned into hard pairwise targets are noise sharpened into labels — the v9 / v26ts failure again, from the
   other direction. Stopped after the first variant. Soft BCE on the same rows is the right use of them.
 
+**v31 vs 3x Python AlphaBeta, 1,000 games (seeds 0-999): 522/1000 = 52.2% [49.1%, 55.3%]** — the first point
+estimate above the M4 gate on the headline measure (v25 30.9% → v27d_soup 41.7% (300) → v30 49.1% → v31 52.2%).
+The interval still touches 50%; a ~3,000-game run would settle it at this margin. Loop rounds 32-45 are running
+with the dense-label / incumbent-seeded-soup recipe (`exit32.log`).
+
 **v27d_soup vs 3x Python AlphaBeta, 300 games: 125/300 = 41.7% [36.2%, 47.3%].** Progression on this gate:
 v0 6.0% → v5 25.3% (parity) → v25 30.9% → **v27d_soup 41.7%**. The M4 gate is >50%; the loop
 (`run_exit.sh 28 40`: rollout labels, no `base_fn` losses, 3-seed soups, incumbent v27d_soup) is running.
