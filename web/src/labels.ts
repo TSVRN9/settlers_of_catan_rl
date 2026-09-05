@@ -1,11 +1,11 @@
-import type { Canon, MapView } from "./engine";
+import type { Attribution, Canon, MapView } from "./engine";
 
 export const RESOURCES = ["Wood", "Brick", "Sheep", "Wheat", "Ore"];
 export const RESOURCE_EMOJI = ["🌲", "🧱", "🐑", "🌾", "⛰️"];
 export const DEV_CARDS = ["Knight", "Year of Plenty", "Monopoly", "Road Building", "Victory Point"];
 export const SEAT_NAMES = ["Red", "Blue", "Orange", "White"];
-export const SEAT_COLORS = ["#dc2626", "#2563eb", "#f97316", "#f5f5f4"];
-export const SEAT_TEXT = ["text-red-600", "text-blue-600", "text-orange-500", "text-stone-500"];
+// Seat colours live in board/palette.ts now, generated from the design canvas — the old
+// near-white fourth seat vanished on chalk, sheep and desert.
 export const PROMPTS: Record<string, string> = {
   BUILD_INITIAL_SETTLEMENT: "place a settlement",
   BUILD_INITIAL_ROAD: "place a road",
@@ -85,4 +85,16 @@ export const BOT_SHORT: Record<string, string> = { human: "You", random: "Random
 
 export function fmtPct(p: number | null | undefined) {
   return p == null || Number.isNaN(p) ? "–" : `${(100 * p).toFixed(1)}%`;
+}
+
+/** The attribution row that swings the evaluated seat's win% most, in either direction —
+ *  Coach's and Console's "why" callouts both name this one group. `delta < 0` means zeroing
+ *  the group costs win probability (it is doing a lot of work); `delta > 0` means zeroing it
+ *  helps (it is a liability). Only rows for the evaluated seat itself (`seat === 0`, per
+ *  `attribution()`'s own seat-relative-to-evaluated convention) are considered. */
+export function worstGroup(attr: Attribution[] | null): Attribution | null {
+  if (!attr || !attr.length) return null;
+  const mine = attr.filter((a) => a.seat === 0);
+  if (!mine.length) return null;
+  return [...mine].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
 }

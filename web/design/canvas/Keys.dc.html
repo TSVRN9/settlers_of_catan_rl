@@ -1,0 +1,203 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif;
+         --ease: cubic-bezier(.2,.8,.2,1); --t-feel:120ms; --t-panel:260ms; --t-board:420ms; }
+    .L, .L * { box-sizing: border-box; }
+    .L a { color:#2f6a57; } .L a:hover { color:#12211f; }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .cap { font-size:13px; color:var(--moss); line-height:1.5; }
+    /* The corner cut is the board's signature. Every panel and every control carries it. */
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+    .L .pill { display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+               background:var(--pine); color:var(--chalk); font:700 12.5px var(--ui);
+               clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 14px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap;
+              border:0; cursor:pointer; transition: background var(--t-feel) var(--ease);
+              clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .act:hover { background:#e6e9df; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .act.go:hover { background:#1d322c; }
+    .L .key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px;
+              background:var(--paper); color:var(--pine); font:600 12px var(--ui); box-shadow: inset 0 -2px 0 var(--dust); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); white-space:nowrap; }
+    .L .dec { position: relative; display: inline-block; }
+    .L .dec > .scr { position:absolute; left:0; top:0; right:0; bottom:0; opacity:0; pointer-events:none;
+                     overflow:hidden; white-space:nowrap; color:var(--moss); }
+    @keyframes wipe { from { opacity:1; clip-path: inset(0 0 0 0); }
+                      99%  { opacity:1; clip-path: inset(0 0 0 100%); }
+                      to   { opacity:0; clip-path: inset(0 0 0 100%); } }
+    .L .card { background:var(--paper); padding:16px 17px; }
+    .L .hd { font:600 12.5px var(--ui); }
+    .L .k { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px;
+            padding:0 7px; background:var(--paper); color:var(--pine); font:600 12px var(--ui);
+            box-shadow: inset 0 -2px 0 var(--dust); }
+    .L .mono { font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .L .verdict { display:inline-block; font:700 10.5px var(--ui); padding:4px 8px; letter-spacing:.03em; }
+    .L table { border-collapse:collapse; width:100%; }
+    .L th { text-align:left; font:600 11px var(--ui); color:var(--moss); padding:0 0 7px; }
+    .L td { padding:8px 0; border-top:1px solid var(--dust); font-size:12.5px; vertical-align:top; }
+    @media (prefers-reduced-motion: reduce) {
+      .L .scr { animation: none !important; }
+      .L .board, .L .panel, .L .curtain, .L .tl, .L .tk, .L .pc { transition: none !important; animation: none !important; }
+    }
+  </style>
+</helmet>
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+   font:400 14px var(--ui); position:relative; overflow:clip;">
+    <div style="position:absolute; inset:30px 34px;">
+      <div style="display:flex; gap:40px; align-items:flex-start;">
+        <div style="width:300px; flex:0 0 300px;">
+          <div class="d" style="font-size:23px; line-height:1.15;">One primary input<br>per view</div>
+        </div>
+        <div class="cap" style="flex:1; min-width:0; font-size:14px; column-count:2; column-gap:40px;">
+          A view is defined as much by what your hands do in it as by what it shows. Each of the six has exactly
+          one thing you mostly do, and the rest of what it offers is arranged around that. Where two views would
+          have wanted the same key, the conflict is resolved rather than papered over.
+        </div>
+      </div>
+
+      <div style="margin-top:24px; display:flex; gap:22px;">
+        <div style="flex:1; min-width:0;">
+          <table>
+            <tr><th style="width:132px;">view</th><th style="width:158px;">what you mostly do</th><th>how it behaves</th></tr>
+            <tr>
+              <td style="font-weight:600;">Table</td>
+              <td>touch the board</td>
+              <td><span style="display:block;">lit corners take a settlement or a city, lit edges take a road</span>
+                  <span class="cap" style="display:block; font-size:12px; margin-top:3px;">space holds every legal move up at once</span></td></tr><tr>
+              <td style="font-weight:600;">Console</td>
+              <td>the action bar</td>
+              <td><span style="display:block;">each button carries its cost in pips, and dims when you cannot pay</span>
+                  <span class="cap" style="display:block; font-size:12px; margin-top:3px;">the board stays clickable behind it</span></td></tr><tr>
+              <td style="font-weight:600;">Coach</td>
+              <td>type, or a chip</td>
+              <td><span style="display:block;">three suggested questions sit under the composer for when you have none</span>
+                  <span class="cap" style="display:block; font-size:12px; margin-top:3px;">a percentage in a reply is a door</span></td></tr><tr>
+              <td style="font-weight:600;">Futures</td>
+              <td>pick a board</td>
+              <td><span style="display:block;">the card is the whole answer; clicking it commits the move</span>
+                  <span class="cap" style="display:block; font-size:12px; margin-top:3px;">Esc folds the six back into one</span></td></tr><tr>
+              <td style="font-weight:600;">Move analysis</td>
+              <td>← → and the ladder</td>
+              <td><span style="display:block;">the ranked list is the board: rank on the board is rank in the ladder</span>
+                  <span class="cap" style="display:block; font-size:12px; margin-top:3px;">the segmented control swaps whose search you are reading</span></td></tr><tr>
+              <td style="font-weight:600;">Game analysis</td>
+              <td>drag the curve</td>
+              <td><span style="display:block;">anywhere on it, and the reading underneath follows</span>
+                  <span class="cap" style="display:block; font-size:12px; margin-top:3px;">hovering an attribution row lights it on the board</span></td></tr>
+          </table>
+        </div>
+        <div style="width:392px; flex:0 0 392px;">
+          <div class="hd">The whole key map</div>
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:9px;">
+            <div style="display:flex; gap:11px; align-items:baseline;">
+              <span class="k" style="flex:0 0 auto;">Esc</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">up one crumb — never straight out</span></div><div style="display:flex; gap:11px; align-items:baseline;">
+              <span class="k" style="flex:0 0 auto;">← →</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">one step back or on, wherever time is showing</span></div><div style="display:flex; gap:11px; align-items:baseline;">
+              <span class="k" style="flex:0 0 auto;">space</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">in a play view, hold every legal move up; in a review view, play or pause</span></div><div style="display:flex; gap:11px; align-items:baseline;">
+              <span class="k" style="flex:0 0 auto;">?</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">hold to name every door on this screen</span></div><div style="display:flex; gap:11px; align-items:baseline;">
+              <span class="k" style="flex:0 0 auto;">1–4</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">jump to a seat’s reading</span></div><div style="display:flex; gap:11px; align-items:baseline;">
+              <span class="k" style="flex:0 0 auto;">⌘K</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">nothing. There is no command palette, because there are seven doors and they are all visible</span></div>
+          </div>
+          <div class="card cut8" style="margin-top:14px; padding:12px 14px;">
+            <div style="font:600 12.5px var(--ui);">The one real collision</div>
+            <div class="cap" style="margin-top:5px; font-size:12.5px;">Space wants to be “show me everything I
+              could do” at the table and “play” in a review. It can be both, because a play view and a review
+              view are never on screen together — the spine says which one you are in, and the key follows it.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; right:0; top:456px; bottom:126px; display:flex; gap:22px; align-items:flex-start;">
+        <div style="flex:1; min-width:0;">
+          <div class="hd">What is running underneath, so that any of this is possible</div>
+          <div class="cap" style="margin-top:8px; font-size:13px; max-width:600px;">
+            Today a tab switch unmounts the page and takes the game with it, and starting a run frees the
+            engine the other tab was using. Neither survives this flow, because in it you are never anywhere
+            else. Reviewing a game while it is still being played is the one thing that needs more than the app
+            has: a second worker, replaying the record the live one is writing.
+          </div>
+          <svg viewBox="0 0 600 168" width="490" height="137" style="display:block; margin-top:11px;" aria-hidden="true">
+            <rect x="0" y="8" width="266" height="66" fill="#f7f8f4" stroke="#c9d0c2"/>
+            <text x="14" y="32" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Arial">worker A — the game</text>
+            <text x="14" y="52" font-size="12" fill="#4a6659" font-family="Chivo,Arial">one engine, never freed while a game lives</text>
+            <rect x="0" y="92" width="266" height="66" fill="#f7f8f4" stroke="#c9d0c2" stroke-dasharray="5 4"/>
+            <text x="14" y="116" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Arial">worker B — the review</text>
+            <text x="14" y="136" font-size="12" fill="#4a6659" font-family="Chivo,Arial">replay(record, step), asked whatever you ask</text>
+            <path d="M266 41 L360 41" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ka)"/>
+            <path d="M266 125 L360 125" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ka)"/>
+            <path d="M133 74 L133 92" stroke="#4a6659" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#ka)"/>
+            <text x="140" y="88" font-size="11.5" fill="#4a6659" font-family="Chivo,Arial">the record, as it is written</text>
+            <defs><marker id="ka" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0 L8 4 L0 8 z" fill="#4a6659"/></marker></defs>
+            <rect x="362" y="8" width="238" height="150" fill="none" stroke="#c9d0c2"/>
+            <text x="376" y="32" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Arial">one board</text>
+            <text x="376" y="52" font-size="12" fill="#4a6659" font-family="Chivo,Arial">the live position, or a replayed one</text>
+            <text x="376" y="80" font-size="12" fill="#4a6659" font-family="Chivo,Arial">the spine says which, and whose turn</text>
+            <text x="376" y="108" font-size="12" fill="#4a6659" font-family="Chivo,Arial">it is waiting on</text>
+          </svg>
+        </div>
+        <div style="width:392px; flex:0 0 392px;">
+          <div class="hd">What that buys, in the flow</div>
+          <div class="cap" style="margin-top:8px; font-size:12.5px;">You can open the whole-game curve in the
+            middle of your own game, walk back to the turn that went wrong, ask what the net saw there, and come
+            back to a table that has not moved. Worker A never hears about any of it.</div>
+          <div class="cap" style="margin-top:9px; font-size:12.5px;">It is also what makes the spine’s right-hand
+            half possible: worker A goes on running while you read, so when a seat offers you a trade there is
+            something live to announce it.</div>
+          <div class="cap" style="margin-top:9px; font-size:12.5px;">The wasm already exposes
+            <span class="mono">replay(record, steps)</span> and nothing in the app calls it. This is what it is
+            for.</div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; right:0; bottom:0; display:flex; gap:22px; align-items:flex-start;">
+        <div style="flex:1; min-width:0;">
+          <div class="hd">What a link carries</div>
+          <div style="margin-top:9px; display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; gap:14px; align-items:baseline;">
+              <span class="mono" style="width:230px; flex:0 0 230px; color:var(--pine);">#/g/4127</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">the table, live, seed 4127</span></div><div style="display:flex; gap:14px; align-items:baseline;">
+              <span class="mono" style="width:230px; flex:0 0 230px; color:var(--pine);">#/g/4127/futures</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">the six, on the turn you are on</span></div><div style="display:flex; gap:14px; align-items:baseline;">
+              <span class="mono" style="width:230px; flex:0 0 230px; color:var(--pine);">#/g/4127/step/214</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">the whole game, parked at a step</span></div><div style="display:flex; gap:14px; align-items:baseline;">
+              <span class="mono" style="width:230px; flex:0 0 230px; color:var(--pine);">#/g/4127/step/214/move</span>
+              <span class="cap" style="flex:1; font-size:12.5px;">that one decision, which is the link you send someone</span></div>
+          </div>
+        </div>
+        <div style="width:392px; flex:0 0 392px;">
+          <div class="hd">What survives a reload</div>
+          <div class="cap" style="margin-top:8px; font-size:12.5px;">A review link survives, because a step is a
+            fact about a record. A live game does not: it is one engine in one worker, and reloading is starting
+            over. So the review views are linkable and the table is not, and the ending is where a game becomes
+            something you can send.</div>
+        </div>
+      </div>
+    </div></div>
+</x-dc>
+
+</body>
+</html>

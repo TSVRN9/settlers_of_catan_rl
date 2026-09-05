@@ -1,0 +1,251 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif;
+         --ease: cubic-bezier(.2,.8,.2,1); --t-feel:120ms; --t-panel:260ms; --t-board:420ms; }
+    .L, .L * { box-sizing: border-box; }
+    .L a { color:#2f6a57; } .L a:hover { color:#12211f; }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .cap { font-size:13px; color:var(--moss); line-height:1.5; }
+    /* The corner cut is the board's signature. Every panel and every control carries it. */
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+    .L .pill { display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+               background:var(--pine); color:var(--chalk); font:700 12.5px var(--ui);
+               clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 14px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap;
+              border:0; cursor:pointer; transition: background var(--t-feel) var(--ease);
+              clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .act:hover { background:#e6e9df; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .act.go:hover { background:#1d322c; }
+    .L .key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px;
+              background:var(--paper); color:var(--pine); font:600 12px var(--ui); box-shadow: inset 0 -2px 0 var(--dust); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); white-space:nowrap; }
+    .L .dec { position: relative; display: inline-block; }
+    .L .dec > .scr { position:absolute; left:0; top:0; right:0; bottom:0; opacity:0; pointer-events:none;
+                     overflow:hidden; white-space:nowrap; color:var(--moss); }
+    @keyframes wipe { from { opacity:1; clip-path: inset(0 0 0 0); }
+                      99%  { opacity:1; clip-path: inset(0 0 0 100%); }
+                      to   { opacity:0; clip-path: inset(0 0 0 100%); } }
+    .L .card { background:var(--paper); padding:16px 17px; }
+    .L .hd { font:600 12.5px var(--ui); }
+    .L .k { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px;
+            padding:0 7px; background:var(--paper); color:var(--pine); font:600 12px var(--ui);
+            box-shadow: inset 0 -2px 0 var(--dust); }
+    .L .mono { font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .L .verdict { display:inline-block; font:700 10.5px var(--ui); padding:4px 8px; letter-spacing:.03em; }
+    .L table { border-collapse:collapse; width:100%; }
+    .L th { text-align:left; font:600 11px var(--ui); color:var(--moss); padding:0 0 7px; }
+    .L td { padding:8px 0; border-top:1px solid var(--dust); font-size:12.5px; vertical-align:top; }
+    @media (prefers-reduced-motion: reduce) {
+      .L .scr { animation: none !important; }
+      .L .board, .L .panel, .L .curtain, .L .tl, .L .tk, .L .pc { transition: none !important; animation: none !important; }
+    }
+  </style>
+</helmet>
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+   font:400 14px var(--ui); position:relative; overflow:clip;">
+    <div style="position:absolute; inset:30px 34px;">
+      <div style="display:flex; gap:40px; align-items:flex-start;">
+        <div style="width:300px; flex:0 0 300px;">
+          <div class="d" style="font-size:23px; line-height:1.15;">The board never<br>unmounts, so it travels</div>
+        </div>
+        <div class="cap" style="flex:1; min-width:0; font-size:14px; column-count:2; column-gap:40px;">
+          Every view already drew the board at a size of its own, and those sizes were measured out of the six
+          screens rather than chosen here. Read as one element that is never rebuilt, they stop being six
+          drawings and become one ladder: a view change is a transform, and this table is what it transforms to.
+        </div>
+      </div>
+
+      <div style="display:flex; gap:22px; margin-top:24px;">
+        <div style="flex:1; min-width:0;">
+          <table>
+            <tr><th style="width:150px;">view</th><th style="width:150px;">board</th><th style="width:96px;">from Table</th>
+                <th style="width:118px;">centre</th><th></th></tr>
+            <tr>
+              <td style="font-weight:600;">Table</td>
+              <td><span style="display:flex; align-items:center; gap:8px;">
+      <span style="display:block; width:80.4px; height:9px; background:#12211f;"></span>
+      <span class="mono">574</span></span></td>
+              <td class="mono">1.000×</td>
+              <td class="mono">658, 480</td>
+              <td class="cap" style="font-size:12px;">the game itself</td></tr><tr>
+              <td style="font-weight:600;">Console</td>
+              <td><span style="display:flex; align-items:center; gap:8px;">
+      <span style="display:block; width:74.8px; height:9px; background:#12211f;"></span>
+      <span class="mono">534</span></span></td>
+              <td class="mono">0.930×</td>
+              <td class="mono">707, 385</td>
+              <td class="cap" style="font-size:12px;">the same turn, counted</td></tr><tr>
+              <td style="font-weight:600;">Coach</td>
+              <td><span style="display:flex; align-items:center; gap:8px;">
+      <span style="display:block; width:79.3px; height:9px; background:#12211f;"></span>
+      <span class="mono">566</span></span></td>
+              <td class="mono">0.986×</td>
+              <td class="mono">980, 449</td>
+              <td class="cap" style="font-size:12px;">the same turn, argued with</td></tr><tr>
+              <td style="font-weight:600;">Futures<span class="cap" style="font-weight:400;"> ×6</span></td>
+              <td><span style="display:flex; align-items:center; gap:8px;">
+      <span style="display:block; width:29.0px; height:9px; background:#12211f;"></span>
+      <span class="mono">207</span></span></td>
+              <td class="mono">0.361×</td>
+              <td class="mono">427.5, 274.2</td>
+              <td class="cap" style="font-size:12px;">six of them, at once</td></tr><tr>
+              <td style="font-weight:600;">Game analysis</td>
+              <td><span style="display:flex; align-items:center; gap:8px;">
+      <span style="display:block; width:56.9px; height:9px; background:#12211f;"></span>
+      <span class="mono">406</span></span></td>
+              <td class="mono">0.707×</td>
+              <td class="mono">254, 646.6</td>
+              <td class="cap" style="font-size:12px;">the whole game, from further off</td></tr><tr>
+              <td style="font-weight:600;">Move analysis</td>
+              <td><span style="display:flex; align-items:center; gap:8px;">
+      <span style="display:block; width:88.0px; height:9px; background:#12211f;"></span>
+      <span class="mono">628</span></span></td>
+              <td class="mono">1.094×</td>
+              <td class="mono">350, 513.1</td>
+              <td class="cap" style="font-size:12px;">one decision, closest of all</td></tr>
+          </table>
+          <div class="cap" style="margin-top:9px; font-size:12px;">
+            Measured in the browser at 1440×900, centres from the artboard’s top-left, after the headline came
+            out. Futures is one row because its six candidates are the same rect at three columns and two rows.
+          </div>
+          <div style="margin-top:14px; display:flex; gap:18px; align-items:flex-start;">
+            <svg viewBox="0 0 1440 900" width="486" height="304" style="display:block; background:#f7f8f4;" aria-hidden="true">
+    <g>
+      <rect x="371" y="206" width="574" height="548" fill="none"
+        stroke="#12211f" stroke-width="4"
+        stroke-dasharray="" opacity="1"/>
+      <text x="379" y="232" font-size="19" font-weight="700"
+        fill="#12211f" font-family="Chivo,Arial">Table</text>
+      <circle cx="658" cy="480" r="4" fill="#12211f"/>
+    </g><g>
+      <rect x="440" y="130" width="534" height="510" fill="none"
+        stroke="#4a6659" stroke-width="2.4"
+        stroke-dasharray="9 8" opacity="0.8"/>
+      <text x="448" y="156" font-size="19" font-weight="500"
+        fill="#4a6659" font-family="Chivo,Arial">Console</text>
+      <circle cx="707" cy="385" r="4" fill="#4a6659"/>
+    </g><g>
+      <rect x="697" y="179" width="566" height="540" fill="none"
+        stroke="#4a6659" stroke-width="2.4"
+        stroke-dasharray="9 8" opacity="0.8"/>
+      <text x="705" y="205" font-size="19" font-weight="500"
+        fill="#4a6659" font-family="Chivo,Arial">Coach</text>
+      <circle cx="980" cy="449" r="4" fill="#4a6659"/>
+    </g><g>
+      <rect x="324" y="175.2" width="207" height="198" fill="none"
+        stroke="#4a6659" stroke-width="2.4"
+        stroke-dasharray="9 8" opacity="0.8"/>
+      <text x="332" y="201.2" font-size="19" font-weight="500"
+        fill="#4a6659" font-family="Chivo,Arial">Futures</text>
+      <circle cx="427.5" cy="274.2" r="4" fill="#4a6659"/>
+    </g><g>
+      <rect x="51" y="452.6" width="406" height="388" fill="none"
+        stroke="#4a6659" stroke-width="2.4"
+        stroke-dasharray="9 8" opacity="0.8"/>
+      <text x="59" y="478.6" font-size="19" font-weight="500"
+        fill="#4a6659" font-family="Chivo,Arial">Game analysis</text>
+      <circle cx="254" cy="646.6" r="4" fill="#4a6659"/>
+    </g><g>
+      <rect x="36" y="213.10000000000002" width="628" height="600" fill="none"
+        stroke="#4a6659" stroke-width="2.4"
+        stroke-dasharray="9 8" opacity="0.8"/>
+      <text x="44" y="239.10000000000002" font-size="19" font-weight="500"
+        fill="#4a6659" font-family="Chivo,Arial">Move analysis</text>
+      <circle cx="350" cy="513.1" r="4" fill="#4a6659"/>
+    </g>
+    <rect x="1" y="1" width="1438" height="898" fill="none" stroke="#c9d0c2" stroke-width="2"/>
+  </svg>
+            <div class="cap" style="flex:1; min-width:0; font-size:12.5px;">
+              The same six, drawn where they sit. Every travel in the app is a line between two of these
+              rectangles, which is why the transitions could be specified before anything was built: the ends
+              were already decided by the screens.
+              <span style="display:block; margin-top:9px;">The board drifts left as you go deeper — centred at
+              the table, moved aside for the reading in analysis. That drift is the feeling of leaving the game
+              in order to look at it.</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:392px; flex:0 0 392px;">
+          <div class="hd">Three verbs, and never two at once</div>
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+            <div class="card cut8" style="padding:12px 14px;">
+              <div style="font:600 13.5px var(--ui); color:#12211f;">A view moves the board</div>
+              <div style="margin-top:6px; display:flex; gap:10px; font-size:12.5px;">
+                <span class="cap" style="width:52px; flex:0 0 52px; font-size:12px;">moves</span><span>the board translates and scales to that view’s rect</span></div>
+              <div style="margin-top:3px; display:flex; gap:10px; font-size:12.5px;">
+                <span class="cap" style="width:52px; flex:0 0 52px; font-size:12px;">holds</span><span class="cap" style="font-size:12.5px;">the pieces on it</span></div>
+            </div><div class="card cut8" style="padding:12px 14px;">
+              <div style="font:600 13.5px var(--ui); color:#4a6659;">Time moves the pieces</div>
+              <div style="margin-top:6px; display:flex; gap:10px; font-size:12.5px;">
+                <span class="cap" style="width:52px; flex:0 0 52px; font-size:12px;">moves</span><span>pieces step and resolve; the scrubber runs</span></div>
+              <div style="margin-top:3px; display:flex; gap:10px; font-size:12.5px;">
+                <span class="cap" style="width:52px; flex:0 0 52px; font-size:12px;">holds</span><span class="cap" style="font-size:12.5px;">the board’s rect</span></div>
+            </div><div class="card cut8" style="padding:12px 14px;">
+              <div style="font:600 13.5px var(--ui); color:#a34a34;">A hypothetical divides it</div>
+              <div style="margin-top:6px; display:flex; gap:10px; font-size:12.5px;">
+                <span class="cap" style="width:52px; flex:0 0 52px; font-size:12px;">moves</span><span>one board becomes six, and one comes back</span></div>
+              <div style="margin-top:3px; display:flex; gap:10px; font-size:12.5px;">
+                <span class="cap" style="width:52px; flex:0 0 52px; font-size:12px;">holds</span><span class="cap" style="font-size:12.5px;">everything else</span></div>
+            </div>
+          </div>
+          <div class="cap" style="margin-top:10px; font-size:12.5px;">
+            Scrubbing while a view is arriving queues behind it. Two verbs at once is how an interface stops
+            being readable — you cannot tell what caused what.
+          </div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:0; right:0; bottom:0; display:flex; gap:22px; align-items:flex-start;">
+        <div style="flex:1; min-width:0;">
+          <div class="hd">Timing, which is already in the stylesheet</div>
+          <div style="margin-top:9px; display:flex; gap:26px;">
+            
+              <div style="flex:1;">
+                <div class="d num" style="font-size:20px;">420ms</div>
+                <div class="mono" style="color:var(--moss); margin-top:2px;">--t-board</div>
+                <div class="cap" style="font-size:12px; margin-top:3px;">the board’s travel between two views</div>
+              </div>
+              <div style="flex:1;">
+                <div class="d num" style="font-size:20px;">260ms</div>
+                <div class="mono" style="color:var(--moss); margin-top:2px;">--t-panel</div>
+                <div class="cap" style="font-size:12px; margin-top:3px;">a panel arriving or leaving beside it</div>
+              </div>
+              <div style="flex:1;">
+                <div class="d num" style="font-size:20px;">120ms</div>
+                <div class="mono" style="color:var(--moss); margin-top:2px;">--t-feel</div>
+                <div class="cap" style="font-size:12px; margin-top:3px;">a control answering a press</div>
+              </div>
+          </div>
+        </div>
+        <div style="width:392px; flex:0 0 392px;">
+          <div class="hd">The rules that keep it honest</div>
+          <div class="cap" style="margin-top:8px; font-size:12.5px;">One easing everywhere:
+            <span class="mono">cubic-bezier(.2,.8,.2,1)</span>, so a third of the way through a travel is about
+            three quarters of the distance. Esc pops one crumb and the board returns along the path it came by.
+            Under reduced motion the board still changes size — it just arrives there.</div>
+        </div>
+      </div>
+    </div></div>
+</x-dc>
+
+</body>
+</html>

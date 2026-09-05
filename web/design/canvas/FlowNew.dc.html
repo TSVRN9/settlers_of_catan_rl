@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif;
+         --ease: cubic-bezier(.2,.8,.2,1); --t-feel:120ms; --t-panel:260ms; --t-board:420ms; }
+    .L, .L * { box-sizing: border-box; }
+    .L a { color:#2f6a57; } .L a:hover { color:#12211f; }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .cap { font-size:13px; color:var(--moss); line-height:1.5; }
+    /* The corner cut is the board's signature. Every panel and every control carries it. */
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+    .L .pill { display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+               background:var(--pine); color:var(--chalk); font:700 12.5px var(--ui);
+               clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 14px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap;
+              border:0; cursor:pointer; transition: background var(--t-feel) var(--ease);
+              clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .act:hover { background:#e6e9df; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .act.go:hover { background:#1d322c; }
+    .L .key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px;
+              background:var(--paper); color:var(--pine); font:600 12px var(--ui); box-shadow: inset 0 -2px 0 var(--dust); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); white-space:nowrap; }
+    .L .dec { position: relative; display: inline-block; }
+    .L .dec > .scr { position:absolute; left:0; top:0; right:0; bottom:0; opacity:0; pointer-events:none;
+                     overflow:hidden; white-space:nowrap; color:var(--moss); }
+    @keyframes wipe { from { opacity:1; clip-path: inset(0 0 0 0); }
+                      99%  { opacity:1; clip-path: inset(0 0 0 100%); }
+                      to   { opacity:0; clip-path: inset(0 0 0 100%); } }
+    @media (prefers-reduced-motion: reduce) {
+      .L .scr { animation: none !important; }
+      .L .board, .L .panel, .L .curtain, .L .tl, .L .tk, .L .pc { transition: none !important; animation: none !important; }
+    }
+  </style>
+</helmet>
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+     font:400 14px var(--ui); position:relative; overflow:clip; padding:28px 34px;">
+  <div style="display:flex; gap:44px; align-items:flex-start;">
+    <div style="width:300px; flex:0 0 300px;">
+      <div class="d" style="font-size:29px; line-height:1.1;">One table, many views</div>
+      <div class="cap" style="margin-top:9px; font-size:14.5px;">The board is one object that never unmounts. Everything the six old screens did becomes a view that arrives around it, so nothing is ever rebuilt and nothing is ever lost.</div>
+      <div style="margin-top:26px; font:600 12.5px var(--ui);">What it replaces</div>
+      <div style="margin-top:10px;"><svg viewBox="0 0 300 300" width="300" height="300" style="display:block" aria-hidden="true">
+    <g transform="translate(0,0)">
+      <rect width="150" height="46" fill="none" stroke="#c9d0c2"/>
+      <text x="75" y="28" text-anchor="middle" font-size="13" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Play</text></g><g transform="translate(0,64)">
+      <rect width="150" height="46" fill="none" stroke="#c9d0c2"/>
+      <text x="75" y="28" text-anchor="middle" font-size="13" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Watch</text></g><g transform="translate(0,128)">
+      <rect width="150" height="46" fill="none" stroke="#c9d0c2"/>
+      <text x="75" y="28" text-anchor="middle" font-size="13" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Results</text></g><g transform="translate(0,192)">
+      <rect width="150" height="46" fill="none" stroke="#c9d0c2"/>
+      <text x="75" y="28" text-anchor="middle" font-size="13" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">About</text></g>
+    <path d="M168 23 L168 215" stroke="#a34a34" stroke-width="1.3" stroke-dasharray="4 4"/>
+    <text x="178" y="104" font-size="11.5" fill="#a34a34" font-family="Chivo,Helvetica Neue,Arial,sans-serif">switching a tab</text>
+    <text x="178" y="120" font-size="11.5" fill="#a34a34" font-family="Chivo,Helvetica Neue,Arial,sans-serif">unmounts the page</text>
+    <text x="178" y="136" font-size="11.5" fill="#a34a34" font-family="Chivo,Helvetica Neue,Arial,sans-serif">and takes the</text>
+    <text x="178" y="152" font-size="11.5" fill="#a34a34" font-family="Chivo,Helvetica Neue,Arial,sans-serif">game with it</text>
+  </svg></div>
+      <div class="cap" style="margin-top:2px; font-size:12.5px;">Play and Watch are the same screen with a different lineup, so they stop being separate places. Results and About become destinations that do not take the game down with them.</div>
+    </div>
+    <div style="flex:1; min-width:0;"><svg viewBox="0 0 900 560" width="900" height="560" style="display:block" aria-hidden="true">
+    <defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="#4a6659"/></marker></defs>
+    <g transform="translate(0,0)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Arrive</text></g>
+    <path d="M88 54 L88 84" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <g transform="translate(0,86)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Lineup</text></g>
+    <path d="M88 140 L88 170" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <g transform="translate(0,172)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Deal</text></g>
+    <path d="M88 226 L88 256" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <g transform="translate(0,258)">
+      <rect width="176" height="54" fill="#12211f"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="700" fill="#eef0e9" font-family="Chivo,Helvetica Neue,Arial,sans-serif">The table</text></g>
+    <rect x="246" y="168" width="592" height="158" fill="none" stroke="#c9d0c2"/>
+    <text x="246" y="158" font-size="11.5" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">views, arriving around the same board</text>
+    <path d="M176 285 L246 251" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <g transform="translate(262,186)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Coach</text></g><g transform="translate(454,186)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Race</text></g><g transform="translate(646,186)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Console</text></g><g transform="translate(262,256)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Futures</text></g><g transform="translate(454,256)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Move analysis</text></g><g transform="translate(646,256)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Game analysis</text></g>
+    <path d="M88 312 L88 342" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <g transform="translate(0,344)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Interrupts</text></g>
+    <text x="0" y="418" font-size="11.5" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">a seven, the robber, a trade, a handoff</text>
+    <path d="M88 398 L88 442" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <g transform="translate(0,444)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Ending</text></g>
+    <path d="M176 471 L246 471" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <g transform="translate(246,444)">
+      <rect width="176" height="54" fill="#f7f8f4"/>
+      <text x="88" y="31.5" text-anchor="middle" font-size="13" font-weight="600" fill="#12211f" font-family="Chivo,Helvetica Neue,Arial,sans-serif">Review</text></g>
+    <path d="M422 471 L610 471 L610 340" fill="none" stroke="#4a6659" stroke-width="1.4" marker-end="url(#ah)"/>
+    <text x="624" y="430" font-size="11.5" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">the same board,</text>
+    <text x="624" y="446" font-size="11.5" fill="#4a6659" font-family="Chivo,Helvetica Neue,Arial,sans-serif">at any step</text>
+  </svg></div>
+  </div>
+</div>
+</x-dc>
+
+</body>
+</html>

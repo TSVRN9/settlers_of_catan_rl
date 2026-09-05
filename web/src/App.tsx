@@ -1,43 +1,100 @@
-import * as tabs from "@zag-js/tabs";
-import { normalizeProps, useMachine } from "@zag-js/react";
-import { useEffect, useId, useState } from "react";
-import Play from "./pages/Play";
-import Watch from "./pages/Watch";
-import Results from "./pages/Results";
-import About from "./pages/About";
-
-const ROUTES = [
-  { value: "play", label: "Play" },
-  { value: "watch", label: "Watch" },
-  { value: "results", label: "Results" },
-  { value: "about", label: "About" },
-];
-const route = () => (location.hash.replace(/^#\/?/, "").split("?")[0] || "play");
+// The shell: the spine, the stage, whichever view is current, and the one board.
+//
+// BoardLayer is a *sibling* of the view slot and is never conditional and never keyed. That
+// is the whole structural claim of this redesign: swapping the view cannot take the game
+// with it, the way the old tab router did.
+import { useEffect } from "react";
+import BoardLayer from "./board/BoardLayer";
+import Lineup from "./views/Lineup";
+import Table from "./views/Table";
+import Console from "./views/Console";
+import Coach from "./views/Coach";
+import Futures from "./views/Futures";
+import Game from "./views/Game";
+import Move from "./views/Move";
+import Handoff from "./views/Handoff";
+import Discard from "./views/Discard";
+import Spine from "./Spine";
+import { act } from "./game";
+import * as keys from "./keys";
+import * as route from "./route";
+import { currentView, set, useApp } from "./store";
+import { heat, waiting } from "./waiting";
 
 export default function App() {
-  const [current, setCurrent] = useState(route);
+  // Both installs return their own uninstall: StrictMode invokes this twice in dev, and two
+  // sets of listeners make Escape pop two crumbs and the seat keys cancel themselves out.
   useEffect(() => {
-    const on = () => setCurrent(route());
-    window.addEventListener("hashchange", on);
-    return () => window.removeEventListener("hashchange", on);
+    const offRoute = route.install();
+    const offKeys = keys.install();
+    route.sync();
+    return () => { offRoute(); offKeys(); };
   }, []);
-  const service = useMachine(tabs.machine, { id: useId(), value: current, onValueChange: ({ value }) => { location.hash = `#/${value}`; } });
-  const api = tabs.connect(service, normalizeProps);
+
+  const s = useApp();
+  const view = currentView(s);
+  const setup = s.phase === "lineup" || !s.map || !s.view;
+
   return (
-    <div {...api.getRootProps()} className="mx-auto max-w-7xl px-3 py-3 md:px-6">
-      <header className="mb-4 flex flex-wrap items-center gap-4">
-        <h1 className="text-xl font-bold tracking-tight">Catan RL</h1>
-        <nav {...api.getListProps()} className="ml-auto flex gap-1">
-          {ROUTES.map((r) => <button key={r.value} {...api.getTriggerProps({ value: r.value })} className="rounded-md border border-transparent px-3 py-1.5 text-sm font-medium hover:bg-stone-200 dark:hover:bg-stone-800">{r.label}</button>)}
-        </nav>
-      </header>
-      <main>
-        {current === "play" && <div {...api.getContentProps({ value: "play" })}><Play /></div>}
-        {current === "watch" && <div {...api.getContentProps({ value: "watch" })}><Watch /></div>}
-        {current === "results" && <div {...api.getContentProps({ value: "results" })}><Results /></div>}
-        {current === "about" && <div {...api.getContentProps({ value: "about" })}><About /></div>}
-      </main>
-      <footer className="mt-8 text-xs text-stone-500">Runs locally in a Web Worker. <a className="underline" href="https://github.com/TSVRN9/settlers_of_catan_rl">Source</a></footer>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Spine />
+
+      <div className="stage">
+        {/* Hotseat blurs everything below rather than unmounting it — a handoff is a curtain,
+            not a navigation, so whatever view and step you were on is exactly where the next
+            player's own turn resumes once they tap through. */}
+        <div style={s.pendingHandoff != null ? { filter: "blur(8px)", opacity: 0.45, pointerEvents: "none" } : undefined}>
+          {setup && <Lineup />}
+
+          {!setup && view === "table" && <Table />}
+          {!setup && view === "console" && <Console />}
+          {!setup && view === "coach" && <Coach />}
+          {!setup && view === "futures" && <Futures />}
+          {!setup && view === "game" && <Game />}
+          {!setup && view === "move" && <Move />}
+
+          {/* The board outlives every view, and stays on screen behind the lineup once a game
+              has been dealt — you are never configuring something you cannot see. */}
+          {s.map && s.view && (
+            <div style={setup ? { opacity: 0.45, transition: "opacity var(--t-panel) var(--ease)" } : undefined}>
+              {setup && <div data-anchor="table" />}
+              <BoardLayer
+                view={setup ? "table" : view}
+                map={s.map}
+                gameView={s.boardOverride?.view ?? s.view}
+                legal={!setup && view !== "futures" && view !== "game" && view !== "move" && s.view.current_player === s.human && s.view.winner < 0 ? s.legal : []}
+                onAction={(a) => void act(a)}
+                onChoice={(acts) => set({ pending: { title: `Move the robber to ${acts.length} choices — whom do you rob?`, actions: acts } })}
+                heat={s.revealAll ? heat(s.advice) : undefined}
+                highlight={s.boardOverride?.highlight ?? null}
+                litTiles={s.boardOverride?.litTiles}
+                hidePieces={s.phase === "dealing"}
+                dealing={s.phase === "dealing"}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Both render after the board in DOM order, on purpose — a modal sits in front of
+            the board it covers, not behind it. Discard's own scrim dims but doesn't blur the
+            board (the artboard's own point: "the board stays visible behind it"); Handoff's
+            blur wrapper above already covers the case where the board itself must be hidden. */}
+        {!setup && waiting(s)?.kind === "discard" && <Discard />}
+        <Handoff />
+      </div>
+
+      {/* No artboard exists below 1024, so the app says so rather than inventing a layout. */}
+      <div className="narrow">
+        <div>
+          <div className="d" style={{ fontSize: 21 }}>The board needs a wider window</div>
+          <div className="cap" style={{ marginTop: 8, maxWidth: 300 }}>
+            Four seats, nineteen tiles and a value net's reading of all of it. About a
+            thousand pixels across is the least it can be shown in.
+          </div>
+        </div>
+      </div>
+
+      <div className="sr" role="status" aria-live="polite">{s.error ?? ""}</div>
     </div>
   );
 }

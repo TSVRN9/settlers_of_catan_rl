@@ -11,19 +11,12 @@
     "smoke": "node tools/smoke.mjs"
   },
   "dependencies": {
-    "@zag-js/dialog": "^1.43.3",
-    "@zag-js/menu": "^1.43.3",
-    "@zag-js/react": "^1.43.3",
-    "@zag-js/select": "^1.43.3",
-    "@zag-js/slider": "^1.43.3",
-    "@zag-js/tabs": "^1.43.3",
-    "@zag-js/toggle-group": "^1.43.3",
-    "@zag-js/tooltip": "^1.43.3",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "@fontsource-variable/chivo": "^5.2.5",
+    "@fontsource/syne": "^5.2.5"
   },
   "devDependencies": {
-    "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",

@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif;
+         --ease: cubic-bezier(.2,.8,.2,1); --t-feel:120ms; --t-panel:260ms; --t-board:420ms; }
+    .L, .L * { box-sizing: border-box; }
+    .L a { color:#2f6a57; } .L a:hover { color:#12211f; }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .cap { font-size:13px; color:var(--moss); line-height:1.5; }
+    /* The corner cut is the board's signature. Every panel and every control carries it. */
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+    .L .pill { display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+               background:var(--pine); color:var(--chalk); font:700 12.5px var(--ui);
+               clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 14px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap;
+              border:0; cursor:pointer; transition: background var(--t-feel) var(--ease);
+              clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .act:hover { background:#e6e9df; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .act.go:hover { background:#1d322c; }
+    .L .key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px;
+              background:var(--paper); color:var(--pine); font:600 12px var(--ui); box-shadow: inset 0 -2px 0 var(--dust); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); white-space:nowrap; }
+    .L .dec { position: relative; display: inline-block; }
+    .L .dec > .scr { position:absolute; left:0; top:0; right:0; bottom:0; opacity:0; pointer-events:none;
+                     overflow:hidden; white-space:nowrap; color:var(--moss); }
+    @keyframes wipe { from { opacity:1; clip-path: inset(0 0 0 0); }
+                      99%  { opacity:1; clip-path: inset(0 0 0 100%); }
+                      to   { opacity:0; clip-path: inset(0 0 0 100%); } }
+    .L .stage { position:absolute; inset:0; overflow:clip; }
+    .L .boardpos { position:absolute; left:50%; top:calc(50% - 8px); transform:translate(-50%,-50%); }
+    .L .card { background:var(--paper); padding:16px 17px; }
+    .L .sw { width:12px; height:12px; flex:0 0 12px; }
+    .L .lrow { display:flex; align-items:center; gap:10px; padding:5px 0; }
+    .L .lrow.alt { background:linear-gradient(90deg, rgba(226,174,63,.13), transparent); }
+    .L .lname { width:186px; flex:0 0 186px; font-size:12.5px; }
+    .L .ltrack { flex:1; height:7px; background:var(--dust); }
+    .L .ltrack > i { display:block; height:100%; }
+    .L .lval { width:44px; text-align:right; font-size:12px; }
+    .L .tag { font:700 11px var(--ui); padding:3px 8px; background:#e6e9df; }
+    .L .chipq { display:inline-flex; align-items:center; height:26px; padding:0 10px; background:#e4e8dd;
+                font:500 12px var(--ui); cursor:pointer; }
+    .L .hitme { box-shadow: inset 0 0 0 2px #e2ae3f; }
+    @media (prefers-reduced-motion: reduce) {
+      .L .scr { animation: none !important; }
+      .L .board, .L .panel, .L .curtain, .L .tl, .L .tk, .L .pc { transition: none !important; animation: none !important; }
+    }
+  </style>
+</helmet>
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+     font:400 14px var(--ui); position:relative; overflow:clip;">
+  <div style="position:absolute; inset:28px 34px;">
+    <div style="display:flex; gap:40px; align-items:flex-start;">
+      <div style="width:300px; flex:0 0 300px;">
+        <div class="d" style="font-size:29px; line-height:1.1;">Tier one: the board slides over</div>
+        <span class="tag" style="margin-top:10px; display:inline-block; background:#e2e9e0;">tier 1</span>
+      </div>
+      <div class="cap" style="flex:1; min-width:0; font-size:14.5px; column-count:2; column-gap:40px;">
+        Four panels that answer a question without taking the game away. The board shifts aside and stays live: you can still click a corner with one of these open, and Esc closes it. None of them is a place you navigate to, which is why none of them is in a menu — each opens from the thing it is about.
+      </div>
+    </div>
+    <div style="display:flex; gap:20px; margin-top:26px;">
+      <div style="width:316px; flex:0 0 316px;">
+      <div style="display:flex; align-items:baseline; gap:9px;">
+        <span style="font:600 13px var(--ui);">Hand</span>
+        <span class="cap" style="font-size:11.5px;">opens from your cards in the rail</span>
+      </div>
+      <div class="card" style="margin-top:8px; height:330px; overflow:hidden;"><div style="font:600 12px var(--ui);">Nine cards</div>
+    <div class="cap" style="font-size:12px; margin-top:3px;">A seven takes four of them.</div>
+    <div style="display:flex; gap:6px; margin-top:12px;">
+      <div style="flex:1;"><div style="height:62px; background:#5f8a54;"></div>
+        <div class="cap" style="font-size:11px; text-align:center; margin-top:4px;">2</div></div><div style="flex:1;"><div style="height:62px; background:#bc6242;"></div>
+        <div class="cap" style="font-size:11px; text-align:center; margin-top:4px;">1</div></div><div style="flex:1;"><div style="height:62px; background:#a9c774;"></div>
+        <div class="cap" style="font-size:11px; text-align:center; margin-top:4px;">1</div></div><div style="flex:1;"><div style="height:62px; background:#e2ae3f;"></div>
+        <div class="cap" style="font-size:11px; text-align:center; margin-top:4px;">2</div></div><div style="flex:1;"><div style="height:62px; background:#8d949c;"></div>
+        <div class="cap" style="font-size:11px; text-align:center; margin-top:4px;">3</div></div>
+    </div>
+    <div style="margin-top:14px; font:600 12px var(--ui);">What you can afford</div>
+    <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+      <div style="display:flex; justify-content:space-between; font-size:12.5px;">
+          <span>City</span><span class="cap" style="font-size:12px;">yes</span></div><div style="display:flex; justify-content:space-between; font-size:12.5px;">
+          <span>Settlement</span><span class="cap" style="font-size:12px;">no, one wheat short</span></div><div style="display:flex; justify-content:space-between; font-size:12.5px;">
+          <span>Road</span><span class="cap" style="font-size:12px;">yes</span></div><div style="display:flex; justify-content:space-between; font-size:12.5px;">
+          <span>Development card</span><span class="cap" style="font-size:12px;">yes</span></div>
+    </div></div>
+    </div>
+      <div style="width:316px; flex:0 0 316px;">
+      <div style="display:flex; align-items:baseline; gap:9px;">
+        <span style="font:600 13px var(--ui);">Log</span>
+        <span class="cap" style="font-size:11.5px;">opens from the last-action line</span>
+      </div>
+      <div class="card" style="margin-top:8px; height:330px; overflow:hidden;"><div style="font:600 12px var(--ui);">This turn</div>
+    <div style="margin-top:10px; display:flex; flex-direction:column; gap:9px;">
+      <div style="display:flex; gap:9px;"><span style="width:5px; height:5px; margin-top:6px; flex:0 0 5px; background:var(--dust);"></span>
+        <span style="font-size:12.5px; line-height:1.45;">You rolled an 8 and took a wood.</span></div><div style="display:flex; gap:9px;"><span style="width:5px; height:5px; margin-top:6px; flex:0 0 5px; background:var(--dust);"></span>
+        <span style="font-size:12.5px; line-height:1.45;">Orange bought a knight from White for two sheep.</span></div><div style="display:flex; gap:9px;"><span style="width:5px; height:5px; margin-top:6px; flex:0 0 5px; background:var(--dust);"></span>
+        <span style="font-size:12.5px; line-height:1.45;">Orange played it and took largest army; the robber came off your ore.</span></div><div style="display:flex; gap:9px;"><span style="width:5px; height:5px; margin-top:6px; flex:0 0 5px; background:var(--dust);"></span>
+        <span style="font-size:12.5px; line-height:1.45;">Red built a fifth road and keeps longest road.</span></div><div style="display:flex; gap:9px;"><span style="width:5px; height:5px; margin-top:6px; flex:0 0 5px; background:var(--dust);"></span>
+        <span style="font-size:12.5px; line-height:1.45;">White traded two wheat to the bank for an ore.</span></div>
+    </div>
+    <div class="cap" style="margin-top:12px; font-size:11.5px;">Scroll for the whole game. Clicking a line opens the board at that step.</div></div>
+    </div>
+      <div style="width:316px; flex:0 0 316px;">
+      <div style="display:flex; align-items:baseline; gap:9px;">
+        <span style="font:600 13px var(--ui);">Race</span>
+        <span class="cap" style="font-size:11.5px;">opens from any seat in the rail</span>
+      </div>
+      <div class="card" style="margin-top:8px; height:330px; overflow:hidden;"><div style="font:600 12px var(--ui);">The race to ten</div>
+    <div style="margin-top:11px; display:flex; flex-direction:column; gap:11px;">
+      <div>
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span class="sw" style="background:#c0392b"></span>
+          <span style="font:600 12.5px var(--ui);">Red</span>
+          <span class="cap" style="font-size:11px;">value net</span>
+          <span class="cap" style="margin-left:auto; font-size:11.5px;">6 turns</span></div>
+        <div style="display:flex; gap:2px; margin-top:4px;">
+          <i style="flex:1; height:5px; background:#c0392b;"></i><i style="flex:1; height:5px; background:#c0392b;"></i><i style="flex:1; height:5px; background:#c0392b;"></i><i style="flex:1; height:5px; background:#c0392b;"></i><i style="flex:1; height:5px; background:#c0392b;"></i><i style="flex:1; height:5px; background:#c0392b;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i></div>
+      </div><div>
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span class="sw" style="background:#2f6fd0"></span>
+          <span style="font:600 12.5px var(--ui);">You</span>
+          <span class="cap" style="font-size:11px;"></span>
+          <span class="cap" style="margin-left:auto; font-size:11.5px;">8 turns</span></div>
+        <div style="display:flex; gap:2px; margin-top:4px;">
+          <i style="flex:1; height:5px; background:#2f6fd0;"></i><i style="flex:1; height:5px; background:#2f6fd0;"></i><i style="flex:1; height:5px; background:#2f6fd0;"></i><i style="flex:1; height:5px; background:#2f6fd0;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i></div>
+      </div><div>
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span class="sw" style="background:#e07b2a"></span>
+          <span style="font:600 12.5px var(--ui);">Orange</span>
+          <span class="cap" style="font-size:11px;">heuristic</span>
+          <span class="cap" style="margin-left:auto; font-size:11.5px;">9 turns</span></div>
+        <div style="display:flex; gap:2px; margin-top:4px;">
+          <i style="flex:1; height:5px; background:#e07b2a;"></i><i style="flex:1; height:5px; background:#e07b2a;"></i><i style="flex:1; height:5px; background:#e07b2a;"></i><i style="flex:1; height:5px; background:#e07b2a;"></i><i style="flex:1; height:5px; background:#e07b2a;"></i><i style="flex:1; height:5px; background:#e07b2a;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i></div>
+      </div><div>
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span class="sw" style="background:#b9bfb2"></span>
+          <span style="font:600 12.5px var(--ui);">White</span>
+          <span class="cap" style="font-size:11px;">heuristic</span>
+          <span class="cap" style="margin-left:auto; font-size:11.5px;">14 turns</span></div>
+        <div style="display:flex; gap:2px; margin-top:4px;">
+          <i style="flex:1; height:5px; background:#b9bfb2;"></i><i style="flex:1; height:5px; background:#b9bfb2;"></i><i style="flex:1; height:5px; background:#b9bfb2;"></i><i style="flex:1; height:5px; background:#b9bfb2;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i><i style="flex:1; height:5px; background:#dde2d6;"></i></div>
+      </div>
+    </div>
+    <div class="cap" style="margin-top:12px; font-size:11.5px;">Points you can see. The card nobody else knows about is the tenth slot on your own row only.</div></div>
+    </div>
+      <div style="width:316px; flex:0 0 316px;">
+      <div style="display:flex; align-items:baseline; gap:9px;">
+        <span style="font:600 13px var(--ui);">Coach thread</span>
+        <span class="cap" style="font-size:11.5px;">opens from the Why button</span>
+      </div>
+      <div class="card" style="margin-top:8px; height:330px; overflow:hidden;"><div style="font:600 12px var(--ui);">Earlier this turn</div>
+    <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+      <div style="background:#e9ece3; padding:8px 10px; font-size:12.5px; line-height:1.45;">Orange’s knight took the robber off your ore.</div>
+      <div style="background:var(--pine); color:var(--chalk); padding:8px 10px; font-size:12.5px; line-height:1.45; margin-left:36px;">Why not the settlement on the 4 wheat?</div>
+      <div style="background:#e9ece3; padding:8px 10px; font-size:12.5px; line-height:1.45;">It is a corner you can keep, but it pays less than the city does:
+        <span style="display:block; margin-top:5px; font-weight:600;">33.6% city · 30.4% settlement · 28.7% end the turn</span></div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="chipq">What if I keep the ore?</span><span class="chipq">Who is closest to winning?</span>
+    </div></div>
+    </div>
+    </div>
+    <div style="display:flex; gap:40px; margin-top:24px; align-items:flex-start;">
+      <div style="flex:1;">
+        <div style="font:600 13px var(--ui);">One geometry for all four</div>
+        <div class="cap" style="margin-top:7px;">Every tier-one panel is 316 wide and docks to the same edge, so opening a second one swaps the contents rather than moving the board again. The board takes a single 420ms shift on the first open and holds still until the last one closes; the panel itself moves in 260ms.</div>
+        <div class="cap" style="margin-top:9px;">Hand and Race dock left, beside the rail they came from. Log and Coach dock right, because they are a running column rather than a snapshot. The board goes the other way in each case.</div>
+      </div>
+      <div style="width:452px; flex:0 0 452px; display:flex; flex-direction:column;">
+        <div style="margin-top:auto; padding-top:14px;">
+    <div style="font:600 11px var(--ui); color:var(--moss);">FOR IMPLEMENTATION</div>
+    <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+      <div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">dock</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">316px, edge-anchored, 26px inset</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">board</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">translate(±230px,0) scale(.78) · 420ms</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">hand</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">view.hands[me] — counts by resource</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">log</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">frames[].action, newest first</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">race</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">view.points[seat], view.awards</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">coach</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">decision.root[0] plus its rank list</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">close</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">Esc, or the control that opened it</span></div>
+    </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --wood:#5f8a54; --brick:#bc6242; --sheep:#a9c774; --wheat:#e2ae3f; --ore:#8d949c;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif; }
+    .L * { box-sizing:border-box; }
+    .L a { color:#2f6a57; }
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d   { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 13px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+  </style>
+</helmet>
+
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+     font:400 14px var(--ui); display:flex; overflow:hidden;">
+  <nav style="width:76px; flex:0 0 76px; background:var(--pine); color:var(--chalk); display:flex; flex-direction:column;
+              align-items:center; padding:16px 0 18px;">
+    <span style="margin-bottom:22px;"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true" style="display:block"><polygon points="15,0 27.99,7.5 27.99,22.5 15,30 2.01,22.5 2.01,7.5" fill="#e2ae3f"/></svg></span>
+    <span style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+      <span style="font:400 13px var(--ui); color:#7d9186;">Play</span>
+      <span style="font:400 13px var(--ui); color:#7d9186;">Watch</span>
+      <span style="font:400 13px var(--ui); color:#7d9186;">Results</span>
+      <span style="font:400 13px var(--ui); color:#7d9186;">About</span>
+    </span>
+    <span style="margin-top:auto; writing-mode:vertical-rl; transform:rotate(180deg); font:800 19px var(--dis);
+                 letter-spacing:.06em; color:#3f5b50;">SETTLERS</span>
+  </nav>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column; padding:22px 30px 20px;">
+
+    <div style="display:flex; align-items:flex-end; gap:26px; padding-bottom:16px;">
+      <div>
+        <div class="d" style="font-size:32px; line-height:1;">How a game runs, end to end</div>
+        <div style="margin-top:6px; font-size:14.5px; color:var(--moss); max-width:760px; line-height:1.5;">
+          Every state below already exists in the engine. What is missing is the experience around four of them:
+          getting in, placing your first settlements, surviving a seven, and getting out of a finished game into
+          the analysis.
+        </div>
+      </div>
+      <div style="margin-left:auto; display:flex; gap:18px; font-size:12.5px; color:var(--moss);">
+        <span class="row" style="gap:8px;"><i style="width:20px; height:12px; background:var(--paper); box-shadow:0 0 0 1.5px var(--pine);"></i>a screen today</span>
+        <span class="row" style="gap:8px;"><i style="width:20px; height:12px; background:#e7ebe2; box-shadow:0 0 0 1.5px var(--wheat);"></i>needs designing</span>
+      </div>
+    </div>
+
+    <div style="position:relative; flex:1; min-height:0;">
+      <svg style="position:absolute; inset:0;" width="1304" height="720" viewBox="0 0 1304 720" aria-hidden="true">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#12211f"/></marker></defs>
+        <g stroke="#12211f" stroke-width="1.8" fill="none" marker-end="url(#ar)">
+          <path d="M150 52 H190"/>
+          <path d="M392 52 H430"/>
+          <path d="M652 52 H694"/>
+          <path d="M1092 52 H1146"/>
+          <path d="M1228 96 V344"/>
+          <path d="M1152 379 H1014"/>
+          <path d="M872 379 H878"/>
+        </g>
+        <g stroke="#12211f" stroke-width="1.6" fill="none" stroke-dasharray="7 5" marker-end="url(#ar)">
+          <path d="M760 190 V224"/>
+          <path d="M950 190 V224"/>
+          <path d="M1140 190 V224"/>
+          <path d="M676 379 H80 V86"/>
+        </g>
+        <text x="300" y="372" font-size="12.5" fill="#4a6659" font-family="var(--ui, system-ui)">play again on the same board</text>
+        <line x1="0" y1="440" x2="1304" y2="440" stroke="#c9d0c2" stroke-width="1.5"/>
+      </svg>
+
+      <div class="cut8" style="position:absolute; left:0; top:24px; width:150px; height:56px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:9px 11px;">
+        <div style="font:600 14px var(--ui);">Arrive</div>
+        <div style="font-size:12px; color:var(--moss); margin-top:2px;">a board is already dealt</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:196px; top:24px; width:196px; height:56px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:9px 11px;">
+        <div style="font:600 14px var(--ui);">Change seat or opponents</div>
+        <div style="font-size:12px; color:var(--moss); margin-top:2px;">optional, never a gate</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:436px; top:12px; width:216px; height:80px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:9px 11px;">
+        <div style="font:600 14px var(--ui);">Place two settlements</div>
+        <div style="font-size:12px; color:var(--moss); margin-top:3px; line-height:1.35;">snake order, a road with each —
+          where the coach has most to teach</div>
+      </div>
+
+      <div style="position:absolute; left:700px; top:0; width:392px; height:190px; box-shadow:0 0 0 1.5px var(--dust);"></div>
+      <div style="position:absolute; left:712px; top:-10px; background:var(--chalk); padding:0 8px; font:600 12.5px var(--ui); color:var(--moss);">
+        your turn, then each bot in seat order</div>
+      <div class="cut8" style="position:absolute; left:722px; top:26px; width:158px; height:50px; background:var(--paper);
+           box-shadow:0 0 0 1.5px var(--pine); padding:7px 11px;">
+        <div style="font:600 14px var(--ui);">Roll</div>
+        <div style="font-size:12px; color:var(--moss);">or a knight first</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:912px; top:26px; width:158px; height:50px; background:var(--paper);
+           box-shadow:0 0 0 1.5px var(--pine); padding:7px 11px;">
+        <div style="font:600 14px var(--ui);">Everyone collects</div>
+        <div style="font-size:12px; color:var(--moss);">the board pays out</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:912px; top:110px; width:158px; height:50px; background:var(--paper);
+           box-shadow:0 0 0 1.5px var(--pine); padding:7px 11px;">
+        <div style="font:600 14px var(--ui);">Trade and build</div>
+        <div style="font-size:12px; color:var(--moss);">as often as you like</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:722px; top:110px; width:158px; height:50px; background:var(--paper);
+           box-shadow:0 0 0 1.5px var(--pine); padding:7px 11px;">
+        <div style="font:600 14px var(--ui);">End turn</div>
+        <div style="font-size:12px; color:var(--moss);">next seat moves</div>
+      </div>
+      <svg style="position:absolute; left:700px; top:0;" width="392" height="190" aria-hidden="true">
+        <g stroke="#12211f" stroke-width="1.8" fill="none" marker-end="url(#ar)">
+          <path d="M182 51 H206"/><path d="M291 78 V104"/><path d="M206 135 H188"/><path d="M100 104 V80"/>
+        </g>
+      </svg>
+
+      <div class="cut8" style="position:absolute; left:1146px; top:24px; width:158px; height:56px; background:var(--paper);
+           box-shadow:0 0 0 1.5px var(--pine); padding:9px 11px;">
+        <div style="font:600 14px var(--ui);">Someone hits 10</div>
+        <div style="font-size:12px; color:var(--moss); margin-top:2px;">the game stops</div>
+      </div>
+
+      <div class="cut8" style="position:absolute; left:660px; top:224px; width:200px; height:96px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:10px 12px;">
+        <div class="row" style="justify-content:space-between;">
+          <span style="font:600 14px var(--ui);">A seven</span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true" style="display:block"><polygon points="5.5,0 10.26,2.75 10.26,8.25 5.5,11 0.74,8.25 0.74,2.75" fill="#bc6242"/></svg></div>
+        <div style="font-size:12.5px; color:var(--moss); margin-top:5px; line-height:1.4;">
+          discard half, move the robber, rob a neighbour — three decisions arriving at once</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:850px; top:224px; width:200px; height:96px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:10px 12px;">
+        <div class="row" style="justify-content:space-between;">
+          <span style="font:600 14px var(--ui);">An offer to you</span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true" style="display:block"><polygon points="5.5,0 10.26,2.75 10.26,8.25 5.5,11 0.74,8.25 0.74,2.75" fill="#e2ae3f"/></svg></div>
+        <div style="font-size:12.5px; color:var(--moss); margin-top:5px; line-height:1.4;">
+          you answer, then the offerer picks between whoever said yes</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:1040px; top:224px; width:200px; height:96px; background:var(--paper);
+           box-shadow:0 0 0 1.5px var(--pine); padding:10px 12px;">
+        <div class="row" style="justify-content:space-between;">
+          <span style="font:600 14px var(--ui);">Bots thinking</span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true" style="display:block"><polygon points="5.5,0 10.26,2.75 10.26,8.25 5.5,11 0.74,8.25 0.74,2.75" fill="#c9d0c2"/></svg></div>
+        <div style="font-size:12.5px; color:var(--moss); margin-top:5px; line-height:1.4;">
+          60 to 100 ms a decision, so the wait is honest: show it, never fake it</div>
+      </div>
+
+      <div class="cut8" style="position:absolute; left:1146px; top:340px; width:158px; height:82px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:9px 11px;">
+        <div style="font:600 14px var(--ui);">Result</div>
+        <div style="font-size:12px; color:var(--moss); margin-top:2px; line-height:1.35;">standings, and the curve of the whole game</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:878px; top:344px; width:136px; height:70px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:9px 11px;">
+        <div style="font:600 14px var(--ui);">Review it</div>
+        <div style="font-size:12px; color:var(--moss); margin-top:2px; line-height:1.35;">opens the analyser</div>
+      </div>
+      <div class="cut8" style="position:absolute; left:676px; top:344px; width:196px; height:70px; background:#e7ebe2;
+           box-shadow:0 0 0 1.5px var(--wheat); padding:9px 11px;">
+        <div style="font:600 14px var(--ui);">Land on the worst move</div>
+        <div style="font-size:12px; color:var(--moss); margin-top:2px; line-height:1.35;">not on step zero</div>
+      </div>
+
+      <div style="position:absolute; left:0; top:462px; width:1304px;">
+        <div class="d" style="font-size:19px;">Four things this changes</div>
+        <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:22px; margin-top:12px;">
+          <div>
+            <div class="row" style="gap:9px; margin-bottom:6px;"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="display:block"><polygon points="7,0 13.06,3.5 13.06,10.5 7,14 0.94,10.5 0.94,3.5" fill="#e2ae3f"/></svg>
+              <b style="font-size:14px;">Nobody configures a game they have not seen</b></div>
+            <p style="margin:0; font-size:13px; line-height:1.55; color:var(--moss);">
+              A board is dealt on arrival and the first move is there waiting. Seat and opponents change in
+              place, mid-game if you like, and the seed is a field you can paste into.</p>
+          </div>
+          <div>
+            <div class="row" style="gap:9px; margin-bottom:6px;"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="display:block"><polygon points="7,0 13.06,3.5 13.06,10.5 7,14 0.94,10.5 0.94,3.5" fill="#e2ae3f"/></svg>
+              <b style="font-size:14px;">The opening is taught, not assumed</b></div>
+            <p style="margin:0; font-size:13px; line-height:1.55; color:var(--moss);">
+              Placement decides more than any later move and is the one decision the net can explain without a
+              hand to reason about. It deserves its own screen, with the corners scored.</p>
+          </div>
+          <div>
+            <div class="row" style="gap:9px; margin-bottom:6px;"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="display:block"><polygon points="7,0 13.06,3.5 13.06,10.5 7,14 0.94,10.5 0.94,3.5" fill="#e2ae3f"/></svg>
+              <b style="font-size:14px;">Interrupts take the screen</b></div>
+            <p style="margin:0; font-size:13px; line-height:1.55; color:var(--moss);">
+              A seven is three decisions in a row and a trade is a negotiation with three opponents. Each gets
+              one surface that finishes what it started, instead of a stack of dialogs.</p>
+          </div>
+          <div>
+            <div class="row" style="gap:9px; margin-bottom:6px;"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="display:block"><polygon points="7,0 13.06,3.5 13.06,10.5 7,14 0.94,10.5 0.94,3.5" fill="#e2ae3f"/></svg>
+              <b style="font-size:14px;">A finished game is the way into the analysis</b></div>
+            <p style="margin:0; font-size:13px; line-height:1.55; color:var(--moss);">
+              Play and Watch are strangers today. The result should hand the game to the analyser, opened at the
+              move that cost you most — which is the only reason most people would ever open it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

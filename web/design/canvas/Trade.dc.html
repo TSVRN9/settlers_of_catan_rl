@@ -1,0 +1,207 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --wood:#5f8a54; --brick:#bc6242; --sheep:#a9c774; --wheat:#e2ae3f; --ore:#8d949c;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif; }
+    .L * { box-sizing:border-box; }
+    .L a { color:#2f6a57; }
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d   { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 13px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+  </style>
+</helmet>
+
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+     font:400 14px var(--ui); display:flex; overflow:hidden;">
+  <nav style="width:76px; flex:0 0 76px; background:var(--pine); color:var(--chalk); display:flex; flex-direction:column;
+              align-items:center; padding:16px 0 18px;">
+    <span style="margin-bottom:22px;"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true" style="display:block"><polygon points="15,0 27.99,7.5 27.99,22.5 15,30 2.01,22.5 2.01,7.5" fill="#e2ae3f"/></svg></span>
+    <span style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+      <span style="position:relative; display:flex; align-items:center; justify-content:center; width:46px; height:46px;">
+        <span style="position:absolute; inset:0;"><svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true" style="display:block"><polygon points="23,0 42.92,11.5 42.92,34.5 23,46 3.08,34.5 3.08,11.5" fill="#e2ae3f"/></svg></span>
+        <span style="position:relative; font:700 13px var(--ui); color:#12211f;">Play</span>
+      </span>
+      <span style="font:400 13px var(--ui); color:#7d9186;">Watch</span>
+      <span style="font:400 13px var(--ui); color:#7d9186;">Results</span>
+      <span style="font:400 13px var(--ui); color:#7d9186;">About</span>
+    </span>
+    <span style="margin-top:auto; writing-mode:vertical-rl; transform:rotate(180deg); font:800 19px var(--dis);
+                 letter-spacing:.06em; color:#3f5b50;">SETTLERS</span>
+  </nav>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column; padding:24px 30px 26px;">
+
+    <div style="display:flex; align-items:flex-end; gap:28px; padding-bottom:18px;">
+      <div>
+        <div class="d" style="font-size:32px; line-height:1;">Your offer is on the table</div>
+        <div style="margin-top:7px; font-size:14.5px; color:var(--moss); line-height:1.5; max-width:660px;">
+          Every opponent answers in seat order, then you pick one of the seats that said yes — or cancel and
+          keep your cards. An offer everyone turned down cannot be repeated this turn.
+        </div>
+      </div>
+      <div style="margin-left:auto; text-align:right;">
+        <div style="font:600 13px var(--ui); color:var(--moss);">Turn 31, after your roll</div>
+        <div class="row" style="gap:9px; justify-content:flex-end; margin-top:6px;">
+          <span class="d" style="font-size:20px;">2</span>
+          <span style="font-size:13px; color:var(--moss);">of three have answered</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1; min-height:0; display:flex; gap:24px;">
+
+      <!-- what you asked for -->
+      <section style="width:392px; flex:0 0 392px; display:flex; flex-direction:column;">
+        <div class="cut" style="background:var(--paper); padding:16px 17px 18px;">
+          <div class="d" style="font-size:19px;">You give</div>
+          <div style="display:flex; gap:9px; margin:12px 0 20px;">
+            <span class="cut8" style="position:relative; width:78px; height:104px; background:var(--paper); box-shadow:0 0 0 1.5px var(--dust);
+                  border-bottom:5px solid var(--wood); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:9px;">
+              <span style="position:absolute; top:14px;"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true" style="display:block"><g opacity="1"><polygon points="7.72,9.22 12.81,19.39 10.12,19.39 13.71,25.38 1.74,25.38 5.33,19.39 2.64,19.39" fill="#5f8a54"/><line x1="7.72" y1="25.38" x2="7.72" y2="29.27" stroke="#5f8a54" stroke-width="1.94" stroke-linecap="round"/><polygon points="25.98,8.08 30.05,16.22 27.89,16.22 30.76,21.01 21.19,21.01 24.06,16.22 21.91,16.22" fill="#5f8a54"/><line x1="25.98" y1="21.01" x2="25.98" y2="24.12" stroke="#5f8a54" stroke-width="1.56" stroke-linecap="round"/></g></svg></span><b class="d" style="font-size:22px;">2</b></span>
+            <div style="display:flex; flex-direction:column; justify-content:center; gap:7px;">
+              <span class="act cut8" style="width:38px; height:34px; padding:0; justify-content:center; box-shadow:0 0 0 1.5px var(--dust); font-size:16px;">+</span>
+              <span class="act cut8" style="width:38px; height:34px; padding:0; justify-content:center; box-shadow:0 0 0 1.5px var(--dust); font-size:16px;">−</span>
+            </div>
+          </div>
+
+          <div class="d" style="font-size:19px;">You want</div>
+          <div style="display:flex; gap:9px; margin-top:12px;">
+            <span class="cut8" style="position:relative; width:78px; height:104px; background:var(--paper); box-shadow:0 0 0 1.5px var(--dust);
+                  border-bottom:5px solid var(--ore); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:9px;">
+              <span style="position:absolute; top:14px;"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true" style="display:block"><g opacity="1"><polygon points="1.44,24.78 4.43,16.1 11.02,14.31 14.91,20.59 12.21,25.38" fill="#8d949c"/><line x1="4.43" y1="16.1" x2="8.92" y2="25.08" stroke="#000000" opacity="0.28" stroke-width="1.05" stroke-linecap="round"/><polygon points="19.98,19.48 22.43,12.37 27.83,10.9 31.02,16.05 28.81,19.97" fill="#8d949c"/><line x1="22.43" y1="12.37" x2="26.11" y2="19.73" stroke="#000000" opacity="0.28" stroke-width="1.05" stroke-linecap="round"/></g></svg></span><b class="d" style="font-size:22px;">1</b></span>
+            <div style="display:flex; flex-direction:column; justify-content:center; gap:7px;">
+              <span class="act cut8" style="width:38px; height:34px; padding:0; justify-content:center; box-shadow:0 0 0 1.5px var(--dust); font-size:16px;">+</span>
+              <span class="act cut8" style="width:38px; height:34px; padding:0; justify-content:center; box-shadow:0 0 0 1.5px var(--dust); font-size:16px;">−</span>
+            </div>
+          </div>
+
+          <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--dust); font-size:13px; color:var(--moss); line-height:1.5;">
+            The bank would charge you four wood for that ore. Two is the most anyone here has ever paid you.
+          </div>
+        </div>
+
+        <div style="margin-top:16px; padding:12px 14px; background:#e7ebe2;">
+          <p style="margin:0; font-size:13px; line-height:1.55;">
+            Bots judge an offer one move deep with their own evaluator — they never search over what you might
+            do with it. Read their answers as prices, not as opinions about your plan.
+          </p>
+        </div>
+      </section>
+
+      <!-- the three answers -->
+      <section style="flex:1; min-width:0; display:flex; flex-direction:column; gap:12px;">
+
+        <div class="cut" style="background:var(--paper); padding:14px 16px; box-shadow:0 0 0 2.5px var(--pine);">
+          <div class="row" style="gap:12px;">
+            <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" style="display:block"><polygon points="13,0 24.26,6.5 24.26,19.5 13,26 1.74,19.5 1.74,6.5" fill="#e07b2a" stroke="#12211f" stroke-width="1.4"/></svg>
+            <span style="flex:1;">
+              <span class="row" style="justify-content:space-between;">
+                <b style="font-size:16px;">Orange takes it</b>
+                <span class="d" style="font-size:15px; color:var(--wood);">accepted</span></span>
+              <span style="display:block; font-size:13px; color:var(--moss); margin-top:4px; line-height:1.45;">
+                Sitting on five ore and short of wood for a road. This is the trade it wanted.</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="cut" style="background:var(--paper); padding:14px 16px;">
+          <div class="row" style="gap:12px;">
+            <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" style="display:block"><polygon points="13,0 24.26,6.5 24.26,19.5 13,26 1.74,19.5 1.74,6.5" fill="#c0392b" stroke="#12211f" stroke-width="1.4"/></svg>
+            <span style="flex:1;">
+              <span class="row" style="justify-content:space-between;">
+                <b style="font-size:16px;">Red says no</b>
+                <span style="font-size:14px; color:var(--moss);">rejected</span></span>
+              <span style="display:block; font-size:13px; color:var(--moss); margin-top:4px; line-height:1.45;">
+                It is one ore from a city of its own. It would want two ore back, or wheat instead.</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="cut" style="background:var(--paper); padding:14px 16px;">
+          <div class="row" style="gap:12px;">
+            <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" style="display:block"><polygon points="13,0 24.26,6.5 24.26,19.5 13,26 1.74,19.5 1.74,6.5" fill="#f2f2ec" stroke="#12211f" stroke-width="1.4"/></svg>
+            <span style="flex:1;">
+              <span class="row" style="justify-content:space-between;">
+                <b style="font-size:16px;">White is thinking</b>
+                <span style="font-size:14px; color:var(--moss);">61 ms so far</span></span>
+              <span style="display:block; margin-top:8px; height:6px; background:var(--dust);">
+                <i style="display:block; height:100%; width:64%; background:var(--wheat);"></i></span>
+            </span>
+          </div>
+        </div>
+
+        <div style="margin-top:6px; padding:14px 16px; background:#e7ebe2;">
+          <div class="row" style="justify-content:space-between;">
+            <span style="font:600 14px var(--ui);">If you close with Orange</span>
+            <span class="row" style="gap:10px;">
+              <span class="d" style="font-size:20px;">31.4%</span>
+              <span style="font-size:13px; color:var(--wood);">up 1.6 on holding</span></span>
+          </div>
+          <p style="margin:7px 0 0; font-size:13px; color:var(--moss); line-height:1.5;">
+            The ore finishes the city this turn. Waiting for White costs you nothing — nobody can act until you
+            close or cancel.
+          </p>
+        </div>
+
+        <div style="margin-top:18px; display:flex; gap:10px; align-items:center;">
+          <span class="act go cut8" style="height:48px; padding:0 20px; font-size:15px;">Trade with Orange</span>
+          <span class="act cut8" style="height:48px;">Wait for White</span>
+          <span class="act cut8" style="height:48px;">Cancel the offer</span>
+          <span style="flex:1;"></span>
+          <span style="font-size:12.5px; color:var(--moss); line-height:1.4; max-width:210px;">
+            Cancelling burns this exact offer for the rest of the turn.</span>
+        </div>
+      </section>
+
+      <!-- who holds what -->
+      <aside style="width:268px; flex:0 0 268px;">
+        <div style="font:600 13px var(--ui); color:var(--moss); margin-bottom:10px;">What they are holding</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div class="cut8" style="background:var(--paper); padding:10px 12px;">
+            <div class="row" style="justify-content:space-between;">
+              <span class="row" style="gap:8px;"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true" style="display:block"><polygon points="6.5,0 12.13,3.25 12.13,9.75 6.5,13 0.87,9.75 0.87,3.25" fill="#c0392b"/></svg><b style="font-size:14px;">Red</b></span>
+              <span class="d" style="font-size:16px;">4</span></div>
+            <div style="font-size:12.5px; color:var(--moss); margin-top:4px;">cards, all of them seen by the search</div>
+          </div>
+          <div class="cut8" style="background:var(--paper); padding:10px 12px;">
+            <div class="row" style="justify-content:space-between;">
+              <span class="row" style="gap:8px;"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true" style="display:block"><polygon points="6.5,0 12.13,3.25 12.13,9.75 6.5,13 0.87,9.75 0.87,3.25" fill="#e07b2a"/></svg><b style="font-size:14px;">Orange</b></span>
+              <span class="d" style="font-size:16px;">3</span></div>
+            <div style="font-size:12.5px; color:var(--moss); margin-top:4px;">two of them ore</div>
+          </div>
+          <div class="cut8" style="background:var(--paper); padding:10px 12px;">
+            <div class="row" style="justify-content:space-between;">
+              <span class="row" style="gap:8px;"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true" style="display:block"><polygon points="6.5,0 12.13,3.25 12.13,9.75 6.5,13 0.87,9.75 0.87,3.25" fill="#c9d0c2"/></svg><b style="font-size:14px;">White</b></span>
+              <span class="d" style="font-size:16px;">6</span></div>
+            <div style="font-size:12.5px; color:var(--moss); margin-top:4px;">one card off a discard</div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px; font-size:12.5px; color:var(--moss); line-height:1.5;">
+          The engine is fully observable, as Catanatron is: the bots can see your hand, and this panel shows you
+          theirs. It is a sparring partner, not a bluffing one.
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

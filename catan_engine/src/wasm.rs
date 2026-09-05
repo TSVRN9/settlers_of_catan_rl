@@ -172,6 +172,19 @@ impl Engine {
         Ok(json!([o.0, o.1]).to_string())
     }
 
+    /// The view after `action`, without touching the live game. Used by the futures view to
+    /// show several hypothetical boards at once.
+    // ponytail: forced outcome is always None (deterministic actions only, e.g. builds/trades);
+    // pass Some((d1,d2)) through here if a roll-conditioned preview is ever wanted.
+    pub fn preview(&self, action: &str) -> Result<String, JsValue> {
+        let v: Value = serde_json::from_str(action).map_err(err)?;
+        let a = canon_from_json(&v).map_err(err)?;
+        let mut state = self.state.clone();
+        state.apply(a, None).map_err(err)?;
+        let shadow = Engine { state, seed: self.seed, n: self.n, log: vec![], net: self.net.clone(), bot_rng: self.bot_rng };
+        Ok(shadow.view())
+    }
+
     /// Ask a bot for the current decision without applying it.
     /// bot: "random" | "heuristic" (AlphaBeta's evaluator, exact expectimax) | "vnet" (value-net search).
     /// Returns {action, value, root: [[action, ev], ...], leaves}.

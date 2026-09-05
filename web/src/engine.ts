@@ -38,18 +38,38 @@ export type Request =
   | { op: "decide"; bot: BotKind; depth: number }
   | { op: "evaluateAll" }
   | { op: "attribution"; seat: number }
-  | { op: "run"; seed: number; bots: BotSpec[]; maxSteps: number };
+  | { op: "preview"; action: Canon }
+  | { op: "run"; seed: number; bots: BotSpec[]; maxSteps: number }
+  | { op: "record" }
+  | { op: "replay"; record: string; steps: number }
+  | { op: "analyze"; record: string }
+  | { op: "abort" };
 
 export interface GameState { map: MapView; view: View; legal: Canon[] }
 export interface RunResult { map: MapView; frames: Frame[]; record: GameRecord }
 
 type Msg = { id: number } & ({ ok: true; result: unknown } | { ok: false; error: string } | { progress: Frame[] });
 
-/** Promise client over the worker; one in-flight game per worker. The worker is created lazily and
- * recreated after terminate(), so React StrictMode's mount/unmount/mount cycle cannot strand it. */
+/** Promise client over the worker: one wasm Engine per client, one client per worker.
+ *
+ *  Three things it does that the previous version did not, each fixing something real:
+ *
+ *  - **It serialises.** `new` awaits a wasm boot and two fetches, so a request posted
+ *    straight after `newGame` used to be handled first and throw "no game".
+ *  - **It stamps an epoch.** Anything in flight when a new game starts is answered with
+ *    "stale" rather than against the wrong engine, which is what the callers' hand-rolled
+ *    generation counters and re-entry refs were for.
+ *  - **It can abort.** `run` is a long loop in the worker; without this, leaving a replay
+ *    left it grinding and posting to nobody.
+ *
+ *  There is deliberately no module-level instance. The live game and any review of it hold
+ *  their own client, because the worker frees its engine on every `new` — one shared client
+ *  is how Play and Watch used to destroy each other. */
 export class EngineClient {
   private worker: Worker | null = null;
   private next = 1;
+  private epoch = 0;
+  private tail: Promise<unknown> = Promise.resolve();
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; onProgress?: (f: Frame[]) => void }>();
 
   private ensure(): Worker {
@@ -61,38 +81,64 @@ export class EngineClient {
       if (!p) return;
       if ("progress" in m) { p.onProgress?.(m.progress); return; }
       this.pending.delete(m.id);
-      if (m.ok) p.resolve(m.result); else p.reject(new Error(m.error));
+      if (m.ok) p.resolve(m.result);
+      else p.reject(new Error(m.error));
     };
     w.onerror = (e) => {
-      console.error("engine worker failed", e.message ?? e);
-      for (const [id, p] of this.pending) { this.pending.delete(id); p.reject(new Error(`engine worker failed: ${e.message ?? "see console"}`)); }
+      for (const p of this.pending.values()) p.reject(new Error(e.message || "worker error"));
+      this.pending.clear();
     };
     this.worker = w;
     return w;
   }
 
-  private call<T>(req: Request, onProgress?: (f: Frame[]) => void): Promise<T> {
+  private post<T>(req: Request, onProgress?: (f: Frame[]) => void): Promise<T> {
+    const w = this.ensure();
     const id = this.next++;
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress });
-      this.ensure().postMessage({ id, ...req });
+      w.postMessage({ id, epoch: this.epoch, ...req });
     });
   }
 
-  newGame(seed: number, n = 4) { return this.call<GameState>({ op: "new", seed, n }); }
+  /** Every request waits for the one before it. A rejection does not poison the chain. */
+  private call<T>(req: Request, onProgress?: (f: Frame[]) => void): Promise<T> {
+    const run = this.tail.then(() => this.post<T>(req, onProgress));
+    this.tail = run.catch(() => undefined);
+    return run;
+  }
+
+  newGame(seed: number, n = 4) { this.epoch++; return this.call<GameState>({ op: "new", seed, n }); }
   apply(action: Canon) { return this.call<{ outcome: [number, number]; view: View; legal: Canon[] }>({ op: "apply", action }); }
   decide(bot: BotKind, depth: number) { return this.call<Decision>({ op: "decide", bot, depth }); }
   evaluateAll() { return this.call<Evaluation[]>({ op: "evaluateAll" }); }
   attribution(seat: number) { return this.call<Attribution[]>({ op: "attribution", seat }); }
+  /** The view after `action`, without touching the live game — for showing several hypotheticals at once. */
+  preview(action: Canon) { return this.call<View>({ op: "preview", action }); }
+  /** The live game's log, so a review client can replay it without touching this engine. */
+  record() { return this.call<string>({ op: "record" }); }
+  /** Rebuild a game from a record at a given step. Reloads the net: Engine::replay does not. */
+  replay(record: string, steps: number) { this.epoch++; return this.call<GameState>({ op: "replay", record, steps }); }
+  /** Walks a record forward once, capturing every step's view and evals — the whole-game
+   *  curve review scrubs. Never calls `decide()`; that's fetched per step, on demand. */
+  analyze(record: string, onProgress?: (f: Frame[]) => void) {
+    this.epoch++;
+    return this.call<{ map: MapView; frames: Frame[] }>({ op: "analyze", record }, onProgress);
+  }
   run(seed: number, bots: BotSpec[], onProgress: (f: Frame[]) => void, maxSteps = 3000) {
+    this.epoch++;
     return this.call<RunResult>({ op: "run", seed, bots, maxSteps }, onProgress);
   }
+  /** Out of band, ahead of the queue: `run` is polling for exactly this. */
+  abort() { if (this.worker) return this.post<null>({ op: "abort" }); return Promise.resolve(null); }
+
   terminate() {
     this.worker?.terminate();
     this.worker = null;
-    for (const [id, p] of this.pending) { this.pending.delete(id); p.reject(new Error("engine client terminated")); }
+    this.pending.clear();
+    this.tail = Promise.resolve();
   }
 }
 
-/** One worker for the whole app; pages share it (only one game is live at a time). */
-export const engine = new EngineClient();
+/** A rejected request from a game that no longer exists. Callers ignore these. */
+export const isStale = (e: unknown) => e instanceof Error && e.message === "stale";

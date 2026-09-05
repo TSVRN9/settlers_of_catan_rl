@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif;
+         --ease: cubic-bezier(.2,.8,.2,1); --t-feel:120ms; --t-panel:260ms; --t-board:420ms; }
+    .L, .L * { box-sizing: border-box; }
+    .L a { color:#2f6a57; } .L a:hover { color:#12211f; }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .cap { font-size:13px; color:var(--moss); line-height:1.5; }
+    /* The corner cut is the board's signature. Every panel and every control carries it. */
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+    .L .pill { display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+               background:var(--pine); color:var(--chalk); font:700 12.5px var(--ui);
+               clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 14px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap;
+              border:0; cursor:pointer; transition: background var(--t-feel) var(--ease);
+              clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .act:hover { background:#e6e9df; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .act.go:hover { background:#1d322c; }
+    .L .key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px;
+              background:var(--paper); color:var(--pine); font:600 12px var(--ui); box-shadow: inset 0 -2px 0 var(--dust); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); white-space:nowrap; }
+    .L .dec { position: relative; display: inline-block; }
+    .L .dec > .scr { position:absolute; left:0; top:0; right:0; bottom:0; opacity:0; pointer-events:none;
+                     overflow:hidden; white-space:nowrap; color:var(--moss); }
+    @keyframes wipe { from { opacity:1; clip-path: inset(0 0 0 0); }
+                      99%  { opacity:1; clip-path: inset(0 0 0 100%); }
+                      to   { opacity:0; clip-path: inset(0 0 0 100%); } }
+    .L .card { background:var(--paper); padding:16px 17px; }
+    .L .hd { font:600 12.5px var(--ui); }
+    .L .k { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px;
+            padding:0 7px; background:var(--paper); color:var(--pine); font:600 12px var(--ui);
+            box-shadow: inset 0 -2px 0 var(--dust); }
+    .L .mono { font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .L .verdict { display:inline-block; font:700 10.5px var(--ui); padding:4px 8px; letter-spacing:.03em; }
+    .L table { border-collapse:collapse; width:100%; }
+    .L th { text-align:left; font:600 11px var(--ui); color:var(--moss); padding:0 0 7px; }
+    .L td { padding:8px 0; border-top:1px solid var(--dust); font-size:12.5px; vertical-align:top; }
+    @media (prefers-reduced-motion: reduce) {
+      .L .scr { animation: none !important; }
+      .L .board, .L .panel, .L .curtain, .L .tl, .L .tk, .L .pc { transition: none !important; animation: none !important; }
+    }
+  </style>
+</helmet>
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+   font:400 14px var(--ui); position:relative; overflow:clip;">
+    <div style="position:absolute; inset:30px 34px;">
+      <div style="display:flex; gap:40px; align-items:flex-start;">
+        <div style="width:300px; flex:0 0 300px;">
+          <div class="d" style="font-size:23px; line-height:1.15;">Three ways this could<br>have been routed</div>
+        </div>
+        <div class="cap" style="flex:1; min-width:0; font-size:14px; column-count:2; column-gap:40px;">
+          The six views are angles on one game, so the question is not which page you are on but how far you have
+          walked from playing it. A tab bar answers that badly: it makes six peers out of things that are not
+          peers, and switching one takes the game down with it. These three survive being asked what the copy
+          already written on the screens implies.
+        </div>
+      </div>
+      <div style="position:absolute; left:0; right:0; top:132px; bottom:126px; display:flex; gap:22px;">
+        
+        <div class="card cut" style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px;">
+          <div style="display:flex; align-items:baseline; gap:10px;">
+            <span class="d" style="font-size:19px;">Point at it</span>
+            <span class="verdict" style="margin-left:auto; background:#e8ded4;">NOT ON ITS OWN</span>
+          </div>
+          <svg viewBox="0 0 300 150" width="300" height="150" aria-hidden="true">
+      <rect x="0" y="0" width="300" height="150" fill="#f7f8f4" stroke="#c9d0c2"/>
+      <g transform="translate(150,78)"><polygon points="0.00,-8.36 7.24,-4.18 7.24,4.18 0.00,8.36 -7.24,4.18 -7.24,-4.18" fill="#bc6242"/><polygon points="14.48,-8.36 21.72,-4.18 21.72,4.18 14.48,8.36 7.24,4.18 7.24,-4.18" fill="#a9c774"/><polygon points="7.24,4.18 14.48,8.36 14.48,16.72 7.24,20.90 -0.00,16.72 -0.00,8.36" fill="#e2ae3f"/><polygon points="-7.24,4.18 0.00,8.36 0.00,16.72 -7.24,20.90 -14.48,16.72 -14.48,8.36" fill="#a9c774"/><polygon points="-14.48,-8.36 -7.24,-4.18 -7.24,4.18 -14.48,8.36 -21.72,4.18 -21.72,-4.18" fill="#5f8a54"/><polygon points="-7.24,-20.90 0.00,-16.72 0.00,-8.36 -7.24,-4.18 -14.48,-8.36 -14.48,-16.72" fill="#8d949c"/><polygon points="7.24,-20.90 14.48,-16.72 14.48,-8.36 7.24,-4.18 -0.00,-8.36 -0.00,-16.72" fill="#bc6242"/></g>
+      <circle cx="150" cy="60" r="13" fill="none" stroke="#e2ae3f" stroke-width="2"/>
+      <path d="M150 47 L150 24" stroke="#4a6659" stroke-width="1.2" stroke-dasharray="3 3"/>
+      <text x="150" y="18" text-anchor="middle" font-size="10" fill="#4a6659" font-family="Chivo,Arial">the thing answers</text></svg>
+          <div style="font-size:13px; line-height:1.5;">Nothing is a menu. Every view opens from the object it is about, and there is no chrome at all — you ask a question of a corner, a seat, a number.</div>
+          <div>
+            <div class="hd">Table to a past decision</div>
+            <div class="cap" style="margin-top:4px; font-size:12.5px;">Click the corner, then the step you want inside what opens.</div>
+          </div>
+          <div>
+            <div class="hd">What it buys</div>
+            <div class="cap" style="margin-top:5px; font-size:12.5px;">— Nothing to learn if you already know what you want.</div><div class="cap" style="margin-top:5px; font-size:12.5px;">— Nothing on screen you did not ask for.</div>
+          </div>
+          <div>
+            <div class="hd">What it costs</div>
+            <div class="cap" style="margin-top:5px; font-size:12.5px; color:#8a5a44;">— A first game has no idea any of it is there.</div><div class="cap" style="margin-top:5px; font-size:12.5px; color:#8a5a44;">— The way back is whatever you remember pressing.</div>
+          </div>
+        </div>
+        <div class="card cut" style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px;">
+          <div style="display:flex; align-items:baseline; gap:10px;">
+            <span class="d" style="font-size:19px;">A spine of places</span>
+            <span class="verdict" style="margin-left:auto; background:#dfe9e0;">THIS IS THE ONE</span>
+          </div>
+          <svg viewBox="0 0 300 150" width="300" height="150" aria-hidden="true">
+      <rect x="0" y="0" width="300" height="150" fill="#f7f8f4" stroke="#c9d0c2"/>
+      <rect x="0" y="0" width="300" height="17" fill="#eef0e9"/><line x1="0" y1="17" x2="300" y2="17" stroke="#c9d0c2"/>
+      <text x="9" y="12" font-size="9" fill="#4a6659" font-family="Chivo,Arial">Table</text>
+      <text x="38" y="12" font-size="9" fill="#c9d0c2" font-family="Chivo,Arial">›</text>
+      <text x="47" y="12" font-size="9" font-weight="700" fill="#12211f" font-family="Chivo,Arial">Futures</text>
+      <circle cx="258" cy="8.5" r="3" fill="#2f6fd0"/>
+      <text x="266" y="12" font-size="9" fill="#12211f" font-family="Chivo,Arial">turn</text>
+      <g transform="translate(150,88)"><polygon points="0.00,-8.36 7.24,-4.18 7.24,4.18 0.00,8.36 -7.24,4.18 -7.24,-4.18" fill="#bc6242"/><polygon points="14.48,-8.36 21.72,-4.18 21.72,4.18 14.48,8.36 7.24,4.18 7.24,-4.18" fill="#a9c774"/><polygon points="7.24,4.18 14.48,8.36 14.48,16.72 7.24,20.90 -0.00,16.72 -0.00,8.36" fill="#e2ae3f"/><polygon points="-7.24,4.18 0.00,8.36 0.00,16.72 -7.24,20.90 -14.48,16.72 -14.48,8.36" fill="#a9c774"/><polygon points="-14.48,-8.36 -7.24,-4.18 -7.24,4.18 -14.48,8.36 -21.72,4.18 -21.72,-4.18" fill="#5f8a54"/><polygon points="-7.24,-20.90 0.00,-16.72 0.00,-8.36 -7.24,-4.18 -14.48,-8.36 -14.48,-16.72" fill="#8d949c"/><polygon points="7.24,-20.90 14.48,-16.72 14.48,-8.36 7.24,-4.18 -0.00,-8.36 -0.00,-16.72" fill="#bc6242"/></g></svg>
+          <div style="font-size:13px; line-height:1.5;">The doors stay in the content, exactly as above, and one line at the top says where you are, how you got there, and what the game wants. Everything else is contextual.</div>
+          <div>
+            <div class="hd">Table to a past decision</div>
+            <div class="cap" style="margin-top:4px; font-size:12.5px;">Click the number, and the crumb behind you is the way back.</div>
+          </div>
+          <div>
+            <div class="hd">What it buys</div>
+            <div class="cap" style="margin-top:5px; font-size:12.5px;">— Discoverable without a toolbar: the path teaches the shape.</div><div class="cap" style="margin-top:5px; font-size:12.5px;">— An interrupt has somewhere to appear from any depth.</div><div class="cap" style="margin-top:5px; font-size:12.5px;">— 28px, and it never grows.</div>
+          </div>
+          <div>
+            <div class="hd">What it costs</div>
+            <div class="cap" style="margin-top:5px; font-size:12.5px; color:#8a5a44;">— One permanent line is one line of chrome.</div>
+          </div>
+        </div>
+        <div class="card cut" style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px;">
+          <div style="display:flex; align-items:baseline; gap:10px;">
+            <span class="d" style="font-size:19px;">One continuous zoom</span>
+            <span class="verdict" style="margin-left:auto; background:#e8ded4;">SHELVED, WORTH RETURNING TO</span>
+          </div>
+          <svg viewBox="0 0 300 150" width="300" height="150" aria-hidden="true">
+      <rect x="0" y="0" width="300" height="150" fill="#f7f8f4" stroke="#c9d0c2"/>
+      <g transform="translate(58,78) scale(1)">
+        <polygon points="0.00,-8.36 7.24,-4.18 7.24,4.18 0.00,8.36 -7.24,4.18 -7.24,-4.18" fill="#bc6242" opacity="1"/><polygon points="14.48,-8.36 21.72,-4.18 21.72,4.18 14.48,8.36 7.24,4.18 7.24,-4.18" fill="#a9c774" opacity="1"/><polygon points="7.24,4.18 14.48,8.36 14.48,16.72 7.24,20.90 -0.00,16.72 -0.00,8.36" fill="#e2ae3f" opacity="1"/><polygon points="-7.24,4.18 0.00,8.36 0.00,16.72 -7.24,20.90 -14.48,16.72 -14.48,8.36" fill="#a9c774" opacity="1"/><polygon points="-14.48,-8.36 -7.24,-4.18 -7.24,4.18 -14.48,8.36 -21.72,4.18 -21.72,-4.18" fill="#5f8a54" opacity="1"/><polygon points="-7.24,-20.90 0.00,-16.72 0.00,-8.36 -7.24,-4.18 -14.48,-8.36 -14.48,-16.72" fill="#8d949c" opacity="1"/><polygon points="7.24,-20.90 14.48,-16.72 14.48,-8.36 7.24,-4.18 -0.00,-8.36 -0.00,-16.72" fill="#bc6242" opacity="1"/></g><g transform="translate(154,78) scale(0.7)">
+        <polygon points="0.00,-8.36 7.24,-4.18 7.24,4.18 0.00,8.36 -7.24,4.18 -7.24,-4.18" fill="#bc6242" opacity="0.72"/><polygon points="14.48,-8.36 21.72,-4.18 21.72,4.18 14.48,8.36 7.24,4.18 7.24,-4.18" fill="#a9c774" opacity="0.72"/><polygon points="7.24,4.18 14.48,8.36 14.48,16.72 7.24,20.90 -0.00,16.72 -0.00,8.36" fill="#e2ae3f" opacity="0.72"/><polygon points="-7.24,4.18 0.00,8.36 0.00,16.72 -7.24,20.90 -14.48,16.72 -14.48,8.36" fill="#a9c774" opacity="0.72"/><polygon points="-14.48,-8.36 -7.24,-4.18 -7.24,4.18 -14.48,8.36 -21.72,4.18 -21.72,-4.18" fill="#5f8a54" opacity="0.72"/><polygon points="-7.24,-20.90 0.00,-16.72 0.00,-8.36 -7.24,-4.18 -14.48,-8.36 -14.48,-16.72" fill="#8d949c" opacity="0.72"/><polygon points="7.24,-20.90 14.48,-16.72 14.48,-8.36 7.24,-4.18 -0.00,-8.36 -0.00,-16.72" fill="#bc6242" opacity="0.72"/></g><g transform="translate(250,78) scale(0.4)">
+        <polygon points="0.00,-8.36 7.24,-4.18 7.24,4.18 0.00,8.36 -7.24,4.18 -7.24,-4.18" fill="#bc6242" opacity="0.43999999999999995"/><polygon points="14.48,-8.36 21.72,-4.18 21.72,4.18 14.48,8.36 7.24,4.18 7.24,-4.18" fill="#a9c774" opacity="0.43999999999999995"/><polygon points="7.24,4.18 14.48,8.36 14.48,16.72 7.24,20.90 -0.00,16.72 -0.00,8.36" fill="#e2ae3f" opacity="0.43999999999999995"/><polygon points="-7.24,4.18 0.00,8.36 0.00,16.72 -7.24,20.90 -14.48,16.72 -14.48,8.36" fill="#a9c774" opacity="0.43999999999999995"/><polygon points="-14.48,-8.36 -7.24,-4.18 -7.24,4.18 -14.48,8.36 -21.72,4.18 -21.72,-4.18" fill="#5f8a54" opacity="0.43999999999999995"/><polygon points="-7.24,-20.90 0.00,-16.72 0.00,-8.36 -7.24,-4.18 -14.48,-8.36 -14.48,-16.72" fill="#8d949c" opacity="0.43999999999999995"/><polygon points="7.24,-20.90 14.48,-16.72 14.48,-8.36 7.24,-4.18 -0.00,-8.36 -0.00,-16.72" fill="#bc6242" opacity="0.43999999999999995"/></g>
+      <path d="M20 132 L280 132" stroke="#4a6659" stroke-width="1.2" marker-end="url(#zr)"/>
+      <defs><marker id="zr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#4a6659"/></marker></defs>
+      <text x="20" y="126" font-size="9" fill="#4a6659" font-family="Chivo,Arial">this turn</text>
+      <text x="238" y="126" font-size="9" fill="#4a6659" font-family="Chivo,Arial">whole game</text></svg>
+          <div style="font-size:13px; line-height:1.5;">Scope becomes a single axis. Zoom out from your turn to the whole game; zoom into a turn to read a decision. Navigation stops existing — there is only how far out you are standing.</div>
+          <div>
+            <div class="hd">Table to a past decision</div>
+            <div class="cap" style="margin-top:4px; font-size:12.5px;">Zoom out until the game is a strip, then zoom into step 214.</div>
+          </div>
+          <div>
+            <div class="hd">What it buys</div>
+            <div class="cap" style="margin-top:5px; font-size:12.5px;">— Beautiful, and honest about what these views are: distances.</div><div class="cap" style="margin-top:5px; font-size:12.5px;">— One gesture instead of seven doors.</div>
+          </div>
+          <div>
+            <div class="hd">What it costs</div>
+            <div class="cap" style="margin-top:5px; font-size:12.5px; color:#8a5a44;">— Needs new chrome on every view to say where the zoom is.</div><div class="cap" style="margin-top:5px; font-size:12.5px; color:#8a5a44;">— Coach and Console are not distances, so they fall outside it.</div><div class="cap" style="margin-top:5px; font-size:12.5px; color:#8a5a44;">— Reopens the character the replication just restored.</div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute; left:0; right:0; bottom:0; display:flex; gap:40px; align-items:flex-start;">
+        <div style="width:300px; flex:0 0 300px; font:600 13px var(--ui);">Why the middle one</div>
+        <div class="cap" style="flex:1; min-width:0; font-size:13px; column-count:2; column-gap:40px;">
+          It is the first model plus a single line. Every door it uses was already written into the screens —
+          “Show me the others”, “All 14 moves”, “What Red considered”, “drag anywhere on the curve” — so it adds
+          no vocabulary, only a way of knowing where you stand and somewhere for the game to reach you from.
+          The third is the more interesting idea and the wrong place to spend the character: it would put new
+          chrome on all six screens to explain a gesture, days after taking a nav bar off them.
+        </div>
+      </div>
+    </div></div>
+</x-dc>
+
+</body>
+</html>

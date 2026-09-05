@@ -1,20 +1,188 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
+@import "@fontsource-variable/chivo";
+@import "@fontsource/syne/600.css";
+@import "@fontsource/syne/700.css";
 
+/* The palette, the type and the motion. One light theme for now; a dark one is a second
+   @theme block later, which is the whole reason nothing below names a colour directly.
+   These values are the design canvas's — see web/design/board.mjs, which is the single
+   definition of the board, and docs/UI-REWRITE.md for what they are for. */
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Chivo Variable", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Syne", "Trebuchet MS", sans-serif;
+
+  --color-chalk: #eef0e9;   /* the ground */
+  --color-paper: #f7f8f4;   /* a panel on it */
+  --color-pine: #12211f;    /* ink */
+  --color-moss: #4a6659;    /* quiet ink */
+  --color-dust: #c9d0c2;    /* rules, tracks, and a generic port */
+  --color-grid: #dde2d6;    /* the lattice behind the island */
+
+  --color-wood: #5f8a54;
+  --color-brick: #bc6242;
+  --color-sheep: #a9c774;
+  --color-wheat: #e2ae3f;
+  --color-ore: #8d949c;
+  --color-desert: #e3dcc4;
+
+  /* two working tints: a row you are looking at, and something that went wrong */
+  --color-tint: #e9ece3;
+  --color-warn: #a34a34;
+
+  /* A port is the tile colour lightened a fifth toward the ground, which is what takes
+     pine ink past 4.5:1 on wood (4.16 → 5.53) and brick (3.93 → 5.20). */
+  --color-port-wood: #7c9e72;
+  --color-port-brick: #c67e63;
+  --color-port-sheep: #b7cf8b;
+  --color-port-wheat: #e4bb61;
+  --color-port-ore: #a0a6ab;
+
+  /* Seat four is a warm grey, never white: white vanished on chalk, sheep and desert. */
+  --color-seat-red: #c0392b;
+  --color-seat-blue: #2f6fd0;
+  --color-seat-orange: #e07b2a;
+  --color-seat-grey: #b9bfb2;
+  --color-seat-red-hi: #ce655a;
+  --color-seat-blue-hi: #5d8fda;
+  --color-seat-orange-hi: #e79859;
+  --color-seat-grey-hi: #d4d9cd;
+  --color-seat-red-lo: #962c22;
+  --color-seat-blue-lo: #2557a2;
+  --color-seat-orange-lo: #af6021;
+  --color-seat-grey-lo: #8d9387;
+
+  --ease-board: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-:root { color-scheme: light dark; }
-html, body, #root { height: 100%; }
-body { margin: 0; font-family: var(--font-sans); }
+/* Timings are plain custom properties rather than @theme entries: they are read by name in
+   hand-rolled CSS and never as a utility class. */
+:root {
+  --t-board: 420ms;   /* the board travelling between two views */
+  --t-panel: 260ms;   /* a panel arriving beside it */
+  --t-feel: 120ms;    /* a control answering a press */
+  --t-bot: 350ms;     /* how long a bot's move is held so it can be watched */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 
-/* zag.js state attributes */
-[data-part="trigger"][data-selected] { @apply text-amber-700 dark:text-amber-300 border-amber-500; }
-[data-part="thumb"] { @apply outline-none; }
-[data-part="thumb"]:focus-visible { @apply ring-2 ring-amber-500; }
-.btn { @apply inline-flex items-center gap-1 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:hover:bg-stone-700; }
-.btn-primary { @apply border-amber-600 bg-amber-500 text-stone-950 hover:bg-amber-400 dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400; }
-.card { @apply rounded-lg border border-stone-200 bg-white p-3 shadow-sm dark:border-stone-800 dark:bg-stone-900; }
-.label { @apply text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400; }
-select, input[type=number] { @apply rounded-md border border-stone-300 bg-white px-2 py-1 text-sm dark:border-stone-700 dark:bg-stone-800; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-chalk);
+  color: var(--color-pine);
+  font: 400 14px var(--font-sans);
+}
+.num { font-variant-numeric: tabular-nums; }
+.d { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; }
+.cap { font-size: 13px; color: var(--color-moss); line-height: 1.5; }
+
+/* The corner cut is the board's signature; every panel and control carries it. */
+.cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+.cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+
+.act {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 38px; padding: 0 14px; border: 0; cursor: pointer; white-space: nowrap;
+  background: var(--color-paper); color: var(--color-pine);
+  font: 600 13.5px var(--font-sans);
+  transition: background var(--t-feel) var(--ease);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+.act:hover { background: #e6e9df; }
+.act:disabled { opacity: 0.42; cursor: default; }
+.act.go { background: var(--color-pine); color: var(--color-chalk); }
+.act.go:hover { background: #1d322c; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px;
+  background: var(--color-pine); color: var(--color-chalk); font: 700 12.5px var(--font-sans);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+
+.k {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  background: var(--color-paper); color: var(--color-pine); font: 600 12px var(--font-sans);
+  box-shadow: inset 0 -2px 0 var(--color-dust);
+}
+
+/* ── the spine: the only permanent chrome ──────────────────────────────────────────── */
+.spine {
+  flex: 0 0 28px; display: flex; align-items: center; padding: 0 26px;
+  background: var(--color-chalk); border-bottom: 1px solid var(--color-dust);
+  font: 500 12.5px var(--font-sans);
+}
+.spine .crumb { color: var(--color-moss); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.spine .crumb:hover { color: var(--color-pine); }
+.spine .crumb.now { color: var(--color-pine); font-weight: 600; cursor: default; }
+.spine .sep { color: var(--color-dust); padding: 0 9px; }
+.spine .step {
+  margin-left: 20px; padding-left: 20px; border-left: 1px solid var(--color-dust);
+  color: var(--color-moss); cursor: pointer; background: none; border-top: 0; border-right: 0;
+  border-bottom: 0; font: inherit;
+}
+.spine .step:hover { color: var(--color-pine); }
+.spine .warn { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; color: var(--color-pine); }
+.spine .warn > i { width: 7px; height: 7px; border-radius: 50%; }
+.spine .warn.loud {
+  background: var(--color-pine); color: var(--color-chalk); height: 20px; padding: 0 9px;
+  border: 0; cursor: pointer; font: inherit;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+
+/* ── the stage: one board, moved by the view ───────────────────────────────────────── */
+.stage { position: relative; flex: 1; min-height: 0; container-type: size; overflow: clip; }
+
+/* Each view drops an empty anchor; layout works out where the board goes, and BoardLayer
+   flies to it. min(cqw, cqh) reproduces the artboard exactly at 1440x872 and shrinks to
+   fit at any other aspect instead of distorting. */
+[data-anchor] {
+  position: absolute; transform: translate(-50%, -50%);
+  aspect-ratio: 511.56 / 488.4; pointer-events: none;
+}
+[data-anchor="table"]   { left: 45.694%; top: 51.835%; width: min(39.861cqw, 65.826cqh); }
+[data-anchor="console"] { left: 49.097%; top: 40.940%; width: min(37.083cqw, 61.239cqh); }
+[data-anchor="coach"]   { left: 68.056%; top: 48.280%; width: min(39.306cqw, 64.908cqh); }
+[data-anchor="move"]    { left: 24.306%; top: 55.631%; width: min(43.611cqw, 72.018cqh); }
+[data-anchor="game"]    { left: 17.639%; top: 70.940%; width: min(28.194cqw, 46.560cqh); }
+/* Futures parks the live board in the first of six slots; the other five are clones. */
+[data-anchor="futures"] { left: 29.688%; top: 28.234%; width: min(14.375cqw, 23.739cqh); }
+
+/* The ring of readings around the board. 712 / 574 = 1.2404, applied to the table anchor's
+   own width, so it tracks the board at every size without a line of JavaScript. */
+[data-ring] {
+  position: absolute; left: 45.694%; top: 51.835%; transform: translate(-50%, -50%);
+  width: min(49.442cqw, 81.649cqh); aspect-ratio: 1; pointer-events: none; display: block;
+}
+
+#board-layer { position: absolute; will-change: transform; }
+/* Every Board instance carries this, including the futures view's static clones — the live
+   board additionally sits inside #board-layer, whose own rule below is redundant but harmless. */
+.board-svg { display: block; width: 100%; height: auto; overflow: visible; }
+#board-layer svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* ── the deal ──────────────────────────────────────────────────────────────────────── */
+/* Tokens animate the `scale` individual property, never `transform`: individual transform
+   properties apply BEFORE the transform attribute, so each pops about its own tile rather
+   than the board's origin. */
+.tl, .tk, .gl, .pc, .pt { transform-box: fill-box; transform-origin: center; }
+@keyframes dealIn  { from { opacity: 0; scale: 0.9; } to { opacity: 1; scale: 1; } }
+@keyframes popIn   { from { opacity: 0; scale: 0.5; } to { opacity: 1; scale: 1; } }
+@keyframes glyphIn { from { opacity: 0; scale: 0.9; } to { opacity: 0.13; scale: 1; } }
+.dealing .tl { animation: dealIn .55s var(--ease) both;  animation-delay: calc(var(--i) * 32ms); }
+.dealing .gl { animation: glyphIn .55s var(--ease) both; animation-delay: calc(var(--i) * 32ms + 110ms); }
+.dealing .tk { animation: popIn .44s var(--ease) both;   animation-delay: calc(var(--i) * 32ms + 380ms); }
+.dealing .pt { animation: dealIn .45s var(--ease) 1s both; }
+
+/* Below about a thousand pixels the app says so. There is no artboard down there, and
+   inventing one is a worse answer than a straight sentence. */
+.narrow { display: none; }
+@media (max-width: 999px) {
+  .stage { display: none; }
+  .narrow { display: flex; flex: 1; align-items: center; justify-content: center; padding: 30px; }
+}
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  #board-layer, .tl, .tk, .gl, .pc, .pt { transition: none !important; animation: none !important; }
+}

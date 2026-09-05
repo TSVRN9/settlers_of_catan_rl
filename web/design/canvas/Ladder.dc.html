@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif;
+         --ease: cubic-bezier(.2,.8,.2,1); --t-feel:120ms; --t-panel:260ms; --t-board:420ms; }
+    .L, .L * { box-sizing: border-box; }
+    .L a { color:#2f6a57; } .L a:hover { color:#12211f; }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .cap { font-size:13px; color:var(--moss); line-height:1.5; }
+    /* The corner cut is the board's signature. Every panel and every control carries it. */
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+    .L .pill { display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+               background:var(--pine); color:var(--chalk); font:700 12.5px var(--ui);
+               clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 14px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap;
+              border:0; cursor:pointer; transition: background var(--t-feel) var(--ease);
+              clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .act:hover { background:#e6e9df; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .act.go:hover { background:#1d322c; }
+    .L .key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px;
+              background:var(--paper); color:var(--pine); font:600 12px var(--ui); box-shadow: inset 0 -2px 0 var(--dust); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); white-space:nowrap; }
+    .L .dec { position: relative; display: inline-block; }
+    .L .dec > .scr { position:absolute; left:0; top:0; right:0; bottom:0; opacity:0; pointer-events:none;
+                     overflow:hidden; white-space:nowrap; color:var(--moss); }
+    @keyframes wipe { from { opacity:1; clip-path: inset(0 0 0 0); }
+                      99%  { opacity:1; clip-path: inset(0 0 0 100%); }
+                      to   { opacity:0; clip-path: inset(0 0 0 100%); } }
+    .L .stage { position:absolute; inset:0; overflow:clip; }
+    .L .boardpos { position:absolute; left:50%; top:calc(50% - 8px); transform:translate(-50%,-50%); }
+    .L .card { background:var(--paper); padding:16px 17px; }
+    .L .sw { width:12px; height:12px; flex:0 0 12px; }
+    .L .lrow { display:flex; align-items:center; gap:10px; padding:5px 0; }
+    .L .lrow.alt { background:linear-gradient(90deg, rgba(226,174,63,.13), transparent); }
+    .L .lname { width:186px; flex:0 0 186px; font-size:12.5px; }
+    .L .ltrack { flex:1; height:7px; background:var(--dust); }
+    .L .ltrack > i { display:block; height:100%; }
+    .L .lval { width:44px; text-align:right; font-size:12px; }
+    .L .tag { font:700 11px var(--ui); padding:3px 8px; background:#e6e9df; }
+    .L .chipq { display:inline-flex; align-items:center; height:26px; padding:0 10px; background:#e4e8dd;
+                font:500 12px var(--ui); cursor:pointer; }
+    .L .hitme { box-shadow: inset 0 0 0 2px #e2ae3f; }
+    @media (prefers-reduced-motion: reduce) {
+      .L .scr { animation: none !important; }
+      .L .board, .L .panel, .L .curtain, .L .tl, .L .tk, .L .pc { transition: none !important; animation: none !important; }
+    }
+  </style>
+</helmet>
+<div class="L" style="width:1440px; height:900px; background:var(--chalk); color:var(--pine);
+     font:400 14px var(--ui); position:relative; overflow:clip;">
+  <div style="position:absolute; inset:28px 34px;">
+    <div style="display:flex; gap:40px; align-items:flex-start;">
+      <div class="d" style="font-size:29px; line-height:1.1; width:300px; flex:0 0 300px;">Three depths, one board</div>
+      <div class="cap" style="flex:1; min-width:0; font-size:14.5px; column-count:2; column-gap:40px;">
+        The views are not five or six ways to play. They are angles on one game, and what separates them is how far they take you from playing it. A tier is a promise: at tier one you can still click the board, at tier two you have stopped playing and started reading. That is why tier two is never one careless click away.
+      </div>
+    </div>
+
+    <div style="margin-top:26px; display:flex; flex-direction:column; gap:12px;">
+      
+      <div class="card" style="display:flex; gap:22px; align-items:center; padding:14px 16px;">
+        <div style="width:34px; flex:0 0 34px;"><div class="d" style="font-size:26px; color:#12211f;">0</div></div>
+        <div style="width:150px; flex:0 0 150px;">
+          <div style="font:600 14px var(--ui);">The table</div>
+          <div class="cap" style="font-size:12px; margin-top:2px;">always there</div>
+        </div>
+        <svg viewBox="0 0 150 96" width="150" height="96" style="display:block" aria-hidden="true">
+      <rect width="150" height="96" fill="var(--paper)"/>
+      <g transform="translate(75,48) scale(0.3)">
+        <polygon points="0.00,-41.50 35.94,-20.75 35.94,20.75 0.00,41.50 -35.94,20.75 -35.94,-20.75" fill="#bc6242"/><polygon points="76.21,-41.50 112.15,-20.75 112.15,20.75 76.21,41.50 40.27,20.75 40.27,-20.75" fill="#a9c774"/><polygon points="38.10,24.50 74.04,45.25 74.04,86.75 38.10,107.50 2.16,86.75 2.16,45.25" fill="#e2ae3f"/><polygon points="-38.10,24.50 -2.16,45.25 -2.16,86.75 -38.10,107.50 -74.04,86.75 -74.04,45.25" fill="#a9c774"/><polygon points="-76.21,-41.50 -40.27,-20.75 -40.27,20.75 -76.21,41.50 -112.15,20.75 -112.15,-20.75" fill="#5f8a54"/><polygon points="-38.10,-107.50 -2.16,-86.75 -2.16,-45.25 -38.10,-24.50 -74.04,-45.25 -74.04,-86.75" fill="#8d949c"/><polygon points="38.10,-107.50 74.04,-86.75 74.04,-45.25 38.10,-24.50 2.16,-45.25 2.16,-86.75" fill="#bc6242"/><polygon points="152.42,-41.50 188.36,-20.75 188.36,20.75 152.42,41.50 116.48,20.75 116.48,-20.75" fill="#e2ae3f"/><polygon points="114.32,24.50 150.26,45.25 150.26,86.75 114.32,107.50 78.38,86.75 78.38,45.25" fill="#5f8a54"/><polygon points="76.21,90.50 112.15,111.25 112.15,152.75 76.21,173.50 40.27,152.75 40.27,111.25" fill="#e2ae3f"/><polygon points="0.00,90.50 35.94,111.25 35.94,152.75 0.00,173.50 -35.94,152.75 -35.94,111.25" fill="#e3dcc4"/><polygon points="-76.21,90.50 -40.27,111.25 -40.27,152.75 -76.21,173.50 -112.15,152.75 -112.15,111.25" fill="#8d949c"/><polygon points="-114.32,24.50 -78.38,45.25 -78.38,86.75 -114.32,107.50 -150.26,86.75 -150.26,45.25" fill="#5f8a54"/><polygon points="-152.42,-41.50 -116.48,-20.75 -116.48,20.75 -152.42,41.50 -188.36,20.75 -188.36,-20.75" fill="#a9c774"/><polygon points="-114.32,-107.50 -78.38,-86.75 -78.38,-45.25 -114.32,-24.50 -150.26,-45.25 -150.26,-86.75" fill="#e2ae3f"/><polygon points="-76.21,-173.50 -40.27,-152.75 -40.27,-111.25 -76.21,-90.50 -112.15,-111.25 -112.15,-152.75" fill="#5f8a54"/><polygon points="0.00,-173.50 35.94,-152.75 35.94,-111.25 0.00,-90.50 -35.94,-111.25 -35.94,-152.75" fill="#8d949c"/><polygon points="76.21,-173.50 112.15,-152.75 112.15,-111.25 76.21,-90.50 40.27,-111.25 40.27,-152.75" fill="#bc6242"/><polygon points="114.32,-107.50 150.26,-86.75 150.26,-45.25 114.32,-24.50 78.38,-45.25 78.38,-86.75" fill="#a9c774"/></g>
+      </svg>
+        <div style="width:190px; flex:0 0 190px;">
+          <div class="cap" style="font-size:12px;">the board</div>
+          <div style="font:500 12.5px var(--ui); margin-top:2px;">full size, live</div>
+          <div style="font:400 11px ui-monospace,Menlo,monospace; color:var(--moss); margin-top:4px;">scale(1) · centred</div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div class="cap" style="font-size:12px;">what lives here</div>
+          <div style="font-size:13px; margin-top:2px; line-height:1.45;">the seat rail, the coach’s one line, legal spots, the last action, the action bar</div>
+        </div>
+      </div>
+      <div class="card" style="display:flex; gap:22px; align-items:center; padding:14px 16px;">
+        <div style="width:34px; flex:0 0 34px;"><div class="d" style="font-size:26px; color:#4a6659;">1</div></div>
+        <div style="width:150px; flex:0 0 150px;">
+          <div style="font:600 14px var(--ui);">Slide-overs</div>
+          <div class="cap" style="font-size:12px; margin-top:2px;">one control, Esc closes</div>
+        </div>
+        <svg viewBox="0 0 150 96" width="150" height="96" style="display:block" aria-hidden="true">
+      <rect width="150" height="96" fill="var(--paper)"/>
+      <g transform="translate(51.00000000000001,48) scale(0.24)">
+        <polygon points="0.00,-41.50 35.94,-20.75 35.94,20.75 0.00,41.50 -35.94,20.75 -35.94,-20.75" fill="#bc6242"/><polygon points="76.21,-41.50 112.15,-20.75 112.15,20.75 76.21,41.50 40.27,20.75 40.27,-20.75" fill="#a9c774"/><polygon points="38.10,24.50 74.04,45.25 74.04,86.75 38.10,107.50 2.16,86.75 2.16,45.25" fill="#e2ae3f"/><polygon points="-38.10,24.50 -2.16,45.25 -2.16,86.75 -38.10,107.50 -74.04,86.75 -74.04,45.25" fill="#a9c774"/><polygon points="-76.21,-41.50 -40.27,-20.75 -40.27,20.75 -76.21,41.50 -112.15,20.75 -112.15,-20.75" fill="#5f8a54"/><polygon points="-38.10,-107.50 -2.16,-86.75 -2.16,-45.25 -38.10,-24.50 -74.04,-45.25 -74.04,-86.75" fill="#8d949c"/><polygon points="38.10,-107.50 74.04,-86.75 74.04,-45.25 38.10,-24.50 2.16,-45.25 2.16,-86.75" fill="#bc6242"/><polygon points="152.42,-41.50 188.36,-20.75 188.36,20.75 152.42,41.50 116.48,20.75 116.48,-20.75" fill="#e2ae3f"/><polygon points="114.32,24.50 150.26,45.25 150.26,86.75 114.32,107.50 78.38,86.75 78.38,45.25" fill="#5f8a54"/><polygon points="76.21,90.50 112.15,111.25 112.15,152.75 76.21,173.50 40.27,152.75 40.27,111.25" fill="#e2ae3f"/><polygon points="0.00,90.50 35.94,111.25 35.94,152.75 0.00,173.50 -35.94,152.75 -35.94,111.25" fill="#e3dcc4"/><polygon points="-76.21,90.50 -40.27,111.25 -40.27,152.75 -76.21,173.50 -112.15,152.75 -112.15,111.25" fill="#8d949c"/><polygon points="-114.32,24.50 -78.38,45.25 -78.38,86.75 -114.32,107.50 -150.26,86.75 -150.26,45.25" fill="#5f8a54"/><polygon points="-152.42,-41.50 -116.48,-20.75 -116.48,20.75 -152.42,41.50 -188.36,20.75 -188.36,-20.75" fill="#a9c774"/><polygon points="-114.32,-107.50 -78.38,-86.75 -78.38,-45.25 -114.32,-24.50 -150.26,-45.25 -150.26,-86.75" fill="#e2ae3f"/><polygon points="-76.21,-173.50 -40.27,-152.75 -40.27,-111.25 -76.21,-90.50 -112.15,-111.25 -112.15,-152.75" fill="#5f8a54"/><polygon points="0.00,-173.50 35.94,-152.75 35.94,-111.25 0.00,-90.50 -35.94,-111.25 -35.94,-152.75" fill="#8d949c"/><polygon points="76.21,-173.50 112.15,-152.75 112.15,-111.25 76.21,-90.50 40.27,-111.25 40.27,-152.75" fill="#bc6242"/><polygon points="114.32,-107.50 150.26,-86.75 150.26,-45.25 114.32,-24.50 78.38,-45.25 78.38,-86.75" fill="#a9c774"/></g>
+      <rect x="104" y="4" width="42" height="88" fill="#12211f" opacity=".2"/></svg>
+        <div style="width:190px; flex:0 0 190px;">
+          <div class="cap" style="font-size:12px;">the board</div>
+          <div style="font:500 12.5px var(--ui); margin-top:2px;">shifts aside, still live</div>
+          <div style="font:400 11px ui-monospace,Menlo,monospace; color:var(--moss); margin-top:4px;">translate(±230px) · scale(.78)</div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div class="cap" style="font-size:12px;">what lives here</div>
+          <div style="font-size:13px; margin-top:2px; line-height:1.45;">your hand, the log, the race to ten, the coach thread</div>
+        </div>
+      </div>
+      <div class="card" style="display:flex; gap:22px; align-items:center; padding:14px 16px;">
+        <div style="width:34px; flex:0 0 34px;"><div class="d" style="font-size:26px; color:#a34a34;">2</div></div>
+        <div style="width:150px; flex:0 0 150px;">
+          <div style="font:600 14px var(--ui);">Deep</div>
+          <div class="cap" style="font-size:12px; margin-top:2px;">a deliberate act</div>
+        </div>
+        <svg viewBox="0 0 150 96" width="150" height="96" style="display:block" aria-hidden="true">
+      <rect width="150" height="96" fill="var(--paper)"/>
+      <g transform="translate(39,48) scale(0.17)">
+        <polygon points="0.00,-41.50 35.94,-20.75 35.94,20.75 0.00,41.50 -35.94,20.75 -35.94,-20.75" fill="#bc6242"/><polygon points="76.21,-41.50 112.15,-20.75 112.15,20.75 76.21,41.50 40.27,20.75 40.27,-20.75" fill="#a9c774"/><polygon points="38.10,24.50 74.04,45.25 74.04,86.75 38.10,107.50 2.16,86.75 2.16,45.25" fill="#e2ae3f"/><polygon points="-38.10,24.50 -2.16,45.25 -2.16,86.75 -38.10,107.50 -74.04,86.75 -74.04,45.25" fill="#a9c774"/><polygon points="-76.21,-41.50 -40.27,-20.75 -40.27,20.75 -76.21,41.50 -112.15,20.75 -112.15,-20.75" fill="#5f8a54"/><polygon points="-38.10,-107.50 -2.16,-86.75 -2.16,-45.25 -38.10,-24.50 -74.04,-45.25 -74.04,-86.75" fill="#8d949c"/><polygon points="38.10,-107.50 74.04,-86.75 74.04,-45.25 38.10,-24.50 2.16,-45.25 2.16,-86.75" fill="#bc6242"/><polygon points="152.42,-41.50 188.36,-20.75 188.36,20.75 152.42,41.50 116.48,20.75 116.48,-20.75" fill="#e2ae3f"/><polygon points="114.32,24.50 150.26,45.25 150.26,86.75 114.32,107.50 78.38,86.75 78.38,45.25" fill="#5f8a54"/><polygon points="76.21,90.50 112.15,111.25 112.15,152.75 76.21,173.50 40.27,152.75 40.27,111.25" fill="#e2ae3f"/><polygon points="0.00,90.50 35.94,111.25 35.94,152.75 0.00,173.50 -35.94,152.75 -35.94,111.25" fill="#e3dcc4"/><polygon points="-76.21,90.50 -40.27,111.25 -40.27,152.75 -76.21,173.50 -112.15,152.75 -112.15,111.25" fill="#8d949c"/><polygon points="-114.32,24.50 -78.38,45.25 -78.38,86.75 -114.32,107.50 -150.26,86.75 -150.26,45.25" fill="#5f8a54"/><polygon points="-152.42,-41.50 -116.48,-20.75 -116.48,20.75 -152.42,41.50 -188.36,20.75 -188.36,-20.75" fill="#a9c774"/><polygon points="-114.32,-107.50 -78.38,-86.75 -78.38,-45.25 -114.32,-24.50 -150.26,-45.25 -150.26,-86.75" fill="#e2ae3f"/><polygon points="-76.21,-173.50 -40.27,-152.75 -40.27,-111.25 -76.21,-90.50 -112.15,-111.25 -112.15,-152.75" fill="#5f8a54"/><polygon points="0.00,-173.50 35.94,-152.75 35.94,-111.25 0.00,-90.50 -35.94,-111.25 -35.94,-152.75" fill="#8d949c"/><polygon points="76.21,-173.50 112.15,-152.75 112.15,-111.25 76.21,-90.50 40.27,-111.25 40.27,-152.75" fill="#bc6242"/><polygon points="114.32,-107.50 150.26,-86.75 150.26,-45.25 114.32,-24.50 78.38,-45.25 78.38,-86.75" fill="#a9c774"/></g>
+      <rect x="78" y="4" width="68" height="88" fill="#12211f" opacity=".34"/></svg>
+        <div style="width:190px; flex:0 0 190px;">
+          <div class="cap" style="font-size:12px;">the board</div>
+          <div style="font:500 12.5px var(--ui); margin-top:2px;">becomes an illustration</div>
+          <div style="font:400 11px ui-monospace,Menlo,monospace; color:var(--moss); margin-top:4px;">translate(−270px) · scale(.55), or hidden</div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div class="cap" style="font-size:12px;">what lives here</div>
+          <div style="font-size:13px; margin-top:2px; line-height:1.45;">futures, move analysis, game analysis</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:26px; display:flex; gap:40px; align-items:flex-start;">
+      <div style="flex:1;">
+        <div style="font:600 13px var(--ui);">How each one opens</div>
+        <div class="cap" style="margin-top:6px; font-size:12.5px;">Only two of the seven are a button. The rest are the thing itself being clickable, which is what stops the interface growing a toolbar it does not need.</div>
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:1px;">
+          <div style="display:flex; gap:12px; align-items:baseline; padding:6px 0; border-top:1px solid var(--dust);">
+            <span style="width:118px; flex:0 0 118px; font:600 12.5px var(--ui);">Hand</span>
+            <span class="tag" style="background:#e2e9e0;">tier 1</span>
+            <span class="cap" style="flex:1; font-size:12.5px;">clicking your own cards in the rail</span></div><div style="display:flex; gap:12px; align-items:baseline; padding:6px 0; border-top:1px solid var(--dust);">
+            <span style="width:118px; flex:0 0 118px; font:600 12.5px var(--ui);">Log</span>
+            <span class="tag" style="background:#e2e9e0;">tier 1</span>
+            <span class="cap" style="flex:1; font-size:12.5px;">clicking the last-action line</span></div><div style="display:flex; gap:12px; align-items:baseline; padding:6px 0; border-top:1px solid var(--dust);">
+            <span style="width:118px; flex:0 0 118px; font:600 12.5px var(--ui);">Race</span>
+            <span class="tag" style="background:#e2e9e0;">tier 1</span>
+            <span class="cap" style="flex:1; font-size:12.5px;">clicking any seat in the rail</span></div><div style="display:flex; gap:12px; align-items:baseline; padding:6px 0; border-top:1px solid var(--dust);">
+            <span style="width:118px; flex:0 0 118px; font:600 12.5px var(--ui);">Coach thread</span>
+            <span class="tag" style="background:#e2e9e0;">tier 1</span>
+            <span class="cap" style="flex:1; font-size:12.5px;">the <b>Why</b> button on the coach line</span></div><div style="display:flex; gap:12px; align-items:baseline; padding:6px 0; border-top:1px solid var(--dust);">
+            <span style="width:118px; flex:0 0 118px; font:600 12.5px var(--ui);">Futures</span>
+            <span class="tag" style="background:#f0ddd6;">tier 2</span>
+            <span class="cap" style="flex:1; font-size:12.5px;">the <b>Show me the others</b> button on the coach line</span></div><div style="display:flex; gap:12px; align-items:baseline; padding:6px 0; border-top:1px solid var(--dust);">
+            <span style="width:118px; flex:0 0 118px; font:600 12.5px var(--ui);">Move analysis</span>
+            <span class="tag" style="background:#f0ddd6;">tier 2</span>
+            <span class="cap" style="flex:1; font-size:12.5px;">clicking the recommendation’s number</span></div><div style="display:flex; gap:12px; align-items:baseline; padding:6px 0; border-top:1px solid var(--dust);">
+            <span style="width:118px; flex:0 0 118px; font:600 12.5px var(--ui);">Game analysis</span>
+            <span class="tag" style="background:#f0ddd6;">tier 2</span>
+            <span class="cap" style="flex:1; font-size:12.5px;">clicking the curve, or arriving from the ending</span></div>
+        </div>
+      </div>
+      <div style="width:400px; flex:0 0 400px;">
+        <div style="font:600 13px var(--ui);">The rules that keep it honest</div>
+        <div class="cap" style="margin-top:8px;">One tier-one panel at a time. Opening a second replaces the first rather than stacking, so the board never ends up boxed in on three sides.</div>
+        <div class="cap" style="margin-top:9px;">Esc always goes up one tier, never straight out. From move analysis it returns you to the table, not to the lineup.</div>
+        <div class="cap" style="margin-top:9px;">Tier two survives a reload and is linkable, because it is where you are when you send someone a position. Tier one is not; it is a glance, not a place.</div>
+        <div class="cap" style="margin-top:9px;">Nothing at tier two can be reached while it is your turn and the clock is the only thing waiting. The game does not hurry, but the interface should not invite you to leave the table by accident.</div>
+        <div style="margin-top:auto; padding-top:14px;">
+    <div style="font:600 11px var(--ui); color:var(--moss);">FOR IMPLEMENTATION</div>
+    <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+      <div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">tier 1 panels</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">one at a time; <span style="color:#a34a34">Esc</span> pops one tier</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">tier 2 routes</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">pushed to history, deep-linkable</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">board element</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">one instance, transform only, never remounted</span></div><div style="display:flex; gap:12px; align-items:baseline;">
+        <span class="cap" style="width:104px; flex:0 0 104px; font-size:11.5px;">reduced motion</span>
+        <span style="flex:1; font:400 11.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--pine); line-height:1.5;">tier changes still happen, travel does not</span></div>
+    </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+</body>
+</html>

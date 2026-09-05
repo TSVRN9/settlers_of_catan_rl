@@ -1,0 +1,17 @@
+{
+  "_": "Board rects measured in the browser from the six View artboards, in artboard pixels (1440x900). cx/cy are the board's centre from the artboard's top-left. Regenerate with the pass documented in README.md after any change to the views.",
+  "ViewTable":   { "boards": [{"w":574,"h":548,"cx":658,"cy":480}] },
+  "ViewConsole": { "boards": [{"w":534,"h":510,"cx":707,"cy":385}] },
+  "ViewCoach":   { "boards": [{"w":566,"h":540,"cx":980,"cy":449}] },
+  "ViewFutures": { "boards": [
+    {"w":180,"h":172,"cx":126,"cy":221},
+    {"w":207,"h":198,"cx":427.5,"cy":274.2},
+    {"w":207,"h":198,"cx":798.8,"cy":274.2},
+    {"w":207,"h":198,"cx":1170.1,"cy":274.2},
+    {"w":207,"h":198,"cx":427.5,"cy":558},
+    {"w":207,"h":198,"cx":798.8,"cy":558},
+    {"w":207,"h":198,"cx":1170.1,"cy":558}
+  ] },
+  "ViewMove":    { "boards": [{"w":628,"h":600,"cx":350,"cy":513.1}] },
+  "ViewGame":    { "boards": [{"w":406,"h":388,"cx":254,"cy":646.6}] }
+}
