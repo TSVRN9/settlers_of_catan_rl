@@ -83,3 +83,8 @@ deleted. See `docs/FINDINGS.md` "M4 reframed" before touching training.
   players (`value_net.make_player`) play any seat.
 - Keep new Python flat at the root unless it is a separate deliverable (`web/`, `legacy/`).
 - Non-trivial logic leaves one runnable `assert`-based check behind. No test frameworks.
+- **UI copy labels; it does not narrate.** No caption explaining what a panel is for, why a
+  feature is interesting, or how a reading was computed — that is the house style of an
+  AI-written site and it gets cut on sight. A caption earns its place only where the UI
+  cannot show the thing itself (a legend for a colour encoding, a unit), and then it is one
+  short clause. Methodology belongs in comments and `docs/FINDINGS.md`.

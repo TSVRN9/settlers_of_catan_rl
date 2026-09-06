@@ -3,23 +3,46 @@
 // BoardLayer is a *sibling* of the view slot and is never conditional and never keyed. That
 // is the whole structural claim of this redesign: swapping the view cannot take the game
 // with it, the way the old tab router did.
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 import BoardLayer from "./board/BoardLayer";
 import Lineup from "./views/Lineup";
 import Table from "./views/Table";
-import Console from "./views/Console";
-import Coach from "./views/Coach";
 import Futures from "./views/Futures";
 import Game from "./views/Game";
 import Move from "./views/Move";
 import Handoff from "./views/Handoff";
 import Discard from "./views/Discard";
-import Spine from "./Spine";
-import { act } from "./game";
+import Offer from "./views/Offer";
+import Spine, { NAME } from "./Spine";
+import { toLineup } from "./game";
 import * as keys from "./keys";
 import * as route from "./route";
-import { currentView, set, useApp } from "./store";
+import { currentView, playing, set, useApp } from "./store";
 import { heat, waiting } from "./waiting";
+
+/** The views that put something other than the live position on the board (the Table only
+ *  while the stands look back at a step). */
+const OWNS_OVERRIDE = new Set(["table", "futures", "game", "move"]);
+
+/** The header: what this screen is, and the way back one page. One element on every
+ *  screen (`view-transition-name: head`), so a navigation crossfades its word while the
+ *  panels dock — it stays, its word changes. On the Table the word is the turn, and back is
+ *  the lineup, where the game waits behind the panel until it is dealt over. */
+function Head() {
+  const s = useApp();
+  const view = currentView(s);
+  if (s.phase === "lineup" || !s.view) return null;
+  const shown = view === "table" && s.step != null ? s.frames[s.step]?.view ?? s.view : s.view;
+  const title = view === "table" ? `Turn ${shown.num_turns}` : NAME[view];
+  const back = view === "table" ? toLineup : route.pop;
+  return (
+    <button className="head" style={{ viewTransitionName: "head" } as CSSProperties} onClick={back}
+            title={view === "table" ? "Back to the lineup" : "Back"}>
+      <span className="chev" aria-hidden="true">‹</span>
+      <span className="d">{title}</span>
+    </button>
+  );
+}
 
 export default function App() {
   // Both installs return their own uninstall: StrictMode invokes this twice in dev, and two
@@ -33,7 +56,14 @@ export default function App() {
 
   const s = useApp();
   const view = currentView(s);
-  const setup = s.phase === "lineup" || !s.map || !s.view;
+  const setup = s.phase === "lineup";
+  // A view reads the override only while it owns it, so leaving one analysis view for
+  // another never shows the live position in between.
+  const override = !setup && OWNS_OVERRIDE.has(view) ? s.boardOverride : null;
+  const mine = !setup && playing(s) && s.view?.current_player === s.human && s.view.winner < 0 && s.step == null;
+  // A board move is staged, never played from a click: the piece appears as a ghost and the
+  // Table asks. Hovering a target previews it the same way.
+  const live = view === "table" || view === "futures";
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -43,36 +73,41 @@ export default function App() {
         {/* Hotseat blurs everything below rather than unmounting it — a handoff is a curtain,
             not a navigation, so whatever view and step you were on is exactly where the next
             player's own turn resumes once they tap through. */}
-        <div style={s.pendingHandoff != null ? { filter: "blur(8px)", opacity: 0.45, pointerEvents: "none" } : undefined}>
+        <div className={`curtain${s.pendingHandoff != null ? " down" : ""}`}>
+          <Head />
           {setup && <Lineup />}
 
-          {!setup && view === "table" && <Table />}
-          {!setup && view === "console" && <Console />}
-          {!setup && view === "coach" && <Coach />}
-          {!setup && view === "futures" && <Futures />}
-          {!setup && view === "game" && <Game />}
-          {!setup && view === "move" && <Move />}
-
-          {/* The board outlives every view, and stays on screen behind the lineup once a game
-              has been dealt — you are never configuring something you cannot see. */}
+          {/* The board outlives every view, and is on screen behind the lineup too — it is
+              the board being configured, so you are never choosing settings for something you
+              cannot see. It renders before the views on purpose: nothing here carries a
+              z-index, so DOM order is the stacking order, and a view's panels have to win
+              over the board they are laid across (Move's ladder does, at every width). */}
           {s.map && s.view && (
-            <div style={setup ? { opacity: 0.45, transition: "opacity var(--t-panel) var(--ease)" } : undefined}>
+            <>
               {setup && <div data-anchor="table" />}
               <BoardLayer
                 view={setup ? "table" : view}
+                dim={setup}
                 map={s.map}
-                gameView={s.boardOverride?.view ?? s.view}
-                legal={!setup && view !== "futures" && view !== "game" && view !== "move" && s.view.current_player === s.human && s.view.winner < 0 ? s.legal : []}
-                onAction={(a) => void act(a)}
-                onChoice={(acts) => set({ pending: { title: `Move the robber to ${acts.length} choices — whom do you rob?`, actions: acts } })}
+                gameView={override?.view ?? s.view}
+                legal={mine && view === "table" ? s.legal : []}
+                onAction={(a) => set({ staged: a, hover: null })}
+                onHover={(a) => set({ hover: a })}
+                onChoice={(acts) => set({ pending: { title: `Move the robber there — whom do you rob?`, actions: acts } })}
                 heat={s.revealAll ? heat(s.advice) : undefined}
-                highlight={s.boardOverride?.highlight ?? null}
-                litTiles={s.boardOverride?.litTiles}
-                hidePieces={s.phase === "dealing"}
-                dealing={s.phase === "dealing"}
+                highlight={override?.highlight ?? (live ? s.mark : null)}
+                ghost={live && mine ? s.staged ?? s.hover : null}
+                litTiles={override?.litTiles}
+                hidePieces={s.reveal}
+                dealing={s.reveal}
               />
-            </div>
+            </>
           )}
+
+          {!setup && view === "table" && <Table />}
+          {!setup && view === "futures" && <Futures />}
+          {!setup && view === "game" && <Game />}
+          {!setup && view === "move" && <Move />}
         </div>
 
         {/* Both render after the board in DOM order, on purpose — a modal sits in front of
@@ -80,6 +115,7 @@ export default function App() {
             board (the artboard's own point: "the board stays visible behind it"); Handoff's
             blur wrapper above already covers the case where the board itself must be hidden. */}
         {!setup && waiting(s)?.kind === "discard" && <Discard />}
+        {!setup && s.offering && <Offer />}
         <Handoff />
       </div>
 

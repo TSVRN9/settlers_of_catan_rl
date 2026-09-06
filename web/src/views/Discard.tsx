@@ -28,7 +28,10 @@ export default function Discard() {
     setBusy(true);
     const counts = [0, 0, 0, 0, 0];
     for (const i of selected) counts[cards[i]]++;
-    for (let r = 0; r < 5; r++) for (let k = 0; k < counts[r]; k++) await act(["DISCARD_RESOURCE", r, -1, -1]);
+    // One card per action, so the position moves under this loop; `act` refusing one means the
+    // rest were chosen against a hand that no longer exists. Stop rather than discard blind.
+    outer: for (let r = 0; r < 5; r++)
+      for (let k = 0; k < counts[r]; k++) if (!await act(["DISCARD_RESOURCE", r, -1, -1])) break outer;
     setBusy(false);
   };
 
@@ -36,7 +39,7 @@ export default function Discard() {
     setBusy(true);
     for (let k = 0; k < need; k++) {
       const d = await live.decide("vnet", 2);
-      await act(d.action);
+      if (!await act(d.action)) break;
     }
     setBusy(false);
   };
@@ -45,8 +48,8 @@ export default function Discard() {
   const modalW = Math.max(400, cards.length * (cardW + gap) - gap + 44);
 
   return (
-    <div style={{ position: "absolute", inset: 0, background: "rgba(18,33,31,.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div className="cut" style={{ width: modalW, background: "var(--color-paper)", padding: "20px 22px" }}>
+    <div className="modal arrive">
+      <div className="cut arrive dock-t" style={{ width: modalW, background: "var(--color-paper)", padding: "20px 22px" }}>
         <div style={{ display: "flex", alignItems: "baseline" }}>
           <span className="d" style={{ fontSize: 20 }}>Choose {need} to lose</span>
           <span className="num cap" style={{ marginLeft: "auto", fontSize: 12 }}>{selected.size} of {need} chosen</span>

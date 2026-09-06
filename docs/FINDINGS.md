@@ -2442,3 +2442,104 @@ Strength under the new rules (seeds 0-299, agent at Blue, 3x `TradingAlphaBetaPl
 readings taken without trading (57.0 / 58.7 / 61.0 / 59.0) and the 1,000-game 55.2%. Trading did not change the
 ordering; a 1,000-game confirmation and the paper-protocol tournament under trading are still to run. Every number
 above this entry was measured without trading.
+
+## 2026-09-06 — turning points on the analysis curve: what "game-deciding" means, and how much of it is luck
+
+The site's Game analysis drew four win-probability curves and listed the biggest swings, but marked nothing on the
+curve. Putting marks on it needed a definition of "deciding" that the codebase did not have — there was no threshold
+anywhere — so this is the measurement behind `web/src/deciding.ts` and the `luck` op in `web/src/worker.ts`.
+**340 games / 135,732 steps** for the swings (mixed `vnet`/`heuristic`/`random` lineups), **35 games / 13,479 steps**
+fully decomposed into luck and skill (4x `vnet` depth 2).
+
+### Deciding moves: a smooth tail, so a cap and a floor rather than a threshold
+
+Per-step `max_k|Δp_k|` is a **smooth heavy tail with no knee** — the survival ratio per +0.02 of threshold is ~0.45
+and near-constant, so there is no natural cut to find. Total variation `½Σ|Δp|` is the theoretically correct way to
+carry chess's two-player thresholds to four seats (it reduces exactly to `|Δp|` when one seat gains and the rest
+lose), but measured it tracks `max_k|Δp_k|` within 0.01 at *every* percentile — one seat gains and three share the
+loss — so the cheaper form is what ships.
+
+Three artefacts have to be excluded or a threshold marks the wrong thing entirely:
+
+| artefact | measurement | consequence if kept |
+| --- | --- | --- |
+| placement (pre-first-`ROLL`) | P(\|Δp\|≥0.10) = **0.265** vs 0.019 mid-game, 14x | `BUILD_SETTLEMENT` becomes 71% of the top-1000 swings |
+| `END_TURN` | 15.5% of steps; seat now on move gains mean **+0.037, positive 99.0% of the time** | a systematic tempo shift read as an event |
+| the final step | mean \|Δp\| 0.320 | duplicates the `"W"` puck `events()` already draws |
+
+Counter to intuition, **dice are not the spikes**: rolls are a high flat floor (median 0.040 vs 0.026 overall) but
+only ~1% of the pooled top-1000 swings, and a seven is *smaller* than an ordinary roll (0.033 vs 0.041). The endgame
+goes quiet rather than loud — once the leader passes 0.9 the median swing is 0.008.
+
+Selection rule, over the clean set, ranked by `max_k|Δp_k|`:
+
+| rule | mean marks | median | range | P(0) | P(2-5) |
+| --- | --- | --- | --- | --- | --- |
+| bare `≥0.10` | 6.0 | 5 | 0-21 | 0.03 | 0.44 |
+| bare `≥0.15` | 0.8 | 1 | 0-7 | **0.50** | 0.18 |
+| **top-5, floor 0.10** | **4.1** | 5 | 0-5 | 0.03 | **0.93** |
+
+Both halves bind (floor in ~51% of games, cap in ~49%), so it is not a renamed top-N. A bare threshold fails twice:
+0.15 marks nothing in half of all games, and the count is **not lineup-portable** — all-`vnet` games get ~2x the
+marks of `heuristic` games at the same threshold (5.1 vs 2.6 at 0.12). The 0.10 is lichess's own blunder threshold
+in win probability (`lila` `Advice.scala`); chess.com uses 0.20 for the same concept, so it is a borrowed convention,
+not a derived constant. Action mix of the selected marks: `MOVE_ROBBER` 29%, `BUILD_SETTLEMENT` 23%, `ROLL` 18%,
+`BUILD_CITY` 16%, `BUILD_ROAD` 10%, trade 2% — i.e. **~46% carry a random component**, which is why the marks are
+never labelled "blunder".
+
+Point of no return (last step at which a non-winner led) leaves a **median 31% of the game** still to run and sits at
+only the ~84th percentile of that game's own swings: usually an ordinary step in a drift, agreeing with the
+biggest-swing marks about half the time. In **15%** of games it *is* the winning move. Raw leader flips average 28.7
+per game with 62% in the first third; margin 0.05 + dwell 5 cuts that to 4.0 (both constants ours, not sourced).
+
+### Luck: the decomposition is sound, the per-roll number is not
+
+`Engine::replay` forces recorded outcomes (`catan_engine/src/wasm.rs:82`), so counterfactual dice need **no Rust
+change**: substitute the outcome in the record, replay, evaluate. Verified — 62/62 forced-original replays were
+byte-identical to the live view, 284/284 substitutions were legal and evaluable, and a counterfactual branch played
+on to a legal winner. `Δp = luck + drift` holds to 1e-9 at every chance node. The 11 sums with 36ths weighting is
+**exact rather than a simplification**: `apply.rs:207` computes `dice.0 + dice.1` and the individual dice are never
+read again.
+
+GNU Backgammon has computed exactly this since the 1990s (`analysis.c: LuckNormal()` — realized minus the
+36ths-weighted mean over all rolls, each played out by the reference policy), and it is the only prior art: no
+Catan source, and no win-probability system outside backgammon, splits a curve into chance and decision components.
+
+**The gate.** Crossing a `ROLL` transfers a systematic ~0.03 from the three idle seats to the seat on move
+(drift +0.009 roller / −0.022 others) — the mirror of the `END_TURN` artefact, and excluded from luck. After removing
+those two role constants the **residual sd is 0.015 against a luck sd of 0.017: signal-to-noise ≈ 1.1**. So a single
+roll's luck is *not* individually trustworthy, while the running sum is — luck is exactly mean-zero per seat by
+construction and the residual does not bias it. **Aggregate before displaying; never label one roll.**
+
+The four win probabilities are **not a distribution**: `wasm.rs` `evaluate(seat)` is an independent `sigmoid(h[0])`
+from that seat's own encoding, no softmax, and `Σ_k p_k` measures **1.079 median** (mean 1.083). So luck does not sum
+to zero across seats (median residual 0.012) — but it does exactly on renormalised `p_k/Σp`. Zero-sum is therefore
+useless as a correctness check; mean-zero per seat is the property that holds.
+
+Scale, and the ceiling on any claim the UI makes: luck is **13.8%** of all win-probability movement, and of the
+winner's +24.6 signed rise it is **+3.7**, against −47.8 of tempo drift and +68.7 recovered on non-chance steps — V is
+badly non-martingale under the bots' play. Total luck does *rank* seats well (worst-luck seat loses **91%** of the
+time vs a 75% baseline; r = 0.436), so "worst luck at the table" is defensible and "lost because of the dice" is not.
+
+Cost: **0.82 s/game** dice-only, 0.96 s including steals and dev draws (0.97 ms per counterfactual, dominated by the
+1.6 MB `load_net`, since `replay()` returns `net: None`). Trivially viable in a worker. **`Engine.free()` is
+mandatory, not hygiene** — every replayed engine holds its own net copy, and without it the pass dies with
+`RuntimeError: unreachable` after ~2 games, having already slowed 6x from memory pressure.
+
+### Three things measured and rejected
+
+- **Maximum drawdown as the "run of bad luck" marker.** Its median span is **138 steps / 29 turns / 42% of the
+  game** — what a random walk's drawdown always does, and most of the match rather than a story. Also: drawdown on a
+  cumulative curve **is** Kadane's minimum-sum subarray of the increments, asserted identical on depth *and*
+  endpoints across all 140 curves, so those were never two options. A fixed **5-roll window** captures 58% of the
+  depth (0.077 vs 0.134) in a span a reader can see; that is what ships.
+- **Entropy drop as a selector.** Within a single game, top-5 by `|ΔH|` overlaps top-5 by `|Δp|` only **26%**, and
+  drags rolls (31%) and end-turns back in. (Ely/Frankel/Kamenica, *JPE* 2015, sanctions entropy for the leverage
+  side of the split; it is still the wrong selector here, and a pure lead change at constant concentration scores 0.)
+- **A "played well, got unlucky" badge.** At any reasonable threshold it describes **60% of games** — not rare
+  enough to mark.
+
+Regret at decision nodes is measurable but was not shipped: `vnet` regret is 0.000 by construction (the game applied
+that search's own argmax), and the `heuristic` bot under `vnet` evaluation picks the top action 56.1% of the time
+with median regret 0.000, p90 0.022, p99 0.065, max 0.303. That is the scale a human-mistake marker would need, but
+it inherits the net's bias where luck does not — gnubg's own bug list records the same asymmetry.

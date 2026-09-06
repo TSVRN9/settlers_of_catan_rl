@@ -8,14 +8,15 @@ import { SEAT_NAMES } from "./labels";
 import { SEAT_FILL } from "./board/palette";
 import { to, toRoot } from "./route";
 import { openGameAnalysis } from "./review";
-import { useApp, type ViewName } from "./store";
+import { currentView, useApp, type ViewName } from "./store";
 import { waiting } from "./waiting";
 
-const NAME: Record<ViewName, string> = {
+const REVIEW = new Set<ViewName>(["game", "move"]);
+
+/** What each view is called — the crumb, and the header's word. */
+export const NAME: Record<ViewName, string> = {
   table: "Table",
-  console: "Console",
-  coach: "Coach",
-  futures: "Futures",
+  futures: "Every legal move",
   game: "The whole game",
   move: "One decision",
 };
@@ -43,7 +44,7 @@ export default function Spine() {
         );
       })}
 
-      {s.view && s.step == null && s.phase !== "lineup" && (
+      {s.view && s.phase !== "lineup" && !REVIEW.has(currentView(s)) && (
         <button className="step num" onClick={() => openGameAnalysis()}
                 title="Open the whole game at this turn">
           turn {s.view.num_turns}

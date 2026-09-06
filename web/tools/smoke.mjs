@@ -71,18 +71,17 @@ half.load_net(new Uint8Array(weights), meta.hidden);
 assert.equal(half.has_net(), true);
 assert.equal(JSON.parse(half.evaluate_all()).length, 4, "a reloaded replay evaluates");
 
-// The review worker's "analyze" op walks a record forward once with `fresh()` + repeated
-// `apply()`, never `Engine.replay()` per step (that's the O(n^2) trap replay-per-scrub would
-// be). This is the same walk, done here directly against the wasm module, since worker.ts's
-// own logic around it isn't reachable from Node — it proves the walk reproduces the game
-// exactly, which is the whole correctness argument for review's curve and board-at-step.
+// The site keeps every step's view as the game is played (store.frames) and repositions its
+// review engine with `Engine.replay(record, step)` for the ladder and attribution at one step.
+// This walks the record forward with `apply()` and checks it lands on the live game's own final
+// view — the argument that a frame at step i and a replay to step i are the same position.
 {
   const rec = JSON.parse(record);
   const e2 = new pkg.Engine(rec.seed >>> 0, rec.n);
   e2.load_net(new Uint8Array(weights), meta.hidden);
   let frameCount = 0;
   for (const [action] of rec.log) {
-    JSON.parse(e2.evaluate_all());   // exercised the same way analyze() does, before apply
+    JSON.parse(e2.evaluate_all());   // a frame carries the evals of the position before its action
     e2.apply(JSON.stringify(action));
     frameCount++;
   }
@@ -119,5 +118,22 @@ const centres = new Set(map.tiles.map((t) => {
   return `${(c[0] / t.nodes.length).toFixed(4)},${(c[1] / t.nodes.length).toFixed(4)}`;
 }));
 assert.equal(centres.size, map.tiles.length, "every tile derives a distinct centre");
-console.log(`smoke ok: geometry + replay-net checked; seed ${seed}, ${steps} steps, ${view.num_turns} turns, winner seat ${view.winner}, ` +
+// The lineup allows two to four seats; the engine deals and plays any of them to a winner.
+for (const n of [2, 3]) {
+  const e = new pkg.Engine(seed + n, n);
+  e.load_net(new Uint8Array(weights), meta.hidden);
+  assert.equal(JSON.parse(e.view()).players.length, n, `${n} seats dealt`);
+  assert.equal(JSON.parse(e.evaluate_all()).length, n, `${n} evaluations`);
+  const kinds = ["vnet", "heuristic", "random"].slice(0, n);
+  let k = 0;
+  while (e.winner() < 0 && k < 4000) {
+    const d = JSON.parse(e.decide(kinds[e.current_player()], 2));
+    e.apply(JSON.stringify(d.action));
+    k++;
+  }
+  assert.ok(e.winner() >= 0, `${n}-seat game reaches a winner`);
+  assert.equal(JSON.parse(e.attribution(0)).length > 0, true, `${n}-seat attribution`);
+}
+
+console.log(`smoke ok: geometry + replay-net + 2/3-seat games checked; seed ${seed}, ${steps} steps, ${view.num_turns} turns, winner seat ${view.winner}, ` +
   `vnet ${nVnet} decisions avg ${(tVnet / Math.max(nVnet, 1)).toFixed(1)} ms (max leaves ${maxLeaves})`);

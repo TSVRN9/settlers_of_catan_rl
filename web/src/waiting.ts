@@ -31,6 +31,9 @@ export function waiting(s: State): Waiting | null {
   if (v.is_moving_knight && v.current_player === s.human)
     return { text: "move the robber", seat: s.human, loud: true, kind: "robber" };
   if (v.current_player === s.human) return { text: "your turn", seat: s.human, loud: false, kind: "turn" };
+  // Another person's seat, behind the handoff: they are not thinking, they are up.
+  if (s.lineup[v.current_player]?.kind === "human")
+    return { text: `${SEAT_NAMES[v.current_player]}'s turn`, seat: v.current_player, loud: false, kind: "turn" };
   return { text: `${SEAT_NAMES[v.current_player]} is thinking`, seat: v.current_player, loud: false, kind: "thinking" };
 }
 

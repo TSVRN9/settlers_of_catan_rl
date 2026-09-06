@@ -10,7 +10,7 @@
 // design source by web/design/export-tokens.mjs, never from anything a user supplies.
 import React, { useMemo } from "react";
 import type { Canon, MapView, View } from "../engine";
-import { actionKey, SEAT_NAMES } from "../labels";
+import { actionKey, SEAT_NAMES, cornerName, edgeName, tileName } from "../labels";
 import type { Heat } from "../waiting";
 import {
   CITY, CITY_DOOR, CITY_TOWER, C, DESERT_FILL, GLYPH, GLYPH_MINI, PORT_FILL,
@@ -49,9 +49,15 @@ interface Props {
   /** Withholds the pieces, so a deal can put the board down before the position. */
   hidePieces?: boolean;
   dealing?: boolean;
+  /** A move shown before it is played — hovered or staged — as the mover's own piece at
+   *  half strength. */
+  ghost?: Canon | null;
+  /** The position this one is a hypothetical from: pieces not in it are new, and land. */
+  since?: View | null;
+  onHover?: (a: Canon | null) => void;
 }
 
-export default function Board({ map, view, legal = [], onAction, onChoice, heat, highlight, litTiles, hidePieces, dealing }: Props) {
+export default function Board({ map, view, legal = [], onAction, onChoice, heat, highlight, litTiles, hidePieces, dealing, ghost, since, onHover }: Props) {
   const centres = useMemo(() => map.tiles.map((t) => tileCentre(t.nodes)), [map]);
 
   // The deal resolves outward from the middle, so a tile's --i is its rank by distance from
@@ -100,14 +106,15 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
   // chose for you; now the choice is handed up when there is one to make.
   const fireTile = (acts: Canon[]) => () => (acts.length === 1 ? onAction?.(acts[0]) : onChoice?.(acts));
 
-  const piece = (kind: "set" | "city", seat: number, x: number, y: number, key: string) => {
+  const hoverable = (a: Canon) => (onHover ? { onMouseEnter: () => onHover(a), onMouseLeave: () => onHover(null) } : {});
+  const piece = (kind: "set" | "city", seat: number, x: number, y: number, key: string, cls = "pc") => {
     const body = kind === "city" ? CITY : SET;
     const base = kind === "city" ? 10.5 : 8.8;
     const halfW = kind === "city" ? 13 : 9.5;
     // The plinth is the only shadow: the tile darkens where the piece stands.
     const plinth = hex(0, base + 0.5, halfW + 4).map(([px, pz]) => [px, (pz - (base + 0.5)) * 0.42 + base + 0.5] as [number, number]);
     return (
-      <g key={key} className="pc" transform={`translate(${x.toFixed(2)},${(y - (kind === "city" ? 3 : 1)).toFixed(2)})`}>
+      <g key={key} className={cls} transform={`translate(${x.toFixed(2)},${(y - (kind === "city" ? 3 : 1)).toFixed(2)})`}>
         <polygon points={pts(plinth)} fill={C.pine} opacity="0.22" />
         <polygon points={pts(body as [number, number][])} fill={SEAT_FILL[seat]} />
         {kind === "city" ? (
@@ -155,7 +162,7 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
                    transform={`translate(${x.toFixed(2)},${(y - 5).toFixed(2)}) scale(${g.k}) translate(${g.dx},${g.dy})`}
                    dangerouslySetInnerHTML={raw(g.markup)} />
               )}
-              <text x={x} y={y + 11} textAnchor="middle" fontSize="9" fontWeight="700" fill={C.pine}>
+              <text x={x} y={generic ? y + 3.5 : y + 11} textAnchor="middle" fontSize="9" fontWeight="700" fill={C.pine}>
                 {generic ? "3:1" : "2:1"}
               </text>
             </g>
@@ -207,36 +214,9 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
         })}
       </g>
 
-      {!hidePieces && (
-        <g className="pieces">
-          {/* Roads run the whole edge with round caps, so a chain fuses into one line. */}
-          {EDGES.map((_, e) => {
-            const owner = view.road_owner[e];
-            if (owner < 0) return null;
-            const [a, b] = EDGES[e];
-            const [x1, y1] = nodeXY(a), [x2, y2] = nodeXY(b);
-            return <line key={`r${e}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={SEAT_FILL[owner]} strokeWidth="5.4" strokeLinecap="round" />;
-          })}
-          {view.owner.map((owner, n) => {
-            if (owner < 0) return null;
-            const [x, y] = nodeXY(n);
-            return piece(view.is_city[n] ? "city" : "set", owner, x, y, `p${n}`);
-          })}
-          {view.robber >= 0 && map.tiles[view.robber] && (() => {
-            const [x, y] = centres[view.robber];
-            return (
-              <g transform={`translate(${x.toFixed(2)},${(y - 17).toFixed(2)})`}>
-                <path d="M-6 0 L-6 -4 Q-6 -10 0 -10 Q6 -10 6 -4 L6 0 Z" fill={C.pine} />
-                <circle cx="0" cy="-13" r="4.4" fill={C.pine} />
-                <rect x="-8" y="0" width="16" height="3" fill={C.pine} />
-              </g>
-            );
-          })()}
-        </g>
-      )}
-
       {/* The ring marking what a hypothetical action changed — independent of `legal`, since
-          a clone board showing an already-applied action has none. */}
+          a clone board showing an already-applied action has none. Under the pieces: a mark is
+          about a place, and never sits on a piece. */}
       {highlight && (
         <g className="mark">
           {(highlight[0] === "BUILD_SETTLEMENT" || highlight[0] === "BUILD_CITY") && (() => {
@@ -263,6 +243,56 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
         </g>
       )}
 
+      {!hidePieces && (
+        <g className="pieces">
+          {/* Roads run the whole edge with round caps, so a chain fuses into one line. */}
+          {EDGES.map((_, e) => {
+            const owner = view.road_owner[e];
+            if (owner < 0) return null;
+            const [a, b] = EDGES[e];
+            const [x1, y1] = nodeXY(a), [x2, y2] = nodeXY(b);
+            const fresh = since ? since.road_owner[e] !== owner : false;
+            return <line key={`r${e}`} className={fresh ? "pc new" : "pc"} x1={x1} y1={y1} x2={x2} y2={y2} stroke={SEAT_FILL[owner]} strokeWidth="5.4" strokeLinecap="round" />;
+          })}
+          {view.owner.map((owner, n) => {
+            if (owner < 0) return null;
+            const [x, y] = nodeXY(n);
+            const fresh = since ? since.owner[n] !== owner || since.is_city[n] !== view.is_city[n] : false;
+            return piece(view.is_city[n] ? "city" : "set", owner, x, y, `p${n}${view.is_city[n] ? "c" : "s"}`, fresh ? "pc new" : "pc");
+          })}
+          {view.robber >= 0 && map.tiles[view.robber] && (() => {
+            const [x, y] = centres[view.robber];
+            return (
+              <g className="robber" style={{ translate: `${x.toFixed(2)}px ${(y - 17).toFixed(2)}px` }}>
+                <path d="M-6 0 L-6 -4 Q-6 -10 0 -10 Q6 -10 6 -4 L6 0 Z" fill={C.pine} />
+                <circle cx="0" cy="-13" r="4.4" fill={C.pine} />
+                <rect x="-8" y="0" width="16" height="3" fill={C.pine} />
+              </g>
+            );
+          })()}
+          {/* a move before it is played: the mover's piece, at half strength */}
+          {ghost && (ghost[0] === "BUILD_SETTLEMENT" || ghost[0] === "BUILD_CITY") && (() => {
+            const [x, y] = nodeXY(ghost[1]);
+            return <g className="ghost" key={`g${actionKey(ghost)}`}>{piece(ghost[0] === "BUILD_CITY" ? "city" : "set", view.current_player, x, y, "ghost", "pc")}</g>;
+          })()}
+          {ghost && ghost[0] === "BUILD_ROAD" && (() => {
+            const [a, b] = EDGES[ghost[1]];
+            const [x1, y1] = nodeXY(a), [x2, y2] = nodeXY(b);
+            return <line className="ghost pc" key={`g${actionKey(ghost)}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={SEAT_FILL[view.current_player]} strokeWidth="5.4" strokeLinecap="round" />;
+          })()}
+          {ghost && ghost[0] === "MOVE_ROBBER" && map.tiles[ghost[1]] && (() => {
+            const [x, y] = centres[ghost[1]];
+            return (
+              <g className="ghost" key={`g${actionKey(ghost)}`} style={{ translate: `${x.toFixed(2)}px ${(y - 17).toFixed(2)}px` }}>
+                <path d="M-6 0 L-6 -4 Q-6 -10 0 -10 Q6 -10 6 -4 L6 0 Z" fill={C.pine} />
+                <circle cx="0" cy="-13" r="4.4" fill={C.pine} />
+                <rect x="-8" y="0" width="16" height="3" fill={C.pine} />
+              </g>
+            );
+          })()}
+        </g>
+      )}
+
       {/* what you can do, drawn last so it sits on top of everything */}
       <g className="targets">
         {[...targets.tiles].map(([id, acts]) => {
@@ -270,10 +300,10 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
           const h = Math.max(...acts.map((a) => heatOf(a) ?? 0));
           return (
             <polygon key={`t${id}`} points={pts(hex(x, y, R - 6))} fill={`rgba(226,174,63,${0.24 + 0.46 * h})`}
-                     style={{ cursor: "pointer" }} onClick={fireTile(acts)}
+                     style={{ cursor: "pointer" }} onClick={fireTile(acts)} {...hoverable(acts[0])}
                      {...keyable(fireTile(acts), acts.length > 1
-                       ? `Move the robber to tile ${id} and choose whom to rob`
-                       : `Move the robber to tile ${id}`)}>
+                       ? `Move the robber to ${tileName(id, map)} and choose whom to rob`
+                       : `Move the robber to ${tileName(id, map)}`)}>
               <title>{acts.length > 1 ? "Move the robber here, then choose whom to rob" : "Move the robber here"}</title>
             </polygon>
           );
@@ -286,8 +316,8 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
           return (
             <line key={`e${e}`} x1={x1} y1={y1} x2={x2} y2={y2}
                   stroke={on ? C.pine : `rgba(226,174,63,${0.55 + 0.4 * h})`} strokeWidth={on ? 7 : 5.4}
-                  strokeLinecap="round" style={{ cursor: "pointer" }} onClick={fire(a)}
-                  {...keyable(fire(a), `Build a road on edge ${e}`)}>
+                  strokeLinecap="round" style={{ cursor: "pointer" }} onClick={fire(a)} {...hoverable(a)}
+                  {...keyable(fire(a), `Build a road ${edgeName(e, map)}`)}>
               <title>Build a road</title>
             </line>
           );
@@ -299,8 +329,8 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
           return (
             <circle key={`n${n}`} cx={x} cy={y} r={on ? 10 : 8}
                     fill={on ? C.pine : `rgba(226,174,63,${0.62 + 0.35 * h})`}
-                    style={{ cursor: "pointer" }} onClick={fire(a)}
-                    {...keyable(fire(a), a[0] === "BUILD_CITY" ? `Upgrade node ${n} to a city` : `Build a settlement at node ${n}`)}>
+                    style={{ cursor: "pointer" }} onClick={fire(a)} {...hoverable(a)}
+                    {...keyable(fire(a), a[0] === "BUILD_CITY" ? `Build a city on ${cornerName(n, map)}` : `Build a settlement on ${cornerName(n, map)}`)}>
               <title>{a[0] === "BUILD_CITY" ? "Upgrade to a city" : "Build a settlement"}</title>
             </circle>
           );

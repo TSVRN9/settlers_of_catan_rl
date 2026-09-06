@@ -174,9 +174,13 @@ comparison thumbnail at (126, 221).
 
 One regex, `#/g/<seed>[/futures | /step/<n>[/move]]`, and **the crumb stack is the truth
 while the hash is a projection** — Console and Coach have no route, so a pure derivation
-could not reproduce `['Table','Console']`. Esc calls `history.back()`, so Esc and browser-back
-are one gesture; `popstate` re-seeds the stack. A review link survives a reload because a step is a
-fact about a record. `#/g/<seed>` on reload does **not** resume or restart: it shows the
+could not reproduce a two-level path from a hash alone. Every navigation — Esc and a crumb included — sets
+the stack and pushes a history entry carrying it; browser-back lands on an entry and `popstate`
+re-seeds the stack from it. (Navigating *by* `history.go(-n)` trusted the browser's depth to
+mirror the stack, which a deep link on a cold load or a step scrubbed inside a review broke: the
+"Step 118" crumb landed on the entry's stale step.) Scrubbing inside a review view
+`replaceState`s the current entry, so the address bar names the step on screen. A review link
+survives a reload because a step is a fact about a record. `#/g/<seed>` on reload does **not** resume or restart: it shows the
 lineup with that seed already filled in, because a seed reproduces the map and not the play,
 and starting a different game under the same address would be a lie about what the link
 means.
@@ -342,6 +346,174 @@ translate(dx,dy)` on the glyph's own markup). The glyph data was already sitting
 rather than five call sites each drawing their own colored box — the actual bug was that
 nobody had checked the flat-rectangle placeholder against the artboard since it was first
 written.
+
+## The laws (2026-09-05)
+
+The rewrite built the structure and stopped; this pass made every screen obey one philosophy.
+It is recorded here because it is the check every later change is held to, before the artboard
+and before this document's own prose.
+
+**The table is a place. Everything you see is either the game or evidence about the game.**
+
+1. **Nothing appears or vanishes; things arrive and leave.** The board travels (`--t-board`,
+   420ms). A panel arrives beside it from the edge it docks to and leaves the same way
+   (`--t-panel`, 260ms). A piece lands on its own centre. A reading drifts to its new value.
+   A control answers a press (`--t-feel`, 120ms). One easing. Reduced motion is the same
+   layout with the travel removed — one `@media` block in `index.css`, never a second path.
+2. **One thing moves at a time, and each thing has one way of moving.** A view change moves
+   the board and nothing on it; a move changes the pieces and nothing about the rect; a
+   hypothetical divides the board.
+3. **The furniture knows who is sitting there.** A person gets a hand, an action column and a
+   coach; a table with nobody at it gets a transport (play/pause, step, pace) and a commentary.
+   The lineup's chips look different for a person and a bot. "You" is written only when there
+   is a you (`labels.who` / `whom`, from `store.you(s)`, which is -1 in a watched game).
+4. **Every sentence cites its evidence.** `coach.ts` is the only place a sentence about the
+   game is built: corners by their tiles ("the 8 wood · 3 ore corner"), moves by what they pay
+   ("eleven ways in thirty-six"), gaps by their kind ("production, not risk"). No id — a node,
+   an edge, an attribution group's name — reaches the screen. `label()` in `labels.ts` names
+   corners and edges the same way.
+5. **The interface narrates; it does not instruct.** The Table's instruction line shows until
+   this person has built once, then the same place carries the commentary.
+
+### How the motion is built
+
+- **Navigation is a View Transition.** `store.transition(fn)` wraps `document.startViewTransition`;
+  `route.push`, `route.sync`, `game.start` and `game.toLineup` go through it. The callback runs
+  on the *next frame*, so anything reading the store afterwards awaits the returned promise
+  (`start()` does; getting this wrong left the game parked in the lineup phase).
+- **The board's travel is the browser's.** `#board-layer` carries `view-transition-name: board`;
+  its group animates over `--t-board`. The hand-written FLIP in `BoardLayer` was deleted:
+  two animation systems cannot share one element, because a CSS transform on the real DOM is
+  invisible under the transition's pseudo-tree. `BoardLayer.park()` only positions now.
+- **Panels dock.** `Dock.tsx` gives a panel a unique `view-transition-name` (`view-panel`) and a
+  `view-transition-class` of `dock-l/r/t/b`; `index.css` slides old and new snapshots 26px (14px
+  for top/bottom) in and out of that edge. The same classes carry `@starting-style` rules, so a
+  panel that appears because state changed within a view arrives the same way.
+- **Dimming lives on the named element.** An ancestor's opacity is not captured in a snapshot,
+  so the lineup's half-strength board is `#board-layer`'s own opacity (`dim` prop), not a wrapper's.
+- **Pieces, robber, readings.** `.pc` on every piece lands with a `scale` keyframe (a city's key
+  differs from a settlement's so an upgrade re-mounts); the robber is positioned by the
+  `translate` property and transitions; `Ring.tsx` places labels by `translate` and transitions
+  the arcs' `stroke-dasharray`, and slides a label a few degrees along its arc when a port
+  badge is under it.
+- **Screenshots and hidden documents skip transitions.** A transition started while the page is
+  not rendering rejects `finished` with `InvalidStateError`; the DOM update still lands, and
+  `transition()` swallows that rejection.
+
+### The stands
+
+A lineup with nobody in it is a watched game: `store.paused`, `store.pace` (`slow`, `normal`,
+`fast` = 1200/350/0ms) and `pump(once)` are the transport; Space and → drive them from
+`keys.ts`. `App.tsx` lights legal targets only when `playing(s)`, so a bot's seat never shows
+corners to click. The lineup allows two to four seats; `newGame(seed, n)` takes the count and
+everything else indexes by seat.
+
+### Analysis
+
+The whole-game curve is drawn in step × percent units with `preserveAspectRatio="none"`, and
+pointer x is mapped through `getScreenCTM()`, so the click zone is exactly the curve (before,
+the SVG was letterboxed inside a wider element and the scrub used the element's width). The
+turning points on its axis are laid out in rows (`Game.tsx` `lanes()`): markers stack when two
+steps are adjacent, the six biggest moments get a caption, and a caption that would need a
+third row is dropped rather than drawn over another. `review.ts` reads frames without the
+engine: `events()` (first cities, sevens, longest road and largest army changing hands,
+monopolies, the win), `turns()`, `rowAt()`. Attribution's `seat` is relative to the evaluated
+seat (`valuenet.rs`); `coach.groupText` maps it back.
+
+### The polish pass (2026-09-05, later the same day)
+
+- **The frames are the game's own.** `store.frames` holds every position as it is played
+  (`game.advance` closes the last frame with its action and appends the new one with its
+  evals), so the ending's curve, the stands' seek bar and both analysis views read one array
+  the instant they need it. The second worker's `analyze` walk is gone; `review.ts` is now only
+  the per-step ladder and attribution, repositioning its engine with `replay` on a record
+  re-fetched once per new live step.
+- **The header.** `App.tsx`'s `Head`: the screen's title top-left (`‹ Coach`; on the Table the
+  turn) and the way back one page. One element on every screen (`view-transition-name: head`),
+  so a navigation crossfades its word while the panels dock. On the Table it goes back to the
+  lineup, where the game waits behind the panel: "Back to the game — turn N" resumes it
+  (`game.resume`) and Deal reads "Deal a new game". The spine keeps the path; its "turn N" door
+  shows in every play view.
+- **The analysis column.** Seated, the ring and the coach's line are folded against the right
+  edge behind one tall press (`.fold`, "open analysis"); `store.analysis` (default off) also
+  gates `advise()`, so a person's turn runs no depth-2 search until asked. The ring is above the
+  board (`z-index: 1` on `[data-ring]` — the lattice runs past the viewbox and used to cover the
+  readings) and arrives with a `@starting-style` scale.
+- **The stands' seek bar.** `views/Strip.tsx` (shared with Move analysis) under the board;
+  `game.seek()` holds the game and sets `step`, the Table owns `boardOverride` while looking
+  back, and the ring, commentary and header read that frame. Play means live. `←`/`→` seek.
+
+### Touch-ups (2026-09-05, evening)
+
+- **Two screens cut.** Console is gone; the Coach screen is gone too — its column (`views/
+  Coach.tsx`) docks beside the board on the Table when the analysis is open. Four views remain:
+  Table, Every legal move, The whole game, One decision.
+- **Zones, not surfaces.** The analysis fold (`.fold`) is bare text at the right edge; hovering
+  leans it toward the board. Every sentence that told the reader how to use a control was
+  deleted. The ring (`<Ring off>`) is always mounted and draws in/out (`.off` + `@starting-style`
+  on the arcs' dasharray).
+- **Staged moves.** A board click never plays: `store.staged` holds the move, the board shows it
+  as a ghost (`Board` `ghost` prop; hovering a target previews the same way through
+  `store.hover`), and a card asks "Play it / Cancel"; Esc lets go. Labelled buttons (Roll, End
+  turn, Buy a card, the coach's Play it) play at once. Futures stage the same way.
+- **A watched game is a playback.** `game.watch()` streams `live.run()` frames into
+  `store.frames`; `show(i)` puts the playhead on a frame (`view`/`evals` are that frame's), a
+  timer walks it at `pace`, and the ending is announced only when the playhead reaches the last
+  frame of a finished run. `review.record()` builds the record from the frames, so analysis never
+  waits on the busy live worker. The seated game still runs `pump()`.
+- **Legible change.** Marks (`.mark`) draw under the pieces; a hypothetical's new piece
+  (`since` prop → `.pc.new`) lands late and large; a roll rises out of the board's centre as two
+  dice and the total (`.roll`); a card count bumps and its change floats off the card
+  (`Card` `delta`); the hand carries a development-card row. The futures grid is three columns
+  of ~330px boards; the live board parks in the aside as "the board as it stands". The Move
+  ladder is one list with the heuristic's rank beside the net's reading (heuristic scores are
+  not percentages, so they are never shown as one).
+- **Timeline.** The game strip sits above the board in both modes (turn ticks, lettered event
+  markers); seated it looks back (`step`), in the stands it is the playhead.
+
+### The apply pin (2026-09-06)
+
+Live games threw `Error: you do not hold what you offer` on repeat and stalled the drive loop.
+It never reproduced headlessly — 8/8 generated games completed clean through the same engine —
+because the worker's `run` loop never touches `advance()`.
+
+Two obvious explanations are **refuted**; do not re-derive them:
+
+- **Not a double-apply.** `OFFER_TRADE` moves no cards (`apply.rs:33-41` sets
+  `is_resolving_trade`, writes `current_trade` and flips the prompt; cards move only in
+  `ConfirmTrade`, `apply.rs:75-81`). A second apply hits the *prompt* guard at `apply.rs:22` and
+  returns a different string. StrictMode is on, but no `useEffect` anywhere calls
+  `act`/`advance`/`pump`/`live.apply`.
+- **Not stale `spent_offers`.** That is the next guard, `apply.rs:31`, and its own string.
+- **Not the coach or the futures grid.** `search_actions()` strips `OfferTrade` from every root
+  (`actions.rs:133-137`) and `decide` returns `root: []` when the trade policy fires
+  (`wasm.rs:206`), so neither can emit an offer.
+
+The real defect: **every guard in the app was written against `store.view`, which lags the engine
+by a worker round-trip, and nothing re-validated at apply time.** `advance()` set
+`status: "applying"` that no play view read (`store.ts:44-47` records dropping that gate on
+purpose), and the store `view` is not replaced until the round-trip resolves — so two actions
+chosen from one position both passed every check the UI could make.
+
+`OFFER_TRADE` was the canary, not the disease. It is one of the few actions `apply.rs` validates;
+its siblings fail *silently* — the builds check nothing and drive a hand negative, `EndTurn` has
+no `has_rolled` check, `Roll` re-pays the whole table, and a duplicate `Reject` answers for the
+next responder.
+
+**The fix is one line in the worker.** `apply` carries the `steps` it was chosen at and the engine
+refuses anything else — `Engine::steps()` was already on the wasm surface (`wasm.rs:117`), so no
+Rust change. The rejection reuses `"stale"`, which every caller already swallows. `advance` now
+returns whether the action landed, because silence is right for a bot's superseded decision and
+wrong for something a person just did: the offer builder stays open on a refusal instead of
+closing as though it had gone through, and the discard loop stops instead of discarding blind.
+`act` moved its `void pump()` into a `finally` — returning before it is how one rejected click
+used to kill the table, since `pump`'s own catch abandons the loop with a bot on move.
+
+**The trigger was probably HMR, and that is fixed separately.** Nothing in `web/src` had an
+`import.meta.hot` handler and `EngineClient.terminate()` was defined and never called, so Fast
+Refresh re-evaluating `game.ts` left a second client, worker, engine and `pumping` flag driving
+one store, with the old loop still mid-`wait(900)`. `game.ts` and `review.ts` now dispose their
+workers. Dev-only, which is why it never showed headlessly or under `pnpm preview`.
 
 ## Milestones
 

@@ -31,10 +31,14 @@ export interface Frame {
   decision: Decision | null; evals: Evaluation[]; attribution: Attribution[] | null;
 }
 export interface GameRecord { seed: number; n: number; log: [Canon, [number, number]][] }
+/** Per-seat dice luck at one ROLL step: what the roll that happened was worth against the average
+ *  over all eleven sums, weighted by their 36ths. Mean-zero per seat by construction, but a
+ *  single one of these sits barely above the net's own noise — see `deciding.ts`. */
+export interface LuckRoll { step: number; luck: number[] }
 
 export type Request =
   | { op: "new"; seed: number; n: number }
-  | { op: "apply"; action: Canon }
+  | { op: "apply"; action: Canon; steps?: number }
   | { op: "decide"; bot: BotKind; depth: number }
   | { op: "evaluateAll" }
   | { op: "attribution"; seat: number }
@@ -42,7 +46,7 @@ export type Request =
   | { op: "run"; seed: number; bots: BotSpec[]; maxSteps: number }
   | { op: "record" }
   | { op: "replay"; record: string; steps: number }
-  | { op: "analyze"; record: string }
+  | { op: "luck"; record: string }
   | { op: "abort" };
 
 export interface GameState { map: MapView; view: View; legal: Canon[] }
@@ -109,7 +113,10 @@ export class EngineClient {
   }
 
   newGame(seed: number, n = 4) { this.epoch++; return this.call<GameState>({ op: "new", seed, n }); }
-  apply(action: Canon) { return this.call<{ outcome: [number, number]; view: View; legal: Canon[] }>({ op: "apply", action }); }
+  /** `steps` pins the action to the position it was chosen at. The worker rejects it as "stale"
+   *  if the engine has moved on — the only check that can see the round-trip, since the store's
+   *  view is not replaced until this resolves. */
+  apply(action: Canon, steps?: number) { return this.call<{ outcome: [number, number]; view: View; legal: Canon[] }>({ op: "apply", action, steps }); }
   decide(bot: BotKind, depth: number) { return this.call<Decision>({ op: "decide", bot, depth }); }
   evaluateAll() { return this.call<Evaluation[]>({ op: "evaluateAll" }); }
   attribution(seat: number) { return this.call<Attribution[]>({ op: "attribution", seat }); }
@@ -119,12 +126,9 @@ export class EngineClient {
   record() { return this.call<string>({ op: "record" }); }
   /** Rebuild a game from a record at a given step. Reloads the net: Engine::replay does not. */
   replay(record: string, steps: number) { this.epoch++; return this.call<GameState>({ op: "replay", record, steps }); }
-  /** Walks a record forward once, capturing every step's view and evals — the whole-game
-   *  curve review scrubs. Never calls `decide()`; that's fetched per step, on demand. */
-  analyze(record: string, onProgress?: (f: Frame[]) => void) {
-    this.epoch++;
-    return this.call<{ map: MapView; frames: Frame[] }>({ op: "analyze", record }, onProgress);
-  }
+  /** Dice luck across a whole recorded game: eleven counterfactual replays at every ROLL step,
+   *  about 0.8 s. Review-only — never ask the live client for this. */
+  luck(record: string) { return this.call<LuckRoll[]>({ op: "luck", record }); }
   run(seed: number, bots: BotSpec[], onProgress: (f: Frame[]) => void, maxSteps = 3000) {
     this.epoch++;
     return this.call<RunResult>({ op: "run", seed, bots, maxSteps }, onProgress);

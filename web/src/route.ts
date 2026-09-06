@@ -3,9 +3,14 @@
 // The stack is the truth and the hash is a projection of it, not the other way round:
 // Console and Coach have no route of their own (they are live-game views, and a live game
 // does not survive a reload), so a path derived purely from the URL could not reproduce
-// `Table > Console`. Esc goes through history.back(), so Esc and the browser's back button
-// are one gesture rather than two that disagree.
-import { currentView, get, set, type ViewName } from "./store";
+// `Table > Console`. Every navigation — Esc and a crumb included — sets the stack and pushes
+// an entry carrying it; the browser's back button re-seeds the stack from the entry it lands
+// on. (Navigating *by* `history.go(-n)` trusted the browser's depth to mirror the stack, which
+// a deep link on a cold load or a step scrubbed inside a review breaks.)
+//
+// Every change of view goes through `transition()`, so the board travels and the panels
+// arrive rather than the screen being redrawn.
+import { currentView, get, set, subscribe, transition, type ViewName } from "./store";
 
 const RE = /^#\/g\/(\d+)(?:\/(futures)|\/step\/(\d+)(\/move)?)?$/;
 
@@ -38,22 +43,25 @@ export function push(view: ViewName, step: number | null = get().step) {
   const s = get();
   if (currentView(s) === view) return;
   const crumbs = [...s.crumbs, view];
-  set({ crumbs, step });
+  transition(() => set({ crumbs, step }));
   // The stack rides in history.state, not just in the URL. Console and Coach project onto
   // their game's own address, so two different paths can share a hash; without this, going
   // back from Coach would land on Table instead of Console.
   history.pushState({ crumbs, step }, "", format(s.seed, view, step));
 }
 
-/** Go to a crumb already on the path, dropping everything after it.
- *
- *  One `history.go(-n)`, never a loop of `back()`. `back()` is asynchronous: the store only
- *  changes on the `popstate` that lands after the current task, so anything that loops while
- *  reading the store's crumb count spins forever. That is what froze the tab from every view
- *  but the Table. */
+const REVIEW = new Set<ViewName>(["game", "move"]);
+
+/** Go to a crumb already on the path, dropping everything after it. The step travels with
+ *  you into a review view (the "Step 118" crumb lands on step 118) and is dropped otherwise. */
 export function to(index: number) {
-  const n = get().crumbs.length - 1 - index;
-  if (n > 0) history.go(-n);
+  const s = get();
+  if (index < 0 || index >= s.crumbs.length - 1) return;
+  const crumbs = s.crumbs.slice(0, index + 1);
+  const view = crumbs[crumbs.length - 1];
+  const step = REVIEW.has(view) ? s.step : null;
+  transition(() => set({ crumbs, step }));
+  history.pushState({ crumbs, step }, "", format(s.seed, view, step));
 }
 
 export const pop = () => to(get().crumbs.length - 2);
@@ -65,10 +73,14 @@ export const toRoot = () => to(0);
  *  what a cold load or a pasted link gives us. */
 export function sync(e?: PopStateEvent) {
   const st = e?.state as { crumbs?: ViewName[]; step?: number | null } | null | undefined;
-  if (st?.crumbs?.length) { set({ crumbs: st.crumbs, step: st.step ?? null }); return; }
-  const p = parse();
-  if (!p) { set({ crumbs: ["table"], step: null }); return; }
-  set({ crumbs: stackFor(p.view), step: p.step, seed: p.seed });
+  const patch = st?.crumbs?.length
+    ? { crumbs: st.crumbs, step: st.step ?? null }
+    : (() => {
+        const p = parse();
+        return p ? { crumbs: stackFor(p.view), step: p.step, seed: p.seed } : { crumbs: ["table"] as ViewName[], step: null };
+      })();
+  const changed = currentView(get()) !== patch.crumbs[patch.crumbs.length - 1];
+  if (changed) transition(() => set(patch)); else set(patch);
 }
 
 /** Returns its own uninstall, because StrictMode invokes the mounting effect twice and two
@@ -78,5 +90,15 @@ export function install() {
   const onHash = () => sync();
   addEventListener("popstate", onPop);
   addEventListener("hashchange", onHash);
-  return () => { removeEventListener("popstate", onPop); removeEventListener("hashchange", onHash); };
+  // The entry follows the step: scrubbing inside a review view rewrites the current entry, so
+  // reload, back and the address bar all name the step on screen.
+  let lastStep = get().step;
+  const offStore = subscribe(() => {
+    const s = get();
+    if (s.step === lastStep) return;
+    lastStep = s.step;
+    const view = currentView(s);
+    if (REVIEW.has(view) && s.step != null) history.replaceState({ crumbs: s.crumbs, step: s.step }, "", format(s.seed, view, s.step));
+  });
+  return () => { removeEventListener("popstate", onPop); removeEventListener("hashchange", onHash); offStore(); };
 }

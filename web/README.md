@@ -1,7 +1,7 @@
 # Catan RL — the site
 
-Play against the bots and step through bot-vs-bot games, entirely in the browser. React 19 + Vite + Tailwind v4 +
-zag.js; the rules engine, both searches and the value net are the Rust crate in `../catan_engine` compiled with
+Play against the bots and step through bot-vs-bot games, entirely in the browser. React 19 + Vite + Tailwind v4,
+no other runtime dependency (motion is the View Transitions API, `docs/UI-REWRITE.md` "The laws"); the rules engine, both searches and the value net are the Rust crate in `../catan_engine` compiled with
 `wasm-pack` (`wasm` feature, no PyO3) and run in a Web Worker.
 
 ```bash

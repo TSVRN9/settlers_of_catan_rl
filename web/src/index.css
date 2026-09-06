@@ -60,7 +60,6 @@
   --t-board: 420ms;   /* the board travelling between two views */
   --t-panel: 260ms;   /* a panel arriving beside it */
   --t-feel: 120ms;    /* a control answering a press */
-  --t-bot: 350ms;     /* how long a bot's move is held so it can be watched */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -84,10 +83,12 @@ body {
   height: 38px; padding: 0 14px; border: 0; cursor: pointer; white-space: nowrap;
   background: var(--color-paper); color: var(--color-pine);
   font: 600 13.5px var(--font-sans);
-  transition: background var(--t-feel) var(--ease);
+  transition: background var(--t-feel) var(--ease), opacity var(--t-feel) var(--ease), transform var(--t-feel) var(--ease);
   clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
 }
 .act:hover { background: #e6e9df; }
+.act:active { transform: translateY(1px); }
+:focus-visible { outline: 2px solid var(--color-pine); outline-offset: 2px; }
 .act:disabled { opacity: 0.42; cursor: default; }
 .act.go { background: var(--color-pine); color: var(--color-chalk); }
 .act.go:hover { background: #1d322c; }
@@ -129,8 +130,91 @@ body {
   clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
 }
 
+/* ── the header: what this screen is, and the way back ─────────────────────────────── */
+.head {
+  position: absolute; left: 34px; top: 22px; z-index: 2;
+  display: inline-flex; align-items: baseline; gap: 8px;
+  background: none; border: 0; padding: 0; cursor: pointer; color: var(--color-pine);
+  font-size: 21px; line-height: 1.2;
+}
+.head .chev { color: var(--color-moss); font-size: 24px; transition: translate var(--t-feel) var(--ease), color var(--t-feel) var(--ease); }
+.head:hover .chev { translate: -3px 0; color: var(--color-pine); }
+
+/* The analysis, folded against the right edge: a zone, not a surface. Hovering it leans the
+   words toward the board, which is where opening it puts things. */
+.fold {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; height: 100%; cursor: pointer; color: var(--color-pine);
+}
+.fold > * { transition: translate var(--t-feel) var(--ease); }
+.fold:hover > * { translate: -4px 0; }
+.fold[aria-expanded="true"]:hover > * { translate: 4px 0; }
+
+/* Every scrollable region — the log, the action panel, the ladders — in the palette's
+   own rule colour rather than the platform default. */
+* { scrollbar-width: thin; scrollbar-color: var(--color-dust) transparent; }
+
+/* The log: three lines at rest, the whole game under the pointer — but only as far as the
+   free space beside it. It is bottom-anchored, so it opens upward into whatever is above
+   it; --log-open is how much room that actually is, set by whoever mounts it. Entries fade
+   at both edges rather than being cut through: deeper at the bottom, because the log is
+   newest-first and the top line is the live one. */
+.log {
+  display: flex; flex-direction: column; gap: 7px;
+  max-height: 76px; overflow: hidden; transition: max-height var(--t-panel) var(--ease);
+}
+.log:hover, .log:focus-within { max-height: var(--log-open, 60vh); overflow-y: auto; }
+/* Only the edge with something past it fades; Log sets these as it scrolls and resizes. */
+.log[data-fade-t]:not([data-fade-b]) { mask-image: linear-gradient(to bottom, transparent, black 10px); }
+.log[data-fade-b]:not([data-fade-t]) { mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent); }
+.log[data-fade-t][data-fade-b] { mask-image: linear-gradient(to bottom, transparent, black 10px, black calc(100% - 18px), transparent); }
+
+/* A seat's actual hand, under its public line. It opens and closes with the analysis
+   rather than appearing and vanishing, and stays dimmer than the row above it — that is
+   what marks it as the privileged half of the rail. */
+.hand-line {
+  display: grid; grid-template-rows: 0fr; opacity: 0;
+  transition: grid-template-rows var(--t-panel) var(--ease), opacity var(--t-panel) var(--ease);
+}
+.hand-line > * { overflow: hidden; min-height: 0; }
+.hand-line.open { grid-template-rows: 1fr; opacity: 0.62; }
+
+/* A card lifts under the pointer. Motion only: no outline, no halo. */
+.card { transition: translate var(--t-feel) var(--ease); }
+.card:hover { translate: 0 -7px; }
+
+/* The coach's thread: bottom-anchored, and the oldest lines fade out at the top. */
+.thread { mask-image: linear-gradient(to bottom, transparent, black 56px); overflow: hidden; padding-top: 56px; box-sizing: border-box; }
+
+/* The roll: two dice and the total, rising out of the board's centre, then gone. */
+.roll {
+  position: absolute; left: var(--board-x); top: 51.835%; z-index: 2; pointer-events: none;
+  display: flex; align-items: center; gap: 6px; padding: 10px 14px;
+  background: var(--color-chalk); box-shadow: 0 6px 24px rgba(18, 33, 31, 0.18);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  animation: roll 1.7s var(--ease) both;
+}
+@keyframes roll {
+  0%   { opacity: 0; translate: -50% calc(-50% + 28px); }
+  16%  { opacity: 1; translate: -50% -50%; }
+  78%  { opacity: 1; translate: -50% -50%; }
+  100% { opacity: 0; translate: -50% calc(-50% - 10px); }
+}
+
+/* A count that changed bumps; the change itself floats off the card. */
+@keyframes bump { from { scale: 1.35; } }
+.bump { display: inline-block; animation: bump .32s var(--ease) both; }
+.gain { position: absolute; top: -6px; right: 6px; animation: gain 1.4s var(--ease) both; }
+@keyframes gain { 0% { opacity: 0; translate: 0 6px; } 20% { opacity: 1; translate: 0 -6px; } 75% { opacity: 1; translate: 0 -14px; } 100% { opacity: 0; translate: 0 -22px; } }
+
 /* ── the stage: one board, moved by the view ───────────────────────────────────────── */
-.stage { position: relative; flex: 1; min-height: 0; container-type: size; overflow: clip; }
+.stage { position: relative; flex: 1; min-height: 0; container-type: size; overflow: clip; --board-x: 50%; --strip-x: 50%; }
+/* The board sits in the middle of the screen, and slides left only far enough to clear the
+   coach's column when it opens (Table's RIGHT is 302 wide at right:128, so 430 plus a
+   gutter). Measured off the ring's half-width, not the board's: the ring is 24% wider and
+   is on screen in exactly that state. `min()` means a window wide enough to hold both
+   never moves the board at all. */
+.stage:has(.coached) { --board-x: min(50%, 100% - 446px - min(49.442cqw, 81.649cqh) / 2); }
 
 /* Each view drops an empty anchor; layout works out where the board goes, and BoardLayer
    flies to it. min(cqw, cqh) reproduces the artboard exactly at 1440x872 and shrinks to
@@ -139,26 +223,101 @@ body {
   position: absolute; transform: translate(-50%, -50%);
   aspect-ratio: 511.56 / 488.4; pointer-events: none;
 }
-[data-anchor="table"]   { left: 45.694%; top: 51.835%; width: min(39.861cqw, 65.826cqh); }
-[data-anchor="console"] { left: 49.097%; top: 40.940%; width: min(37.083cqw, 61.239cqh); }
-[data-anchor="coach"]   { left: 68.056%; top: 48.280%; width: min(39.306cqw, 64.908cqh); }
+[data-anchor="table"]   { left: var(--board-x); top: 51.835%; width: min(39.861cqw, 65.826cqh); }
 [data-anchor="move"]    { left: 24.306%; top: 55.631%; width: min(43.611cqw, 72.018cqh); }
 [data-anchor="game"]    { left: 17.639%; top: 70.940%; width: min(28.194cqw, 46.560cqh); }
-/* Futures parks the live board in the first of six slots; the other five are clones. */
-[data-anchor="futures"] { left: 29.688%; top: 28.234%; width: min(14.375cqw, 23.739cqh); }
+/* Futures parks the live board in the aside's slot — "the board as it stands" — top-left under
+   the header; the candidates are clones in a grid to its right. */
+[data-anchor="futures"] { left: calc(34px + min(20.8cqw, 34.4cqh) / 2); top: calc(72px + min(20.8cqw, 34.4cqh) * 0.4774); width: min(20.8cqw, 34.4cqh); }
 
 /* The ring of readings around the board. 712 / 574 = 1.2404, applied to the table anchor's
-   own width, so it tracks the board at every size without a line of JavaScript. */
+   own width, so it tracks the board at every size without a line of JavaScript. Folded
+   (`.off`) it is drawn back to nothing, so opening the analysis draws it in. */
 [data-ring] {
-  position: absolute; left: 45.694%; top: 51.835%; transform: translate(-50%, -50%);
+  position: absolute; left: var(--board-x); top: 51.835%; transform: translate(-50%, -50%);
   width: min(49.442cqw, 81.649cqh); aspect-ratio: 1; pointer-events: none; display: block;
+  /* centred on the island, not on the board's box — so the band overhangs its viewBox */
+  overflow: visible;
+  /* above the board: its lattice runs past the viewbox and would otherwise cover the readings */
+  z-index: 1;
+  transition: opacity var(--t-board) var(--ease), scale var(--t-board) var(--ease),
+              left var(--t-panel) var(--ease);
 }
+[data-ring].off { opacity: 0; scale: 0.96; }
+[data-ring].off .arc { stroke-dasharray: 0 2168 !important; }
+@starting-style { [data-ring] { opacity: 0; scale: 0.96; } [data-ring] .arc { stroke-dasharray: 0 2168; } }
 
-#board-layer { position: absolute; will-change: transform; }
+/* A modal is over everything: the ring carries z-index 1 and the head and the roll carry 2,
+   and a scrim that loses to any of them is not a scrim. Discard and Offer share this. */
+.modal { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
+         background: rgba(18, 33, 31, .5); }
+
+#board-layer {
+  position: absolute; view-transition-name: board; pointer-events: none;
+  /* BoardLayer writes these as px. Opening the coach moves the anchor, so the board
+     travels — over --t-panel, which is what the coach itself arrives in. A resize is
+     not a move and suppresses this from the ResizeObserver. */
+  transition: left var(--t-panel) var(--ease), top var(--t-panel) var(--ease),
+              width var(--t-panel) var(--ease);
+}
+/* Only the painted targets take a click — the layer's box is bigger than the hexes,
+   and a panel over it must win the click, not the transparent corner it overlaps. */
+#board-layer .targets { pointer-events: auto; }
 /* Every Board instance carries this, including the futures view's static clones — the live
    board additionally sits inside #board-layer, whose own rule below is redundant but harmless. */
 .board-svg { display: block; width: 100%; height: auto; overflow: visible; }
 #board-layer svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* ── motion: nothing appears or vanishes; things arrive and leave ─────────────────── */
+/* A navigation is a view transition (store.transition). The board's group travels over
+   --t-board; every docked panel's old and new snapshots slide out of and into their own
+   edge over --t-panel; everything unnamed crossfades with the root. */
+::view-transition-old(root), ::view-transition-new(root),
+::view-transition-old(head), ::view-transition-new(head) {
+  animation-duration: var(--t-panel); animation-timing-function: var(--ease);
+}
+::view-transition-group(board) { animation-duration: var(--t-board); animation-timing-function: var(--ease); }
+::view-transition-old(board), ::view-transition-new(board) { animation-duration: var(--t-board); animation-timing-function: var(--ease); }
+
+::view-transition-group(.dock-l), ::view-transition-group(.dock-r),
+::view-transition-group(.dock-t), ::view-transition-group(.dock-b) {
+  animation-duration: var(--t-panel); animation-timing-function: var(--ease);
+}
+::view-transition-old(.dock-l) { animation: vt-out-l var(--t-panel) var(--ease) both; }
+::view-transition-new(.dock-l) { animation: vt-in-l  var(--t-panel) var(--ease) both; }
+::view-transition-old(.dock-r) { animation: vt-out-r var(--t-panel) var(--ease) both; }
+::view-transition-new(.dock-r) { animation: vt-in-r  var(--t-panel) var(--ease) both; }
+::view-transition-old(.dock-t) { animation: vt-out-t var(--t-panel) var(--ease) both; }
+::view-transition-new(.dock-t) { animation: vt-in-t  var(--t-panel) var(--ease) both; }
+::view-transition-old(.dock-b) { animation: vt-out-b var(--t-panel) var(--ease) both; }
+::view-transition-new(.dock-b) { animation: vt-in-b  var(--t-panel) var(--ease) both; }
+@keyframes vt-in-l  { from { opacity: 0; transform: translateX(-26px); } }
+@keyframes vt-out-l { to   { opacity: 0; transform: translateX(-26px); } }
+@keyframes vt-in-r  { from { opacity: 0; transform: translateX(26px); } }
+@keyframes vt-out-r { to   { opacity: 0; transform: translateX(26px); } }
+@keyframes vt-in-t  { from { opacity: 0; transform: translateY(-14px); } }
+@keyframes vt-out-t { to   { opacity: 0; transform: translateY(-14px); } }
+@keyframes vt-in-b  { from { opacity: 0; transform: translateY(14px); } }
+@keyframes vt-out-b { to   { opacity: 0; transform: translateY(14px); } }
+
+/* A panel that arrives because state changed within a view (the coach line, the ending, a
+   modal) takes the same path as one arriving with its view. */
+.arrive { transition: opacity var(--t-panel) var(--ease), translate var(--t-panel) var(--ease), scale var(--t-panel) var(--ease); }
+@starting-style {
+  .arrive { opacity: 0; }
+  .cell.arrive { translate: 0 10px; }
+  .arrive.dock-l { translate: -26px 0; }
+  .arrive.dock-r { translate: 26px 0; }
+  .arrive.dock-t { translate: 0 -14px; }
+  .arrive.dock-b { translate: 0 14px; }
+}
+
+/* The curtain: hotseat blurs the stage rather than unmounting it. */
+/* It fills the stage, so it is the containing block whether or not the filter is on —
+   a filter would otherwise make it one only while the curtain is down, and every
+   percentage-positioned anchor would jump. */
+.curtain { position: absolute; inset: 0; transition: filter var(--t-panel) var(--ease), opacity var(--t-panel) var(--ease); }
+.curtain.down { filter: blur(8px); opacity: 0.45; pointer-events: none; }
 
 /* ── the deal ──────────────────────────────────────────────────────────────────────── */
 /* Tokens animate the `scale` individual property, never `transform`: individual transform
@@ -173,6 +332,24 @@ body {
 .dealing .tk { animation: popIn .44s var(--ease) both;   animation-delay: calc(var(--i) * 32ms + 380ms); }
 .dealing .pt { animation: dealIn .45s var(--ease) 1s both; }
 
+/* ── a move: pieces land, the robber slides, readings drift ────────────────────────── */
+@keyframes land { from { opacity: 0; scale: 0.55; } }
+.pieces .pc { animation: land .32s var(--ease) both; }
+/* A piece a hypothetical adds lands later and larger, so the eye finds what changed. */
+@keyframes settle { 0% { opacity: 0; scale: 1.6; } 60% { opacity: 1; scale: 1.15; } 100% { scale: 1; } }
+.pieces .pc.new { animation: settle .7s var(--ease) both; animation-delay: .25s; }
+/* A move before it is played: half strength, and it does not land — it is not there yet. */
+.ghost { opacity: 0.5; }
+.ghost .pc, .ghost.pc { animation: none; }
+.robber { transition: translate var(--t-board) var(--ease); }
+@keyframes fade { from { opacity: 0; } }
+.targets > * { animation: fade var(--t-feel) var(--ease) both; }
+/* A line of commentary answers a move the way a control answers a press. */
+.line { animation: fade var(--t-feel) var(--ease) both; }
+.drift { transition: translate var(--t-board) var(--ease); }
+.arc { transition: stroke-dasharray var(--t-board) var(--ease), stroke-dashoffset var(--t-board) var(--ease); }
+.track > i { transition: width var(--t-board) var(--ease); }
+
 /* Below about a thousand pixels the app says so. There is no artboard down there, and
    inventing one is a worse answer than a straight sentence. */
 .narrow { display: none; }
@@ -183,6 +360,14 @@ body {
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+/* Reduced motion is the same layout with the travel removed — one block, not a second
+   code path. Things still change; they just arrive where they are going. */
 @media (prefers-reduced-motion: reduce) {
-  #board-layer, .tl, .tk, .gl, .pc, .pt { transition: none !important; animation: none !important; }
+  ::view-transition-group(*), ::view-transition-image-pair(*),
+  ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
 }
+
+/* A lineup chip answers a hover the way a button does. */
+.chip { transition: background var(--t-feel) var(--ease); }
+.chip:hover { background: var(--color-tint) !important; }
