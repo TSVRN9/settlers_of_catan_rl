@@ -13,7 +13,7 @@ use pyo3::types::PyDict;
 
 use crate::actions::{from_canon, to_canon, Canon};
 use crate::arena::{ArenaGame, Recorder, Seat, K_SIB};
-use crate::drrl::{Drrl, N_IN as DRRL_N_IN};
+use crate::drrl::{Drrl, Variant as DrrlVariant, N_IN as DRRL_N_IN};
 use crate::mcts::{Mcts, Policy};
 use rayon::prelude::*;
 use crate::encode::Layout;
@@ -656,6 +656,98 @@ fn action_types() -> Vec<&'static str> {
 
 /// The paper's DRRL trade layer (drrl.rs): one instance per seat per game; `trade_action` learns from
 /// the previous decision and returns an offer / reply, or None when the base bot should decide.
+/// jsettler::bse for seat `pn` of `state`, for the oracle check (tools/jsettlers_oracle.py): rolls per
+/// resource (engine order), then the road/settlement/city/card/ship ETAs from now (fast), from nothing
+/// (fast, limit 40) and from now (accurate).
+#[pyfunction]
+fn jsettler_bse(state: &PyState, pn: usize) -> (Vec<i32>, Vec<i32>, Vec<i32>, Vec<i32>) {
+    use crate::jsettler::bse::{Bse, Ports};
+    let s = &state.inner;
+    let b = Bse::of(s, pn, None);
+    let ports = Ports::of(s, pn);
+    let have = s.players[pn].hand;
+    (b.rolls_per_resource.to_vec(), b.from_now_fast(&have, &ports).to_vec(), b.from_nothing_fast(&ports, 40).to_vec(), b.from_now_accurate(&have, &ports).to_vec())
+}
+
+/// jsettler::tracker::Trackers for the oracle check: fed the logged piece events, asked for the ETAs.
+#[pyclass(name = "JsTrackers")]
+struct PyTrackers {
+    inner: crate::jsettler::tracker::Trackers,
+    openings: Vec<crate::jsettler::opening::Opening>,
+}
+
+#[pymethods]
+impl PyTrackers {
+    /// `node_js`: JSettlers node coord per catanatron node id (the board's rotation).
+    #[new]
+    fn new(state: &PyState, node_js: Vec<u16>) -> PyResult<PyTrackers> {
+        let arr: [u16; crate::map::NUM_NODES] = node_js.try_into().map_err(|_| PyValueError::new_err("node_js needs 54 coords"))?;
+        let n = state.inner.n;
+        Ok(PyTrackers { inner: crate::jsettler::tracker::Trackers::new(state.inner.map.clone(), n, arr), openings: vec![Default::default(); n] })
+    }
+
+    /// OpeningBuildStrategy for one seat: the first settlement node.
+    fn plan_initial_settlements(&mut self, pn: usize) -> i32 {
+        self.openings[pn].plan_initial_settlements(&self.inner, pn)
+    }
+
+    fn plan_second_settlement(&mut self, pn: usize) -> i32 {
+        self.openings[pn].plan_second_settlement(&self.inner, pn)
+    }
+
+    /// The initial road edge (JSettlers edge coord) after the seat's last settlement.
+    fn plan_init_road(&mut self, pn: usize, game_state: i32, current: usize, first_player: usize) -> i32 {
+        let turn = crate::jsettler::opening::Turn { game_state, current, first_player };
+        self.openings[pn].plan_init_road(&self.inner, pn, &turn)
+    }
+
+    /// kind 0 road, 1 settlement, 2 city; coord in JSettlers coords; initial = during initial placement.
+    fn on_piece(&mut self, kind: u8, pn: usize, coord: i32, initial: bool) {
+        self.inner.on_piece(kind, pn, coord, initial)
+    }
+
+    /// Regular play has started (the game state left the START states).
+    fn first_turn(&mut self) {
+        self.inner.first_turn()
+    }
+
+    /// updateWinGameETAs with the client's view: numbers and ports from `state`, the rest given.
+    /// Returns (winGameEta, longestRoadEta, largestArmyEta, roadsToGo) per seat.
+    #[allow(clippy::too_many_arguments)]
+    fn etas(&mut self, state: &PyState, lr_player: i32, la_player: i32, lr_length: Vec<i32>, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>) -> (Vec<i32>, Vec<i32>, Vec<i32>, Vec<i32>) {
+        use crate::jsettler::bse::{PlayerNumbers, Ports};
+        let s = &state.inner;
+        let info = crate::jsettler::tracker::GameInfo {
+            lr_player: if lr_player < 0 { None } else { Some(lr_player as usize) },
+            la_player: if la_player < 0 { None } else { Some(la_player as usize) },
+            lr_length,
+            knights,
+            knight_cards_old,
+            knight_cards_new,
+            dev_cards_left,
+            total_vp,
+            numbers: (0..s.n).map(|p| PlayerNumbers::of(s, p)).collect(),
+            ports: (0..s.n).map(|p| Ports::of(s, p)).collect(),
+            vp_winner: 10,
+        };
+        self.inner.update_win_game_etas(&info);
+        let t = &self.inner.trackers;
+        (t.iter().map(|x| x.win_game_eta).collect(), t.iter().map(|x| x.longest_road_eta).collect(), t.iter().map(|x| x.largest_army_eta).collect(), t.iter().map(|x| x.roads_to_go).collect())
+    }
+
+    /// One seat's potential settlements and roads (SOCPlayer's sets), for the oracle check.
+    fn potentials(&self, pn: usize) -> (Vec<i32>, Vec<i32>) {
+        let p = &self.inner.players[pn];
+        (p.potential_settlements.iter().copied().collect(), p.potential_roads.iter().copied().collect())
+    }
+
+    /// The possible settlements (coord, necessary road count) and roads of one seat, for debugging.
+    fn possibles(&self, pn: usize) -> (Vec<(i32, i32)>, Vec<(i32, i32)>, Vec<i32>) {
+        let t = &self.inner.trackers[pn];
+        (t.possible_settlements.values().map(|p| (p.coord, p.n_necessary)).collect(), t.possible_roads.values().map(|p| (p.coord, p.n_necessary)).collect(), t.possible_cities.keys().copied().collect())
+    }
+}
+
 #[pyclass(name = "Drrl")]
 struct PyDrrl {
     inner: Drrl,
@@ -664,9 +756,10 @@ struct PyDrrl {
 #[pymethods]
 impl PyDrrl {
     #[new]
-    #[pyo3(signature = (seed, hidden=DRRL_N_IN))]
-    fn new(seed: u64, hidden: usize) -> PyDrrl {
-        PyDrrl { inner: Drrl::new(seed, hidden) }
+    /// `variant`: letters from drrl.rs `Variant` (b basis, l literal update, c counter-offers, w TF init).
+    #[pyo3(signature = (seed, hidden=DRRL_N_IN, variant=""))]
+    fn new(seed: u64, hidden: usize, variant: &str) -> PyResult<PyDrrl> {
+        Ok(PyDrrl { inner: Drrl::new(seed, hidden, DrrlVariant::parse(variant).map_err(PyValueError::new_err)?) })
     }
 
     fn trade_action(&mut self, state: &PyState) -> Option<Canon> {
@@ -725,6 +818,9 @@ fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyArena>()?;
     m.add_class::<PyValueNet>()?;
     m.add_class::<PyDrrl>()?;
+    m.add_class::<PyTrackers>()?;
+    m.add_function(wrap_pyfunction!(jsettler_bse, m)?)?;
+    m.add("DRRL_N_IN", DRRL_N_IN)?;
     m.add_class::<PyMcts>()?;
     m.add_function(wrap_pyfunction!(action_types, m)?)?;
     m.add_function(wrap_pyfunction!(prof, m)?)?;

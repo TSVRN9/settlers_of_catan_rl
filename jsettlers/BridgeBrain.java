@@ -35,6 +35,10 @@ import soc.message.SOCMessage;
 import soc.robot.DiscardStrategy;
 import soc.robot.MonopolyStrategy;
 import soc.robot.OpeningBuildStrategy;
+import soc.robot.SOCPlayerTracker;
+import soc.robot.SOCPossibleCity;
+import soc.robot.SOCPossibleRoad;
+import soc.robot.SOCPossibleSettlement;
 import soc.robot.RobberStrategy;
 import soc.robot.SOCBuildPlan;
 import soc.robot.SOCBuildPlanStack;
@@ -102,7 +106,7 @@ public class BridgeBrain extends SOCRobotBrain
         Decider() throws IOException
         {
             List<String> cmd = new ArrayList<>();
-            for (String s : System.getProperty("bridge.python", "uv run python jsettlers_server.py").split(" "))
+            for (String s : System.getProperty("bridge.python", "uv run --no-sync python jsettlers_server.py").split(" "))
                 cmd.add(s);
             cmd.add("--player");
             cmd.add(BridgeClient.PLAYER);
@@ -130,6 +134,20 @@ public class BridgeBrain extends SOCRobotBrain
             decider = ((BridgeClient) client).decider();
         if (! boardSent)
         {
+            lastBoard = boardJson();
+            if (TRACE)
+                System.err.println("bridge " + ourPlayerName + " board " + lastBoard);
+            String r = decider.ask(lastBoard);
+            if (! r.equals("OK"))
+                throw new IOException(r);
+            boardSent = true;
+        }
+    }
+
+    /** The board message: land hexes (coord, type, number) and ports (type, node, node). */
+    private String boardJson()
+    {
+        {
             SOCBoard b = game.getBoard();
             StringBuilder sb = new StringBuilder("{\"op\":\"board\",\"n\":").append(game.maxPlayers).append(",\"ourPn\":").append(ourPlayerNumber).append(",\"hexes\":[");
             boolean first = true;
@@ -147,13 +165,7 @@ public class BridgeBrain extends SOCRobotBrain
                 sb.append(i == 0 ? "" : ",").append('[').append(b.getPortTypeFromNodeCoord(nodes[0])).append(',').append(nodes[0]).append(',').append(nodes[1]).append(']');
             }
             sb.append("]}");
-            lastBoard = sb.toString();
-            if (TRACE)
-                System.err.println("bridge " + ourPlayerName + " board " + lastBoard);
-            String r = decider.ask(sb.toString());
-            if (! r.equals("OK"))
-                throw new IOException(r);
-            boardSent = true;
+            return sb.toString();
         }
     }
 
@@ -325,6 +337,11 @@ public class BridgeBrain extends SOCRobotBrain
             return;
         try
         {
+            if (! boardLogged)
+            {
+                oracleLine(boardJson() + "\n"); // the oracle's first line: the board the decisions refer to
+                boardLogged = true;
+            }
             StringBuilder sb = new StringBuilder("{\"hook\":\"").append(hook).append("\",\"chosen\":").append(chosen).append(",\"pn\":").append(ourPlayerNumber).append(",\"gameState\":").append(game.getGameState());
             if (playerTrackers != null)
             {
@@ -338,19 +355,91 @@ public class BridgeBrain extends SOCRobotBrain
             sb.append(",\"buildingEtas\":[");
             for (int i = 0; i < etas.length; ++i)
                 sb.append(i == 0 ? "" : ",").append(etas[i]);
+            sb.append("],\"potSets\":").append(new java.util.TreeSet<Integer>(ourPlayerData.getPotentialSettlements()))
+              .append(",\"potRoads\":").append(potentialRoads())
+              .append(",\"possibles\":[");
+            for (int pn = 0; pn < game.maxPlayers; ++pn)
+            {
+                SOCPlayerTracker tr = (playerTrackers == null) ? null : playerTrackers[pn];
+                sb.append(pn == 0 ? "" : ",").append("{\"sets\":[");
+                boolean first = true;
+                if (tr != null)
+                    for (SOCPossibleSettlement ps : tr.getPossibleSettlements().values())
+                    {
+                        sb.append(first ? "" : ",").append('[').append(ps.getCoordinates()).append(',').append(ps.getNumberOfNecessaryRoads()).append(']');
+                        first = false;
+                    }
+                sb.append("],\"roads\":[");
+                first = true;
+                if (tr != null)
+                    for (SOCPossibleRoad pr : tr.getPossibleRoads().values())
+                    {
+                        sb.append(first ? "" : ",").append('[').append(pr.getCoordinates()).append(',').append(pr.getNumberOfNecessaryRoads()).append(']');
+                        first = false;
+                    }
+                sb.append("],\"cities\":[");
+                first = true;
+                if (tr != null)
+                    for (SOCPossibleCity pc : tr.getPossibleCities().values())
+                    {
+                        sb.append(first ? "" : ",").append(pc.getCoordinates());
+                        first = false;
+                    }
+                sb.append("]}");
+            }
             sb.append("],\"state\":");
             stateJson(sb);
             sb.append("}\n");
-            File dir = new File(System.getProperty("bridge.oracle", "data/jsettlers_oracle"));
-            dir.mkdirs();
-            try (FileWriter w = new FileWriter(new File(dir, game.getName().replace('~', '_') + ".jsonl"), true))
-            {
-                w.write(sb.toString());
-            }
+            oracleLine(sb.toString());
         }
         catch (IOException | RuntimeException e)
         {
             System.err.println("bridge oracle: " + e);
+        }
+    }
+
+    private boolean boardLogged;
+
+    /** Our potential road edges, sorted (SOCPlayer keeps the set private; isPotentialRoad is public). */
+    private java.util.TreeSet<Integer> potentialRoads()
+    {
+        java.util.TreeSet<Integer> out = new java.util.TreeSet<Integer>();
+        for (int e : game.getBoard().initPlayerLegalRoads())
+            if (ourPlayerData.isPotentialRoad(e))
+                out.add(e);
+        return out;
+    }
+
+    /** log mode: every piece the trackers see, in server order, so the port can replay them. */
+    @Override
+    public void handlePUTPIECE_updateTrackers(final int pn, final int coord, final int pieceType)
+    {
+        if (oracle)
+        {
+            try
+            {
+                if (! boardLogged)
+                {
+                    oracleLine(boardJson() + "\n");
+                    boardLogged = true;
+                }
+                oracleLine("{\"piece\":[" + pieceType + "," + pn + "," + coord + "],\"gameState\":" + game.getGameState() + "}\n");
+            }
+            catch (IOException e)
+            {
+                System.err.println("bridge oracle: " + e);
+            }
+        }
+        super.handlePUTPIECE_updateTrackers(pn, coord, pieceType);
+    }
+
+    private void oracleLine(String line) throws IOException
+    {
+        File dir = new File(System.getProperty("bridge.oracle", "data/jsettlers_oracle"));
+        dir.mkdirs();
+        try (FileWriter w = new FileWriter(new File(dir, game.getName().replace('~', '_') + ".jsonl"), true))
+        {
+            w.write(line);
         }
     }
 
@@ -401,26 +490,44 @@ public class BridgeBrain extends SOCRobotBrain
         String[] r = ask("DECIDE_TRADE", offerJson(offer));
         if (r == null)
             return super.considerOffer(offer);
+        pendingCounter = null;
+        if (r[0].equals("COUNTER_OFFER_TRADE"))
+        {
+            pendingCounter = r;
+            return SOCRobotNegotiator.COUNTER_OFFER;
+        }
         return r[0].equals("ACCEPT_TRADE") ? SOCRobotNegotiator.ACCEPT_OFFER : SOCRobotNegotiator.REJECT_OFFER;
     }
+
+    /** The counter-offer {@link #considerOffer(SOCTradeOffer)} was given, sent to the offerer only. */
+    private String[] pendingCounter;
 
     @Override
     protected boolean makeCounterOffer(SOCTradeOffer offer)
     {
         if (! oracle)
-            return false;
+        {
+            if (pendingCounter == null)
+                return false;
+            String[] r = pendingCounter;
+            pendingCounter = null;
+            return sendOffer(r, offer.getFrom());
+        }
         boolean made = super.makeCounterOffer(offer);
         SOCTradeOffer o = ourPlayerData.getCurrentOffer();
         oracle("makeCounterOffer", made && o != null ? "{\"give\":" + set(o.getGiveSet()) + ",\"get\":" + set(o.getGetSet()) + "}" : "null");
         return made;
     }
 
-    /** Send an OFFER_TRADE reply as our current offer, with the bookkeeping SOCRobotBrain.makeOffer does. */
-    private boolean sendOffer(String[] r)
+    /**
+     * Send an OFFER_TRADE reply as our current offer, with the bookkeeping SOCRobotBrain.makeOffer does;
+     * {@code toPn} = -1 offers to everyone, else to that player only (a counter-offer).
+     */
+    private boolean sendOffer(String[] r, int toPn)
     {
         boolean[] to = new boolean[game.maxPlayers];
         for (int pn = 0; pn < game.maxPlayers; ++pn)
-            to[pn] = (pn != ourPlayerNumber) && ! game.isSeatVacant(pn);
+            to[pn] = (pn != ourPlayerNumber) && ! game.isSeatVacant(pn) && ((toPn < 0) || (pn == toPn));
         SOCTradeOffer offer = new SOCTradeOffer(game.getName(), ourPlayerNumber, to, set5(r, 1), set5(r, 6));
         int[] spent = new int[10];
         for (int k = 0; k < 10; ++k)
@@ -458,7 +565,7 @@ public class BridgeBrain extends SOCRobotBrain
         if (r == null)
             return super.makeOffer(buildPlan);
         if (r[0].equals("OFFER_TRADE"))
-            return sendOffer(r);
+            return sendOffer(r, -1);
         doneTrading = true;
         waitingForTradeResponse = false;
         return false;
@@ -723,7 +830,7 @@ public class BridgeBrain extends SOCRobotBrain
             }
             break;
         case "OFFER_TRADE":
-            sendOffer(r);
+            sendOffer(r, -1);
             break;
         default: // END_TURN, ROLL: no plan, the brain's loop ends the turn
             break;

@@ -2600,3 +2600,22 @@ the Dirichlet prior (11 pseudo-counts per node) and the sampled myopic gain are 
 Also: the site has `drrl`, `uct`, `buct` and `vpi` bots; `tournament.py` takes a pool of any size; the bridge's `log`
 mode writes every stock-brain decision with the trackers' ETAs to `data/jsettlers_oracle/` (the replay oracle for
 the `jsettler.rs` port, Phase E, not started).
+
+## 2026-09-07: DRRL, the literal readings (docs/BENCHMARK.md Phase A follow-up)
+
+Each of the four places where the EUMAS 2018 text supports a more literal implementation than `drrl` takes
+(the weightless Eq. 5 basis, the Algorithm 1 update toward the fed-back Q-hat, counter-offers as replies,
+TensorFlow's default initialisers) is a flag on the token (`drrl:blcw`). On the arena (300 games vs 3x `rab`)
+the variants sit between 7.0% and 10.7%; through the bridge in the paper's exact setting (100 games each vs 3
+stock jSettlers) `drrl:c` wins 16.0% [10.1, 24.4], `drrl:lcw` 12.0%, the fully literal `drrl:blcw` 5.0%
+[2.2, 11.2], against 12.0% for the default and the paper's 45% (9 of 20 games). Counter-offers are the only
+reading that helps; the update rule is a no-op at the paper's reward scale either way. Weights kept across 30 sequential games (the paper's 56% setting): `drrl+:blcw` 20.0% [9.5, 37.3], `drrl+:c` 6.7% [1.8, 21.3], both inside the noise of 30 games.
+
+## 2026-09-07: jsettler.rs, first modules exact against the Java (docs/BENCHMARK.md Phase E)
+
+The building-speed estimator, board geometry, player model (legal/potential sets, longest-road paths),
+player trackers (possible pieces, threats, win-game / longest-road / largest-army ETAs) and the opening
+strategy are ported and match JSettlers 2.6.10 on 100% of 13k+ logged decisions from 52 smart-strategy games
+(`tools/jsettlers_oracle.py`). Two Java behaviours a clean reimplementation would miss: potential
+settlements are cleared at the first regular turn (a jSettler must build a road before its first
+settlement), and dev-card scoring leaves the planner's own win ETA computed with a phantom +1 VP card.

@@ -86,6 +86,53 @@ receives (246 of 833 over 20 games vs 3x `rab`) while only 7% of its own ~35 off
 offer a 1-ply AlphaBeta makes is favourable to the offerer by construction, so DRRL's seat bleeds cards all game. The paper's opponents were jSettlers, whose offers come from their own build plan, not from a
 valuation of the responder's hand; the Phase B runs are the test of whether the paper's 45% depends on that.
 
+### Phase A follow-up (2026-09-07): the paper's literal readings, measured one by one
+
+The 8.0% / 12.0% above use the readings in the table. Re-reading the paper (the HAL manuscript, the only
+version on disk; Xenou's TU Crete thesis is on ANAC negotiation, not DRRL) gives four points where the
+text supports a different, more literal implementation than `drrl` takes. Each is a one-letter flag on the
+token (`drrl:blcw` = all four), so they can be measured alone and together:
+
+| flag | the paper says | `drrl` does | the flag does |
+|---|---|---|---|
+| `b` | Eq. 5: phi_j(s_t) = (1 - sigmoid(s_j)) phi_j(s_{t-1}) + sigmoid(s_j) tanh(s_j), applied per state variable; the network's only parameters are the theta^i | a real LSTM cell per action (the user's choice), scaled inputs | the weightless Eq. 5 recurrence on the raw integer features; theta^i (154 weights per head) is all that trains |
+| `l` | Algorithm 1: at time t, SGD on every Q^i(s_t) toward r + gamma Q-hat, where Q-hat is the input (the previous step's chosen value), then argmax | the standard one-step TD update: the previous state's heads move toward r + gamma max over the legal heads now | the current state's heads move toward r_t + gamma Q-hat_{t-1} before the action is chosen (line 11 re-evaluates) |
+| `c` | "accept, reject, or make a counter-offer"; "rarely accepting ... it would rather counter-offer" | replies are accept/reject | a reply's legal set is accept, reject and every affordable offer; an offer head wins = a counter-offer (through the bridge as a JSettlers counter-offer to the offerer; the engine cannot express it and rejects instead) |
+| `w` | theta "initialized with a truncated normal distribution" (TensorFlow's default sigma is 1), LSTM defaults | sigma 0.1 everywhere | theta sigma 1, glorot-uniform LSTM kernel, forget bias 1 |
+
+Arena screen, each variant vs 3x `rab`, 300 games, seeds 0.., seat order per seed (`docs/benchmark/drrl_variants.txt`):
+
+| variant | win ratio | | variant | win ratio |
+|---|---|---|---|---|
+| `drrl` | 8.0% [5.4, 11.6] | | `drrl:bl` | 7.3% [4.9, 10.9] |
+| `drrl:b` | 7.0% [4.6, 10.5] | | `drrl:lw` | 8.3% [5.7, 12.0] |
+| `drrl:l` | 8.0% [5.4, 11.6] | | `drrl:blw` | 7.3% [4.9, 10.9] |
+| `drrl:c` | 10.7% [7.7, 14.7] | | `drrl:lcw` | 9.3% [6.5, 13.2] |
+| `drrl:w` | 9.0% [6.3, 12.8] | | `drrl:blcw` | 10.7% [7.7, 14.7] |
+
+Through the bridge, the paper's own setting (DRRL deciding only trades over a stock jSettler, 3 stock jSettlers
+as opponents, default mix, 100 games each):
+
+| series | win ratio | mean VP |
+|---|---|---|
+| `drrl` (the table's readings; from Phase B) | 12.0% [7.0, 19.8] | 6.58 |
+| `drrl:c` | 16.0% [10.1, 24.4] | 6.73 |
+| `drrl:lcw` | 12.0% [7.0, 19.8] | 6.37 |
+| `drrl:blcw` (all four literal readings) | 5.0% [2.2, 11.2] | 6.30 |
+| `drrl+` over 30 sequential games (from Phase B) | 10.0% [5.5, 17.4] | 6.52 |
+| `drrl+:blcw` over 30 sequential games | 20.0% [9.5, 37.3] | 6.57 |
+| `drrl+:c` over 30 sequential games | 6.7% [1.8, 21.3] | 5.80 |
+
+Reading: none of the literal readings, alone or together, moves DRRL toward the paper's 45%. `l` alone changes
+nothing measurable because, at the paper's reward scale, neither update rule moves the weights within a game
+(`drrl` and `drrl:l` win the same 24 seeds). Counter-offers (`c`) are the one reading that matters, +3 to +4
+points on both arenas, which fits the paper's remark that its agent countered rather than accepted; the
+weightless basis (`b`) makes the agent 10x cheaper and no better, and with everything literal it is the
+weakest of all. The gap to the paper is not in the network or the update; the remaining candidates are the
+opponents' replies (the paper's jSettlers accepted enough of DRRL's 10-40 offers per game to matter; here the
+stock brain accepts 7% of them) and the paper's 20-game sample (45% = 9/20, whose 95% interval is
+[26%, 66%]).
+
 ## Phase B (done 2026-09-07): real jSettlers through a Java bridge
 
 Facts checked 2026-09-03/07: JSettlers2 (github.com/jdmonin/JSettlers2, GPL-3) release 2.6.10 ships
@@ -220,8 +267,44 @@ bottom of ours instead of the top. Budget is not the reason: `vpi5000` (VPI at U
 wins 11.0% [8.3, 14.4] against 11.8% at 1,500. What remains to try is the Dirichlet prior (one count per VP value is
 11 pseudo-counts pulling every young node to 0.5) and the sampled myopic gain against Dearden's closed form.
 
-## Phase E (planned, 4-6 weeks): `jsettler.rs`, the jSettler on the site
+## Phase E (in progress since 2026-09-07): `jsettler.rs`, the jSettler on the site
 
+Status: the estimator, geometry, player model, trackers and opening strategy are ported
+(`catan_engine/src/jsettler/{bse,geom,jcoll,player,tracker,opening}.rs`) and replay the Java exactly. The
+oracle is the bridge's log mode with the smart strategy pinned (`JAVA_OPTS="-Dbridge.strategy=smart
+-Dbridge.oracle=data/jsettlers_oracle_smart" jsettlers/run.sh play 40 log rab ...`): every piece the client's
+trackers see (in server order), then at every stock-brain hook the decision taken, the trackers' ETAs, the
+planning bot's potential sets and each tracker's possible pieces. `tools/jsettlers_oracle.py` replays the
+pieces through the port and compares, per quantity:
+
+| quantity | port | match |
+|---|---|---|
+| building ETAs from now (fast) | `bse.rs` | 5808 / 5808 |
+| planInitialSettlements, planSecondSettlement | `opening.rs` | 24 / 24, 24 / 24 |
+| planInitRoad | `opening.rs` | 48 / 48 |
+| potential settlements and roads of the planning bot | `player.rs` | 331 / 331, 331 / 331 |
+| longest-road ETA, largest-army ETA | `tracker.rs` | 2709 / 2709 each |
+| win-game ETA, all four seats | `tracker.rs` | 13268 / 13268 |
+| possible settlements (with necessary-road counts), roads, cities, all four seats | `tracker.rs` | 1308 / 1308 |
+
+(40 + 12 + 12 smart-strategy games; 100% on every row.) Two things the Java does that a from-scratch port
+would not guess, both reproduced: at the first regular turn `SOCGame.updateAtGameFirstTurn` clears every
+player's potential settlements, which only come back through new roads, so a jSettler always builds a
+road before its first settlement; and `SOCRobotDM.getDevCardScore` recomputes the real trackers with an
+extra VP card in the planner's hand and never recomputes after, so while the deck lasts every plan is made
+with the planner's own win ETA one card better than it is. Iteration orders matter (the argmaxes are
+strict and ties common): `jcoll.rs` reproduces `HashSet<Integer>` and `Hashtable` order, `geom.rs` the
+board's coordinate arithmetic, and the trackers' maps are keyed by JSettlers coordinate.
+
+Design: the trackers are fed piece events in server order (as the Java client is) rather than rebuilt from
+a snapshot, because their possible-piece sets depend on the order (a road expands only one level when placed,
+an opponent's settlement prunes chains). The ETAs take a `GameInfo` snapshot (the client's view: opponents'
+dev cards unknown). Remaining: `dm.rs` (both strategies, with the temporary-piece scoring on tracker copies
+whose possible pieces carry no necessary roads or conflicts, another Java quirk), the brain's turn flow,
+`RobberStrategy`/`DiscardStrategy`/`MonopolyStrategy` (read, small), and `negotiator.rs`; then the tokens and
+the site bot. The original plan follows.
+
+### The plan (2026-09-07)
 Port the decision core of `soc.robot` to `catan_engine/src/jsettler/`, validated module by module against the
 Phase B passthrough log, then end to end (the port through the bridge vs 3 Java jSettlers should score ~25%,
 indistinguishable from a fourth jSettler; then vs `ab` and v40 on the Rust arena). Scenario/ship/`SC_*` code is

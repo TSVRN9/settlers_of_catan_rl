@@ -450,13 +450,17 @@ class DrrlPlayer(Player):
     within the game from fresh weights; the Rust depth-2 heuristic search plays everything else
     (the jSettler's role in the paper). Token `drrl`, `drrl32` for a 32-unit hidden layer; `drrl+` keeps the
     weights across games (the paper's 30-game setting; only meaningful where one player object plays a
-    sequence of games, e.g. the jSettlers bridge)."""
+    sequence of games, e.g. the jSettlers bridge); `drrl:blcw` switches on the paper's literal readings
+    (drrl.rs Variant: b basis, l literal update, c counter-offers, w TF init). A counter-offer reply is
+    only possible through the bridge (`bridge = True`); the engine's replies are accept/reject."""
 
-    def __init__(self, color, depth=2, hidden=None, persist=False):
+    def __init__(self, color, depth=2, hidden=None, persist=False, variant=""):
         super().__init__(color)
         self.depth = depth
         self.hidden = hidden
         self.persist = persist
+        self.variant = variant
+        self.bridge = False
         self.drrl = None
 
     def reset_state(self):
@@ -472,9 +476,11 @@ class DrrlPlayer(Player):
         colors = list(game.state.colors)
         if self.drrl is None:
             seed = (int(game.seed or 0) * 4 + colors.index(self.color)) & (2**63 - 1)
-            self.drrl = catan_engine.Drrl(seed, self.hidden) if self.hidden else catan_engine.Drrl(seed)
+            self.drrl = catan_engine.Drrl(seed, self.hidden or catan_engine.DRRL_N_IN, self.variant)
         rs, ctx = rb.rust_state(game)
         a = self.drrl.trade_action(rs)
+        if a is not None and a[0] == "OFFER_TRADE" and game.state.current_prompt.value == "DECIDE_TRADE" and not self.bridge:
+            a = ("REJECT_TRADE", -1, -1, -1)  # a counter-offer, which this engine cannot express
         if a is None and game.state.current_prompt.value == "DECIDE_ACCEPTEES":
             a = rs.trade_action(rb.layout(ctx))
         if a is not None:
@@ -532,9 +538,9 @@ def make_player(spec, color):
         return RustAlphaBetaPlayer(color)
     if spec.startswith("rab") and spec[3:].isdigit():
         return RustAlphaBetaPlayer(color, depth=int(spec[3:]))
-    m = re.fullmatch(r"drrl(\d*)(\+?)", spec)  # drrl = the EUMAS 2018 agent over the Rust heuristic base, drrl32 = hidden 32, drrl+ = weights kept across games
+    m = re.fullmatch(r"drrl(\d*)(\+?)(?::([a-z]+))?", spec)  # drrl = the EUMAS 2018 agent over the Rust heuristic base, drrl32 = hidden 32, drrl+ = weights kept across games, drrl:blcw = literal readings
     if m:
-        return DrrlPlayer(color, hidden=int(m.group(1)) if m.group(1) else None, persist=bool(m.group(2)))
+        return DrrlPlayer(color, hidden=int(m.group(1)) if m.group(1) else None, persist=bool(m.group(2)), variant=m.group(3) or "")
     m = re.fullmatch(r"(uct|buct|vpi)(\d*)", spec)  # the thesis MCTS agents; uct2000 = 2,000 playouts per decision
     if m:
         return MctsPlayer(color, m.group(1), int(m.group(2)) if m.group(2) else None)

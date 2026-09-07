@@ -42,6 +42,8 @@ public class BridgeClient extends SOCRobotClient
     public static final String PLAYER = System.getProperty("bridge.player", "vnet:checkpoints_value/v40.pt");
     public static final String REPO = System.getProperty("bridge.repo", ".");
     public static final String RESULTS = System.getProperty("bridge.results", "");
+    /** {@code smart} or {@code fast}: pin our brain's SOCRobotDM strategy (default: the server's parameters). */
+    public static final String STRATEGY = System.getProperty("bridge.strategy", "");
 
     /** One decision server per client, shared by its brains: a `drrl+` player keeps its weights across games. */
     BridgeBrain.Decider decider;
@@ -112,8 +114,12 @@ public class BridgeClient extends SOCRobotClient
     }
 
     @Override
-    public SOCRobotBrain createBrain(final SOCRobotParameters params, final SOCGame ga, final CappedQueue<SOCMessage> mq)
+    public SOCRobotBrain createBrain(SOCRobotParameters params, final SOCGame ga, final CappedQueue<SOCMessage> mq)
     {
+        if (STRATEGY.equals("smart") || STRATEGY.equals("fast"))
+            params = new SOCRobotParameters(params.getMaxGameLength(), params.getMaxETA(), params.getETABonusFactor(), params.getAdversarialFactor(),
+                params.getLeaderAdversarialFactor(), params.getDevCardMultiplier(), params.getThreatMultiplier(),
+                STRATEGY.equals("smart") ? soc.robot.SOCRobotDM.SMART_STRATEGY : soc.robot.SOCRobotDM.FAST_STRATEGY, params.getTradeFlag());
         return new BridgeBrain(this, params, ga, mq);
     }
 

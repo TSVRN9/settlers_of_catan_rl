@@ -26,7 +26,8 @@ case "${1:-}" in
     cd "$ROOT"
     # bridge.* are JVM properties (read by our classes); jsettlers.* must follow the main class, the
     # server parses its own -D arguments
-    exec java -cp "$JAR:$OUT" \
+    # JAVA_OPTS: extra JVM properties, e.g. -Dbridge.strategy=smart -Dbridge.oracle=data/jsettlers_oracle_smart
+    exec java -cp "$JAR:$OUT" ${JAVA_OPTS:-} \
       -Dbridge.mode="$mode" -Dbridge.player="$player" -Dbridge.repo="$ROOT" -Dbridge.results="$results" -Dbridge.mix="$mix" \
       catanrl.Launch \
       -Djsettlers.startrobots="$bots" -Djsettlers.bots.start3p=1,catanrl.BridgeClient \

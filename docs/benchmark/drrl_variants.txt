@@ -1,0 +1,12 @@
+# 2026-09-07T10:21 each variant vs 3x rab, 300 games, seeds 0.., seat order per seed
+drrl: 24/300 = 8.0% [5.4, 11.6]  mean VP 5.30  1.22 s/game
+drrl:b: 21/300 = 7.0% [4.6, 10.5]  mean VP 5.29  0.12 s/game
+drrl:l: 24/300 = 8.0% [5.4, 11.6]  mean VP 5.30  1.71 s/game
+drrl:c: 32/300 = 10.7% [7.7, 14.7]  mean VP 5.78  1.48 s/game
+drrl:w: 27/300 = 9.0% [6.3, 12.8]  mean VP 5.39  0.91 s/game
+drrl:bl: 22/300 = 7.3% [4.9, 10.9]  mean VP 5.31  0.12 s/game
+drrl:lw: 25/300 = 8.3% [5.7, 12.0]  mean VP 5.40  1.32 s/game
+drrl:blw: 22/300 = 7.3% [4.9, 10.9]  mean VP 5.31  0.12 s/game
+drrl:lcw: 28/300 = 9.3% [6.5, 13.2]  mean VP 5.78  1.66 s/game
+drrl:blcw: 32/300 = 10.7% [7.7, 14.7]  mean VP 5.73  0.13 s/game
+# done

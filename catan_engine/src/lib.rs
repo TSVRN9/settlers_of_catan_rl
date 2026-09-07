@@ -13,6 +13,7 @@ pub mod heuristic;
 pub mod map;
 pub mod mapgen;
 pub mod mcts;
+pub mod jsettler;
 pub mod search;
 pub mod state;
 pub mod trade;

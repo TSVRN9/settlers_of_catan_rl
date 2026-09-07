@@ -248,10 +248,13 @@ class Server:
             from value_net import make_player
 
             self.player = make_player(self.token, colors[self.our])
+            self.player.bridge = True  # a DrrlPlayer may answer an offer with a counter-offer here
         acts = []
 
         def step():
             a = self.player.decide(game, game.playable_actions)
+            if a.action_type == ActionType.OFFER_TRADE and prompt == "DECIDE_TRADE":
+                return a  # a counter-offer: JSettlers' reply, not a move in this engine
             if a.action_type != ActionType.OFFER_TRADE:
                 assert a in game.playable_actions, f"{a} not in {game.playable_actions}"
             game.execute(a)
@@ -259,6 +262,8 @@ class Server:
             return a
 
         a = step()
+        if prompt == "DECIDE_TRADE" and a.action_type == ActionType.OFFER_TRADE:
+            return "COUNTER_" + self.reply([a], colors)
         if prompt == "DISCARD":
             for _ in range(msg["discard"] - 1):
                 step()

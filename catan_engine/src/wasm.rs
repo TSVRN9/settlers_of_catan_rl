@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::actions::{from_canon, to_canon, Action, Canon};
 use crate::apply::Outcome;
-use crate::drrl::{Drrl, N_IN as DRRL_N_IN};
+use crate::drrl::{Drrl, Variant as DrrlVariant, N_IN as DRRL_N_IN};
 use crate::mcts::{Mcts, Policy};
 use crate::encode::Layout;
 use crate::map::Map;
@@ -210,7 +210,7 @@ impl Engine {
             "drrl" => {
                 let seat = self.state.current_player;
                 let seed = self.seed as u64;
-                let d = self.drrl[seat].get_or_insert_with(|| Drrl::new(seed ^ (seat as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15), DRRL_N_IN));
+                let d = self.drrl[seat].get_or_insert_with(|| Drrl::new(seed ^ (seat as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15), DRRL_N_IN, DrrlVariant::default()));
                 match d.trade_action(&self.state) {
                     Some(a) => Some(a),
                     None if self.state.prompt == Prompt::DecideAcceptees => self.state.trade_action(&Eval::Heuristic),
