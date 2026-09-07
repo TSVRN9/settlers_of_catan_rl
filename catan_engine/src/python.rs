@@ -13,6 +13,8 @@ use pyo3::types::PyDict;
 
 use crate::actions::{from_canon, to_canon, Canon};
 use crate::arena::{ArenaGame, Recorder, Seat, K_SIB};
+use crate::drrl::{Drrl, N_IN as DRRL_N_IN};
+use crate::mcts::{Mcts, Policy};
 use rayon::prelude::*;
 use crate::encode::Layout;
 use crate::map::{Map, Port, Tile};
@@ -652,6 +654,69 @@ fn action_types() -> Vec<&'static str> {
     vec!["ROLL", "MOVE_ROBBER", "DISCARD_RESOURCE", "BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY", "BUY_DEVELOPMENT_CARD", "PLAY_KNIGHT_CARD", "PLAY_YEAR_OF_PLENTY", "PLAY_MONOPOLY", "PLAY_ROAD_BUILDING", "MARITIME_TRADE", "END_TURN"]
 }
 
+/// The paper's DRRL trade layer (drrl.rs): one instance per seat per game; `trade_action` learns from
+/// the previous decision and returns an offer / reply, or None when the base bot should decide.
+#[pyclass(name = "Drrl")]
+struct PyDrrl {
+    inner: Drrl,
+}
+
+#[pymethods]
+impl PyDrrl {
+    #[new]
+    #[pyo3(signature = (seed, hidden=DRRL_N_IN))]
+    fn new(seed: u64, hidden: usize) -> PyDrrl {
+        PyDrrl { inner: Drrl::new(seed, hidden) }
+    }
+
+    fn trade_action(&mut self, state: &PyState) -> Option<Canon> {
+        self.inner.trade_action(&state.inner).map(to_canon)
+    }
+
+    /// Keep the weights, clear the game memory (the paper's 30-game setting).
+    fn new_game(&mut self) {
+        self.inner.new_game()
+    }
+
+    fn weights(&self) -> Vec<f32> {
+        self.inner.weights()
+    }
+
+    fn load(&mut self, data: Vec<f32>) -> PyResult<()> {
+        self.inner.load(&data).map_err(PyValueError::new_err)
+    }
+
+    fn steps(&self) -> u64 {
+        self.inner.steps
+    }
+}
+
+/// The thesis MCTS agents (mcts.rs): `policy` = uct | buct | vpi, `sims` playouts per decision (None = the
+/// policy's default), `cutoff` = the round cut-off c. `decide` is the whole player (trades and the heuristic
+/// search on the prompts the search does not own).
+#[pyclass(name = "Mcts")]
+struct PyMcts {
+    inner: Mcts,
+}
+
+#[pymethods]
+impl PyMcts {
+    #[new]
+    #[pyo3(signature = (policy, sims=None, cutoff=10, seed=0))]
+    fn new(policy: &str, sims: Option<u32>, cutoff: u32, seed: u64) -> PyResult<PyMcts> {
+        let p = Policy::parse(policy).ok_or_else(|| PyValueError::new_err(format!("unknown policy {policy}")))?;
+        Ok(PyMcts { inner: Mcts::new(p, sims.unwrap_or(p.default_sims()), cutoff, seed) })
+    }
+
+    fn decide(&mut self, state: &PyState) -> Option<Canon> {
+        self.inner.decide(&state.inner).map(to_canon)
+    }
+
+    fn playouts(&self) -> u64 {
+        self.inner.playouts
+    }
+}
+
 #[pymodule]
 fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMap>()?;
@@ -659,6 +724,8 @@ fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyState>()?;
     m.add_class::<PyArena>()?;
     m.add_class::<PyValueNet>()?;
+    m.add_class::<PyDrrl>()?;
+    m.add_class::<PyMcts>()?;
     m.add_function(wrap_pyfunction!(action_types, m)?)?;
     m.add_function(wrap_pyfunction!(prof, m)?)?;
     Ok(())

@@ -8,6 +8,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::actions::{from_canon, to_canon, Action, Canon};
 use crate::apply::Outcome;
+use crate::drrl::{Drrl, N_IN as DRRL_N_IN};
+use crate::mcts::{Mcts, Policy};
 use crate::encode::Layout;
 use crate::map::Map;
 use crate::state::{Prompt, State};
@@ -57,6 +59,7 @@ pub struct Engine {
     log: Vec<(Action, Outcome)>,
     net: Option<Arc<ValueNet>>,
     bot_rng: u64,
+    drrl: Vec<Option<Drrl>>, // per seat, created on first use, lives for the game
 }
 
 #[wasm_bindgen]
@@ -67,7 +70,7 @@ impl Engine {
         let layout = layout();
         let map = Arc::new(Map::generate(seed as u64, &layout));
         let state = State::new(map, n, (seed as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x5851_F42D_4C95_7F2D, 10);
-        Engine { state, seed, n, log: vec![], net: None, bot_rng: seed as u64 ^ 0xA5A5_5A5A_1234_8765 }
+        Engine { state, seed, n, log: vec![], net: None, bot_rng: seed as u64 ^ 0xA5A5_5A5A_1234_8765, drrl: (0..n).map(|_| None).collect() }
     }
 
     /// Rebuild a game from `record()` output, replaying the first `steps` logged actions (or all if `steps` < 0).
@@ -181,21 +184,39 @@ impl Engine {
         let a = canon_from_json(&v).map_err(err)?;
         let mut state = self.state.clone();
         state.apply(a, None).map_err(err)?;
-        let shadow = Engine { state, seed: self.seed, n: self.n, log: vec![], net: self.net.clone(), bot_rng: self.bot_rng };
+        let shadow = Engine { state, seed: self.seed, n: self.n, log: vec![], net: self.net.clone(), bot_rng: self.bot_rng, drrl: vec![] };
         Ok(shadow.view())
     }
 
     /// Ask a bot for the current decision without applying it.
-    /// bot: "random" | "heuristic" (AlphaBeta's evaluator, exact expectimax) | "vnet" (value-net search).
+    /// bot: "random" | "heuristic" (AlphaBeta's evaluator, exact expectimax) | "vnet" (value-net search)
+    /// | "drrl" (the EUMAS 2018 agent deciding offers and replies over the heuristic search)
+    /// | "uct" | "buct" | "vpi" (the thesis MCTS agents, mcts.rs, at their default playout budgets).
     /// Returns {action, value, root: [[action, ev], ...], leaves}.
     pub fn decide(&mut self, bot: &str, depth: u32) -> Result<String, JsValue> {
         let actions = self.state.playable_actions();
         if actions.is_empty() {
             return Err(err("no legal actions"));
         }
+        if let Some(p) = Policy::parse(bot) {
+            self.bot_rng = self.bot_rng.wrapping_add(0x9E3779B97F4A7C15);
+            let mut m = Mcts::new(p, p.default_sims(), 10, self.bot_rng);
+            let a = m.decide(&self.state).unwrap_or(actions[0]);
+            return Ok(json!({"action": canon_json(a), "value": Value::Null, "root": [], "leaves": m.playouts}).to_string());
+        }
         // Trade prompts and worthwhile offers: the 1-ply policy with the bot's own evaluator.
         let policy = match bot {
             "heuristic" => self.state.trade_action(&Eval::Heuristic),
+            "drrl" => {
+                let seat = self.state.current_player;
+                let seed = self.seed as u64;
+                let d = self.drrl[seat].get_or_insert_with(|| Drrl::new(seed ^ (seat as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15), DRRL_N_IN));
+                match d.trade_action(&self.state) {
+                    Some(a) => Some(a),
+                    None if self.state.prompt == Prompt::DecideAcceptees => self.state.trade_action(&Eval::Heuristic),
+                    None => None,
+                }
+            }
             "vnet" => {
                 let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
                 self.state.trade_action(&Eval::Net(net, &layout()))
@@ -215,7 +236,7 @@ impl Engine {
                 let i = ((z ^ (z >> 31)) % actions.len() as u64) as usize;
                 (Some(actions[i]), f64::NAN, vec![], 0)
             }
-            "heuristic" => {
+            "heuristic" | "drrl" => {
                 let (a, v, root) = self.state.decide_heuristic_full(depth.max(1));
                 (a, v, root, 0)
             }

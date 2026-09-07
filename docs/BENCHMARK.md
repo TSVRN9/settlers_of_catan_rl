@@ -1,4 +1,4 @@
-# Benchmark: the EUMAS 2018 protocol, and the road to the paper's real opponents
+# Benchmark: the EUMAS 2018 protocol, and the road to the paper's real opponents and its agent
 
 Reference: K. Xenou, G. Chalkiadakis, S. Afantenos, *Deep Reinforcement Learning in Strategic Board Game
 Environments*, EUMAS 2018 (hal-02124411). Their DRRL agent handled only trade offers/replies inside jSettlers and was
@@ -47,67 +47,200 @@ Domestic trading was added to both engines after this run (docs/FINDINGS.md 2026
 58.3% [52.7, 63.8] over 300 games vs 3x trading AlphaBeta. The table above was measured without trading and has not
 been re-run yet.
 
-## Phase 2 (planned, ~1 week): real jSettlers, the literal Fig. 3b number
+## Phase A (done 2026-09-07): the paper's own agent, DRRL, reproduced
 
-Facts checked 2026-09-03: JSettlers2 (github.com/jdmonin/JSettlers2, GPL-3) is at release 2.6.10 / main 2.7.00.
-Bots are plain TCP clients (`DataOutputStream.writeUTF` frames of `<type>|field|...`); non-Java clients are
-explicitly supported (`doc/Readme.developer.md`, "Network Communication and interop with other versions or
-languages"). A client that sends `SOCImARobot` with the server's cookie (`-Djsettlers.bots.cookie=...`) is seated
-like a built-in bot; bots-only games run in ~2 minutes with `jsettlers.bots.fast_pause_percent=1` and can be driven
-in bulk with `jsettlers.bots.botgames.total/parallel/gametypes`. The built-in robot lives in `soc.robot` (27 files,
-22,969 lines: SOCRobotBrain 5.6k, SOCPlayerTracker 4.2k, SOCRobotDM 3.4k, SOCRobotNegotiator 2.7k,
-OpeningBuildStrategy 1.1k, SOCBuildingSpeedEstimate 1.1k) with "fast" (`droid N`) and "smart" (`robot N`) parameter
-sets; the 7 default bots are a mix. No Python or Rust port of that robot, and no Catanatron bridge, exists anywhere.
+What DRRL is (Sect. 3-4 of the paper): a **trade-only** layer over a stock jSettler. 72 actions = 70 offers (give 1-2
+cards, get 1) + accept + reject; one network per action, LSTM -> linear head -> Q^i; input = the 161-int state of
+Table 1 plus the previous chosen Q fed back; online SGD at every trade decision (lr 0.0023, no replay, no target
+net); reward r = dVP*k if dVP > 0 else -VP*k with k = 0.01; weights fresh every game (Fig. 3a/3b) or kept across 30
+games (the 56% number). Everything else is the jSettler's decision.
 
-1. Vendor `JSettlers2` (release 2.6.10) under `vendor/` (gitignored) and fetch the two theses (below) into
-   `docs/papers/`.
-2. `jsettlers/` (Java, GPL-compatible because it links JSettlers): a `SOCRobotClient`/`SOCRobotBrain` subclass
-   modelled on `soc.robot.sample3p`. JSettlers keeps doing state tracking and protocol handling; at each decision
-   point (initial placement, play-turn, discard, robber move, trade reply = always reject) it serialises `SOCGame`
-   to the engine's state spec and asks a local decision server.
-3. Decision server = the Rust engine as a small process (`catan_engine` bin or `serve` feature): JSON state in,
-   canonical action out, via `decide_vnet` / `decide_heuristic`. No torch and no Python in the loop — the value net
-   already lives in Rust (`catan_engine/src/valuenet.rs`). Board mapping is a one-off table from JSettlers'
-   classic 4-player hex/node/edge coordinates to the engine's node ids; JSettlers' port positions differ from
-   catanatron's template, which `Map::new` (arbitrary tiles/ports) already accepts — build the `Map` from the
-   JSettlers layout, not from the template.
-4. Rule gaps to record, not fix: JSettlers robots negotiate in their own dialogue (our bot answers with the 1-ply trade policy and makes offers from its ≤2-card menu);
-   `jsettlers.bots.timeout.turn` must exceed our search time.
-5. Runs: headless server with 3 built-ins (pin names for a fast-only and a smart-only series, plus the default
-   mix), our client connected with the cookie, `botgames.total=100` per series; parse `SOCGameStats` or the game
-   DB for wins. Report v40 vs 3x jSettler next to DRRL 45%/56% and DRL 53.36%.
-6. Long-term, for the site: port the decision core of `soc.robot` (SOCRobotDM + SOCBuildingSpeedEstimate +
-   SOCPlayerTracker + OpeningBuildStrategy, ~10k Java lines, no negotiator/chat) to a `jsettler.rs` bot; it then
-   compiles to WASM like everything else. Estimate 3-4 weeks; validate by playing the port against the Java
-   original through the Phase 2 bridge.
+`catan_engine/src/drrl.rs` is that agent; `value_net.make_player("drrl")` runs it over the Rust depth-2 heuristic
+search (the jSettler's role until Phase B); the site's `drrl` bot is the same code through `wasm.rs`. Choices the
+paper leaves open, as implemented:
 
-## Phase 3 (planned, ~1 week): the thesis MCTS agents, so the pool matches the paper's
+| open point | paper | here |
+|---|---|---|
+| input width | 161 (jSettlers' 7x7 hex grid, 80 edges) | 154 = 5 hand + 19 tiles + 54 nodes + 72 edges + robber + turns + VP + Q-hat |
+| feature scale | raw integers | each divided by its Table 1 domain max |
+| "LSTM layer ... 72 independent LSTM units" | unspecified size | one LSTM cell per action, hidden = input width (154), plus theta^i in R^154 |
+| output "normalised by softmax to [0,1]" | softmax on a scalar is 1 | sigmoid |
+| gamma | unspecified | 0.9 |
+| gradient through time | unspecified | one step (a TF1 session with fed-back state); hidden state held constant |
+| which heads update | Alg. 1 updates every i with the same r | every head toward the same target r + gamma * max over the legal heads |
+| init | theta truncated normal | all weights truncated normal (|z| <= 2), sigma 0.1, biases 0 |
+| exploration | none (argmax) | none |
+| counter-offers | a reply may be a new offer | the engine's replies are accept/reject; offers are made on the player's own turn, at most 3 per turn |
+| decisions per game | "at most about 70" | about 100 (offers + every reply) |
 
-The agents come from E. Karamalegos, *Monte Carlo tree search in the Settlers of Catan strategy game* (TU Crete,
-DOI 10.26233/heallink.tuc.66891; also K. Panousis, *Real-time planning and learning in the Settlers of Catan
-strategy game*, DOI 10.26233/heallink.tuc.18113). Both PDFs are public on dias.library.tuc.gr behind an Anubis
-JS challenge (fetch with a browser). No source code was published. From the abstracts: three tree policies — UCT,
-Bayesian UCT, and VPI (Dearden, Friedman & Russell 1998) — under the full rule set with a simple negotiation
-scheme, delegating tasks the search does not cover (e.g. dev cards) to jSettlers; VPI scored best even at far
-fewer simulations; an alternative human-like initial placement helped.
+Cost: 13.7 M weights per seat (55 MB), about 15 ms per decision in Python/Rust and 20 ms in wasm; a game with one
+DRRL seat runs in 1.3 s against three `rab`. At the paper's reward scale the TD error is ~1e-4, so a single SGD step
+at lr 0.0023 moves a head's estimate by less than f32 resolution: within one game the agent is, in effect, its
+initial weights plus a handful of large-error steps. This is what the paper describes ("alternated among 3 or 4
+actions") and is recorded here rather than corrected.
 
-1. Read the Karamalegos thesis for the exact settings: simulation budget, playout depth/policy, what is delegated,
-   trade scheme, initial-placement variant.
-2. `catan_engine/src/mcts.rs` on the existing engine (chance handled by sampling `apply(action, None)`; note the
-   engine is fully observable, so opponents' hands are visible — a deviation from the thesis' jSettlers setting):
-   - **UCT**: UCB1 tree policy, random playouts to the end (or depth cap + `base_fn` leaf value if the thesis did
-     that), win backups per seat.
-   - **BUCT**: Bayesian UCT (Tesauro, Rajan & Das 2010): Gaussian value posteriors per node, selection by
-     mean + c·σ (or Thompson), posterior backups.
-   - **VPI**: Bayesian Q-learning at the root (Dearden et al. 1998): normal-gamma posteriors over Q(s,a) updated
-     from playout returns, action choice by value of perfect information; "training" is the online posterior update
-     across a game (and across games if the thesis persisted it).
-   Delegated decisions go to the heuristic bot.
-3. Expose as `make_player` tokens `uct`, `buct`, `vpi` (via `rust_bridge`) and as wasm `decide` bots so they appear
-   on the site; tune budgets to the paper's wall-clock per decision.
-4. Re-run `tournament.py` with the pool `v40, ab-or-jsettlers, uct, buct, vpi` — the paper's exact pool shape —
-   and add the table here and to the site.
+Results (this engine, DRRL over the heuristic base, fresh weights per game, `evaluate.py --player drrl --opponent
+alpha_beta --games 300 --seed 0`): **24/300 = 8.0% [5.4, 11.6] vs 3x trading AlphaBeta** (the base alone: `rab` alone 76/300 = 25.3% [20.7, 30.5], same seeds).
+The trade layer costs its base most of its wins: with effectively untrained heads DRRL accepts 30% of the offers it
+receives (246 of 833 over 20 games vs 3x `rab`) while only 7% of its own ~35 offers per game are taken, and every
+offer a 1-ply AlphaBeta makes is favourable to the offerer by construction, so DRRL's seat bleeds cards all game. The paper's opponents were jSettlers, whose offers come from their own build plan, not from a
+valuation of the responder's hand; the Phase B runs are the test of whether the paper's 45% depends on that.
+
+## Phase B (done 2026-09-07): real jSettlers through a Java bridge
+
+Facts checked 2026-09-03/07: JSettlers2 (github.com/jdmonin/JSettlers2, GPL-3) release 2.6.10 ships
+`jsettlers-2.6.10-full.tar.gz` (jars + sources); gradle is not needed, `javac --release 17 -cp` against
+`JSettlersServer-2.6.10.jar` is the whole build. A robot client the server starts in its own JVM
+(`-Djsettlers.bots.start3p=1,<class>`) is seated like a built-in bot; bots-only games run in 20-40 s with
+`jsettlers.bots.fast_pause_percent=1`. The built-in robot is `soc.robot` (27 files, 22,847 lines: SOCRobotBrain 5.5k,
+SOCPlayerTracker 4.2k, SOCRobotDM 3.4k, SOCRobotNegotiator 2.7k, OpeningBuildStrategy 1.1k, SOCBuildingSpeedEstimate
+1.1k). The server hands `robot N` bots `ROBOT_PARAMS_SMARTER` (SMART_STRATEGY) and `droid N` bots
+`ROBOT_PARAMS_DEFAULT` (FAST_STRATEGY), 30% of `jsettlers.startrobots` being droids; `SOCRobotBrain` exposes every
+decision as a `protected` hook or a strategy object.
+
+What was built:
+
+- `jsettlers/BridgeClient.java`, `BridgeBrain.java` (GPL-3): a `SOCRobotBrain` whose decisions come from our decision
+  server over a pipe, in two modes. `full`: opening placements, roll-or-knight, the main-phase action (a build becomes
+  a one-piece plan the stock brain requests; dev cards, bank trades and offers are sent directly and the brain
+  re-plans), robber hex and victim, discards, monopoly / year-of-plenty picks, replies to offers. `trades`: only
+  offers and replies (never counter-offers), the stock brain plays the rest: the paper's DRRL-over-jSettler setup.
+  `Launch.java` pins every built-in to smart or fast (`MIX=smart|fast`). `jsettlers/run.sh build | play`.
+- `jsettlers_server.py`: rebuilds a catanatron `Game` from the client's view of `SOCGame` at every decision and asks
+  any `value_net.make_player` token, so `vnet:<path>`, `ab`, `rab`, `drrl`, `drrl+` (weights kept across games) all
+  play unchanged; replies in JSettlers terms. `jsettlers_board.py` maps JSettlers' classic-board coordinates onto
+  catanatron's BASE template by geometry (the port ring is three-fold symmetric, so three rotations fit; any is a
+  valid board). `--selfcheck` sends 103 positions from catanatron games through the client's view and back and
+  compares the Rust state spec field by field; `tools/jsettlers_results.py` tabulates the result files.
+- Deviations, all in `jsettlers_server.py`: opponents' unknown resource cards are spread over the resources they
+  produce, their hidden dev cards count as knights, their VP are the public ones, the dev deck is a seeded shuffle of
+  the unseen cards, the bank is 19 minus every card in hand; JSettlers responders may counter-offer, ours accept or
+  reject; the bridge repeats no offer within a turn (the engine's spent-offer rule); in `full` mode the stock brain
+  only asks for a plan with more than one card in hand, so a dev card held with an otherwise empty hand waits a turn.
+
+Runs: `PORT=<p> MIX=<mix> jsettlers/run.sh play 100 <mode> <token> docs/benchmark/jsettlers_<series>.txt`, one server
+per series, one bridge bot among four built-ins (`jsettlers.bots.percent3p=25` seats it in every game). Results:
+
+100 bots-only games per series, 2026-09-07, `jsettlers.bots.fast_pause_percent=2`, five servers at a time; default
+mix = the server's own 1 fast + 3 smart robots per 4-bot pool, `smart` / `fast` = every built-in pinned to that
+parameter set. (An earlier pass of the same series ran with a rebuild-order bug, roads continuing past an enemy
+settlement, and with ten servers plus a tournament on eight cores; it is superseded by this one.)
+
+| series | games | wins | win ratio | 95% CI | mean VP | opponents seen |
+|---|---|---|---|---|---|---|
+| jsettlers_buct_full_default | 100 | 30 | 30.0% | [21.9, 39.6] | 8.10 | droid, robot |
+| jsettlers_drrl_full_default | 100 | 9 | 9.0% | [4.8, 16.2] | 6.05 | droid, robot |
+| jsettlers_drrl_trades_default | 100 | 12 | 12.0% | [7.0, 19.8] | 6.58 | droid, robot |
+| jsettlers_drrlpersist_trades_default | 100 | 10 | 10.0% | [5.5, 17.4] | 6.52 | droid, robot |
+| jsettlers_rab_full_default | 100 | 20 | 20.0% | [13.3, 28.9] | 7.34 | droid, robot |
+| jsettlers_uct_full_default | 100 | 34 | 34.0% | [25.5, 43.7] | 7.88 | droid, robot |
+| jsettlers_v40_full_default | 100 | 44 | 44.0% | [34.7, 53.8] | 8.12 | droid, robot |
+| jsettlers_v40_full_fast | 100 | 48 | 48.0% | [38.5, 57.7] | 8.10 | droid, robot |
+| jsettlers_v40_full_smart | 100 | 34 | 34.0% | [25.5, 43.7] | 7.91 | droid, robot |
+| jsettlers_vpi_full_default | 100 | 10 | 10.0% | [5.5, 17.4] | 7.00 | droid, robot |
+
+Read against the paper: our search agent wins 44.0% [34.7, 53.8] of its games against three stock jSettlers
+(48.0% against all-fast, 34.0% against all-smart), where the paper's pre-trained DRL agent reached 53.36% and its
+DRRL 45% / 56%; the Rust heuristic alone wins 20.0%, so the value net adds about 24 points over its own base against
+this opponent. DRRL reproduced over the real jSettler wins 12.0% [7.0, 19.8] fresh per game and 10.0% [5.5, 17.4]
+with weights kept across the 100 sequential games, against the paper's 45% and 56% (20-30 game numbers, so [25, 67]
+and [38, 73] as intervals); DRRL over the Rust heuristic 9.0%. A stock jSettler seat is a 25% baseline by
+construction, so the DRRL reproduction sits well below a stock jSettler, and the persisted weights do not help. The
+thesis MCTS agents through the bridge: UCT 34.0%, BUCT 30.0%, VPI 10.0% (thesis: 9%, 14%, 17% at its 15 s budget;
+see Phase D). Incidents over the 1,000 games: 1 forced turn-end, 1 rejected build, 13 duplicate bank trades (the
+stock brain re-plans on a not-yet-updated hand when the server is slow; the duplicate is refused and play goes on).
+
+## Phase D (done 2026-09-07): the thesis MCTS agents, so the pool matches the paper's
+
+The agents come from E. Karamalegos, *Monte Carlo tree search in the Settlers of Catan strategy game* (TU Crete 2016,
+DOI 10.26233/heallink.tuc.66891, CC-BY; the earlier K. Panousis thesis, DOI 10.26233/heallink.tuc.18113, is the
+trade-less agent it improves on). The PDF sits behind the library's Anubis challenge; it was read through the
+browser on 2026-09-07. No source code was published.
+
+Settings, as the thesis states them: action set = build city / settlement / road, buy dev card, empty action, one
+node per action and spot, with bank/port trades folded into the legal set; player trades are JSettlers' own
+negotiator, run before the search; tree policies UCT (C_p = 1/sqrt 2, unvisited = infinity, ties random), BUCT
+(Tesauro's second rule, mean + sqrt(2 ln N) * sigma over Dirichlet posteriors), VPI (myopic value of perfect
+information over Dirichlet posteriors sampled through Gamma draws, choose max E[q] + VPI); playouts uniformly random
+over the same action set for every player, dice from the 2d6 CDF, until 10 VP or a round cut-off of c rounds
+(c in {5, 10, 15, 30}, max(3, c - r) for real round r <= 20, max(3, c/2) after; 10 was best); reward = every
+player's VP scaled to [0, 1], plus a dev-card value estimate from the remaining-knights odds; backups add the reward
+(UCT) or a Dirichlet count (BUCT, VPI); budget 15 s per decision (UCT 3,000-10,000 playouts, BUCT 2,000-9,500, VPI
+500-3,000); robber, monopoly, road-building, discards and the STAC initial placement are JSettlers' or Dobre &
+Lascarides' code. Results vs 3 JSettlers at depth 10 over 100 seeded games: UCT 9%, BUCT 11-14%, VPI 17%; against 3
+random players UCT 72-74%, JSettlers 90%.
+
+`catan_engine/src/mcts.rs` is that agent on this engine: the tree over the agent's own post-roll turn, random
+playouts to the round cut-off (c = 10), the three selection rules, the VP reward; budgets are playout counts at the
+thesis' midpoints (UCT/BUCT 5,000, VPI 1,500; ~0.25 s per decision here, 120 applied actions per playout). Tokens
+`uct`, `buct`, `vpi` (`uct2000` = 2,000 playouts); wasm bots of the same names. Deviations: the engine is fully
+observable, so the playouts see opponents' hands; every prompt the search does not own (initial placement,
+roll-or-knight, robber, discard, offers and replies) goes to the heuristic bot and the 1-ply trade policy; dev
+cards are played by the search itself and valued by the playout rather than the thesis' knight estimate; BUCT's
+interior nodes use their own Dirichlet rather than the extremum distribution.
+
+Runs: the paper's exact pool on the Rust arena (`tournament.py --pool drrl,rab,uct,buct,vpi` with `rab` as the
+jSettler stand-in until Phase E; Fig. 3a: DRRL 31%, jSettler 21%, VPI 22%, BUCT 26%, UCT 23%) and the same pool
+plus v40 (every 4-subset); each MCTS agent vs 3 jSettlers through the bridge (`full=uct` etc.; thesis 9 / 14 / 17%).
+
+Results on the Rust arena (`uv run python tournament.py --pool drrl,rab,uct,buct,vpi --games 100`, 500 games in
+1,235 s on 7 workers, seeds 1000000-1000499, 0 games without a winner):
+
+| agent | games | wins | win ratio | 95% CI | mean VP | T0 (no vpi) | T1 (no buct) | T2 (no uct) | T3 (no rab) | T4 (no drrl) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| drrl | 400 | 31 | 7.8% | [5.5, 10.8] | 5.22 | 6/100 | 8/100 | 7/100 | 10/100 | – |
+| rab | 400 | 112 | 28.0% | [23.8, 32.6] | 7.19 | 24/100 | 26/100 | 35/100 | – | 27/100 |
+| uct | 400 | 181 | 45.2% | [40.4, 50.1] | 8.05 | 44/100 | 54/100 | – | 40/100 | 43/100 |
+| buct | 400 | 129 | 32.2% | [27.9, 37.0] | 7.72 | 26/100 | – | 44/100 | 36/100 | 23/100 |
+| vpi | 400 | 47 | 11.8% | [9.0, 15.3] | 6.66 | – | 12/100 | 14/100 | 14/100 | 7/100 |
+
+The paper's Fig. 3a had DRRL 31%, jSettler 21%, VPI 22%, BUCT 26%, UCT 23%. Here UCT beats the heuristic search
+outright and BUCT edges it, VPI trails both, and DRRL is last: the MCTS ordering is the reverse of the thesis'
+(VPI > BUCT > UCT vs 3 JSettlers). Open question, to check with `vpi5000` (equal budgets): whether the inversion
+is the playout budget (VPI runs 1,500 playouts to UCT's 5,000, as in the thesis' own counts), the Dirichlet
+prior of one count per VP value, or this engine's much cheaper playouts favouring the plain average.
+
+The same pool with v40 added, every 4-subset (`--pool vnet:checkpoints_value/v40.pt,drrl,rab,uct,buct,vpi --games 40`,
+15 lineups, 600 games in 2,517 s on 2 workers):
+
+| agent | games | wins | win ratio | 95% CI | mean VP | T0 (no buct+vpi) | T1 (no uct+vpi) | T2 (no uct+buct) | T3 (no rab+vpi) | T4 (no rab+buct) | T5 (no rab+uct) | T6 (no drrl+vpi) | T7 (no drrl+buct) | T8 (no drrl+uct) | T9 (no drrl+rab) | T10 (no vnet(v40)+vpi) | T11 (no vnet(v40)+buct) | T12 (no vnet(v40)+uct) | T13 (no vnet(v40)+rab) | T14 (no vnet(v40)+drrl) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| vnet(v40) | 400 | 183 | 45.8% | [40.9, 50.6] | 8.00 | 22/40 | 18/40 | 22/40 | 16/40 | 18/40 | 20/40 | 14/40 | 12/40 | 22/40 | 19/40 | – | – | – | – | – |
+| drrl | 400 | 21 | 5.2% | [3.5, 7.9] | 5.14 | 2/40 | 1/40 | 2/40 | 2/40 | 1/40 | 1/40 | – | – | – | – | 3/40 | 5/40 | 2/40 | 2/40 | – |
+| rab | 400 | 110 | 27.5% | [23.4, 32.1] | 7.17 | 7/40 | 13/40 | 10/40 | – | – | – | 9/40 | 14/40 | 9/40 | – | 15/40 | 6/40 | 19/40 | – | 8/40 |
+| uct | 400 | 143 | 35.8% | [31.2, 40.6] | 7.83 | 9/40 | – | – | 14/40 | 17/40 | – | 8/40 | 11/40 | – | 13/40 | 9/40 | 29/40 | – | 14/40 | 19/40 |
+| buct | 400 | 111 | 27.8% | [23.6, 32.3] | 7.60 | – | 8/40 | – | 8/40 | – | 15/40 | 9/40 | – | 8/40 | 7/40 | 13/40 | – | 16/40 | 18/40 | 9/40 |
+| vpi | 400 | 32 | 8.0% | [5.7, 11.1] | 6.46 | – | – | 6/40 | – | 4/40 | 4/40 | – | 3/40 | 1/40 | 1/40 | – | 0/40 | 3/40 | 6/40 | 4/40 |
+
+Each MCTS agent vs 3 stock jSettlers through the bridge (Phase B table): UCT 34.0% [25.5, 43.7], BUCT 30.0% [21.9,
+39.6], VPI 10.0% [5.5, 17.4], against the thesis' 9%, 14%, 17%. UCT and BUCT are far stronger here than in the
+thesis (cheaper playouts buy the same counts against a fully observable state; the thesis' 15 s budget in JSettlers
+bought the same numbers but its agent was one JSettlers client among four), VPI is in the thesis' range but at the
+bottom of ours instead of the top. Budget is not the reason: `vpi5000` (VPI at UCT's 5,000 playouts, same pool, 500 games, `paper_pool_vpi5000.json`)
+wins 11.0% [8.3, 14.4] against 11.8% at 1,500. What remains to try is the Dirichlet prior (one count per VP value is
+11 pseudo-counts pulling every young node to 0.5) and the sampled myopic gain against Dearden's closed form.
+
+## Phase E (planned, 4-6 weeks): `jsettler.rs`, the jSettler on the site
+
+Port the decision core of `soc.robot` to `catan_engine/src/jsettler/`, validated module by module against the
+Phase B passthrough log, then end to end (the port through the bridge vs 3 Java jSettlers should score ~25%,
+indistinguishable from a fourth jSettler; then vs `ab` and v40 on the Rust arena). Scenario/ship/`SC_*` code is
+dropped throughout; `SOCPlayerTracker`'s incremental bookkeeping (~1.5k lines of add/undo/cancel) is replaced by a
+rebuild from `State` at each decision.
+
+1. `bse.rs` <- `SOCBuildingSpeedEstimate` + `SOCNumberProbabilities` (1.1k): rolls per resource, ETA from
+   nothing/now, fast and accurate variants. Oracle: logged `building_etas`.
+2. `tracker.rs` <- `SOCPlayerTracker` (4.2k -> ~1.5k): possible roads/settlements/cities with necessary-road chains,
+   threats, LR/LA ETAs, `win_game_eta`. Oracle: logged `win_game_eta[]`.
+3. `opening.rs` <- `OpeningBuildStrategy` (1.1k). Oracle: logged initial placements.
+4. `dm.rs` <- `SOCRobotDM` (3.4k): `plan_stuff` FAST then SMART, settlement scoring, `dev_card_score`,
+   `resource_choices`, `should_play_knight_for_la`; `SOCRobotParameters` for `droid` / `robot`.
+5. `brain.rs` <- the decision parts of `SOCRobotBrain` (~1k of 5.5k) + `RobberStrategy`, `DiscardStrategy`,
+   `MonopolyStrategy`; RNG injected from `State` so the site is deterministic per seed.
+6. `negotiator.rs` <- `SOCRobotNegotiator` (2.7k): `make_offer`, `consider_offer2`, bank offers, isSelling /
+   wantsAnotherOffer bookkeeping as per-seat state. Counter-offer -> reject (engine gap, recorded).
+7. Tokens `jsettler` / `jsdroid` / `jsrobot`; wasm bot `jsettler`.
 
 Alternative second opinion on "MCTS": StacSettlers (github.com/ruflab/StacSettlers, GPL; Edinburgh) ships Java
-MCTS agents (`sorinMD/MCTS`, MIT) and a bulk `Simulation` harness; runnable against the Phase 2 bridge in a day once
+MCTS agents (`sorinMD/MCTS`, MIT) and a bulk `Simulation` harness; runnable against the Phase B bridge in a day once
 that exists, not before.

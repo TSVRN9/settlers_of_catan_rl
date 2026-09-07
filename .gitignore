@@ -26,3 +26,6 @@ vendor/
 web/node_modules/
 web/dist/
 web/src/engine/
+
+# Java bridge build output (jsettlers/run.sh build)
+jsettlers/out/

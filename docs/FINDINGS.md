@@ -2543,3 +2543,60 @@ Regret at decision nodes is measurable but was not shipped: `vnet` regret is 0.0
 that search's own argmax), and the `heuristic` bot under `vnet` evaluation picks the top action 56.1% of the time
 with median regret 0.000, p90 0.022, p99 0.065, max 0.303. That is the scale a human-mistake marker would need, but
 it inherits the net's bias where luck does not — gnubg's own bug list records the same asymmetry.
+
+## 2026-09-07 — DRRL (Xenou et al. 2018) reproduced in Rust: 8.0% [5.4, 11.6] vs 3x trading AlphaBeta (300 games)
+
+The paper's own agent is a trade-only layer (70 offers + accept + reject, one LSTM per action, online SGD at every
+trade decision, weights fresh per game) over a stock jSettler; `catan_engine/src/drrl.rs` is that agent, token
+`drrl` = DRRL trades over the Rust depth-2 heuristic search, and the site's `drrl` bot is the same code through wasm.
+The under-specified parts (input width, hidden size, output squashing, gamma, BPTT length, init) and the engine's
+accept/reject-only replies are listed as a table in `docs/BENCHMARK.md` Phase A.
+
+Two things worth knowing before reading its number. (1) At the paper's reward scale (k = 0.01, so |r| ~ 0.01-0.1)
+the one-step TD error is ~1e-4 and one SGD step at lr 0.0023 moves a head's sigmoid output by less than f32
+resolution: within a game the agent is its initial weights plus a handful of large-error steps, which matches the
+paper's own description of the lr sweep ("alternated among 3 or 4 actions"). (2) The result: 24/300 = 8.0% vs 3x
+Python AlphaBeta, i.e. the trade layer costs its base most of its wins (the base alone: `rab` alone 76/300 = 25.3% [20.7, 30.5], same seeds). It accepts 30% of
+the offers it receives (246 of 833 over 20 games vs 3x `rab`, 2 wins) while 7% of its own ~35 offers per game are
+taken, and every offer a 1-ply AlphaBeta makes is favourable to the offerer by construction. The paper's 45% was against jSettlers, whose offers come from a build plan rather than from a valuation
+of the responder's hand; whether DRRL's edge survives outside that setting is what the Phase B bridge runs measure.
+
+Also today: `tournament.py` takes a pool of any size (every 4-subset; 5 recovers the paper's protocol), and the
+roadmap in `docs/BENCHMARK.md` was rewritten (Phases A-E: DRRL, Java bridge, runs, thesis MCTS, `jsettler.rs`
+port) after reading the paper and the JSettlers2 2.6.10 source. Cost of a DRRL seat: 13.7 M weights (55 MB), ~15 ms
+per trade decision, 1.3 s per game vs 3x `rab`.
+
+## 2026-09-07 — real jSettlers through a Java bridge: v40 44.0% vs 3 stock jSettlers; the thesis MCTS agents in Rust
+
+`jsettlers/` (a `SOCRobotBrain` subclass driven over a pipe by `jsettlers_server.py`, which rebuilds a catanatron
+game from the client's view of the JSettlers game and asks any `make_player` token) puts our bots in JSettlers 2.6.10's
+bots-only games; `jsettlers_board.py` maps the classic board onto catanatron's BASE template by geometry, and the
+Python side round-trips 103 positions from catanatron games through the client's view with matching Rust specs.
+100-game series vs three stock jSettlers (`docs/BENCHMARK.md` Phase B has the table and every deviation):
+
+| agent | vs 3 stock jSettlers (default mix) | note |
+|---|---|---|
+| v40 (depth-2 search + value net) | **44.0% [34.7, 53.8]** | 48.0% vs all-fast, 34.0% vs all-smart; the paper's DRL 53.36%, its DRRL 45% |
+| Rust heuristic base alone | 20.0% [13.3, 28.9] | the value net adds ~24 points against this opponent |
+| DRRL over the real jSettler (paper setup) | 12.0% [7.0, 19.8] | 10.0% with weights kept across 100 games; paper 45% / 56% |
+| UCT / BUCT / VPI (thesis agents) | 34.0% / 30.0% / 10.0% | thesis 9% / 14% / 17% |
+
+Two bugs found and fixed on the way, both worth remembering: the rebuilt catanatron board placed each player's
+pieces in seat order, so an opponent's settlement placed after our roads never split our road network and the
+engine offered roads past it (the server refused them, ~5% of games lost a turn; fixture
+`jsettlers/fixtures/rejected_road.json`); and the result line was written by the brain on the stats message, which
+the client's game-over handling kills first under load, so results are now written by the client on the game-over
+state. Running ten servers plus a 7-worker tournament on 8 cores also made the stock brain re-plan on stale hands
+(its own loop-count timeout); five servers at a time and 2% pauses keep incidents at 1 forced turn-end per 1,000 games.
+
+The thesis MCTS agents (`catan_engine/src/mcts.rs`: UCT, Bayesian UCT, VPI over the agent's own turn, random
+playouts to the round cut-off, VP rewards; settings read from the Karamalegos 2016 thesis, fetched through the
+library's browser challenge) run 5,000 playouts in ~0.25 s, so the thesis' budgets are affordable. The paper's exact
+pool on the Rust arena (500 games): UCT 45.2%, BUCT 32.2%, `rab` 28.0%, VPI 11.8%, DRRL 7.8%; with v40 added (600
+games, every 4-subset): v40 45.8%, UCT 35.8%, BUCT 27.8%, `rab` 27.5%, VPI 8.0%, DRRL 5.2%. The MCTS ordering is the
+reverse of the thesis' (it had VPI best). Not a budget effect: VPI at UCT's 5,000 playouts wins 11.0% in the same pool (500 games), against 11.8% at 1,500;
+the Dirichlet prior (11 pseudo-counts per node) and the sampled myopic gain are the remaining suspects.
+
+Also: the site has `drrl`, `uct`, `buct` and `vpi` bots; `tournament.py` takes a pool of any size; the bridge's `log`
+mode writes every stock-brain decision with the trackers' ETAs to `data/jsettlers_oracle/` (the replay oracle for
+the `jsettler.rs` port, Phase E, not started).

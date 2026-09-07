@@ -1,0 +1,12504 @@
+{
+ "protocol": "Xenou et al. 2018, five 4-player tournaments each leaving one agent out; seats permuted per game",
+ "pool": [
+  "vnet:checkpoints_value/v40.pt",
+  "drrl",
+  "rab",
+  "uct",
+  "buct",
+  "vpi"
+ ],
+ "lineups": [
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "drrl",
+   "rab",
+   "uct"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "drrl",
+   "rab",
+   "buct"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "drrl",
+   "rab",
+   "vpi"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "drrl",
+   "uct",
+   "buct"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "drrl",
+   "uct",
+   "vpi"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "drrl",
+   "buct",
+   "vpi"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "rab",
+   "uct",
+   "buct"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "rab",
+   "uct",
+   "vpi"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "rab",
+   "buct",
+   "vpi"
+  ],
+  [
+   "vnet:checkpoints_value/v40.pt",
+   "uct",
+   "buct",
+   "vpi"
+  ],
+  [
+   "drrl",
+   "rab",
+   "uct",
+   "buct"
+  ],
+  [
+   "drrl",
+   "rab",
+   "uct",
+   "vpi"
+  ],
+  [
+   "drrl",
+   "rab",
+   "buct",
+   "vpi"
+  ],
+  [
+   "drrl",
+   "uct",
+   "buct",
+   "vpi"
+  ],
+  [
+   "rab",
+   "uct",
+   "buct",
+   "vpi"
+  ]
+ ],
+ "games_per_tournament": 40,
+ "seed": 1000000,
+ "done": 600,
+ "total": 600,
+ "elapsed_s": 2517,
+ "summary": {
+  "vnet:checkpoints_value/v40.pt": {
+   "games": 400,
+   "wins": 183,
+   "ratio": 0.4575,
+   "ci95": [
+    0.4093127098586456,
+    0.5064958645923273
+   ],
+   "mean_vp": 7.9975
+  },
+  "drrl": {
+   "games": 400,
+   "wins": 21,
+   "ratio": 0.0525,
+   "ci95": [
+    0.03459126500804264,
+    0.07892254832867157
+   ],
+   "mean_vp": 5.1375
+  },
+  "rab": {
+   "games": 400,
+   "wins": 110,
+   "ratio": 0.275,
+   "ci95": [
+    0.23353800712672118,
+    0.3207426811431351
+   ],
+   "mean_vp": 7.1725
+  },
+  "uct": {
+   "games": 400,
+   "wins": 143,
+   "ratio": 0.3575,
+   "ci95": [
+    0.3120919798753237,
+    0.40561912269558525
+   ],
+   "mean_vp": 7.8325
+  },
+  "buct": {
+   "games": 400,
+   "wins": 111,
+   "ratio": 0.2775,
+   "ci95": [
+    0.23589351571381514,
+    0.32333960935304273
+   ],
+   "mean_vp": 7.6025
+  },
+  "vpi": {
+   "games": 400,
+   "wins": 32,
+   "ratio": 0.08,
+   "ci95": [
+    0.057235397942962354,
+    0.11075522016076943
+   ],
+   "mean_vp": 6.455
+  }
+ },
+ "per_tournament": [
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 22,
+    "ratio": 0.55,
+    "ci95": [
+     0.3982882988844078,
+     0.6929492471905531
+    ],
+    "mean_vp": 8.5
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 2,
+    "ratio": 0.05,
+    "ci95": [
+     0.013820377146101093,
+     0.165041708179252
+    ],
+    "mean_vp": 5.0
+   },
+   "rab": {
+    "games": 40,
+    "wins": 7,
+    "ratio": 0.175,
+    "ci95": [
+     0.08745302996883067,
+     0.3195029205439244
+    ],
+    "mean_vp": 6.7
+   },
+   "uct": {
+    "games": 40,
+    "wins": 9,
+    "ratio": 0.225,
+    "ci95": [
+     0.12315953254678531,
+     0.3750339640409305
+    ],
+    "mean_vp": 7.05
+   },
+   "buct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "vpi": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 18,
+    "ratio": 0.45,
+    "ci95": [
+     0.30705075280944705,
+     0.6017117011155924
+    ],
+    "mean_vp": 8.55
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 1,
+    "ratio": 0.025,
+    "ci95": [
+     0.004426717407794919,
+     0.1288165948800778
+    ],
+    "mean_vp": 4.675
+   },
+   "rab": {
+    "games": 40,
+    "wins": 13,
+    "ratio": 0.325,
+    "ci95": [
+     0.20084316962661727,
+     0.4798254191110202
+    ],
+    "mean_vp": 7.1
+   },
+   "uct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "buct": {
+    "games": 40,
+    "wins": 8,
+    "ratio": 0.2,
+    "ci95": [
+     0.10499864973166873,
+     0.34757607381856676
+    ],
+    "mean_vp": 7.3
+   },
+   "vpi": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 22,
+    "ratio": 0.55,
+    "ci95": [
+     0.3982882988844078,
+     0.6929492471905531
+    ],
+    "mean_vp": 8.4
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 2,
+    "ratio": 0.05,
+    "ci95": [
+     0.013820377146101093,
+     0.165041708179252
+    ],
+    "mean_vp": 5.025
+   },
+   "rab": {
+    "games": 40,
+    "wins": 10,
+    "ratio": 0.25,
+    "ci95": [
+     0.14186967895549518,
+     0.40194259066970106
+    ],
+    "mean_vp": 6.775
+   },
+   "uct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "buct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 6,
+    "ratio": 0.15,
+    "ci95": [
+     0.07061091708507436,
+     0.2907262603902002
+    ],
+    "mean_vp": 6.925
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 16,
+    "ratio": 0.4,
+    "ci95": [
+     0.2634811061240136,
+     0.5540438017260649
+    ],
+    "mean_vp": 7.525
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 2,
+    "ratio": 0.05,
+    "ci95": [
+     0.013820377146101093,
+     0.165041708179252
+    ],
+    "mean_vp": 4.8
+   },
+   "rab": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "uct": {
+    "games": 40,
+    "wins": 14,
+    "ratio": 0.35,
+    "ci95": [
+     0.22134333171049148,
+     0.5049440300646263
+    ],
+    "mean_vp": 7.775
+   },
+   "buct": {
+    "games": 40,
+    "wins": 8,
+    "ratio": 0.2,
+    "ci95": [
+     0.10499864973166873,
+     0.34757607381856676
+    ],
+    "mean_vp": 7.325
+   },
+   "vpi": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 18,
+    "ratio": 0.45,
+    "ci95": [
+     0.30705075280944705,
+     0.6017117011155924
+    ],
+    "mean_vp": 7.825
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 1,
+    "ratio": 0.025,
+    "ci95": [
+     0.004426717407794919,
+     0.1288165948800778
+    ],
+    "mean_vp": 4.975
+   },
+   "rab": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "uct": {
+    "games": 40,
+    "wins": 17,
+    "ratio": 0.425,
+    "ci95": [
+     0.2850916852481588,
+     0.5780519956394001
+    ],
+    "mean_vp": 7.975
+   },
+   "buct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 4,
+    "ratio": 0.1,
+    "ci95": [
+     0.03957888759557486,
+     0.230520743804739
+    ],
+    "mean_vp": 6.275
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 20,
+    "ratio": 0.5,
+    "ci95": [
+     0.35199278797099753,
+     0.6480072120290025
+    ],
+    "mean_vp": 7.95
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 1,
+    "ratio": 0.025,
+    "ci95": [
+     0.004426717407794919,
+     0.1288165948800778
+    ],
+    "mean_vp": 5.2
+   },
+   "rab": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "uct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "buct": {
+    "games": 40,
+    "wins": 15,
+    "ratio": 0.375,
+    "ci95": [
+     0.24222773535791722,
+     0.529678399454681
+    ],
+    "mean_vp": 7.65
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 4,
+    "ratio": 0.1,
+    "ci95": [
+     0.03957888759557486,
+     0.230520743804739
+    ],
+    "mean_vp": 6.25
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 14,
+    "ratio": 0.35,
+    "ci95": [
+     0.22134333171049148,
+     0.5049440300646263
+    ],
+    "mean_vp": 7.225
+   },
+   "drrl": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "rab": {
+    "games": 40,
+    "wins": 9,
+    "ratio": 0.225,
+    "ci95": [
+     0.12315953254678531,
+     0.3750339640409305
+    ],
+    "mean_vp": 6.725
+   },
+   "uct": {
+    "games": 40,
+    "wins": 8,
+    "ratio": 0.2,
+    "ci95": [
+     0.10499864973166873,
+     0.34757607381856676
+    ],
+    "mean_vp": 7.35
+   },
+   "buct": {
+    "games": 40,
+    "wins": 9,
+    "ratio": 0.225,
+    "ci95": [
+     0.12315953254678531,
+     0.3750339640409305
+    ],
+    "mean_vp": 7.525
+   },
+   "vpi": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 12,
+    "ratio": 0.3,
+    "ci95": [
+     0.18074670915695296,
+     0.454303106543204
+    ],
+    "mean_vp": 7.475
+   },
+   "drrl": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "rab": {
+    "games": 40,
+    "wins": 14,
+    "ratio": 0.35,
+    "ci95": [
+     0.22134333171049148,
+     0.5049440300646263
+    ],
+    "mean_vp": 7.425
+   },
+   "uct": {
+    "games": 40,
+    "wins": 11,
+    "ratio": 0.275,
+    "ci95": [
+     0.1610785343314309,
+     0.4283525083312458
+    ],
+    "mean_vp": 7.8
+   },
+   "buct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 3,
+    "ratio": 0.075,
+    "ci95": [
+     0.02583555677185823,
+     0.19864530159097524
+    ],
+    "mean_vp": 6.175
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 22,
+    "ratio": 0.55,
+    "ci95": [
+     0.3982882988844078,
+     0.6929492471905531
+    ],
+    "mean_vp": 8.3
+   },
+   "drrl": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "rab": {
+    "games": 40,
+    "wins": 9,
+    "ratio": 0.225,
+    "ci95": [
+     0.12315953254678531,
+     0.3750339640409305
+    ],
+    "mean_vp": 7.025
+   },
+   "uct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "buct": {
+    "games": 40,
+    "wins": 8,
+    "ratio": 0.2,
+    "ci95": [
+     0.10499864973166873,
+     0.34757607381856676
+    ],
+    "mean_vp": 7.225
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 1,
+    "ratio": 0.025,
+    "ci95": [
+     0.004426717407794919,
+     0.1288165948800778
+    ],
+    "mean_vp": 6.05
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 40,
+    "wins": 19,
+    "ratio": 0.475,
+    "ci95": [
+     0.32935229550181694,
+     0.6250289314607026
+    ],
+    "mean_vp": 8.225
+   },
+   "drrl": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "rab": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "uct": {
+    "games": 40,
+    "wins": 13,
+    "ratio": 0.325,
+    "ci95": [
+     0.20084316962661727,
+     0.4798254191110202
+    ],
+    "mean_vp": 7.625
+   },
+   "buct": {
+    "games": 40,
+    "wins": 7,
+    "ratio": 0.175,
+    "ci95": [
+     0.08745302996883067,
+     0.3195029205439244
+    ],
+    "mean_vp": 6.975
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 1,
+    "ratio": 0.025,
+    "ci95": [
+     0.004426717407794919,
+     0.1288165948800778
+    ],
+    "mean_vp": 6.275
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 3,
+    "ratio": 0.075,
+    "ci95": [
+     0.02583555677185823,
+     0.19864530159097524
+    ],
+    "mean_vp": 5.475
+   },
+   "rab": {
+    "games": 40,
+    "wins": 15,
+    "ratio": 0.375,
+    "ci95": [
+     0.24222773535791722,
+     0.529678399454681
+    ],
+    "mean_vp": 7.875
+   },
+   "uct": {
+    "games": 40,
+    "wins": 9,
+    "ratio": 0.225,
+    "ci95": [
+     0.12315953254678531,
+     0.3750339640409305
+    ],
+    "mean_vp": 7.25
+   },
+   "buct": {
+    "games": 40,
+    "wins": 13,
+    "ratio": 0.325,
+    "ci95": [
+     0.20084316962661727,
+     0.4798254191110202
+    ],
+    "mean_vp": 7.475
+   },
+   "vpi": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 5,
+    "ratio": 0.125,
+    "ci95": [
+     0.05459419773541283,
+     0.26112420670238146
+    ],
+    "mean_vp": 5.675
+   },
+   "rab": {
+    "games": 40,
+    "wins": 6,
+    "ratio": 0.15,
+    "ci95": [
+     0.07061091708507436,
+     0.2907262603902002
+    ],
+    "mean_vp": 6.9
+   },
+   "uct": {
+    "games": 40,
+    "wins": 29,
+    "ratio": 0.725,
+    "ci95": [
+     0.5716474916687543,
+     0.8389214656685691
+    ],
+    "mean_vp": 9.2
+   },
+   "buct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     -6.330876522670002e-18,
+     0.08762453925039232
+    ],
+    "mean_vp": 6.3
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 2,
+    "ratio": 0.05,
+    "ci95": [
+     0.013820377146101093,
+     0.165041708179252
+    ],
+    "mean_vp": 5.125
+   },
+   "rab": {
+    "games": 40,
+    "wins": 19,
+    "ratio": 0.475,
+    "ci95": [
+     0.32935229550181694,
+     0.6250289314607026
+    ],
+    "mean_vp": 7.975
+   },
+   "uct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "buct": {
+    "games": 40,
+    "wins": 16,
+    "ratio": 0.4,
+    "ci95": [
+     0.2634811061240136,
+     0.5540438017260649
+    ],
+    "mean_vp": 8.675
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 3,
+    "ratio": 0.075,
+    "ci95": [
+     0.02583555677185823,
+     0.19864530159097524
+    ],
+    "mean_vp": 6.775
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "drrl": {
+    "games": 40,
+    "wins": 2,
+    "ratio": 0.05,
+    "ci95": [
+     0.013820377146101093,
+     0.165041708179252
+    ],
+    "mean_vp": 5.425
+   },
+   "rab": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "uct": {
+    "games": 40,
+    "wins": 14,
+    "ratio": 0.35,
+    "ci95": [
+     0.22134333171049148,
+     0.5049440300646263
+    ],
+    "mean_vp": 8.075
+   },
+   "buct": {
+    "games": 40,
+    "wins": 18,
+    "ratio": 0.45,
+    "ci95": [
+     0.30705075280944705,
+     0.6017117011155924
+    ],
+    "mean_vp": 8.225
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 6,
+    "ratio": 0.15,
+    "ci95": [
+     0.07061091708507436,
+     0.2907262603902002
+    ],
+    "mean_vp": 6.9
+   }
+  },
+  {
+   "vnet:checkpoints_value/v40.pt": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "drrl": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "rab": {
+    "games": 40,
+    "wins": 8,
+    "ratio": 0.2,
+    "ci95": [
+     0.10499864973166873,
+     0.34757607381856676
+    ],
+    "mean_vp": 7.225
+   },
+   "uct": {
+    "games": 40,
+    "wins": 19,
+    "ratio": 0.475,
+    "ci95": [
+     0.32935229550181694,
+     0.6250289314607026
+    ],
+    "mean_vp": 8.225
+   },
+   "buct": {
+    "games": 40,
+    "wins": 9,
+    "ratio": 0.225,
+    "ci95": [
+     0.12315953254678531,
+     0.3750339640409305
+    ],
+    "mean_vp": 7.65
+   },
+   "vpi": {
+    "games": 40,
+    "wins": 4,
+    "ratio": 0.1,
+    "ci95": [
+     0.03957888759557486,
+     0.230520743804739
+    ],
+    "mean_vp": 6.625
+   }
+  }
+ ],
+ "games": [
+  {
+   "tournament": 14,
+   "seed": 1000561,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 5,
+    "uct": 7,
+    "buct": 10,
+    "vpi": 5
+   },
+   "turns": 62,
+   "secs": 5.61
+  },
+  {
+   "tournament": 10,
+   "seed": 1000434,
+   "seats": [
+    "buct",
+    "drrl",
+    "rab",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 7,
+    "rab": 6,
+    "uct": 6
+   },
+   "turns": 75,
+   "secs": 8.31
+  },
+  {
+   "tournament": 12,
+   "seed": 1000519,
+   "seats": [
+    "drrl",
+    "vpi",
+    "rab",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 8,
+    "vpi": 6,
+    "rab": 5,
+    "buct": 10
+   },
+   "turns": 61,
+   "secs": 6.08
+  },
+  {
+   "tournament": 0,
+   "seed": 1000024,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 4,
+    "rab": 5
+   },
+   "turns": 62,
+   "secs": 2.6
+  },
+  {
+   "tournament": 12,
+   "seed": 1000497,
+   "seats": [
+    "rab",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 9,
+    "vpi": 6,
+    "buct": 10,
+    "drrl": 3
+   },
+   "turns": 94,
+   "secs": 11.15
+  },
+  {
+   "tournament": 2,
+   "seed": 1000099,
+   "seats": [
+    "vpi",
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 7,
+    "rab": 8,
+    "drrl": 9,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 75,
+   "secs": 5.85
+  },
+  {
+   "tournament": 0,
+   "seed": 1000006,
+   "seats": [
+    "drrl",
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 9,
+    "uct": 10,
+    "rab": 9,
+    "vnet:checkpoints_value/v40.pt": 2
+   },
+   "turns": 101,
+   "secs": 6.62
+  },
+  {
+   "tournament": 6,
+   "seed": 1000250,
+   "seats": [
+    "buct",
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "uct": 10,
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 66,
+   "secs": 7.92
+  },
+  {
+   "tournament": 11,
+   "seed": 1000444,
+   "seats": [
+    "vpi",
+    "rab",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "rab": 9,
+    "drrl": 7,
+    "uct": 10
+   },
+   "turns": 81,
+   "secs": 9.35
+  },
+  {
+   "tournament": 12,
+   "seed": 1000498,
+   "seats": [
+    "rab",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "buct": 7,
+    "vpi": 3,
+    "drrl": 5
+   },
+   "turns": 70,
+   "secs": 5.46
+  },
+  {
+   "tournament": 13,
+   "seed": 1000541,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 8,
+    "buct": 10,
+    "drrl": 5,
+    "vpi": 8
+   },
+   "turns": 110,
+   "secs": 17.9
+  },
+  {
+   "tournament": 5,
+   "seed": 1000202,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 3,
+    "vpi": 4,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 69,
+   "secs": 6.15
+  },
+  {
+   "tournament": 2,
+   "seed": 1000088,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 5,
+    "drrl": 5,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 48,
+   "secs": 3.81
+  },
+  {
+   "tournament": 10,
+   "seed": 1000418,
+   "seats": [
+    "rab",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "buct": 6,
+    "uct": 8,
+    "drrl": 7
+   },
+   "turns": 60,
+   "secs": 8.43
+  },
+  {
+   "tournament": 14,
+   "seed": 1000575,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 6,
+    "vpi": 7,
+    "uct": 7,
+    "rab": 10
+   },
+   "turns": 71,
+   "secs": 11.25
+  },
+  {
+   "tournament": 1,
+   "seed": 1000065,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "buct": 9,
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 67,
+   "secs": 6.51
+  },
+  {
+   "tournament": 14,
+   "seed": 1000589,
+   "seats": [
+    "rab",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "rab": 9,
+    "buct": 7,
+    "vpi": 10,
+    "uct": 3
+   },
+   "turns": 78,
+   "secs": 9.35
+  },
+  {
+   "tournament": 11,
+   "seed": 1000457,
+   "seats": [
+    "uct",
+    "rab",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 6,
+    "rab": 10,
+    "vpi": 6,
+    "drrl": 7
+   },
+   "turns": 82,
+   "secs": 8.07
+  },
+  {
+   "tournament": 14,
+   "seed": 1000583,
+   "seats": [
+    "uct",
+    "rab",
+    "buct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 5,
+    "rab": 10,
+    "buct": 8,
+    "vpi": 4
+   },
+   "turns": 62,
+   "secs": 8.4
+  },
+  {
+   "tournament": 6,
+   "seed": 1000259,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 4,
+    "rab": 10,
+    "uct": 8,
+    "buct": 7
+   },
+   "turns": 81,
+   "secs": 5.28
+  },
+  {
+   "tournament": 1,
+   "seed": 1000071,
+   "seats": [
+    "drrl",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "rab": 9,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 67,
+   "secs": 6.54
+  },
+  {
+   "tournament": 6,
+   "seed": 1000264,
+   "seats": [
+    "uct",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 8,
+    "rab": 10,
+    "buct": 9,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 101,
+   "secs": 9.9
+  },
+  {
+   "tournament": 6,
+   "seed": 1000241,
+   "seats": [
+    "uct",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 9,
+    "rab": 10,
+    "buct": 9,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 75,
+   "secs": 9.06
+  },
+  {
+   "tournament": 14,
+   "seed": 1000596,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "uct": 10,
+    "vpi": 6,
+    "rab": 7
+   },
+   "turns": 81,
+   "secs": 12.92
+  },
+  {
+   "tournament": 12,
+   "seed": 1000500,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "rab"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 8,
+    "vpi": 10,
+    "drrl": 7,
+    "rab": 7
+   },
+   "turns": 83,
+   "secs": 11.92
+  },
+  {
+   "tournament": 13,
+   "seed": 1000532,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 5,
+    "buct": 9,
+    "uct": 10
+   },
+   "turns": 72,
+   "secs": 10.18
+  },
+  {
+   "tournament": 10,
+   "seed": 1000409,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "uct": 8,
+    "drrl": 4,
+    "rab": 7
+   },
+   "turns": 71,
+   "secs": 9.89
+  },
+  {
+   "tournament": 14,
+   "seed": 1000560,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "buct": 6,
+    "uct": 10,
+    "rab": 5
+   },
+   "turns": 84,
+   "secs": 12.47
+  },
+  {
+   "tournament": 11,
+   "seed": 1000452,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "drrl": 3,
+    "rab": 8
+   },
+   "turns": 57,
+   "secs": 7.47
+  },
+  {
+   "tournament": 5,
+   "seed": 1000230,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 8,
+    "drrl": 4
+   },
+   "turns": 54,
+   "secs": 6.5
+  },
+  {
+   "tournament": 14,
+   "seed": 1000574,
+   "seats": [
+    "rab",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 9,
+    "vpi": 6,
+    "buct": 8,
+    "uct": 10
+   },
+   "turns": 61,
+   "secs": 11.17
+  },
+  {
+   "tournament": 13,
+   "seed": 1000524,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "uct": 6,
+    "buct": 10,
+    "vpi": 5
+   },
+   "turns": 111,
+   "secs": 12.35
+  },
+  {
+   "tournament": 13,
+   "seed": 1000529,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 5,
+    "vpi": 10,
+    "buct": 8,
+    "drrl": 8
+   },
+   "turns": 79,
+   "secs": 17.85
+  },
+  {
+   "tournament": 0,
+   "seed": 1000013,
+   "seats": [
+    "uct",
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 6,
+    "drrl": 4,
+    "rab": 4,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 64,
+   "secs": 2.97
+  },
+  {
+   "tournament": 0,
+   "seed": 1000002,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 9,
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 7
+   },
+   "turns": 99,
+   "secs": 7.59
+  },
+  {
+   "tournament": 8,
+   "seed": 1000332,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 11,
+    "buct": 9,
+    "rab": 5,
+    "vpi": 6
+   },
+   "turns": 62,
+   "secs": 5.14
+  },
+  {
+   "tournament": 10,
+   "seed": 1000402,
+   "seats": [
+    "uct",
+    "rab",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 5,
+    "rab": 9,
+    "buct": 10,
+    "drrl": 5
+   },
+   "turns": 85,
+   "secs": 8.92
+  },
+  {
+   "tournament": 3,
+   "seed": 1000152,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 8,
+    "buct": 8
+   },
+   "turns": 91,
+   "secs": 14.14
+  },
+  {
+   "tournament": 5,
+   "seed": 1000228,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 8,
+    "drrl": 6,
+    "vpi": 5
+   },
+   "turns": 68,
+   "secs": 8.37
+  },
+  {
+   "tournament": 13,
+   "seed": 1000536,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 4,
+    "buct": 10,
+    "drrl": 6,
+    "uct": 6
+   },
+   "turns": 63,
+   "secs": 6.14
+  },
+  {
+   "tournament": 3,
+   "seed": 1000155,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "drrl": 3,
+    "uct": 6
+   },
+   "turns": 75,
+   "secs": 8.68
+  },
+  {
+   "tournament": 11,
+   "seed": 1000466,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 5,
+    "drrl": 6,
+    "vpi": 8,
+    "uct": 11
+   },
+   "turns": 61,
+   "secs": 8.94
+  },
+  {
+   "tournament": 7,
+   "seed": 1000294,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "uct": 7,
+    "vpi": 5
+   },
+   "turns": 65,
+   "secs": 5.73
+  },
+  {
+   "tournament": 0,
+   "seed": 1000032,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "uct": 9,
+    "drrl": 10
+   },
+   "turns": 62,
+   "secs": 5.82
+  },
+  {
+   "tournament": 4,
+   "seed": 1000193,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 4,
+    "drrl": 5,
+    "uct": 7
+   },
+   "turns": 81,
+   "secs": 8.35
+  },
+  {
+   "tournament": 3,
+   "seed": 1000156,
+   "seats": [
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "drrl": 5
+   },
+   "turns": 63,
+   "secs": 5.99
+  },
+  {
+   "tournament": 9,
+   "seed": 1000390,
+   "seats": [
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "vpi": 6
+   },
+   "turns": 74,
+   "secs": 11.87
+  },
+  {
+   "tournament": 3,
+   "seed": 1000126,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "drrl": 4,
+    "buct": 5
+   },
+   "turns": 68,
+   "secs": 6.38
+  },
+  {
+   "tournament": 5,
+   "seed": 1000235,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 9,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 7,
+    "drrl": 4
+   },
+   "turns": 83,
+   "secs": 9.06
+  },
+  {
+   "tournament": 8,
+   "seed": 1000357,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "vpi": 8,
+    "rab": 4
+   },
+   "turns": 83,
+   "secs": 12.15
+  },
+  {
+   "tournament": 5,
+   "seed": 1000224,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 4,
+    "drrl": 5,
+    "vpi": 4
+   },
+   "turns": 54,
+   "secs": 4.07
+  },
+  {
+   "tournament": 2,
+   "seed": 1000096,
+   "seats": [
+    "vpi",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 6,
+    "rab": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 4
+   },
+   "turns": 58,
+   "secs": 3.53
+  },
+  {
+   "tournament": 5,
+   "seed": 1000233,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 5,
+    "drrl": 8,
+    "buct": 10,
+    "vpi": 9
+   },
+   "turns": 95,
+   "secs": 11.01
+  },
+  {
+   "tournament": 9,
+   "seed": 1000383,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 9,
+    "buct": 3
+   },
+   "turns": 79,
+   "secs": 9.96
+  },
+  {
+   "tournament": 7,
+   "seed": 1000291,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 10,
+    "vpi": 5,
+    "uct": 9
+   },
+   "turns": 80,
+   "secs": 9.62
+  },
+  {
+   "tournament": 1,
+   "seed": 1000055,
+   "seats": [
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 8,
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 5
+   },
+   "turns": 78,
+   "secs": 4.84
+  },
+  {
+   "tournament": 2,
+   "seed": 1000097,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 4,
+    "rab": 10,
+    "drrl": 7,
+    "vpi": 9
+   },
+   "turns": 77,
+   "secs": 4.7
+  },
+  {
+   "tournament": 10,
+   "seed": 1000400,
+   "seats": [
+    "buct",
+    "rab",
+    "drrl",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 4,
+    "rab": 10,
+    "drrl": 9,
+    "uct": 3
+   },
+   "turns": 74,
+   "secs": 5.05
+  },
+  {
+   "tournament": 12,
+   "seed": 1000501,
+   "seats": [
+    "vpi",
+    "rab",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 5,
+    "rab": 4,
+    "buct": 10,
+    "drrl": 3
+   },
+   "turns": 67,
+   "secs": 8.1
+  },
+  {
+   "tournament": 0,
+   "seed": 1000020,
+   "seats": [
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "uct": 7
+   },
+   "turns": 73,
+   "secs": 4.52
+  },
+  {
+   "tournament": 13,
+   "seed": 1000535,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 5,
+    "buct": 4,
+    "vpi": 6
+   },
+   "turns": 55,
+   "secs": 9.52
+  },
+  {
+   "tournament": 12,
+   "seed": 1000512,
+   "seats": [
+    "drrl",
+    "rab",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 3,
+    "rab": 4,
+    "buct": 10,
+    "vpi": 3
+   },
+   "turns": 47,
+   "secs": 4.27
+  },
+  {
+   "tournament": 9,
+   "seed": 1000369,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 6,
+    "uct": 8,
+    "vpi": 5
+   },
+   "turns": 75,
+   "secs": 10.71
+  },
+  {
+   "tournament": 1,
+   "seed": 1000066,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 4,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "drrl": 6,
+    "buct": 10
+   },
+   "turns": 68,
+   "secs": 4.73
+  },
+  {
+   "tournament": 6,
+   "seed": 1000270,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 7,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "uct": 7,
+    "buct": 10
+   },
+   "turns": 65,
+   "secs": 7.12
+  },
+  {
+   "tournament": 7,
+   "seed": 1000316,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "vpi": 6
+   },
+   "turns": 116,
+   "secs": 12.29
+  },
+  {
+   "tournament": 2,
+   "seed": 1000110,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 6,
+    "vpi": 7,
+    "drrl": 4
+   },
+   "turns": 60,
+   "secs": 6.31
+  },
+  {
+   "tournament": 3,
+   "seed": 1000147,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 9,
+    "uct": 9,
+    "buct": 8
+   },
+   "turns": 104,
+   "secs": 14.42
+  },
+  {
+   "tournament": 9,
+   "seed": 1000389,
+   "seats": [
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 7,
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 7
+   },
+   "turns": 100,
+   "secs": 14.23
+  },
+  {
+   "tournament": 12,
+   "seed": 1000490,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "buct": 10,
+    "drrl": 3,
+    "rab": 9
+   },
+   "turns": 72,
+   "secs": 7.6
+  },
+  {
+   "tournament": 14,
+   "seed": 1000567,
+   "seats": [
+    "vpi",
+    "uct",
+    "rab",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "uct": 5,
+    "rab": 4,
+    "buct": 10
+   },
+   "turns": 44,
+   "secs": 6.46
+  },
+  {
+   "tournament": 0,
+   "seed": 1000008,
+   "seats": [
+    "uct",
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 3,
+    "rab": 10,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 55,
+   "secs": 3.69
+  },
+  {
+   "tournament": 4,
+   "seed": 1000186,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 9,
+    "uct": 11,
+    "vpi": 6,
+    "drrl": 4
+   },
+   "turns": 73,
+   "secs": 8.75
+  },
+  {
+   "tournament": 0,
+   "seed": 1000012,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 6
+   },
+   "turns": 68,
+   "secs": 5.9
+  },
+  {
+   "tournament": 6,
+   "seed": 1000276,
+   "seats": [
+    "uct",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 9,
+    "buct": 10,
+    "rab": 4,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 86,
+   "secs": 9.52
+  },
+  {
+   "tournament": 3,
+   "seed": 1000143,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "drrl": 4,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 72,
+   "secs": 8.83
+  },
+  {
+   "tournament": 12,
+   "seed": 1000504,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 9,
+    "drrl": 5,
+    "vpi": 9,
+    "rab": 10
+   },
+   "turns": 106,
+   "secs": 16.2
+  },
+  {
+   "tournament": 2,
+   "seed": 1000111,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 3,
+    "drrl": 4,
+    "vpi": 6
+   },
+   "turns": 60,
+   "secs": 2.8
+  },
+  {
+   "tournament": 5,
+   "seed": 1000217,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 4,
+    "drrl": 5
+   },
+   "turns": 61,
+   "secs": 4.66
+  },
+  {
+   "tournament": 10,
+   "seed": 1000429,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 6,
+    "buct": 3,
+    "uct": 9,
+    "rab": 10
+   },
+   "turns": 86,
+   "secs": 8.16
+  },
+  {
+   "tournament": 11,
+   "seed": 1000443,
+   "seats": [
+    "uct",
+    "drrl",
+    "rab",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 7,
+    "drrl": 10,
+    "rab": 6,
+    "vpi": 6
+   },
+   "turns": 85,
+   "secs": 9.65
+  },
+  {
+   "tournament": 11,
+   "seed": 1000464,
+   "seats": [
+    "rab",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 9,
+    "vpi": 4,
+    "drrl": 4,
+    "uct": 10
+   },
+   "turns": 72,
+   "secs": 7.0
+  },
+  {
+   "tournament": 5,
+   "seed": 1000203,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 6,
+    "buct": 10,
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 83,
+   "secs": 7.84
+  },
+  {
+   "tournament": 6,
+   "seed": 1000262,
+   "seats": [
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 7,
+    "buct": 5,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "uct": 10
+   },
+   "turns": 61,
+   "secs": 6.69
+  },
+  {
+   "tournament": 10,
+   "seed": 1000433,
+   "seats": [
+    "drrl",
+    "rab",
+    "buct",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 5,
+    "rab": 10,
+    "buct": 7,
+    "uct": 8
+   },
+   "turns": 75,
+   "secs": 8.14
+  },
+  {
+   "tournament": 8,
+   "seed": 1000333,
+   "seats": [
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "rab": 5
+   },
+   "turns": 62,
+   "secs": 5.22
+  },
+  {
+   "tournament": 8,
+   "seed": 1000354,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 7,
+    "buct": 5,
+    "rab": 7
+   },
+   "turns": 82,
+   "secs": 8.29
+  },
+  {
+   "tournament": 10,
+   "seed": 1000403,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 5,
+    "buct": 6,
+    "drrl": 9,
+    "rab": 10
+   },
+   "turns": 75,
+   "secs": 8.57
+  },
+  {
+   "tournament": 14,
+   "seed": 1000564,
+   "seats": [
+    "buct",
+    "vpi",
+    "rab",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "vpi": 8,
+    "rab": 6,
+    "uct": 10
+   },
+   "turns": 83,
+   "secs": 13.55
+  },
+  {
+   "tournament": 11,
+   "seed": 1000440,
+   "seats": [
+    "rab",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 7,
+    "vpi": 3,
+    "uct": 10,
+    "drrl": 6
+   },
+   "turns": 67,
+   "secs": 6.86
+  },
+  {
+   "tournament": 6,
+   "seed": 1000249,
+   "seats": [
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "rab": 4
+   },
+   "turns": 64,
+   "secs": 5.93
+  },
+  {
+   "tournament": 5,
+   "seed": 1000227,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "drrl": 4,
+    "buct": 10
+   },
+   "turns": 59,
+   "secs": 6.97
+  },
+  {
+   "tournament": 11,
+   "seed": 1000445,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 8,
+    "drrl": 5,
+    "rab": 9
+   },
+   "turns": 71,
+   "secs": 10.97
+  },
+  {
+   "tournament": 8,
+   "seed": 1000339,
+   "seats": [
+    "vpi",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 7,
+    "rab": 10,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 3
+   },
+   "turns": 83,
+   "secs": 7.91
+  },
+  {
+   "tournament": 6,
+   "seed": 1000242,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 7,
+    "uct": 5,
+    "buct": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 68,
+   "secs": 5.86
+  },
+  {
+   "tournament": 9,
+   "seed": 1000368,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 4,
+    "uct": 6,
+    "buct": 10,
+    "vpi": 6
+   },
+   "turns": 73,
+   "secs": 7.72
+  },
+  {
+   "tournament": 0,
+   "seed": 1000001,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 7,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "uct": 5,
+    "drrl": 4
+   },
+   "turns": 66,
+   "secs": 4.51
+  },
+  {
+   "tournament": 14,
+   "seed": 1000587,
+   "seats": [
+    "vpi",
+    "uct",
+    "rab",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "rab": 7,
+    "buct": 9
+   },
+   "turns": 122,
+   "secs": 16.58
+  },
+  {
+   "tournament": 9,
+   "seed": 1000363,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 7,
+    "uct": 10,
+    "vpi": 5,
+    "buct": 4
+   },
+   "turns": 58,
+   "secs": 9.13
+  },
+  {
+   "tournament": 0,
+   "seed": 1000034,
+   "seats": [
+    "rab",
+    "uct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 8,
+    "uct": 10,
+    "drrl": 6,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 58,
+   "secs": 6.23
+  },
+  {
+   "tournament": 13,
+   "seed": 1000545,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "drrl": 4,
+    "buct": 6
+   },
+   "turns": 56,
+   "secs": 9.04
+  },
+  {
+   "tournament": 12,
+   "seed": 1000516,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 9,
+    "buct": 9,
+    "rab": 10,
+    "vpi": 9
+   },
+   "turns": 100,
+   "secs": 14.02
+  },
+  {
+   "tournament": 4,
+   "seed": 1000170,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "drrl": 4,
+    "uct": 10
+   },
+   "turns": 75,
+   "secs": 7.83
+  },
+  {
+   "tournament": 2,
+   "seed": 1000095,
+   "seats": [
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 6,
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 5
+   },
+   "turns": 75,
+   "secs": 5.45
+  },
+  {
+   "tournament": 1,
+   "seed": 1000069,
+   "seats": [
+    "rab",
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "buct": 9,
+    "drrl": 9,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 91,
+   "secs": 10.84
+  },
+  {
+   "tournament": 4,
+   "seed": 1000187,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 3,
+    "drrl": 2,
+    "vpi": 6
+   },
+   "turns": 33,
+   "secs": 5.31
+  },
+  {
+   "tournament": 3,
+   "seed": 1000144,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 4,
+    "drrl": 3,
+    "uct": 10,
+    "buct": 5
+   },
+   "turns": 56,
+   "secs": 7.5
+  },
+  {
+   "tournament": 5,
+   "seed": 1000201,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 7,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "buct": 10,
+    "vpi": 6
+   },
+   "turns": 72,
+   "secs": 9.96
+  },
+  {
+   "tournament": 8,
+   "seed": 1000329,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "rab": 8,
+    "buct": 10
+   },
+   "turns": 62,
+   "secs": 6.46
+  },
+  {
+   "tournament": 9,
+   "seed": 1000374,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 9,
+    "vpi": 6
+   },
+   "turns": 73,
+   "secs": 10.1
+  },
+  {
+   "tournament": 1,
+   "seed": 1000078,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 5,
+    "rab": 10,
+    "buct": 7,
+    "drrl": 3
+   },
+   "turns": 59,
+   "secs": 3.85
+  },
+  {
+   "tournament": 0,
+   "seed": 1000029,
+   "seats": [
+    "drrl",
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "rab": 4,
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 57,
+   "secs": 5.52
+  },
+  {
+   "tournament": 13,
+   "seed": 1000559,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "uct": 8,
+    "drrl": 9,
+    "buct": 9
+   },
+   "turns": 66,
+   "secs": 13.48
+  },
+  {
+   "tournament": 6,
+   "seed": 1000266,
+   "seats": [
+    "buct",
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 6,
+    "uct": 7,
+    "rab": 7,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 54,
+   "secs": 7.76
+  },
+  {
+   "tournament": 6,
+   "seed": 1000273,
+   "seats": [
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 4,
+    "buct": 6,
+    "vnet:checkpoints_value/v40.pt": 2,
+    "rab": 10
+   },
+   "turns": 73,
+   "secs": 3.5
+  },
+  {
+   "tournament": 4,
+   "seed": 1000179,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 8,
+    "drrl": 8,
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 104,
+   "secs": 14.19
+  },
+  {
+   "tournament": 11,
+   "seed": 1000446,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 4,
+    "uct": 10,
+    "rab": 5
+   },
+   "turns": 62,
+   "secs": 4.67
+  },
+  {
+   "tournament": 4,
+   "seed": 1000168,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 11,
+    "uct": 4,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 3
+   },
+   "turns": 107,
+   "secs": 13.25
+  },
+  {
+   "tournament": 2,
+   "seed": 1000083,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 8,
+    "drrl": 8,
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 75,
+   "secs": 8.9
+  },
+  {
+   "tournament": 14,
+   "seed": 1000594,
+   "seats": [
+    "buct",
+    "vpi",
+    "rab",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 9,
+    "vpi": 10,
+    "rab": 5,
+    "uct": 8
+   },
+   "turns": 78,
+   "secs": 17.97
+  },
+  {
+   "tournament": 2,
+   "seed": 1000103,
+   "seats": [
+    "vpi",
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "rab": 9,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 74,
+   "secs": 5.55
+  },
+  {
+   "tournament": 0,
+   "seed": 1000025,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 6,
+    "uct": 8
+   },
+   "turns": 64,
+   "secs": 4.57
+  },
+  {
+   "tournament": 12,
+   "seed": 1000505,
+   "seats": [
+    "buct",
+    "drrl",
+    "rab",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 8,
+    "drrl": 7,
+    "rab": 7,
+    "vpi": 10
+   },
+   "turns": 74,
+   "secs": 10.35
+  },
+  {
+   "tournament": 13,
+   "seed": 1000556,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "vpi": 7,
+    "buct": 10,
+    "uct": 4
+   },
+   "turns": 62,
+   "secs": 8.52
+  },
+  {
+   "tournament": 5,
+   "seed": 1000208,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 11,
+    "vpi": 6,
+    "drrl": 8,
+    "buct": 7
+   },
+   "turns": 80,
+   "secs": 9.79
+  },
+  {
+   "tournament": 5,
+   "seed": 1000204,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 6,
+    "vpi": 3,
+    "drrl": 4,
+    "buct": 10
+   },
+   "turns": 79,
+   "secs": 7.45
+  },
+  {
+   "tournament": 10,
+   "seed": 1000428,
+   "seats": [
+    "uct",
+    "buct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 5,
+    "rab": 7,
+    "drrl": 5
+   },
+   "turns": 89,
+   "secs": 8.65
+  },
+  {
+   "tournament": 7,
+   "seed": 1000287,
+   "seats": [
+    "rab",
+    "vpi",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 5,
+    "vpi": 6,
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 91,
+   "secs": 6.64
+  },
+  {
+   "tournament": 7,
+   "seed": 1000293,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 5,
+    "uct": 8
+   },
+   "turns": 76,
+   "secs": 7.71
+  },
+  {
+   "tournament": 13,
+   "seed": 1000530,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 5,
+    "uct": 9,
+    "buct": 10,
+    "drrl": 4
+   },
+   "turns": 66,
+   "secs": 15.44
+  },
+  {
+   "tournament": 14,
+   "seed": 1000570,
+   "seats": [
+    "buct",
+    "vpi",
+    "rab",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "vpi": 7,
+    "rab": 6,
+    "uct": 10
+   },
+   "turns": 70,
+   "secs": 11.88
+  },
+  {
+   "tournament": 9,
+   "seed": 1000386,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "vpi": 4,
+    "uct": 10
+   },
+   "turns": 66,
+   "secs": 7.19
+  },
+  {
+   "tournament": 2,
+   "seed": 1000114,
+   "seats": [
+    "vpi",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 6,
+    "drrl": 2,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 5
+   },
+   "turns": 64,
+   "secs": 5.36
+  },
+  {
+   "tournament": 1,
+   "seed": 1000041,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 4,
+    "rab": 3,
+    "drrl": 4
+   },
+   "turns": 46,
+   "secs": 3.0
+  },
+  {
+   "tournament": 3,
+   "seed": 1000153,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 2,
+    "drrl": 3,
+    "uct": 3
+   },
+   "turns": 54,
+   "secs": 3.95
+  },
+  {
+   "tournament": 13,
+   "seed": 1000531,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "vpi": 6,
+    "uct": 10,
+    "drrl": 4
+   },
+   "turns": 77,
+   "secs": 8.74
+  },
+  {
+   "tournament": 9,
+   "seed": 1000388,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 7,
+    "vpi": 7
+   },
+   "turns": 100,
+   "secs": 13.17
+  },
+  {
+   "tournament": 0,
+   "seed": 1000004,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 4,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 4
+   },
+   "turns": 56,
+   "secs": 3.43
+  },
+  {
+   "tournament": 8,
+   "seed": 1000349,
+   "seats": [
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 9,
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 6
+   },
+   "turns": 75,
+   "secs": 7.16
+  },
+  {
+   "tournament": 12,
+   "seed": 1000511,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 9,
+    "buct": 9,
+    "drrl": 9,
+    "rab": 10
+   },
+   "turns": 123,
+   "secs": 18.77
+  },
+  {
+   "tournament": 11,
+   "seed": 1000465,
+   "seats": [
+    "uct",
+    "rab",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "rab": 6,
+    "drrl": 5,
+    "vpi": 6
+   },
+   "turns": 61,
+   "secs": 7.4
+  },
+  {
+   "tournament": 1,
+   "seed": 1000057,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 6,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 10,
+    "buct": 6
+   },
+   "turns": 72,
+   "secs": 6.11
+  },
+  {
+   "tournament": 4,
+   "seed": 1000169,
+   "seats": [
+    "vpi",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "uct": 9
+   },
+   "turns": 91,
+   "secs": 11.01
+  },
+  {
+   "tournament": 6,
+   "seed": 1000260,
+   "seats": [
+    "rab",
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 11,
+    "buct": 5,
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 4
+   },
+   "turns": 67,
+   "secs": 6.38
+  },
+  {
+   "tournament": 13,
+   "seed": 1000552,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 9,
+    "uct": 8,
+    "vpi": 10,
+    "drrl": 8
+   },
+   "turns": 99,
+   "secs": 24.75
+  },
+  {
+   "tournament": 2,
+   "seed": 1000091,
+   "seats": [
+    "vpi",
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 6,
+    "drrl": 5,
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 68,
+   "secs": 5.45
+  },
+  {
+   "tournament": 11,
+   "seed": 1000459,
+   "seats": [
+    "rab",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 9,
+    "vpi": 9,
+    "uct": 9,
+    "drrl": 10
+   },
+   "turns": 93,
+   "secs": 12.08
+  },
+  {
+   "tournament": 11,
+   "seed": 1000479,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 9,
+    "uct": 7,
+    "vpi": 9,
+    "rab": 10
+   },
+   "turns": 81,
+   "secs": 14.73
+  },
+  {
+   "tournament": 8,
+   "seed": 1000328,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 5,
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "vpi": 6
+   },
+   "turns": 64,
+   "secs": 6.99
+  },
+  {
+   "tournament": 11,
+   "seed": 1000442,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 7,
+    "vpi": 6,
+    "rab": 7
+   },
+   "turns": 93,
+   "secs": 11.25
+  },
+  {
+   "tournament": 14,
+   "seed": 1000581,
+   "seats": [
+    "buct",
+    "vpi",
+    "rab",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "vpi": 8,
+    "rab": 7,
+    "uct": 10
+   },
+   "turns": 55,
+   "secs": 8.37
+  },
+  {
+   "tournament": 6,
+   "seed": 1000274,
+   "seats": [
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 9,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "rab": 10
+   },
+   "turns": 75,
+   "secs": 8.25
+  },
+  {
+   "tournament": 5,
+   "seed": 1000207,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 9,
+    "vpi": 3,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 56,
+   "secs": 5.59
+  },
+  {
+   "tournament": 8,
+   "seed": 1000323,
+   "seats": [
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 5,
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "buct": 10
+   },
+   "turns": 106,
+   "secs": 14.71
+  },
+  {
+   "tournament": 10,
+   "seed": 1000425,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "rab": 6,
+    "uct": 10,
+    "drrl": 5
+   },
+   "turns": 63,
+   "secs": 7.9
+  },
+  {
+   "tournament": 1,
+   "seed": 1000063,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "buct": 6,
+    "rab": 3,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 44,
+   "secs": 3.67
+  },
+  {
+   "tournament": 6,
+   "seed": 1000272,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "rab": 6,
+    "buct": 10
+   },
+   "turns": 66,
+   "secs": 6.0
+  },
+  {
+   "tournament": 10,
+   "seed": 1000427,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "uct": 10,
+    "drrl": 4,
+    "rab": 4
+   },
+   "turns": 47,
+   "secs": 7.88
+  },
+  {
+   "tournament": 1,
+   "seed": 1000045,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 3,
+    "drrl": 6,
+    "buct": 8
+   },
+   "turns": 81,
+   "secs": 5.13
+  },
+  {
+   "tournament": 0,
+   "seed": 1000038,
+   "seats": [
+    "uct",
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 4,
+    "rab": 11,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 72,
+   "secs": 4.08
+  },
+  {
+   "tournament": 8,
+   "seed": 1000338,
+   "seats": [
+    "rab",
+    "vpi",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 6,
+    "vpi": 5,
+    "buct": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 70,
+   "secs": 5.47
+  },
+  {
+   "tournament": 13,
+   "seed": 1000542,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 2,
+    "uct": 10,
+    "drrl": 7,
+    "vpi": 6
+   },
+   "turns": 69,
+   "secs": 9.02
+  },
+  {
+   "tournament": 10,
+   "seed": 1000417,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "uct": 10,
+    "drrl": 4,
+    "rab": 7
+   },
+   "turns": 79,
+   "secs": 9.25
+  },
+  {
+   "tournament": 6,
+   "seed": 1000267,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 5,
+    "rab": 8,
+    "uct": 10,
+    "buct": 6
+   },
+   "turns": 72,
+   "secs": 6.81
+  },
+  {
+   "tournament": 0,
+   "seed": 1000003,
+   "seats": [
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 6,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 8
+   },
+   "turns": 86,
+   "secs": 9.02
+  },
+  {
+   "tournament": 3,
+   "seed": 1000130,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 6,
+    "drrl": 4,
+    "uct": 8,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 60,
+   "secs": 6.89
+  },
+  {
+   "tournament": 10,
+   "seed": 1000410,
+   "seats": [
+    "rab",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 4,
+    "drrl": 10,
+    "uct": 9,
+    "buct": 6
+   },
+   "turns": 79,
+   "secs": 7.72
+  },
+  {
+   "tournament": 5,
+   "seed": 1000213,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 4,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 60,
+   "secs": 6.2
+  },
+  {
+   "tournament": 13,
+   "seed": 1000558,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "vpi": 5,
+    "drrl": 5,
+    "uct": 10
+   },
+   "turns": 83,
+   "secs": 9.32
+  },
+  {
+   "tournament": 14,
+   "seed": 1000588,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 8,
+    "vpi": 5,
+    "buct": 9,
+    "rab": 10
+   },
+   "turns": 82,
+   "secs": 11.13
+  },
+  {
+   "tournament": 0,
+   "seed": 1000030,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 5,
+    "drrl": 3,
+    "uct": 11
+   },
+   "turns": 77,
+   "secs": 5.75
+  },
+  {
+   "tournament": 8,
+   "seed": 1000346,
+   "seats": [
+    "vpi",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 7,
+    "rab": 10,
+    "buct": 4,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 81,
+   "secs": 8.46
+  },
+  {
+   "tournament": 8,
+   "seed": 1000342,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "buct": 10,
+    "vpi": 9
+   },
+   "turns": 91,
+   "secs": 12.87
+  },
+  {
+   "tournament": 8,
+   "seed": 1000320,
+   "seats": [
+    "vpi",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "rab": 8,
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 3
+   },
+   "turns": 63,
+   "secs": 6.82
+  },
+  {
+   "tournament": 11,
+   "seed": 1000456,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 8,
+    "drrl": 2,
+    "vpi": 7,
+    "uct": 10
+   },
+   "turns": 71,
+   "secs": 5.49
+  },
+  {
+   "tournament": 1,
+   "seed": 1000046,
+   "seats": [
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 9,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "drrl": 5
+   },
+   "turns": 112,
+   "secs": 10.27
+  },
+  {
+   "tournament": 12,
+   "seed": 1000514,
+   "seats": [
+    "rab",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "vpi": 8,
+    "buct": 8,
+    "drrl": 9
+   },
+   "turns": 108,
+   "secs": 14.4
+  },
+  {
+   "tournament": 5,
+   "seed": 1000216,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "drrl": 4,
+    "vpi": 10
+   },
+   "turns": 62,
+   "secs": 8.78
+  },
+  {
+   "tournament": 9,
+   "seed": 1000381,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "vpi": 6,
+    "uct": 7
+   },
+   "turns": 76,
+   "secs": 13.53
+  },
+  {
+   "tournament": 1,
+   "seed": 1000061,
+   "seats": [
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 6,
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 5
+   },
+   "turns": 48,
+   "secs": 3.41
+  },
+  {
+   "tournament": 6,
+   "seed": 1000246,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 8,
+    "uct": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 7
+   },
+   "turns": 75,
+   "secs": 7.09
+  },
+  {
+   "tournament": 7,
+   "seed": 1000302,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 3,
+    "vpi": 10
+   },
+   "turns": 93,
+   "secs": 10.79
+  },
+  {
+   "tournament": 6,
+   "seed": 1000243,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "rab",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 5,
+    "rab": 4,
+    "buct": 7
+   },
+   "turns": 54,
+   "secs": 6.49
+  },
+  {
+   "tournament": 4,
+   "seed": 1000177,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 8,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "uct": 9,
+    "vpi": 10
+   },
+   "turns": 74,
+   "secs": 12.53
+  },
+  {
+   "tournament": 11,
+   "seed": 1000468,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 8,
+    "drrl": 2,
+    "rab": 5
+   },
+   "turns": 78,
+   "secs": 6.88
+  },
+  {
+   "tournament": 5,
+   "seed": 1000222,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 4,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "drrl": 5,
+    "vpi": 11
+   },
+   "turns": 87,
+   "secs": 10.53
+  },
+  {
+   "tournament": 7,
+   "seed": 1000318,
+   "seats": [
+    "uct",
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 8,
+    "rab": 6,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 68,
+   "secs": 6.56
+  },
+  {
+   "tournament": 9,
+   "seed": 1000396,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 4,
+    "vpi": 4,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 73,
+   "secs": 7.97
+  },
+  {
+   "tournament": 1,
+   "seed": 1000075,
+   "seats": [
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 3,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 5
+   },
+   "turns": 63,
+   "secs": 5.28
+  },
+  {
+   "tournament": 5,
+   "seed": 1000219,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 9,
+    "drrl": 5,
+    "buct": 5
+   },
+   "turns": 86,
+   "secs": 8.95
+  },
+  {
+   "tournament": 4,
+   "seed": 1000188,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 5,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 9
+   },
+   "turns": 112,
+   "secs": 10.29
+  },
+  {
+   "tournament": 3,
+   "seed": 1000125,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 4,
+    "buct": 9,
+    "uct": 9
+   },
+   "turns": 63,
+   "secs": 7.25
+  },
+  {
+   "tournament": 3,
+   "seed": 1000134,
+   "seats": [
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "buct": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 8
+   },
+   "turns": 64,
+   "secs": 7.6
+  },
+  {
+   "tournament": 4,
+   "seed": 1000183,
+   "seats": [
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 6,
+    "vpi": 10,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "uct": 4
+   },
+   "turns": 75,
+   "secs": 13.13
+  },
+  {
+   "tournament": 1,
+   "seed": 1000058,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 6,
+    "buct": 4,
+    "drrl": 4
+   },
+   "turns": 67,
+   "secs": 4.72
+  },
+  {
+   "tournament": 1,
+   "seed": 1000056,
+   "seats": [
+    "rab",
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 4,
+    "drrl": 4,
+    "buct": 4,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 56,
+   "secs": 2.93
+  },
+  {
+   "tournament": 9,
+   "seed": 1000385,
+   "seats": [
+    "vpi",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "buct": 8
+   },
+   "turns": 78,
+   "secs": 14.97
+  },
+  {
+   "tournament": 10,
+   "seed": 1000405,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 9,
+    "uct": 5,
+    "drrl": 4,
+    "rab": 11
+   },
+   "turns": 69,
+   "secs": 8.08
+  },
+  {
+   "tournament": 7,
+   "seed": 1000311,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 4,
+    "rab": 5,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 55,
+   "secs": 4.44
+  },
+  {
+   "tournament": 4,
+   "seed": 1000199,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "drrl": 10,
+    "uct": 9
+   },
+   "turns": 76,
+   "secs": 10.92
+  },
+  {
+   "tournament": 7,
+   "seed": 1000304,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "vpi": 8,
+    "uct": 10
+   },
+   "turns": 106,
+   "secs": 9.72
+  },
+  {
+   "tournament": 2,
+   "seed": 1000093,
+   "seats": [
+    "drrl",
+    "vpi",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 5,
+    "vpi": 10,
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 57,
+   "secs": 6.31
+  },
+  {
+   "tournament": 8,
+   "seed": 1000351,
+   "seats": [
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 3,
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 4
+   },
+   "turns": 66,
+   "secs": 4.61
+  },
+  {
+   "tournament": 5,
+   "seed": 1000220,
+   "seats": [
+    "vpi",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "buct": 10
+   },
+   "turns": 108,
+   "secs": 10.96
+  },
+  {
+   "tournament": 11,
+   "seed": 1000449,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "vpi": 4,
+    "uct": 8,
+    "rab": 11
+   },
+   "turns": 54,
+   "secs": 6.33
+  },
+  {
+   "tournament": 6,
+   "seed": 1000244,
+   "seats": [
+    "uct",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 5,
+    "rab": 5,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 60,
+   "secs": 6.16
+  },
+  {
+   "tournament": 13,
+   "seed": 1000522,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "vpi": 7,
+    "uct": 5,
+    "buct": 7
+   },
+   "turns": 92,
+   "secs": 15.65
+  },
+  {
+   "tournament": 10,
+   "seed": 1000412,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 4,
+    "drrl": 5,
+    "buct": 10,
+    "rab": 5
+   },
+   "turns": 62,
+   "secs": 6.48
+  },
+  {
+   "tournament": 3,
+   "seed": 1000137,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "uct": 4,
+    "buct": 7
+   },
+   "turns": 57,
+   "secs": 6.07
+  },
+  {
+   "tournament": 3,
+   "seed": 1000158,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "uct": 10,
+    "drrl": 4
+   },
+   "turns": 70,
+   "secs": 7.88
+  },
+  {
+   "tournament": 4,
+   "seed": 1000163,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 8,
+    "uct": 7
+   },
+   "turns": 65,
+   "secs": 6.39
+  },
+  {
+   "tournament": 13,
+   "seed": 1000527,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 7,
+    "drrl": 9,
+    "buct": 8
+   },
+   "turns": 70,
+   "secs": 11.63
+  },
+  {
+   "tournament": 7,
+   "seed": 1000315,
+   "seats": [
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "vpi": 6
+   },
+   "turns": 64,
+   "secs": 5.51
+  },
+  {
+   "tournament": 0,
+   "seed": 1000009,
+   "seats": [
+    "drrl",
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "uct": 5,
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 65,
+   "secs": 3.28
+  },
+  {
+   "tournament": 7,
+   "seed": 1000305,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 8,
+    "rab": 10,
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 4
+   },
+   "turns": 70,
+   "secs": 6.61
+  },
+  {
+   "tournament": 9,
+   "seed": 1000392,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 5,
+    "uct": 9,
+    "vpi": 7
+   },
+   "turns": 70,
+   "secs": 13.14
+  },
+  {
+   "tournament": 14,
+   "seed": 1000579,
+   "seats": [
+    "uct",
+    "rab",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "rab": 7,
+    "vpi": 9,
+    "buct": 7
+   },
+   "turns": 78,
+   "secs": 13.83
+  },
+  {
+   "tournament": 10,
+   "seed": 1000404,
+   "seats": [
+    "rab",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "buct": 5,
+    "drrl": 5,
+    "uct": 6
+   },
+   "turns": 83,
+   "secs": 7.75
+  },
+  {
+   "tournament": 12,
+   "seed": 1000492,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 9,
+    "drrl": 4,
+    "buct": 10,
+    "rab": 3
+   },
+   "turns": 88,
+   "secs": 13.25
+  },
+  {
+   "tournament": 7,
+   "seed": 1000297,
+   "seats": [
+    "rab",
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 9,
+    "uct": 8,
+    "vpi": 9,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 131,
+   "secs": 18.35
+  },
+  {
+   "tournament": 3,
+   "seed": 1000133,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "uct": 10,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 3
+   },
+   "turns": 67,
+   "secs": 10.82
+  },
+  {
+   "tournament": 3,
+   "seed": 1000135,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 7,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 77,
+   "secs": 10.34
+  },
+  {
+   "tournament": 14,
+   "seed": 1000598,
+   "seats": [
+    "vpi",
+    "uct",
+    "rab",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "rab": 4,
+    "buct": 7
+   },
+   "turns": 67,
+   "secs": 10.68
+  },
+  {
+   "tournament": 3,
+   "seed": 1000124,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "buct": 7,
+    "uct": 10
+   },
+   "turns": 67,
+   "secs": 8.41
+  },
+  {
+   "tournament": 9,
+   "seed": 1000360,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 7,
+    "uct": 8,
+    "vpi": 6
+   },
+   "turns": 94,
+   "secs": 17.4
+  },
+  {
+   "tournament": 6,
+   "seed": 1000245,
+   "seats": [
+    "rab",
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 5,
+    "buct": 9,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 74,
+   "secs": 5.72
+  },
+  {
+   "tournament": 7,
+   "seed": 1000312,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "vpi": 6,
+    "rab": 4
+   },
+   "turns": 40,
+   "secs": 5.27
+  },
+  {
+   "tournament": 14,
+   "seed": 1000582,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 7,
+    "buct": 9,
+    "rab": 8
+   },
+   "turns": 67,
+   "secs": 10.45
+  },
+  {
+   "tournament": 10,
+   "seed": 1000414,
+   "seats": [
+    "drrl",
+    "rab",
+    "buct",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 3,
+    "rab": 10,
+    "buct": 4,
+    "uct": 7
+   },
+   "turns": 64,
+   "secs": 4.46
+  },
+  {
+   "tournament": 1,
+   "seed": 1000044,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "rab": 10,
+    "buct": 8
+   },
+   "turns": 62,
+   "secs": 3.88
+  },
+  {
+   "tournament": 12,
+   "seed": 1000488,
+   "seats": [
+    "drrl",
+    "rab",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 8,
+    "rab": 6,
+    "vpi": 8,
+    "buct": 10
+   },
+   "turns": 72,
+   "secs": 10.44
+  },
+  {
+   "tournament": 9,
+   "seed": 1000382,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 8,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "vpi": 7,
+    "buct": 11
+   },
+   "turns": 71,
+   "secs": 13.65
+  },
+  {
+   "tournament": 14,
+   "seed": 1000569,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 7,
+    "buct": 9,
+    "rab": 6
+   },
+   "turns": 122,
+   "secs": 18.76
+  },
+  {
+   "tournament": 12,
+   "seed": 1000515,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "drrl": 4,
+    "vpi": 5,
+    "buct": 5
+   },
+   "turns": 68,
+   "secs": 6.42
+  },
+  {
+   "tournament": 4,
+   "seed": 1000181,
+   "seats": [
+    "vpi",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 6,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "uct": 7
+   },
+   "turns": 72,
+   "secs": 7.81
+  },
+  {
+   "tournament": 6,
+   "seed": 1000269,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 3,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "uct": 10,
+    "rab": 4
+   },
+   "turns": 52,
+   "secs": 6.92
+  },
+  {
+   "tournament": 10,
+   "seed": 1000426,
+   "seats": [
+    "rab",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 5,
+    "uct": 10,
+    "drrl": 4,
+    "buct": 5
+   },
+   "turns": 70,
+   "secs": 6.79
+  },
+  {
+   "tournament": 6,
+   "seed": 1000248,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 4,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "buct": 10
+   },
+   "turns": 63,
+   "secs": 5.48
+  },
+  {
+   "tournament": 4,
+   "seed": 1000198,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 6,
+    "uct": 7,
+    "drrl": 3
+   },
+   "turns": 58,
+   "secs": 6.33
+  },
+  {
+   "tournament": 8,
+   "seed": 1000336,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 4,
+    "buct": 6,
+    "rab": 4
+   },
+   "turns": 65,
+   "secs": 4.16
+  },
+  {
+   "tournament": 7,
+   "seed": 1000296,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 9,
+    "vpi": 6,
+    "rab": 11,
+    "uct": 8
+   },
+   "turns": 108,
+   "secs": 10.58
+  },
+  {
+   "tournament": 3,
+   "seed": 1000149,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "uct": 10,
+    "drrl": 6
+   },
+   "turns": 64,
+   "secs": 6.83
+  },
+  {
+   "tournament": 5,
+   "seed": 1000212,
+   "seats": [
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "vpi": 9,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "buct": 5
+   },
+   "turns": 96,
+   "secs": 9.88
+  },
+  {
+   "tournament": 8,
+   "seed": 1000355,
+   "seats": [
+    "buct",
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 5,
+    "rab": 10,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 78,
+   "secs": 5.76
+  },
+  {
+   "tournament": 5,
+   "seed": 1000214,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 9,
+    "vpi": 6
+   },
+   "turns": 89,
+   "secs": 11.8
+  },
+  {
+   "tournament": 1,
+   "seed": 1000060,
+   "seats": [
+    "buct",
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 7,
+    "rab": 7,
+    "drrl": 10,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 79,
+   "secs": 6.07
+  },
+  {
+   "tournament": 0,
+   "seed": 1000027,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 5,
+    "rab": 3
+   },
+   "turns": 57,
+   "secs": 3.14
+  },
+  {
+   "tournament": 11,
+   "seed": 1000454,
+   "seats": [
+    "drrl",
+    "uct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 6,
+    "uct": 10,
+    "rab": 3,
+    "vpi": 4
+   },
+   "turns": 62,
+   "secs": 7.59
+  },
+  {
+   "tournament": 5,
+   "seed": 1000209,
+   "seats": [
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "vpi": 5
+   },
+   "turns": 67,
+   "secs": 7.8
+  },
+  {
+   "tournament": 9,
+   "seed": 1000393,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 5,
+    "vpi": 8,
+    "buct": 7
+   },
+   "turns": 83,
+   "secs": 10.96
+  },
+  {
+   "tournament": 10,
+   "seed": 1000421,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 6,
+    "buct": 9,
+    "rab": 6
+   },
+   "turns": 58,
+   "secs": 8.69
+  },
+  {
+   "tournament": 4,
+   "seed": 1000191,
+   "seats": [
+    "uct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 8,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 3
+   },
+   "turns": 94,
+   "secs": 7.03
+  },
+  {
+   "tournament": 7,
+   "seed": 1000308,
+   "seats": [
+    "rab",
+    "vpi",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 7,
+    "vpi": 5,
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 54,
+   "secs": 4.03
+  },
+  {
+   "tournament": 2,
+   "seed": 1000108,
+   "seats": [
+    "vpi",
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 9,
+    "drrl": 5,
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 86,
+   "secs": 7.86
+  },
+  {
+   "tournament": 9,
+   "seed": 1000387,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 5,
+    "vpi": 8,
+    "uct": 10,
+    "buct": 8
+   },
+   "turns": 107,
+   "secs": 16.65
+  },
+  {
+   "tournament": 10,
+   "seed": 1000416,
+   "seats": [
+    "uct",
+    "drrl",
+    "rab",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 9,
+    "drrl": 7,
+    "rab": 10,
+    "buct": 6
+   },
+   "turns": 75,
+   "secs": 9.18
+  },
+  {
+   "tournament": 13,
+   "seed": 1000544,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 3,
+    "vpi": 8,
+    "uct": 9
+   },
+   "turns": 106,
+   "secs": 20.78
+  },
+  {
+   "tournament": 11,
+   "seed": 1000478,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 4,
+    "uct": 10,
+    "drrl": 6,
+    "rab": 5
+   },
+   "turns": 54,
+   "secs": 5.13
+  },
+  {
+   "tournament": 0,
+   "seed": 1000018,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "uct": 4,
+    "drrl": 3
+   },
+   "turns": 67,
+   "secs": 4.43
+  },
+  {
+   "tournament": 3,
+   "seed": 1000123,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 9,
+    "buct": 8,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 92,
+   "secs": 12.88
+  },
+  {
+   "tournament": 3,
+   "seed": 1000140,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 7,
+    "drrl": 3,
+    "uct": 8,
+    "buct": 10
+   },
+   "turns": 67,
+   "secs": 9.89
+  },
+  {
+   "tournament": 2,
+   "seed": 1000101,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "vpi",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 6,
+    "vpi": 6,
+    "rab": 5
+   },
+   "turns": 60,
+   "secs": 3.95
+  },
+  {
+   "tournament": 9,
+   "seed": 1000375,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 9,
+    "buct": 6,
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 67,
+   "secs": 11.68
+  },
+  {
+   "tournament": 2,
+   "seed": 1000092,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "rab": 10,
+    "vpi": 7
+   },
+   "turns": 65,
+   "secs": 4.41
+  },
+  {
+   "tournament": 7,
+   "seed": 1000314,
+   "seats": [
+    "rab",
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 7,
+    "uct": 8,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 77,
+   "secs": 5.83
+  },
+  {
+   "tournament": 12,
+   "seed": 1000506,
+   "seats": [
+    "vpi",
+    "drrl",
+    "rab",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 7,
+    "drrl": 2,
+    "rab": 10,
+    "buct": 7
+   },
+   "turns": 74,
+   "secs": 7.35
+  },
+  {
+   "tournament": 8,
+   "seed": 1000324,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 7,
+    "vpi": 7,
+    "buct": 7
+   },
+   "turns": 86,
+   "secs": 9.96
+  },
+  {
+   "tournament": 11,
+   "seed": 1000450,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 7,
+    "drrl": 6,
+    "rab": 4
+   },
+   "turns": 58,
+   "secs": 5.47
+  },
+  {
+   "tournament": 14,
+   "seed": 1000599,
+   "seats": [
+    "uct",
+    "vpi",
+    "rab",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 7,
+    "vpi": 10,
+    "rab": 4,
+    "buct": 4
+   },
+   "turns": 54,
+   "secs": 8.37
+  },
+  {
+   "tournament": 1,
+   "seed": 1000054,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "rab": 7,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "drrl": 5
+   },
+   "turns": 67,
+   "secs": 5.26
+  },
+  {
+   "tournament": 8,
+   "seed": 1000337,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 7,
+    "vpi": 7
+   },
+   "turns": 85,
+   "secs": 6.16
+  },
+  {
+   "tournament": 6,
+   "seed": 1000255,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 4,
+    "rab": 7,
+    "uct": 6,
+    "buct": 10
+   },
+   "turns": 66,
+   "secs": 6.66
+  },
+  {
+   "tournament": 10,
+   "seed": 1000408,
+   "seats": [
+    "uct",
+    "rab",
+    "drrl",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 5,
+    "rab": 11,
+    "drrl": 2,
+    "buct": 7
+   },
+   "turns": 76,
+   "secs": 6.37
+  },
+  {
+   "tournament": 8,
+   "seed": 1000327,
+   "seats": [
+    "vpi",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 9,
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "rab": 5
+   },
+   "turns": 81,
+   "secs": 11.14
+  },
+  {
+   "tournament": 12,
+   "seed": 1000493,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 7,
+    "buct": 10,
+    "rab": 8,
+    "vpi": 6
+   },
+   "turns": 80,
+   "secs": 9.52
+  },
+  {
+   "tournament": 1,
+   "seed": 1000074,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 11,
+    "buct": 4,
+    "rab": 6,
+    "drrl": 3
+   },
+   "turns": 55,
+   "secs": 2.63
+  },
+  {
+   "tournament": 5,
+   "seed": 1000238,
+   "seats": [
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "vpi": 7
+   },
+   "turns": 75,
+   "secs": 9.03
+  },
+  {
+   "tournament": 12,
+   "seed": 1000503,
+   "seats": [
+    "rab",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 5,
+    "buct": 10,
+    "vpi": 5,
+    "drrl": 4
+   },
+   "turns": 59,
+   "secs": 7.35
+  },
+  {
+   "tournament": 8,
+   "seed": 1000358,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 4,
+    "buct": 6,
+    "rab": 5
+   },
+   "turns": 53,
+   "secs": 3.98
+  },
+  {
+   "tournament": 14,
+   "seed": 1000577,
+   "seats": [
+    "rab",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 7,
+    "uct": 7,
+    "vpi": 3,
+    "buct": 10
+   },
+   "turns": 68,
+   "secs": 8.75
+  },
+  {
+   "tournament": 13,
+   "seed": 1000526,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "buct": 9,
+    "drrl": 5,
+    "uct": 10
+   },
+   "turns": 89,
+   "secs": 16.2
+  },
+  {
+   "tournament": 10,
+   "seed": 1000424,
+   "seats": [
+    "rab",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 7,
+    "drrl": 5,
+    "uct": 8,
+    "buct": 10
+   },
+   "turns": 64,
+   "secs": 8.29
+  },
+  {
+   "tournament": 5,
+   "seed": 1000231,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "buct": 10,
+    "vpi": 9,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 80,
+   "secs": 14.44
+  },
+  {
+   "tournament": 9,
+   "seed": 1000377,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "uct": 5,
+    "buct": 10
+   },
+   "turns": 98,
+   "secs": 12.76
+  },
+  {
+   "tournament": 2,
+   "seed": 1000119,
+   "seats": [
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "rab": 5,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "vpi": 10
+   },
+   "turns": 98,
+   "secs": 9.21
+  },
+  {
+   "tournament": 0,
+   "seed": 1000010,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 5,
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 8
+   },
+   "turns": 104,
+   "secs": 7.94
+  },
+  {
+   "tournament": 7,
+   "seed": 1000284,
+   "seats": [
+    "uct",
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 5,
+    "rab": 10,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 76,
+   "secs": 4.69
+  },
+  {
+   "tournament": 12,
+   "seed": 1000507,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "buct": 9,
+    "vpi": 5,
+    "rab": 10
+   },
+   "turns": 91,
+   "secs": 12.3
+  },
+  {
+   "tournament": 7,
+   "seed": 1000306,
+   "seats": [
+    "uct",
+    "vpi",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 6,
+    "vpi": 6,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 78,
+   "secs": 7.3
+  },
+  {
+   "tournament": 6,
+   "seed": 1000256,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "rab": 6,
+    "buct": 9
+   },
+   "turns": 76,
+   "secs": 7.11
+  },
+  {
+   "tournament": 4,
+   "seed": 1000165,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 6,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 4
+   },
+   "turns": 58,
+   "secs": 9.62
+  },
+  {
+   "tournament": 2,
+   "seed": 1000081,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 4,
+    "vpi": 6,
+    "drrl": 4
+   },
+   "turns": 48,
+   "secs": 2.8
+  },
+  {
+   "tournament": 0,
+   "seed": 1000035,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 8,
+    "drrl": 5,
+    "uct": 10,
+    "rab": 9
+   },
+   "turns": 72,
+   "secs": 5.01
+  },
+  {
+   "tournament": 5,
+   "seed": 1000206,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 3,
+    "buct": 3
+   },
+   "turns": 51,
+   "secs": 3.93
+  },
+  {
+   "tournament": 5,
+   "seed": 1000215,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 9,
+    "drrl": 7,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 11
+   },
+   "turns": 101,
+   "secs": 13.72
+  },
+  {
+   "tournament": 11,
+   "seed": 1000467,
+   "seats": [
+    "rab",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 6,
+    "vpi": 7,
+    "drrl": 10,
+    "uct": 8
+   },
+   "turns": 85,
+   "secs": 11.63
+  },
+  {
+   "tournament": 10,
+   "seed": 1000431,
+   "seats": [
+    "uct",
+    "rab",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "rab": 5,
+    "drrl": 6,
+    "buct": 10
+   },
+   "turns": 78,
+   "secs": 9.93
+  },
+  {
+   "tournament": 5,
+   "seed": 1000223,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 7,
+    "drrl": 5,
+    "buct": 4
+   },
+   "turns": 91,
+   "secs": 7.72
+  },
+  {
+   "tournament": 0,
+   "seed": 1000023,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "drrl": 5
+   },
+   "turns": 67,
+   "secs": 5.75
+  },
+  {
+   "tournament": 1,
+   "seed": 1000053,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 8,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "rab": 9,
+    "buct": 9
+   },
+   "turns": 113,
+   "secs": 9.65
+  },
+  {
+   "tournament": 1,
+   "seed": 1000042,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 6,
+    "drrl": 4,
+    "rab": 5
+   },
+   "turns": 60,
+   "secs": 5.19
+  },
+  {
+   "tournament": 0,
+   "seed": 1000019,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 3,
+    "rab": 4
+   },
+   "turns": 54,
+   "secs": 4.54
+  },
+  {
+   "tournament": 7,
+   "seed": 1000290,
+   "seats": [
+    "uct",
+    "vpi",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 6,
+    "vpi": 6,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 80,
+   "secs": 4.85
+  },
+  {
+   "tournament": 1,
+   "seed": 1000068,
+   "seats": [
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "buct": 5,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "drrl": 2
+   },
+   "turns": 47,
+   "secs": 4.06
+  },
+  {
+   "tournament": 3,
+   "seed": 1000145,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "uct": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 5
+   },
+   "turns": 65,
+   "secs": 7.36
+  },
+  {
+   "tournament": 0,
+   "seed": 1000005,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "rab": 7,
+    "drrl": 3
+   },
+   "turns": 55,
+   "secs": 5.01
+  },
+  {
+   "tournament": 4,
+   "seed": 1000190,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 6,
+    "drrl": 4,
+    "vpi": 6,
+    "uct": 10
+   },
+   "turns": 52,
+   "secs": 5.45
+  },
+  {
+   "tournament": 8,
+   "seed": 1000345,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 11,
+    "buct": 6,
+    "vpi": 5,
+    "rab": 5
+   },
+   "turns": 63,
+   "secs": 4.16
+  },
+  {
+   "tournament": 14,
+   "seed": 1000595,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 3,
+    "rab": 2,
+    "uct": 8,
+    "buct": 10
+   },
+   "turns": 46,
+   "secs": 5.8
+  },
+  {
+   "tournament": 14,
+   "seed": 1000591,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 7,
+    "rab": 10,
+    "uct": 9,
+    "vpi": 7
+   },
+   "turns": 86,
+   "secs": 12.95
+  },
+  {
+   "tournament": 12,
+   "seed": 1000509,
+   "seats": [
+    "vpi",
+    "buct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 5,
+    "buct": 4,
+    "rab": 10,
+    "drrl": 4
+   },
+   "turns": 50,
+   "secs": 4.04
+  },
+  {
+   "tournament": 8,
+   "seed": 1000334,
+   "seats": [
+    "buct",
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 7,
+    "rab": 10,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 84,
+   "secs": 8.13
+  },
+  {
+   "tournament": 10,
+   "seed": 1000419,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "uct": 3,
+    "buct": 10,
+    "rab": 7
+   },
+   "turns": 60,
+   "secs": 4.94
+  },
+  {
+   "tournament": 14,
+   "seed": 1000593,
+   "seats": [
+    "rab",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "buct": 7,
+    "vpi": 7,
+    "uct": 5
+   },
+   "turns": 75,
+   "secs": 8.72
+  },
+  {
+   "tournament": 0,
+   "seed": 1000016,
+   "seats": [
+    "rab",
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 8,
+    "drrl": 7,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 74,
+   "secs": 5.66
+  },
+  {
+   "tournament": 13,
+   "seed": 1000533,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "drrl": 9,
+    "uct": 10,
+    "vpi": 6
+   },
+   "turns": 73,
+   "secs": 10.15
+  },
+  {
+   "tournament": 7,
+   "seed": 1000298,
+   "seats": [
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "rab": 3
+   },
+   "turns": 64,
+   "secs": 6.01
+  },
+  {
+   "tournament": 4,
+   "seed": 1000185,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "uct": 10,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 75,
+   "secs": 10.97
+  },
+  {
+   "tournament": 2,
+   "seed": 1000098,
+   "seats": [
+    "drrl",
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 5,
+    "rab": 7,
+    "vpi": 10,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 84,
+   "secs": 7.97
+  },
+  {
+   "tournament": 8,
+   "seed": 1000340,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 8,
+    "buct": 8,
+    "rab": 7
+   },
+   "turns": 93,
+   "secs": 9.37
+  },
+  {
+   "tournament": 12,
+   "seed": 1000480,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 5,
+    "buct": 10,
+    "rab": 4
+   },
+   "turns": 64,
+   "secs": 7.03
+  },
+  {
+   "tournament": 8,
+   "seed": 1000322,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 3,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 6,
+    "vpi": 4
+   },
+   "turns": 56,
+   "secs": 4.06
+  },
+  {
+   "tournament": 13,
+   "seed": 1000554,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 8,
+    "vpi": 8,
+    "buct": 10,
+    "drrl": 6
+   },
+   "turns": 85,
+   "secs": 15.25
+  },
+  {
+   "tournament": 12,
+   "seed": 1000517,
+   "seats": [
+    "vpi",
+    "rab",
+    "buct",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 4,
+    "rab": 10,
+    "buct": 9,
+    "drrl": 3
+   },
+   "turns": 67,
+   "secs": 6.2
+  },
+  {
+   "tournament": 2,
+   "seed": 1000094,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "vpi": 6,
+    "drrl": 10
+   },
+   "turns": 67,
+   "secs": 5.14
+  },
+  {
+   "tournament": 14,
+   "seed": 1000597,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 7,
+    "uct": 8,
+    "buct": 10,
+    "vpi": 2
+   },
+   "turns": 64,
+   "secs": 9.74
+  },
+  {
+   "tournament": 12,
+   "seed": 1000513,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 5,
+    "vpi": 7,
+    "rab": 7
+   },
+   "turns": 76,
+   "secs": 14.44
+  },
+  {
+   "tournament": 0,
+   "seed": 1000031,
+   "seats": [
+    "drrl",
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 7,
+    "uct": 9,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 81,
+   "secs": 7.69
+  },
+  {
+   "tournament": 14,
+   "seed": 1000568,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 7,
+    "uct": 10,
+    "buct": 8,
+    "vpi": 7
+   },
+   "turns": 111,
+   "secs": 23.68
+  },
+  {
+   "tournament": 2,
+   "seed": 1000105,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 2,
+    "drrl": 6,
+    "vpi": 2,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 56,
+   "secs": 2.71
+  },
+  {
+   "tournament": 3,
+   "seed": 1000138,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 5,
+    "buct": 6,
+    "drrl": 3
+   },
+   "turns": 46,
+   "secs": 6.66
+  },
+  {
+   "tournament": 6,
+   "seed": 1000258,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 3,
+    "uct": 3,
+    "buct": 6
+   },
+   "turns": 53,
+   "secs": 3.64
+  },
+  {
+   "tournament": 5,
+   "seed": 1000237,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 5,
+    "drrl": 5,
+    "buct": 7
+   },
+   "turns": 83,
+   "secs": 7.87
+  },
+  {
+   "tournament": 1,
+   "seed": 1000064,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 5,
+    "rab": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 2
+   },
+   "turns": 66,
+   "secs": 4.46
+  },
+  {
+   "tournament": 10,
+   "seed": 1000413,
+   "seats": [
+    "buct",
+    "uct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 9,
+    "uct": 9,
+    "rab": 5,
+    "drrl": 10
+   },
+   "turns": 108,
+   "secs": 14.22
+  },
+  {
+   "tournament": 5,
+   "seed": 1000205,
+   "seats": [
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 6,
+    "vpi": 10,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "buct": 6
+   },
+   "turns": 55,
+   "secs": 9.17
+  },
+  {
+   "tournament": 6,
+   "seed": 1000254,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 6,
+    "buct": 10,
+    "uct": 6,
+    "rab": 6
+   },
+   "turns": 81,
+   "secs": 7.7
+  },
+  {
+   "tournament": 6,
+   "seed": 1000263,
+   "seats": [
+    "uct",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 6,
+    "buct": 4,
+    "rab": 4,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 59,
+   "secs": 6.77
+  },
+  {
+   "tournament": 11,
+   "seed": 1000460,
+   "seats": [
+    "rab",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 8,
+    "drrl": 9,
+    "uct": 10,
+    "vpi": 6
+   },
+   "turns": 92,
+   "secs": 11.12
+  },
+  {
+   "tournament": 13,
+   "seed": 1000521,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 7,
+    "vpi": 10,
+    "drrl": 4,
+    "buct": 6
+   },
+   "turns": 62,
+   "secs": 10.61
+  },
+  {
+   "tournament": 11,
+   "seed": 1000448,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 5,
+    "vpi": 6,
+    "rab": 7
+   },
+   "turns": 71,
+   "secs": 4.59
+  },
+  {
+   "tournament": 8,
+   "seed": 1000353,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 2,
+    "buct": 7,
+    "rab": 10,
+    "vpi": 9
+   },
+   "turns": 81,
+   "secs": 8.39
+  },
+  {
+   "tournament": 0,
+   "seed": 1000036,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 11,
+    "rab": 7,
+    "uct": 9,
+    "drrl": 7
+   },
+   "turns": 88,
+   "secs": 6.97
+  },
+  {
+   "tournament": 5,
+   "seed": 1000229,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "vpi": 4,
+    "drrl": 6
+   },
+   "turns": 73,
+   "secs": 6.67
+  },
+  {
+   "tournament": 3,
+   "seed": 1000154,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 7,
+    "buct": 9,
+    "uct": 6
+   },
+   "turns": 102,
+   "secs": 11.83
+  },
+  {
+   "tournament": 3,
+   "seed": 1000139,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "buct": 3,
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 55,
+   "secs": 5.47
+  },
+  {
+   "tournament": 11,
+   "seed": 1000474,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 6,
+    "rab": 10,
+    "uct": 8,
+    "drrl": 5
+   },
+   "turns": 63,
+   "secs": 6.7
+  },
+  {
+   "tournament": 8,
+   "seed": 1000335,
+   "seats": [
+    "vpi",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 7,
+    "buct": 5,
+    "rab": 9,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 78,
+   "secs": 5.99
+  },
+  {
+   "tournament": 14,
+   "seed": 1000592,
+   "seats": [
+    "rab",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 6,
+    "vpi": 9,
+    "buct": 7,
+    "uct": 10
+   },
+   "turns": 86,
+   "secs": 10.45
+  },
+  {
+   "tournament": 6,
+   "seed": 1000265,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 7,
+    "rab": 7,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "uct": 8
+   },
+   "turns": 66,
+   "secs": 7.95
+  },
+  {
+   "tournament": 2,
+   "seed": 1000107,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 2,
+    "vpi": 6,
+    "drrl": 4
+   },
+   "turns": 57,
+   "secs": 3.47
+  },
+  {
+   "tournament": 9,
+   "seed": 1000399,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "buct": 4,
+    "uct": 10
+   },
+   "turns": 66,
+   "secs": 9.42
+  },
+  {
+   "tournament": 13,
+   "seed": 1000537,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "buct": 6,
+    "drrl": 2,
+    "uct": 10
+   },
+   "turns": 55,
+   "secs": 8.83
+  },
+  {
+   "tournament": 6,
+   "seed": 1000251,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "uct": 8,
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 84,
+   "secs": 6.35
+  },
+  {
+   "tournament": 1,
+   "seed": 1000072,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 6,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 10,
+    "buct": 7
+   },
+   "turns": 62,
+   "secs": 4.92
+  },
+  {
+   "tournament": 2,
+   "seed": 1000102,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 3,
+    "vpi": 6,
+    "rab": 10,
+    "drrl": 5
+   },
+   "turns": 70,
+   "secs": 3.78
+  },
+  {
+   "tournament": 3,
+   "seed": 1000159,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 7,
+    "uct": 4,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "buct": 10
+   },
+   "turns": 80,
+   "secs": 8.62
+  },
+  {
+   "tournament": 9,
+   "seed": 1000371,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 6,
+    "vpi": 8,
+    "buct": 6
+   },
+   "turns": 87,
+   "secs": 18.79
+  },
+  {
+   "tournament": 8,
+   "seed": 1000321,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 6,
+    "buct": 9,
+    "vpi": 5
+   },
+   "turns": 72,
+   "secs": 4.66
+  },
+  {
+   "tournament": 12,
+   "seed": 1000495,
+   "seats": [
+    "rab",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 9,
+    "vpi": 7,
+    "drrl": 4,
+    "buct": 11
+   },
+   "turns": 96,
+   "secs": 12.5
+  },
+  {
+   "tournament": 10,
+   "seed": 1000407,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 5,
+    "uct": 9,
+    "buct": 10,
+    "drrl": 6
+   },
+   "turns": 60,
+   "secs": 10.78
+  },
+  {
+   "tournament": 12,
+   "seed": 1000489,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 8,
+    "drrl": 5,
+    "rab": 7
+   },
+   "turns": 80,
+   "secs": 5.94
+  },
+  {
+   "tournament": 2,
+   "seed": 1000084,
+   "seats": [
+    "vpi",
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 6,
+    "rab": 10,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 68,
+   "secs": 4.91
+  },
+  {
+   "tournament": 4,
+   "seed": 1000184,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 5,
+    "uct": 5,
+    "vpi": 4,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 49,
+   "secs": 4.77
+  },
+  {
+   "tournament": 2,
+   "seed": 1000112,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 8,
+    "drrl": 6
+   },
+   "turns": 90,
+   "secs": 8.03
+  },
+  {
+   "tournament": 5,
+   "seed": 1000239,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 3,
+    "buct": 10,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 78,
+   "secs": 8.14
+  },
+  {
+   "tournament": 5,
+   "seed": 1000210,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 9,
+    "drrl": 2
+   },
+   "turns": 63,
+   "secs": 7.7
+  },
+  {
+   "tournament": 2,
+   "seed": 1000086,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 3,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 10,
+    "drrl": 3
+   },
+   "turns": 74,
+   "secs": 3.75
+  },
+  {
+   "tournament": 9,
+   "seed": 1000364,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "vpi": 8,
+    "buct": 8
+   },
+   "turns": 107,
+   "secs": 20.89
+  },
+  {
+   "tournament": 12,
+   "seed": 1000482,
+   "seats": [
+    "drrl",
+    "rab",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 7,
+    "rab": 5,
+    "vpi": 10,
+    "buct": 9
+   },
+   "turns": 111,
+   "secs": 16.49
+  },
+  {
+   "tournament": 4,
+   "seed": 1000162,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 4,
+    "drrl": 4,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 66,
+   "secs": 7.12
+  },
+  {
+   "tournament": 2,
+   "seed": 1000117,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "vpi": 8,
+    "drrl": 6
+   },
+   "turns": 73,
+   "secs": 5.2
+  },
+  {
+   "tournament": 14,
+   "seed": 1000565,
+   "seats": [
+    "rab",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 8,
+    "vpi": 7,
+    "buct": 8,
+    "uct": 10
+   },
+   "turns": 87,
+   "secs": 12.82
+  },
+  {
+   "tournament": 3,
+   "seed": 1000128,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 8,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "buct": 6,
+    "uct": 10
+   },
+   "turns": 62,
+   "secs": 8.14
+  },
+  {
+   "tournament": 8,
+   "seed": 1000325,
+   "seats": [
+    "vpi",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 6,
+    "buct": 8,
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 72,
+   "secs": 6.05
+  },
+  {
+   "tournament": 9,
+   "seed": 1000379,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 9,
+    "vpi": 7,
+    "uct": 4
+   },
+   "turns": 80,
+   "secs": 11.11
+  },
+  {
+   "tournament": 5,
+   "seed": 1000232,
+   "seats": [
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 5
+   },
+   "turns": 54,
+   "secs": 4.28
+  },
+  {
+   "tournament": 2,
+   "seed": 1000082,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "rab": 5,
+    "drrl": 8
+   },
+   "turns": 72,
+   "secs": 9.68
+  },
+  {
+   "tournament": 11,
+   "seed": 1000473,
+   "seats": [
+    "rab",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 5,
+    "uct": 10,
+    "vpi": 5,
+    "drrl": 2
+   },
+   "turns": 61,
+   "secs": 5.83
+  },
+  {
+   "tournament": 11,
+   "seed": 1000447,
+   "seats": [
+    "uct",
+    "vpi",
+    "rab",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 3,
+    "rab": 3,
+    "drrl": 4
+   },
+   "turns": 62,
+   "secs": 7.35
+  },
+  {
+   "tournament": 7,
+   "seed": 1000309,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 5,
+    "rab": 10,
+    "vpi": 4,
+    "uct": 9
+   },
+   "turns": 66,
+   "secs": 5.57
+  },
+  {
+   "tournament": 14,
+   "seed": 1000562,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 5,
+    "vpi": 6,
+    "rab": 7
+   },
+   "turns": 63,
+   "secs": 6.49
+  },
+  {
+   "tournament": 14,
+   "seed": 1000573,
+   "seats": [
+    "rab",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 9,
+    "buct": 10,
+    "vpi": 9,
+    "uct": 9
+   },
+   "turns": 114,
+   "secs": 27.55
+  },
+  {
+   "tournament": 4,
+   "seed": 1000197,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 7,
+    "drrl": 5
+   },
+   "turns": 80,
+   "secs": 16.45
+  },
+  {
+   "tournament": 4,
+   "seed": 1000171,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 6,
+    "uct": 7
+   },
+   "turns": 87,
+   "secs": 7.11
+  },
+  {
+   "tournament": 9,
+   "seed": 1000376,
+   "seats": [
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "uct": 10
+   },
+   "turns": 62,
+   "secs": 10.39
+  },
+  {
+   "tournament": 5,
+   "seed": 1000221,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "buct": 6,
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 53,
+   "secs": 5.47
+  },
+  {
+   "tournament": 10,
+   "seed": 1000432,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 7,
+    "buct": 10,
+    "rab": 9,
+    "uct": 6
+   },
+   "turns": 72,
+   "secs": 6.94
+  },
+  {
+   "tournament": 4,
+   "seed": 1000164,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 4,
+    "drrl": 4,
+    "uct": 6
+   },
+   "turns": 62,
+   "secs": 5.8
+  },
+  {
+   "tournament": 8,
+   "seed": 1000344,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 5,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "vpi": 4,
+    "rab": 10
+   },
+   "turns": 58,
+   "secs": 4.65
+  },
+  {
+   "tournament": 1,
+   "seed": 1000067,
+   "seats": [
+    "rab",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "buct": 7
+   },
+   "turns": 66,
+   "secs": 5.21
+  },
+  {
+   "tournament": 14,
+   "seed": 1000585,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "uct": 10,
+    "vpi": 7,
+    "rab": 9
+   },
+   "turns": 103,
+   "secs": 18.62
+  },
+  {
+   "tournament": 2,
+   "seed": 1000106,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 3,
+    "vpi": 7
+   },
+   "turns": 56,
+   "secs": 4.09
+  },
+  {
+   "tournament": 10,
+   "seed": 1000420,
+   "seats": [
+    "drrl",
+    "rab",
+    "buct",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 2,
+    "rab": 10,
+    "buct": 6,
+    "uct": 8
+   },
+   "turns": 73,
+   "secs": 8.48
+  },
+  {
+   "tournament": 3,
+   "seed": 1000132,
+   "seats": [
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "uct": 10
+   },
+   "turns": 79,
+   "secs": 10.2
+  },
+  {
+   "tournament": 14,
+   "seed": 1000563,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "uct": 4,
+    "buct": 3,
+    "vpi": 4
+   },
+   "turns": 62,
+   "secs": 4.55
+  },
+  {
+   "tournament": 9,
+   "seed": 1000373,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 4,
+    "buct": 10,
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 62,
+   "secs": 5.23
+  },
+  {
+   "tournament": 7,
+   "seed": 1000286,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 4,
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "vpi": 4
+   },
+   "turns": 85,
+   "secs": 6.0
+  },
+  {
+   "tournament": 10,
+   "seed": 1000436,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 6,
+    "rab": 10,
+    "uct": 9,
+    "drrl": 3
+   },
+   "turns": 57,
+   "secs": 6.14
+  },
+  {
+   "tournament": 0,
+   "seed": 1000011,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 6,
+    "drrl": 5,
+    "uct": 10,
+    "rab": 8
+   },
+   "turns": 66,
+   "secs": 6.09
+  },
+  {
+   "tournament": 12,
+   "seed": 1000491,
+   "seats": [
+    "rab",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 5,
+    "drrl": 10,
+    "buct": 5,
+    "vpi": 4
+   },
+   "turns": 79,
+   "secs": 6.47
+  },
+  {
+   "tournament": 1,
+   "seed": 1000040,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 5,
+    "rab": 6
+   },
+   "turns": 68,
+   "secs": 4.27
+  },
+  {
+   "tournament": 8,
+   "seed": 1000348,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 5,
+    "buct": 10,
+    "vpi": 4,
+    "rab": 9
+   },
+   "turns": 64,
+   "secs": 4.44
+  },
+  {
+   "tournament": 7,
+   "seed": 1000299,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 4,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 3
+   },
+   "turns": 50,
+   "secs": 4.03
+  },
+  {
+   "tournament": 10,
+   "seed": 1000415,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 9,
+    "uct": 5,
+    "buct": 4,
+    "drrl": 10
+   },
+   "turns": 75,
+   "secs": 7.54
+  },
+  {
+   "tournament": 9,
+   "seed": 1000378,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 6,
+    "uct": 7,
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 79,
+   "secs": 8.84
+  },
+  {
+   "tournament": 0,
+   "seed": 1000017,
+   "seats": [
+    "uct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 4,
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 6
+   },
+   "turns": 66,
+   "secs": 3.05
+  },
+  {
+   "tournament": 2,
+   "seed": 1000100,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 6,
+    "rab": 7,
+    "drrl": 4
+   },
+   "turns": 70,
+   "secs": 6.1
+  },
+  {
+   "tournament": 11,
+   "seed": 1000472,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 7,
+    "drrl": 4,
+    "uct": 3,
+    "rab": 10
+   },
+   "turns": 67,
+   "secs": 6.71
+  },
+  {
+   "tournament": 8,
+   "seed": 1000352,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 3,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 5,
+    "rab": 8
+   },
+   "turns": 77,
+   "secs": 6.57
+  },
+  {
+   "tournament": 9,
+   "seed": 1000367,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 2,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 2,
+    "vpi": 7
+   },
+   "turns": 58,
+   "secs": 6.48
+  },
+  {
+   "tournament": 10,
+   "seed": 1000401,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 11,
+    "rab": 6,
+    "uct": 5,
+    "drrl": 6
+   },
+   "turns": 66,
+   "secs": 6.78
+  },
+  {
+   "tournament": 12,
+   "seed": 1000487,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 3,
+    "buct": 7,
+    "rab": 10,
+    "vpi": 7
+   },
+   "turns": 99,
+   "secs": 15.2
+  },
+  {
+   "tournament": 7,
+   "seed": 1000292,
+   "seats": [
+    "uct",
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 4,
+    "rab": 10,
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 80,
+   "secs": 5.37
+  },
+  {
+   "tournament": 10,
+   "seed": 1000422,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 5,
+    "drrl": 2,
+    "uct": 3,
+    "rab": 11
+   },
+   "turns": 64,
+   "secs": 6.77
+  },
+  {
+   "tournament": 11,
+   "seed": 1000453,
+   "seats": [
+    "uct",
+    "drrl",
+    "rab",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 7,
+    "rab": 6,
+    "vpi": 9
+   },
+   "turns": 86,
+   "secs": 9.94
+  },
+  {
+   "tournament": 0,
+   "seed": 1000039,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 5,
+    "uct": 5,
+    "rab": 4,
+    "drrl": 10
+   },
+   "turns": 46,
+   "secs": 3.08
+  },
+  {
+   "tournament": 6,
+   "seed": 1000279,
+   "seats": [
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 8,
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 10
+   },
+   "turns": 83,
+   "secs": 13.58
+  },
+  {
+   "tournament": 11,
+   "seed": 1000477,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 7,
+    "drrl": 3,
+    "vpi": 5,
+    "uct": 10
+   },
+   "turns": 74,
+   "secs": 8.13
+  },
+  {
+   "tournament": 4,
+   "seed": 1000166,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 9,
+    "uct": 3
+   },
+   "turns": 97,
+   "secs": 11.47
+  },
+  {
+   "tournament": 9,
+   "seed": 1000380,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 6,
+    "buct": 9
+   },
+   "turns": 72,
+   "secs": 11.18
+  },
+  {
+   "tournament": 3,
+   "seed": 1000148,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 8,
+    "uct": 5
+   },
+   "turns": 85,
+   "secs": 9.35
+  },
+  {
+   "tournament": 4,
+   "seed": 1000182,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 5,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 61,
+   "secs": 7.03
+  },
+  {
+   "tournament": 5,
+   "seed": 1000236,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 5,
+    "drrl": 4,
+    "buct": 5,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 55,
+   "secs": 5.93
+  },
+  {
+   "tournament": 6,
+   "seed": 1000278,
+   "seats": [
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 7,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "buct": 5
+   },
+   "turns": 66,
+   "secs": 5.13
+  },
+  {
+   "tournament": 2,
+   "seed": 1000104,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 9,
+    "vpi": 6,
+    "drrl": 4
+   },
+   "turns": 75,
+   "secs": 5.74
+  },
+  {
+   "tournament": 14,
+   "seed": 1000571,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 5,
+    "rab": 10,
+    "uct": 6,
+    "vpi": 7
+   },
+   "turns": 72,
+   "secs": 9.36
+  },
+  {
+   "tournament": 6,
+   "seed": 1000247,
+   "seats": [
+    "rab",
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 6,
+    "uct": 7,
+    "buct": 6,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 75,
+   "secs": 6.15
+  },
+  {
+   "tournament": 12,
+   "seed": 1000481,
+   "seats": [
+    "buct",
+    "vpi",
+    "rab",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 7,
+    "vpi": 3,
+    "rab": 10,
+    "drrl": 4
+   },
+   "turns": 59,
+   "secs": 5.61
+  },
+  {
+   "tournament": 8,
+   "seed": 1000350,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 6,
+    "rab": 4,
+    "vpi": 2
+   },
+   "turns": 68,
+   "secs": 4.68
+  },
+  {
+   "tournament": 12,
+   "seed": 1000508,
+   "seats": [
+    "rab",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 6,
+    "buct": 10,
+    "drrl": 3,
+    "vpi": 7
+   },
+   "turns": 64,
+   "secs": 8.64
+  },
+  {
+   "tournament": 0,
+   "seed": 1000028,
+   "seats": [
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "uct": 5
+   },
+   "turns": 70,
+   "secs": 4.47
+  },
+  {
+   "tournament": 12,
+   "seed": 1000510,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "buct": 8,
+    "vpi": 7,
+    "rab": 10
+   },
+   "turns": 84,
+   "secs": 7.39
+  },
+  {
+   "tournament": 7,
+   "seed": 1000280,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "uct": 10,
+    "rab": 9
+   },
+   "turns": 95,
+   "secs": 9.14
+  },
+  {
+   "tournament": 13,
+   "seed": 1000528,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "uct": 7,
+    "drrl": 5,
+    "vpi": 7
+   },
+   "turns": 66,
+   "secs": 10.73
+  },
+  {
+   "tournament": 0,
+   "seed": 1000026,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 3,
+    "uct": 6
+   },
+   "turns": 39,
+   "secs": 2.19
+  },
+  {
+   "tournament": 7,
+   "seed": 1000281,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "rab": 4,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 4
+   },
+   "turns": 51,
+   "secs": 3.01
+  },
+  {
+   "tournament": 12,
+   "seed": 1000486,
+   "seats": [
+    "vpi",
+    "buct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 9,
+    "buct": 9,
+    "rab": 10,
+    "drrl": 5
+   },
+   "turns": 78,
+   "secs": 11.94
+  },
+  {
+   "tournament": 4,
+   "seed": 1000160,
+   "seats": [
+    "uct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 8,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 3
+   },
+   "turns": 53,
+   "secs": 4.76
+  },
+  {
+   "tournament": 14,
+   "seed": 1000566,
+   "seats": [
+    "vpi",
+    "uct",
+    "rab",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "uct": 10,
+    "rab": 4,
+    "buct": 6
+   },
+   "turns": 54,
+   "secs": 7.7
+  },
+  {
+   "tournament": 12,
+   "seed": 1000494,
+   "seats": [
+    "rab",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 11,
+    "vpi": 6,
+    "drrl": 3,
+    "buct": 9
+   },
+   "turns": 86,
+   "secs": 10.2
+  },
+  {
+   "tournament": 1,
+   "seed": 1000049,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 7,
+    "buct": 7,
+    "rab": 5
+   },
+   "turns": 93,
+   "secs": 6.24
+  },
+  {
+   "tournament": 5,
+   "seed": 1000218,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 5,
+    "drrl": 5,
+    "buct": 6
+   },
+   "turns": 75,
+   "secs": 5.65
+  },
+  {
+   "tournament": 7,
+   "seed": 1000313,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "vpi": 8,
+    "uct": 10
+   },
+   "turns": 91,
+   "secs": 11.84
+  },
+  {
+   "tournament": 13,
+   "seed": 1000550,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 5,
+    "drrl": 7,
+    "uct": 7,
+    "vpi": 10
+   },
+   "turns": 62,
+   "secs": 14.02
+  },
+  {
+   "tournament": 12,
+   "seed": 1000499,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 5,
+    "buct": 9,
+    "rab": 10,
+    "vpi": 8
+   },
+   "turns": 78,
+   "secs": 13.65
+  },
+  {
+   "tournament": 0,
+   "seed": 1000033,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "rab",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 8,
+    "drrl": 5,
+    "rab": 8,
+    "uct": 11
+   },
+   "turns": 74,
+   "secs": 7.58
+  },
+  {
+   "tournament": 13,
+   "seed": 1000547,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "buct": 10,
+    "vpi": 4,
+    "drrl": 7
+   },
+   "turns": 62,
+   "secs": 9.97
+  },
+  {
+   "tournament": 4,
+   "seed": 1000178,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 6
+   },
+   "turns": 66,
+   "secs": 7.24
+  },
+  {
+   "tournament": 5,
+   "seed": 1000200,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 7,
+    "drrl": 7
+   },
+   "turns": 89,
+   "secs": 6.63
+  },
+  {
+   "tournament": 3,
+   "seed": 1000120,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 6,
+    "drrl": 4,
+    "buct": 7,
+    "uct": 10
+   },
+   "turns": 69,
+   "secs": 7.67
+  },
+  {
+   "tournament": 1,
+   "seed": 1000059,
+   "seats": [
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "drrl": 4
+   },
+   "turns": 66,
+   "secs": 5.62
+  },
+  {
+   "tournament": 13,
+   "seed": 1000525,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 8,
+    "drrl": 2,
+    "buct": 8
+   },
+   "turns": 78,
+   "secs": 15.54
+  },
+  {
+   "tournament": 7,
+   "seed": 1000285,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "rab": 7,
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 4
+   },
+   "turns": 80,
+   "secs": 11.62
+  },
+  {
+   "tournament": 3,
+   "seed": 1000121,
+   "seats": [
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "uct": 10
+   },
+   "turns": 96,
+   "secs": 10.33
+  },
+  {
+   "tournament": 6,
+   "seed": 1000240,
+   "seats": [
+    "rab",
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 5,
+    "buct": 6,
+    "uct": 9,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 66,
+   "secs": 6.8
+  },
+  {
+   "tournament": 13,
+   "seed": 1000539,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 7,
+    "uct": 7,
+    "drrl": 4
+   },
+   "turns": 71,
+   "secs": 13.36
+  },
+  {
+   "tournament": 9,
+   "seed": 1000394,
+   "seats": [
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 5,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "vpi": 10
+   },
+   "turns": 95,
+   "secs": 11.22
+  },
+  {
+   "tournament": 1,
+   "seed": 1000052,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 9,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 10,
+    "drrl": 5
+   },
+   "turns": 91,
+   "secs": 4.97
+  },
+  {
+   "tournament": 13,
+   "seed": 1000549,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 4,
+    "uct": 7,
+    "vpi": 7
+   },
+   "turns": 84,
+   "secs": 10.79
+  },
+  {
+   "tournament": 7,
+   "seed": 1000303,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 9,
+    "rab": 9,
+    "uct": 7,
+    "vpi": 10
+   },
+   "turns": 130,
+   "secs": 16.43
+  },
+  {
+   "tournament": 11,
+   "seed": 1000455,
+   "seats": [
+    "drrl",
+    "rab",
+    "uct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "rab": 10,
+    "uct": 7,
+    "vpi": 7
+   },
+   "turns": 64,
+   "secs": 6.53
+  },
+  {
+   "tournament": 9,
+   "seed": 1000395,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 11,
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 92,
+   "secs": 13.99
+  },
+  {
+   "tournament": 12,
+   "seed": 1000496,
+   "seats": [
+    "vpi",
+    "buct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 5,
+    "buct": 8,
+    "rab": 10,
+    "drrl": 4
+   },
+   "turns": 73,
+   "secs": 5.88
+  },
+  {
+   "tournament": 4,
+   "seed": 1000196,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 2,
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 65,
+   "secs": 10.32
+  },
+  {
+   "tournament": 11,
+   "seed": 1000441,
+   "seats": [
+    "rab",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 5,
+    "uct": 10,
+    "vpi": 9,
+    "drrl": 4
+   },
+   "turns": 84,
+   "secs": 12.08
+  },
+  {
+   "tournament": 0,
+   "seed": 1000037,
+   "seats": [
+    "drrl",
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 8,
+    "rab": 10,
+    "uct": 8,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 96,
+   "secs": 8.7
+  },
+  {
+   "tournament": 13,
+   "seed": 1000551,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 4,
+    "uct": 8,
+    "vpi": 7
+   },
+   "turns": 91,
+   "secs": 12.18
+  },
+  {
+   "tournament": 12,
+   "seed": 1000485,
+   "seats": [
+    "rab",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "vpi": 9,
+    "drrl": 4,
+    "buct": 5
+   },
+   "turns": 71,
+   "secs": 5.81
+  },
+  {
+   "tournament": 2,
+   "seed": 1000085,
+   "seats": [
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 3,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "vpi": 4
+   },
+   "turns": 58,
+   "secs": 3.12
+  },
+  {
+   "tournament": 14,
+   "seed": 1000580,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 7,
+    "rab": 7,
+    "uct": 4,
+    "buct": 10
+   },
+   "turns": 115,
+   "secs": 12.48
+  },
+  {
+   "tournament": 4,
+   "seed": 1000174,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 7,
+    "uct": 5,
+    "vpi": 9,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 106,
+   "secs": 14.81
+  },
+  {
+   "tournament": 14,
+   "seed": 1000586,
+   "seats": [
+    "vpi",
+    "buct",
+    "rab",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "buct": 3,
+    "rab": 6,
+    "uct": 10
+   },
+   "turns": 61,
+   "secs": 7.16
+  },
+  {
+   "tournament": 13,
+   "seed": 1000546,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 9,
+    "buct": 10,
+    "vpi": 7,
+    "uct": 8
+   },
+   "turns": 82,
+   "secs": 10.46
+  },
+  {
+   "tournament": 8,
+   "seed": 1000341,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 8,
+    "rab": 9,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 9
+   },
+   "turns": 82,
+   "secs": 8.67
+  },
+  {
+   "tournament": 14,
+   "seed": 1000590,
+   "seats": [
+    "vpi",
+    "uct",
+    "rab",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 5,
+    "uct": 8,
+    "rab": 7,
+    "buct": 10
+   },
+   "turns": 70,
+   "secs": 10.67
+  },
+  {
+   "tournament": 8,
+   "seed": 1000347,
+   "seats": [
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 5,
+    "vpi": 4,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "buct": 10
+   },
+   "turns": 43,
+   "secs": 5.11
+  },
+  {
+   "tournament": 11,
+   "seed": 1000451,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 5,
+    "drrl": 5,
+    "vpi": 6,
+    "uct": 11
+   },
+   "turns": 58,
+   "secs": 6.65
+  },
+  {
+   "tournament": 6,
+   "seed": 1000268,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 7,
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 7
+   },
+   "turns": 107,
+   "secs": 13.91
+  },
+  {
+   "tournament": 3,
+   "seed": 1000142,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 3,
+    "drrl": 4,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 4
+   },
+   "turns": 55,
+   "secs": 5.12
+  },
+  {
+   "tournament": 6,
+   "seed": 1000252,
+   "seats": [
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "rab": 4
+   },
+   "turns": 60,
+   "secs": 7.81
+  },
+  {
+   "tournament": 4,
+   "seed": 1000195,
+   "seats": [
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 4,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 2
+   },
+   "turns": 67,
+   "secs": 6.5
+  },
+  {
+   "tournament": 10,
+   "seed": 1000437,
+   "seats": [
+    "rab",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 9,
+    "drrl": 5,
+    "uct": 10,
+    "buct": 9
+   },
+   "turns": 72,
+   "secs": 7.71
+  },
+  {
+   "tournament": 5,
+   "seed": 1000234,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 6,
+    "vpi": 6,
+    "buct": 10,
+    "drrl": 5
+   },
+   "turns": 65,
+   "secs": 10.5
+  },
+  {
+   "tournament": 5,
+   "seed": 1000225,
+   "seats": [
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 4,
+    "drrl": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 7
+   },
+   "turns": 76,
+   "secs": 9.29
+  },
+  {
+   "tournament": 8,
+   "seed": 1000331,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "buct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 7,
+    "rab": 10,
+    "buct": 7,
+    "vpi": 7
+   },
+   "turns": 85,
+   "secs": 9.15
+  },
+  {
+   "tournament": 10,
+   "seed": 1000411,
+   "seats": [
+    "drrl",
+    "buct",
+    "rab",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 8,
+    "buct": 8,
+    "rab": 7,
+    "uct": 10
+   },
+   "turns": 68,
+   "secs": 7.9
+  },
+  {
+   "tournament": 8,
+   "seed": 1000343,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 9,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 7,
+    "vpi": 6
+   },
+   "turns": 76,
+   "secs": 8.95
+  },
+  {
+   "tournament": 13,
+   "seed": 1000540,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 9,
+    "drrl": 10,
+    "vpi": 5,
+    "buct": 7
+   },
+   "turns": 104,
+   "secs": 14.25
+  },
+  {
+   "tournament": 13,
+   "seed": 1000543,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 5,
+    "uct": 4,
+    "drrl": 5,
+    "buct": 10
+   },
+   "turns": 45,
+   "secs": 8.79
+  },
+  {
+   "tournament": 8,
+   "seed": 1000326,
+   "seats": [
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 8,
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "vpi": 4
+   },
+   "turns": 101,
+   "secs": 8.68
+  },
+  {
+   "tournament": 1,
+   "seed": 1000076,
+   "seats": [
+    "buct",
+    "drrl",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 5,
+    "drrl": 5,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 69,
+   "secs": 3.45
+  },
+  {
+   "tournament": 7,
+   "seed": 1000282,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 7,
+    "rab": 5,
+    "uct": 8
+   },
+   "turns": 77,
+   "secs": 6.67
+  },
+  {
+   "tournament": 9,
+   "seed": 1000384,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 4,
+    "vpi": 4,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 81,
+   "secs": 7.84
+  },
+  {
+   "tournament": 9,
+   "seed": 1000397,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "vpi": 3,
+    "buct": 5
+   },
+   "turns": 50,
+   "secs": 5.93
+  },
+  {
+   "tournament": 0,
+   "seed": 1000007,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 4,
+    "drrl": 3
+   },
+   "turns": 56,
+   "secs": 3.35
+  },
+  {
+   "tournament": 11,
+   "seed": 1000462,
+   "seats": [
+    "drrl",
+    "uct",
+    "rab",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "uct": 6,
+    "rab": 5,
+    "vpi": 6
+   },
+   "turns": 80,
+   "secs": 6.45
+  },
+  {
+   "tournament": 4,
+   "seed": 1000161,
+   "seats": [
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 9,
+    "vpi": 5,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 6
+   },
+   "turns": 81,
+   "secs": 9.62
+  },
+  {
+   "tournament": 14,
+   "seed": 1000578,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "rab": 9,
+    "uct": 8,
+    "vpi": 5
+   },
+   "turns": 95,
+   "secs": 12.95
+  },
+  {
+   "tournament": 6,
+   "seed": 1000261,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "rab": 2,
+    "uct": 3
+   },
+   "turns": 58,
+   "secs": 3.46
+  },
+  {
+   "tournament": 1,
+   "seed": 1000079,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 7,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "drrl": 3,
+    "buct": 10
+   },
+   "turns": 66,
+   "secs": 5.11
+  },
+  {
+   "tournament": 11,
+   "seed": 1000475,
+   "seats": [
+    "uct",
+    "rab",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "rab": 9,
+    "vpi": 8,
+    "drrl": 5
+   },
+   "turns": 83,
+   "secs": 10.7
+  },
+  {
+   "tournament": 13,
+   "seed": 1000538,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "uct": 10,
+    "vpi": 8,
+    "drrl": 3
+   },
+   "turns": 93,
+   "secs": 17.27
+  },
+  {
+   "tournament": 9,
+   "seed": 1000362,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 6,
+    "buct": 3,
+    "uct": 7
+   },
+   "turns": 51,
+   "secs": 7.62
+  },
+  {
+   "tournament": 9,
+   "seed": 1000370,
+   "seats": [
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "uct": 8,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "vpi": 7
+   },
+   "turns": 90,
+   "secs": 17.3
+  },
+  {
+   "tournament": 9,
+   "seed": 1000361,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 9,
+    "buct": 9,
+    "uct": 6
+   },
+   "turns": 82,
+   "secs": 14.79
+  },
+  {
+   "tournament": 12,
+   "seed": 1000483,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "buct": 10,
+    "drrl": 5,
+    "rab": 6
+   },
+   "turns": 76,
+   "secs": 8.98
+  },
+  {
+   "tournament": 13,
+   "seed": 1000555,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "vpi": 9,
+    "buct": 7,
+    "uct": 10
+   },
+   "turns": 79,
+   "secs": 11.38
+  },
+  {
+   "tournament": 4,
+   "seed": 1000192,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "drrl": 6,
+    "vpi": 5
+   },
+   "turns": 82,
+   "secs": 7.43
+  },
+  {
+   "tournament": 7,
+   "seed": 1000300,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "uct": 7,
+    "vpi": 8
+   },
+   "turns": 74,
+   "secs": 7.64
+  },
+  {
+   "tournament": 0,
+   "seed": 1000014,
+   "seats": [
+    "drrl",
+    "uct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "uct": 10,
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 72,
+   "secs": 4.83
+  },
+  {
+   "tournament": 14,
+   "seed": 1000572,
+   "seats": [
+    "uct",
+    "rab",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 4,
+    "rab": 6,
+    "vpi": 10,
+    "buct": 5
+   },
+   "turns": 59,
+   "secs": 8.71
+  },
+  {
+   "tournament": 4,
+   "seed": 1000189,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 7,
+    "uct": 10,
+    "vpi": 4,
+    "drrl": 7
+   },
+   "turns": 48,
+   "secs": 5.45
+  },
+  {
+   "tournament": 1,
+   "seed": 1000051,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "buct": 8,
+    "rab": 10
+   },
+   "turns": 68,
+   "secs": 4.32
+  },
+  {
+   "tournament": 9,
+   "seed": 1000372,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vpi": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 4,
+    "buct": 5
+   },
+   "turns": 60,
+   "secs": 5.72
+  },
+  {
+   "tournament": 2,
+   "seed": 1000109,
+   "seats": [
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 7
+   },
+   "turns": 73,
+   "secs": 5.46
+  },
+  {
+   "tournament": 10,
+   "seed": 1000430,
+   "seats": [
+    "uct",
+    "rab",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "rab": 9,
+    "drrl": 5,
+    "buct": 8
+   },
+   "turns": 61,
+   "secs": 8.91
+  },
+  {
+   "tournament": 2,
+   "seed": 1000080,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "vpi": 8,
+    "drrl": 4
+   },
+   "turns": 75,
+   "secs": 5.76
+  },
+  {
+   "tournament": 11,
+   "seed": 1000469,
+   "seats": [
+    "vpi",
+    "drrl",
+    "rab",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 5,
+    "rab": 6,
+    "uct": 10
+   },
+   "turns": 71,
+   "secs": 9.05
+  },
+  {
+   "tournament": 1,
+   "seed": 1000070,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "drrl": 7,
+    "rab": 6
+   },
+   "turns": 90,
+   "secs": 6.34
+  },
+  {
+   "tournament": 4,
+   "seed": 1000176,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "vpi": 4
+   },
+   "turns": 53,
+   "secs": 4.86
+  },
+  {
+   "tournament": 11,
+   "seed": 1000458,
+   "seats": [
+    "uct",
+    "rab",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "rab": 9,
+    "drrl": 5,
+    "vpi": 7
+   },
+   "turns": 73,
+   "secs": 6.19
+  },
+  {
+   "tournament": 3,
+   "seed": 1000141,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 3,
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 60,
+   "secs": 6.71
+  },
+  {
+   "tournament": 3,
+   "seed": 1000131,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 8,
+    "uct": 7,
+    "drrl": 10,
+    "buct": 7
+   },
+   "turns": 76,
+   "secs": 8.93
+  },
+  {
+   "tournament": 0,
+   "seed": 1000022,
+   "seats": [
+    "rab",
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 6,
+    "drrl": 5,
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 11
+   },
+   "turns": 78,
+   "secs": 6.28
+  },
+  {
+   "tournament": 4,
+   "seed": 1000180,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 4,
+    "vpi": 3,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 59,
+   "secs": 7.0
+  },
+  {
+   "tournament": 3,
+   "seed": 1000151,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 3,
+    "buct": 5,
+    "uct": 5
+   },
+   "turns": 43,
+   "secs": 4.67
+  },
+  {
+   "tournament": 7,
+   "seed": 1000319,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "uct": 10,
+    "rab": 6
+   },
+   "turns": 73,
+   "secs": 6.96
+  },
+  {
+   "tournament": 3,
+   "seed": 1000150,
+   "seats": [
+    "uct",
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 9,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "drrl": 10
+   },
+   "turns": 87,
+   "secs": 11.81
+  },
+  {
+   "tournament": 13,
+   "seed": 1000553,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "uct": 8,
+    "drrl": 5,
+    "vpi": 5
+   },
+   "turns": 95,
+   "secs": 10.82
+  },
+  {
+   "tournament": 1,
+   "seed": 1000077,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "buct": 4,
+    "rab": 5
+   },
+   "turns": 60,
+   "secs": 2.71
+  },
+  {
+   "tournament": 1,
+   "seed": 1000050,
+   "seats": [
+    "drrl",
+    "rab",
+    "buct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 3,
+    "rab": 4,
+    "buct": 8,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 50,
+   "secs": 3.88
+  },
+  {
+   "tournament": 8,
+   "seed": 1000359,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 5,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 9,
+    "vpi": 4
+   },
+   "turns": 97,
+   "secs": 6.92
+  },
+  {
+   "tournament": 3,
+   "seed": 1000157,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "drrl": 4,
+    "uct": 10
+   },
+   "turns": 58,
+   "secs": 10.27
+  },
+  {
+   "tournament": 6,
+   "seed": 1000277,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "buct": 7,
+    "rab": 3
+   },
+   "turns": 52,
+   "secs": 5.7
+  },
+  {
+   "tournament": 0,
+   "seed": 1000000,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "uct": 6,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 7
+   },
+   "turns": 64,
+   "secs": 4.33
+  },
+  {
+   "tournament": 3,
+   "seed": 1000122,
+   "seats": [
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "uct": 10
+   },
+   "turns": 74,
+   "secs": 9.71
+  },
+  {
+   "tournament": 10,
+   "seed": 1000435,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 4,
+    "drrl": 4,
+    "buct": 3,
+    "rab": 10
+   },
+   "turns": 38,
+   "secs": 3.4
+  },
+  {
+   "tournament": 2,
+   "seed": 1000113,
+   "seats": [
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "rab": 6,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "vpi": 10,
+    "drrl": 2
+   },
+   "turns": 63,
+   "secs": 5.77
+  },
+  {
+   "tournament": 13,
+   "seed": 1000523,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 6,
+    "buct": 9,
+    "drrl": 4
+   },
+   "turns": 76,
+   "secs": 12.91
+  },
+  {
+   "tournament": 9,
+   "seed": 1000365,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "buct": 7,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 92,
+   "secs": 15.22
+  },
+  {
+   "tournament": 11,
+   "seed": 1000470,
+   "seats": [
+    "drrl",
+    "rab",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "rab": 7,
+    "uct": 10,
+    "vpi": 8
+   },
+   "turns": 74,
+   "secs": 9.64
+  },
+  {
+   "tournament": 10,
+   "seed": 1000439,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "drrl"
+   ],
+   "winner": "rab",
+   "vps": {
+    "buct": 8,
+    "rab": 10,
+    "uct": 9,
+    "drrl": 3
+   },
+   "turns": 50,
+   "secs": 7.48
+  },
+  {
+   "tournament": 1,
+   "seed": 1000062,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 9,
+    "buct": 9,
+    "drrl": 4,
+    "rab": 10
+   },
+   "turns": 78,
+   "secs": 5.78
+  },
+  {
+   "tournament": 5,
+   "seed": 1000226,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 8,
+    "buct": 5,
+    "vpi": 10,
+    "vnet:checkpoints_value/v40.pt": 6
+   },
+   "turns": 68,
+   "secs": 8.38
+  },
+  {
+   "tournament": 11,
+   "seed": 1000476,
+   "seats": [
+    "rab",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "rab": 9,
+    "vpi": 4,
+    "uct": 7,
+    "drrl": 10
+   },
+   "turns": 75,
+   "secs": 8.34
+  },
+  {
+   "tournament": 7,
+   "seed": 1000317,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "vpi": 6,
+    "rab": 7
+   },
+   "turns": 57,
+   "secs": 5.02
+  },
+  {
+   "tournament": 9,
+   "seed": 1000398,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 7,
+    "vpi": 3,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 51,
+   "secs": 8.15
+  },
+  {
+   "tournament": 10,
+   "seed": 1000423,
+   "seats": [
+    "uct",
+    "drrl",
+    "rab",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 5,
+    "drrl": 5,
+    "rab": 9,
+    "buct": 10
+   },
+   "turns": 53,
+   "secs": 6.55
+  },
+  {
+   "tournament": 13,
+   "seed": 1000557,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 4,
+    "buct": 9,
+    "vpi": 10,
+    "uct": 9
+   },
+   "turns": 85,
+   "secs": 18.68
+  },
+  {
+   "tournament": 1,
+   "seed": 1000048,
+   "seats": [
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 8,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 7
+   },
+   "turns": 78,
+   "secs": 5.14
+  },
+  {
+   "tournament": 12,
+   "seed": 1000502,
+   "seats": [
+    "rab",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 5,
+    "vpi": 8,
+    "drrl": 3,
+    "buct": 10
+   },
+   "turns": 57,
+   "secs": 7.82
+  },
+  {
+   "tournament": 3,
+   "seed": 1000127,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 8,
+    "buct": 10,
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 69,
+   "secs": 8.88
+  },
+  {
+   "tournament": 11,
+   "seed": 1000471,
+   "seats": [
+    "vpi",
+    "uct",
+    "rab",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "uct": 10,
+    "rab": 5,
+    "drrl": 6
+   },
+   "turns": 93,
+   "secs": 11.48
+  },
+  {
+   "tournament": 4,
+   "seed": 1000167,
+   "seats": [
+    "vpi",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 3,
+    "uct": 11
+   },
+   "turns": 52,
+   "secs": 10.07
+  },
+  {
+   "tournament": 12,
+   "seed": 1000484,
+   "seats": [
+    "rab",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "drrl": 5,
+    "vpi": 8,
+    "buct": 9
+   },
+   "turns": 81,
+   "secs": 15.04
+  },
+  {
+   "tournament": 6,
+   "seed": 1000271,
+   "seats": [
+    "uct",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 9,
+    "buct": 7,
+    "rab": 9,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 99,
+   "secs": 16.54
+  },
+  {
+   "tournament": 4,
+   "seed": 1000173,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "drrl": 5,
+    "uct": 10
+   },
+   "turns": 76,
+   "secs": 10.08
+  },
+  {
+   "tournament": 13,
+   "seed": 1000548,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 4,
+    "uct": 6,
+    "vpi": 9
+   },
+   "turns": 62,
+   "secs": 12.3
+  },
+  {
+   "tournament": 2,
+   "seed": 1000116,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 5,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "vpi": 6,
+    "rab": 5
+   },
+   "turns": 73,
+   "secs": 5.71
+  },
+  {
+   "tournament": 7,
+   "seed": 1000288,
+   "seats": [
+    "rab",
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "rab": 7,
+    "uct": 5,
+    "vpi": 4,
+    "vnet:checkpoints_value/v40.pt": 10
+   },
+   "turns": 68,
+   "secs": 8.88
+  },
+  {
+   "tournament": 2,
+   "seed": 1000115,
+   "seats": [
+    "drrl",
+    "vpi",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "rab",
+   "vps": {
+    "drrl": 5,
+    "vpi": 5,
+    "rab": 10,
+    "vnet:checkpoints_value/v40.pt": 9
+   },
+   "turns": 81,
+   "secs": 5.53
+  },
+  {
+   "tournament": 0,
+   "seed": 1000015,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "rab",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 4,
+    "rab": 6,
+    "uct": 7
+   },
+   "turns": 71,
+   "secs": 7.65
+  },
+  {
+   "tournament": 6,
+   "seed": 1000275,
+   "seats": [
+    "rab",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 7,
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "buct": 10
+   },
+   "turns": 78,
+   "secs": 7.11
+  },
+  {
+   "tournament": 7,
+   "seed": 1000301,
+   "seats": [
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 5,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "rab": 10
+   },
+   "turns": 74,
+   "secs": 7.22
+  },
+  {
+   "tournament": 6,
+   "seed": 1000257,
+   "seats": [
+    "uct",
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 9,
+    "rab": 8,
+    "vnet:checkpoints_value/v40.pt": 7
+   },
+   "turns": 70,
+   "secs": 10.71
+  },
+  {
+   "tournament": 1,
+   "seed": 1000047,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "rab",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 8,
+    "drrl": 5,
+    "rab": 10,
+    "buct": 9
+   },
+   "turns": 104,
+   "secs": 8.26
+  },
+  {
+   "tournament": 7,
+   "seed": 1000307,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "uct",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 4,
+    "vpi": 7,
+    "uct": 9,
+    "rab": 11
+   },
+   "turns": 78,
+   "secs": 7.51
+  },
+  {
+   "tournament": 2,
+   "seed": 1000118,
+   "seats": [
+    "drrl",
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 3,
+    "rab": 6,
+    "vpi": 10,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 61,
+   "secs": 6.78
+  },
+  {
+   "tournament": 9,
+   "seed": 1000366,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 6,
+    "buct": 5,
+    "vpi": 5
+   },
+   "turns": 67,
+   "secs": 6.86
+  },
+  {
+   "tournament": 4,
+   "seed": 1000194,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 3,
+    "drrl": 5,
+    "uct": 10,
+    "vpi": 5
+   },
+   "turns": 79,
+   "secs": 5.01
+  },
+  {
+   "tournament": 1,
+   "seed": 1000073,
+   "seats": [
+    "rab",
+    "buct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "buct",
+   "vps": {
+    "rab": 8,
+    "buct": 10,
+    "drrl": 3,
+    "vnet:checkpoints_value/v40.pt": 5
+   },
+   "turns": 66,
+   "secs": 6.84
+  },
+  {
+   "tournament": 7,
+   "seed": 1000283,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "vpi": 6,
+    "rab": 8,
+    "uct": 5
+   },
+   "turns": 66,
+   "secs": 8.14
+  },
+  {
+   "tournament": 12,
+   "seed": 1000518,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "rab"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 8,
+    "buct": 9,
+    "drrl": 10,
+    "rab": 7
+   },
+   "turns": 108,
+   "secs": 15.95
+  },
+  {
+   "tournament": 7,
+   "seed": 1000289,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 5,
+    "vpi": 5,
+    "uct": 5
+   },
+   "turns": 62,
+   "secs": 6.06
+  },
+  {
+   "tournament": 13,
+   "seed": 1000520,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 5,
+    "vpi": 6,
+    "uct": 6
+   },
+   "turns": 42,
+   "secs": 9.17
+  },
+  {
+   "tournament": 6,
+   "seed": 1000253,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "uct",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "uct": 6,
+    "rab": 9
+   },
+   "turns": 86,
+   "secs": 7.03
+  },
+  {
+   "tournament": 11,
+   "seed": 1000461,
+   "seats": [
+    "uct",
+    "vpi",
+    "rab",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 7,
+    "rab": 4,
+    "drrl": 6
+   },
+   "turns": 69,
+   "secs": 7.8
+  },
+  {
+   "tournament": 10,
+   "seed": 1000438,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "rab"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "buct": 10,
+    "uct": 6,
+    "rab": 4
+   },
+   "turns": 74,
+   "secs": 8.44
+  },
+  {
+   "tournament": 11,
+   "seed": 1000463,
+   "seats": [
+    "rab",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "rab": 4,
+    "drrl": 2,
+    "uct": 10,
+    "vpi": 4
+   },
+   "turns": 52,
+   "secs": 7.82
+  },
+  {
+   "tournament": 14,
+   "seed": 1000584,
+   "seats": [
+    "vpi",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 9,
+    "rab": 10,
+    "uct": 9,
+    "buct": 9
+   },
+   "turns": 76,
+   "secs": 19.1
+  },
+  {
+   "tournament": 4,
+   "seed": 1000172,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 4,
+    "drrl": 5,
+    "uct": 10,
+    "vnet:checkpoints_value/v40.pt": 8
+   },
+   "turns": 69,
+   "secs": 6.51
+  },
+  {
+   "tournament": 7,
+   "seed": 1000310,
+   "seats": [
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 6,
+    "rab": 3
+   },
+   "turns": 54,
+   "secs": 4.39
+  },
+  {
+   "tournament": 13,
+   "seed": 1000534,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 5,
+    "drrl": 3,
+    "uct": 7
+   },
+   "turns": 70,
+   "secs": 11.18
+  },
+  {
+   "tournament": 7,
+   "seed": 1000295,
+   "seats": [
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "vpi",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "vpi": 6,
+    "rab": 10
+   },
+   "turns": 74,
+   "secs": 6.12
+  },
+  {
+   "tournament": 10,
+   "seed": 1000406,
+   "seats": [
+    "drrl",
+    "rab",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 7,
+    "rab": 5,
+    "uct": 7,
+    "buct": 10
+   },
+   "turns": 102,
+   "secs": 10.65
+  },
+  {
+   "tournament": 2,
+   "seed": 1000090,
+   "seats": [
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "rab": 4,
+    "vpi": 8
+   },
+   "turns": 66,
+   "secs": 5.77
+  },
+  {
+   "tournament": 2,
+   "seed": 1000087,
+   "seats": [
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "rab",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 8,
+    "rab": 8,
+    "drrl": 10
+   },
+   "turns": 82,
+   "secs": 5.38
+  },
+  {
+   "tournament": 9,
+   "seed": 1000391,
+   "seats": [
+    "uct",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 6,
+    "vnet:checkpoints_value/v40.pt": 4,
+    "buct": 6
+   },
+   "turns": 88,
+   "secs": 14.23
+  },
+  {
+   "tournament": 4,
+   "seed": 1000175,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 4,
+    "drrl": 4,
+    "uct": 10,
+    "vpi": 6
+   },
+   "turns": 54,
+   "secs": 6.94
+  },
+  {
+   "tournament": 5,
+   "seed": 1000211,
+   "seats": [
+    "buct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 9,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 8,
+    "vpi": 6
+   },
+   "turns": 114,
+   "secs": 18.59
+  },
+  {
+   "tournament": 3,
+   "seed": 1000136,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 3,
+    "uct": 4,
+    "buct": 6
+   },
+   "turns": 60,
+   "secs": 7.61
+  },
+  {
+   "tournament": 8,
+   "seed": 1000330,
+   "seats": [
+    "vnet:checkpoints_value/v40.pt",
+    "buct",
+    "vpi",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "vnet:checkpoints_value/v40.pt": 11,
+    "buct": 7,
+    "vpi": 3,
+    "rab": 5
+   },
+   "turns": 70,
+   "secs": 4.7
+  },
+  {
+   "tournament": 0,
+   "seed": 1000021,
+   "seats": [
+    "uct",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "uct": 4,
+    "drrl": 4,
+    "vnet:checkpoints_value/v40.pt": 11,
+    "rab": 4
+   },
+   "turns": 62,
+   "secs": 3.76
+  },
+  {
+   "tournament": 8,
+   "seed": 1000356,
+   "seats": [
+    "rab",
+    "vpi",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "rab",
+   "vps": {
+    "rab": 10,
+    "vpi": 7,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "buct": 8
+   },
+   "turns": 73,
+   "secs": 7.84
+  },
+  {
+   "tournament": 3,
+   "seed": 1000129,
+   "seats": [
+    "drrl",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 3,
+    "uct": 5,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "buct": 10
+   },
+   "turns": 50,
+   "secs": 5.03
+  },
+  {
+   "tournament": 14,
+   "seed": 1000576,
+   "seats": [
+    "buct",
+    "rab",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "rab": 9,
+    "uct": 10,
+    "vpi": 9
+   },
+   "turns": 138,
+   "secs": 25.92
+  },
+  {
+   "tournament": 1,
+   "seed": 1000043,
+   "seats": [
+    "buct",
+    "rab",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 11,
+    "rab": 5,
+    "vnet:checkpoints_value/v40.pt": 7,
+    "drrl": 4
+   },
+   "turns": 76,
+   "secs": 6.2
+  },
+  {
+   "tournament": 3,
+   "seed": 1000146,
+   "seats": [
+    "buct",
+    "uct",
+    "vnet:checkpoints_value/v40.pt",
+    "drrl"
+   ],
+   "winner": "vnet:checkpoints_value/v40.pt",
+   "vps": {
+    "buct": 6,
+    "uct": 7,
+    "vnet:checkpoints_value/v40.pt": 10,
+    "drrl": 5
+   },
+   "turns": 66,
+   "secs": 8.49
+  },
+  {
+   "tournament": 2,
+   "seed": 1000089,
+   "seats": [
+    "vpi",
+    "drrl",
+    "vnet:checkpoints_value/v40.pt",
+    "rab"
+   ],
+   "winner": "rab",
+   "vps": {
+    "vpi": 9,
+    "drrl": 7,
+    "vnet:checkpoints_value/v40.pt": 5,
+    "rab": 10
+   },
+   "turns": 103,
+   "secs": 5.77
+  }
+ ]
+}

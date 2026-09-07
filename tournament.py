@@ -17,6 +17,7 @@ if os.environ.get("PYTHONHASHSEED") != "0":  # reproducible action ordering, see
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 import argparse
+import itertools
 import json
 import multiprocessing as mp
 import random
@@ -66,27 +67,29 @@ def summarise(pool, games):
     return out
 
 
-def table(pool, summary, per_tournament):
-    lines = ["| agent | games | wins | win ratio | 95% CI | mean VP | " + " | ".join(f"T{k} (no {short(pool[k])})" for k in range(len(pool))) + " |",
-             "|---|---|---|---|---|---|" + "---|" * len(pool)]
+def table(pool, lineups, summary, per_tournament):
+    left_out = ["+".join(short(x) for x in pool if x not in lu) for lu in lineups]
+    lines = ["| agent | games | wins | win ratio | 95% CI | mean VP | " + " | ".join(f"T{k} (no {out})" for k, out in enumerate(left_out)) + " |",
+             "|---|---|---|---|---|---|" + "---|" * len(lineups)]
     for tok in pool:
         s = summary[tok]
-        cells = [f"{per_tournament[k][tok]['wins']}/{per_tournament[k][tok]['games']}" if tok in per_tournament[k] and per_tournament[k][tok]["games"] else "–" for k in range(len(pool))]
+        cells = [f"{per_tournament[k][tok]['wins']}/{per_tournament[k][tok]['games']}" if tok in per_tournament[k] and per_tournament[k][tok]["games"] else "–" for k in range(len(lineups))]
         lines.append(f"| {short(tok)} | {s['games']} | {s['wins']} | {100 * s['ratio']:.1f}% | [{100 * s['ci95'][0]:.1f}, {100 * s['ci95'][1]:.1f}] | {s['mean_vp']:.2f} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pool", default="vnet:checkpoints_value/v40.pt,ab,mcts,vf,wr", help="5 comma-separated tokens")
+    ap.add_argument("--pool", default="vnet:checkpoints_value/v40.pt,ab,mcts,vf,wr", help="comma-separated tokens; 5 = the paper's protocol, more = every 4-subset")
     ap.add_argument("--games", type=int, default=100, help="games per tournament")
     ap.add_argument("--seed", type=int, default=1_000_000)
     ap.add_argument("--jobs", type=int, default=7)
     ap.add_argument("--out", default="docs/benchmark/paper_protocol.json")
     args = ap.parse_args()
     pool = args.pool.split(",")
-    assert len(pool) == 5, "the protocol wants a pool of exactly 5 agents"
-    jobs = [(k, [tok for j, tok in enumerate(pool) if j != k], args.seed + k * args.games + i) for k in range(5) for i in range(args.games)]
+    assert len(pool) >= 5, "the protocol wants a pool of at least 5 agents"
+    lineups = list(itertools.combinations(pool, 4))  # a pool of 5 gives the paper's five leave-one-out tournaments
+    jobs = [(k, list(lineup), args.seed + k * args.games + i) for k, lineup in enumerate(lineups) for i in range(args.games)]
     random.Random(args.seed).shuffle(jobs)  # interleave tournaments so partial results are balanced
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -100,13 +103,13 @@ def main():
                   f"turns {g['turns']} {g['secs']}s  elapsed {time.time() - t0:.0f}s", flush=True)
             if n % 10 == 0 or n == len(jobs):
                 summary = summarise(pool, games)
-                per_t = [summarise(pool, [x for x in games if x["tournament"] == k]) for k in range(5)]
+                per_t = [summarise(pool, [x for x in games if x["tournament"] == k]) for k in range(len(lineups))]
                 out.write_text(json.dumps({"protocol": "Xenou et al. 2018, five 4-player tournaments each leaving one agent out; seats permuted per game",
-                                           "pool": pool, "games_per_tournament": args.games, "seed": args.seed, "done": n, "total": len(jobs),
+                                           "pool": pool, "lineups": lineups, "games_per_tournament": args.games, "seed": args.seed, "done": n, "total": len(jobs),
                                            "elapsed_s": round(time.time() - t0), "summary": summary, "per_tournament": per_t, "games": games}, indent=1))
     summary = summarise(pool, games)
-    per_t = [summarise(pool, [x for x in games if x["tournament"] == k]) for k in range(5)]
-    print("\n" + table(pool, summary, per_t))
+    per_t = [summarise(pool, [x for x in games if x["tournament"] == k]) for k in range(len(lineups))]
+    print("\n" + table(pool, lineups, summary, per_t))
     print(f"\n{len(games)} games in {time.time() - t0:.0f}s -> {out}")
 
 

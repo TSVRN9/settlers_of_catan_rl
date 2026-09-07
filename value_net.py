@@ -445,6 +445,81 @@ class RustAlphaBetaPlayer(Player):
         return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, list(game.state.colors), state=game.state)
 
 
+class DrrlPlayer(Player):
+    """The EUMAS 2018 agent (catan_engine drrl.rs): DRRL decides offers and replies, learning online
+    within the game from fresh weights; the Rust depth-2 heuristic search plays everything else
+    (the jSettler's role in the paper). Token `drrl`, `drrl32` for a 32-unit hidden layer; `drrl+` keeps the
+    weights across games (the paper's 30-game setting; only meaningful where one player object plays a
+    sequence of games, e.g. the jSettlers bridge)."""
+
+    def __init__(self, color, depth=2, hidden=None, persist=False):
+        super().__init__(color)
+        self.depth = depth
+        self.hidden = hidden
+        self.persist = persist
+        self.drrl = None
+
+    def reset_state(self):
+        if self.persist and self.drrl is not None:
+            self.drrl.new_game()
+        else:
+            self.drrl = None
+
+    def decide(self, game, playable_actions):
+        import catan_engine
+        import rust_bridge as rb
+
+        colors = list(game.state.colors)
+        if self.drrl is None:
+            seed = (int(game.seed or 0) * 4 + colors.index(self.color)) & (2**63 - 1)
+            self.drrl = catan_engine.Drrl(seed, self.hidden) if self.hidden else catan_engine.Drrl(seed)
+        rs, ctx = rb.rust_state(game)
+        a = self.drrl.trade_action(rs)
+        if a is None and game.state.current_prompt.value == "DECIDE_ACCEPTEES":
+            a = rs.trade_action(rb.layout(ctx))
+        if a is not None:
+            return rb.uncanon(a, self.color, ctx, colors, state=game.state)
+        playable_actions = without_offers(playable_actions)
+        if len(playable_actions) == 1:
+            return playable_actions[0]
+        best = rs.decide_heuristic(self.depth)
+        return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, colors, state=game.state)
+
+    def __repr__(self):
+        return f"DrrlPlayer:{self.color.value}(steps={self.drrl.steps() if self.drrl else 0})"
+
+
+class MctsPlayer(Player):
+    """The thesis MCTS agents (catan_engine mcts.rs): uct | buct | vpi over the agent's own turn, random playouts,
+    heuristic search and the 1-ply trade policy on every other prompt. Tokens `uct`, `buct`, `vpi`; `uct2000` = 2,000
+    playouts per decision."""
+
+    def __init__(self, color, policy, sims=None):
+        super().__init__(color)
+        self.policy = policy
+        self.sims = sims
+        self.mcts = None
+
+    def reset_state(self):
+        self.mcts = None
+
+    def decide(self, game, playable_actions):
+        import catan_engine
+        import rust_bridge as rb
+
+        colors = list(game.state.colors)
+        if self.mcts is None:
+            self.mcts = catan_engine.Mcts(self.policy, self.sims, 10, (int(game.seed or 0) * 4 + colors.index(self.color)) & (2**63 - 1))
+        rs, ctx = rb.rust_state(game)
+        a = self.mcts.decide(rs)
+        if a is None:
+            return without_offers(playable_actions)[0]
+        return rb.uncanon(a, self.color, ctx, colors, state=game.state)
+
+    def __repr__(self):
+        return f"MctsPlayer:{self.color.value}({self.policy},sims={self.sims})"
+
+
 def make_player(spec, color):
     """Lineup/--player token -> catanatron Player. Shared by gen_games.py, evaluate.py and tournament.py."""
     if spec == "ab":
@@ -457,6 +532,12 @@ def make_player(spec, color):
         return RustAlphaBetaPlayer(color)
     if spec.startswith("rab") and spec[3:].isdigit():
         return RustAlphaBetaPlayer(color, depth=int(spec[3:]))
+    m = re.fullmatch(r"drrl(\d*)(\+?)", spec)  # drrl = the EUMAS 2018 agent over the Rust heuristic base, drrl32 = hidden 32, drrl+ = weights kept across games
+    if m:
+        return DrrlPlayer(color, hidden=int(m.group(1)) if m.group(1) else None, persist=bool(m.group(2)))
+    m = re.fullmatch(r"(uct|buct|vpi)(\d*)", spec)  # the thesis MCTS agents; uct2000 = 2,000 playouts per decision
+    if m:
+        return MctsPlayer(color, m.group(1), int(m.group(2)) if m.group(2) else None)
     if spec == "vf":
         return no_offers(ValueFunctionPlayer)(color)
     if spec == "wr":
