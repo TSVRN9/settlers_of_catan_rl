@@ -267,42 +267,76 @@ bottom of ours instead of the top. Budget is not the reason: `vpi5000` (VPI at U
 wins 11.0% [8.3, 14.4] against 11.8% at 1,500. What remains to try is the Dirichlet prior (one count per VP value is
 11 pseudo-counts pulling every young node to 0.5) and the sampled myopic gain against Dearden's closed form.
 
-## Phase E (in progress since 2026-09-07): `jsettler.rs`, the jSettler on the site
+## Phase E (2026-09-07): `jsettler.rs`, the jSettler on the site
 
-Status: the estimator, geometry, player model, trackers and opening strategy are ported
-(`catan_engine/src/jsettler/{bse,geom,jcoll,player,tracker,opening}.rs`) and replay the Java exactly. The
-oracle is the bridge's log mode with the smart strategy pinned (`JAVA_OPTS="-Dbridge.strategy=smart
--Dbridge.oracle=data/jsettlers_oracle_smart" jsettlers/run.sh play 40 log rab ...`): every piece the client's
-trackers see (in server order), then at every stock-brain hook the decision taken, the trackers' ETAs, the
-planning bot's potential sets and each tracker's possible pieces. `tools/jsettlers_oracle.py` replays the
-pieces through the port and compares, per quantity:
+The JSettlers 2.6.10 robot is ported module by module to `catan_engine/src/jsettler/`
+(`bse` building-speed estimates, `geom` the classic board's coordinates, `jcoll` the Java collection
+orders that decide ties, `player` legal/potential sets and longest-road paths, `tracker` possible pieces and
+ETAs, `opening` the initial placement, `dm` the build plan, `negotiator` offers and replies, `brain` the turn
+flow with the robber, discard and monopoly strategies). Tokens `jsrobot` (SMART_STRATEGY, "robot N"),
+`jsdroid` (FAST_STRATEGY, "droid N"), `jsettler` = `jsrobot`; the site's bots of the same names.
+
+The oracle is the bridge's log mode with the strategy pinned (`JAVA_OPTS="-Dbridge.strategy=smart
+-Dbridge.oracle=data/jsettlers_oracle_smart" jsettlers/run.sh play 40 log rab ...`): every piece the
+client's trackers see, in server order, then at every stock-brain hook the decision taken, the trackers'
+ETAs, the planning bot's potential sets, each tracker's possible pieces and the decision maker's favourite
+pieces with their scores. `tools/jsettlers_oracle.py` replays the pieces through the port and compares:
 
 | quantity | port | match |
 |---|---|---|
-| building ETAs from now (fast) | `bse.rs` | 5808 / 5808 |
-| planInitialSettlements, planSecondSettlement | `opening.rs` | 24 / 24, 24 / 24 |
-| planInitRoad | `opening.rs` | 48 / 48 |
-| potential settlements and roads of the planning bot | `player.rs` | 331 / 331, 331 / 331 |
-| longest-road ETA, largest-army ETA | `tracker.rs` | 2709 / 2709 each |
-| win-game ETA, all four seats | `tracker.rs` | 13268 / 13268 |
-| possible settlements (with necessary-road counts), roads, cities, all four seats | `tracker.rs` | 1308 / 1308 |
+| building ETAs from now (fast) | `bse.rs` | 100% (5808 + 2842 fast-strategy) |
+| planInitialSettlements, planSecondSettlement, planInitRoad | `opening.rs` | 100% (76 + 76 + 152) |
+| potential settlements and roads of the planning bot | `player.rs` | 100% (331 + 327) |
+| longest-road, largest-army and win-game ETA, all seats | `tracker.rs` | 100% (13k+) |
+| possible settlements (with necessary-road counts), roads, cities, all seats | `tracker.rs` | 100% (1308) |
+| the build plan, smart strategy | `dm.rs` | 100% (307), favourite settlement / city / road and their scores 100% |
+| the build plan, fast strategy | `dm.rs` | 100% (867) |
+| replies to offers (considerOffer2) | `negotiator.rs` | 397 / 400 |
+| offers made (makeOffer), with the client's trade messages replayed into its bookkeeping | `negotiator.rs` | 293 / 325 (the rest: the offer simulations read opponents' hands, which the Java client sees as unknown cards and the port sees exactly) |
 
-(40 + 12 + 12 smart-strategy games; 100% on every row.) Two things the Java does that a from-scratch port
-would not guess, both reproduced: at the first regular turn `SOCGame.updateAtGameFirstTurn` clears every
-player's potential settlements, which only come back through new roads, so a jSettler always builds a
-road before its first settlement; and `SOCRobotDM.getDevCardScore` recomputes the real trackers with an
-extra VP card in the planner's hand and never recomputes after, so while the deck lasts every plan is made
-with the planner's own win ETA one card better than it is. Iteration orders matter (the argmaxes are
-strict and ties common): `jcoll.rs` reproduces `HashSet<Integer>` and `Hashtable` order, `geom.rs` the
-board's coordinate arithmetic, and the trackers' maps are keyed by JSettlers coordinate.
+Java behaviours a clean reimplementation would miss, all reproduced: at the first regular turn
+`SOCGame.updateAtGameFirstTurn` clears every player's potential settlements, which only come back through
+new roads (a jSettler builds a road before its first settlement); `SOCRobotDM.getDevCardScore` recomputes the
+real trackers with an extra VP card in the planner's hand and never recomputes after, so every plan is made
+with the planner's own win ETA one card better than it is; the smart strategy's road scoring takes the road
+ETA from the ship column (an inverted type test); `SOCPossibleSettlement.updateSpeedup` is commented out, so
+settlement speedups are always zero; tracker copies relink necessary roads and conflicts but drop threats;
+temporary pieces leave the players' longest-road paths as they recomputed them, restored by the decision
+maker at two points only; `HashSet<Integer>` and `Hashtable` iteration orders decide the strict argmaxes.
 
-Design: the trackers are fed piece events in server order (as the Java client is) rather than rebuilt from
-a snapshot, because their possible-piece sets depend on the order (a road expands only one level when placed,
-an opponent's settlement prunes chains). The ETAs take a `GameInfo` snapshot (the client's view: opponents'
-dev cards unknown). Remaining: `dm.rs` (both strategies, with the temporary-piece scoring on tracker copies
-whose possible pieces carry no necessary roads or conflicts, another Java quirk), the brain's turn flow,
-`RobberStrategy`/`DiscardStrategy`/`MonopolyStrategy` (read, small), and `negotiator.rs`; then the tokens and
-the site bot. The original plan follows.
+Deviations of the port, recorded: the engine's trade round has no counter-offers, so a reply the Java would
+counter is a rejection here (the Java counters far more than it accepts); the port sees opponents' hands and
+dev cards (the Java client sees unknown cards), which the negotiator's simulations of the other players'
+plans use; rejections of other players' offers are not observed (`recordResourcesFromRejectAlt`); the
+Java's unseeded random choices (robber fallback, discards without a plan) use the engine's seeded stream.
+
+Results (100 games unless noted; win ratios with 95% Wilson intervals):
+
+| series | win ratio |
+|---|---|
+| `jsrobot` vs 3x `rab`, arena, 300 games, no negotiator | 16.7% [12.9, 21.3] |
+| `jsdroid` vs 3x `rab`, arena, 300 games, no negotiator | 11.7% [8.5, 15.8] |
+| `jsrobot` vs 3x `rab`, arena, 300 games | 25.7% [21.1, 30.9] |
+| `jsdroid` vs 3x `rab`, arena, 300 games | 15.7% [12.0, 20.2] |
+| `jsrobot` vs 3 stock jSettlers through the bridge (full mode, default mix), 97 games | 32.0% [23.5, 41.8] |
+| the same with the negotiator off, 97 games | 16.5% [10.4, 25.1] |
+
+A stock jSettler in that seat wins about 25% (four equals); the port with its negotiator is inside that range
+and the one without is not: the negotiator is what the paper says it is, the jSettler's edge.
+
+The paper's exact pool on the Rust arena at last (`tournament.py --pool drrl,jsrobot,uct,buct,vpi --games 100`,
+`docs/benchmark/paper_pool_jsrobot.json`), against Fig. 3a:
+
+| agent | here | paper |
+|---|---|---|
+| DRRL | 9.0% [6.6, 12.2] | 31% |
+| jSettler (`jsrobot`) | 20.8% [17.1, 25.0] | 21% |
+| UCT | 47.2% [42.4, 52.1] | 23% |
+| BUCT | 34.5% [30.0, 39.3] | 26% |
+| VPI | 13.5% [10.5, 17.2] | 22% |
+
+The jSettler lands on the paper's number; the MCTS agents (fully observable engine, playouts at Rust speed)
+and DRRL (Phase A) are where they were in the Phase D pool.
 
 ### The plan (2026-09-07)
 Port the decision core of `soc.robot` to `catan_engine/src/jsettler/`, validated module by module against the

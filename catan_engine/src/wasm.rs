@@ -9,6 +9,8 @@ use wasm_bindgen::prelude::*;
 use crate::actions::{from_canon, to_canon, Action, Canon};
 use crate::apply::Outcome;
 use crate::drrl::{Drrl, Variant as DrrlVariant, N_IN as DRRL_N_IN};
+use crate::jsettler::brain::Jsettler;
+use crate::jsettler::dm::Params as JsParams;
 use crate::mcts::{Mcts, Policy};
 use crate::encode::Layout;
 use crate::map::Map;
@@ -60,6 +62,7 @@ pub struct Engine {
     net: Option<Arc<ValueNet>>,
     bot_rng: u64,
     drrl: Vec<Option<Drrl>>, // per seat, created on first use, lives for the game
+    jsettlers: Vec<Option<Jsettler>>, // per seat, the ported JSettlers robot
 }
 
 #[wasm_bindgen]
@@ -70,7 +73,7 @@ impl Engine {
         let layout = layout();
         let map = Arc::new(Map::generate(seed as u64, &layout));
         let state = State::new(map, n, (seed as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x5851_F42D_4C95_7F2D, 10);
-        Engine { state, seed, n, log: vec![], net: None, bot_rng: seed as u64 ^ 0xA5A5_5A5A_1234_8765, drrl: (0..n).map(|_| None).collect() }
+        Engine { state, seed, n, log: vec![], net: None, bot_rng: seed as u64 ^ 0xA5A5_5A5A_1234_8765, drrl: (0..n).map(|_| None).collect(), jsettlers: (0..n).map(|_| None).collect() }
     }
 
     /// Rebuild a game from `record()` output, replaying the first `steps` logged actions (or all if `steps` < 0).
@@ -184,7 +187,7 @@ impl Engine {
         let a = canon_from_json(&v).map_err(err)?;
         let mut state = self.state.clone();
         state.apply(a, None).map_err(err)?;
-        let shadow = Engine { state, seed: self.seed, n: self.n, log: vec![], net: self.net.clone(), bot_rng: self.bot_rng, drrl: vec![] };
+        let shadow = Engine { state, seed: self.seed, n: self.n, log: vec![], net: self.net.clone(), bot_rng: self.bot_rng, drrl: vec![], jsettlers: vec![] };
         Ok(shadow.view())
     }
 
@@ -197,6 +200,15 @@ impl Engine {
         let actions = self.state.playable_actions();
         if actions.is_empty() {
             return Err(err("no legal actions"));
+        }
+        if matches!(bot, "jsrobot" | "jsdroid" | "jsettler") {
+            let seat = self.state.current_player;
+            let seed = self.seed as u64;
+            let map = self.state.map.clone();
+            let n = self.state.n;
+            let js = self.jsettlers[seat].get_or_insert_with(|| Jsettler::new(map, n, seat, if bot == "jsdroid" { JsParams::FAST } else { JsParams::SMART }, seed ^ (seat as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15), crate::jsettler::geom::NODE_JS_ROT0));
+            let a = js.decide(&self.state).unwrap_or(actions[0]);
+            return Ok(json!({"action": canon_json(a), "value": Value::Null, "root": [], "leaves": 0}).to_string());
         }
         if let Some(p) = Policy::parse(bot) {
             self.bot_rng = self.bot_rng.wrapping_add(0x9E3779B97F4A7C15);

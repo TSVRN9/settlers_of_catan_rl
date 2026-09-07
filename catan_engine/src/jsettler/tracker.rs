@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::bse::{Bse, PlayerNumbers, Ports, CARD, CITY as B_CITY, ROAD as B_ROAD, ROAD_COST, SETTLEMENT as B_SET};
+use super::player::LrPath;
 use super::geom::Geom;
 use super::player::{Board, Player, CITY, ROAD, SETTLEMENT};
 use crate::map::Map;
@@ -41,6 +42,15 @@ pub struct PossibleSettlement {
     pub n_necessary: i32,
     pub threats: Vec<Ref>,
     pub threat_updated: bool,
+    /// SOCPossibleSettlement.updateSpeedup is commented out in the Java: always zero.
+    pub speedup: [i32; 5],
+}
+
+/// SOCPossibleCity: its speedup is the building-speed gain of the extra production.
+#[derive(Clone, Debug, Default)]
+pub struct PossibleCity {
+    pub coord: i32,
+    pub speedup: [i32; 5],
 }
 
 #[derive(Clone, Debug)]
@@ -48,7 +58,7 @@ pub struct Tracker {
     pub pn: usize,
     pub possible_roads: BTreeMap<i32, PossibleRoad>,
     pub possible_settlements: BTreeMap<i32, PossibleSettlement>,
-    pub possible_cities: BTreeMap<i32, ()>,
+    pub possible_cities: BTreeMap<i32, PossibleCity>,
     pub longest_road_eta: i32,
     pub roads_to_go: i32,
     pub largest_army_eta: i32,
@@ -65,19 +75,18 @@ impl Tracker {
 }
 
 /// What the ETAs read from the game beyond the pieces: the client's view (opponents' dev cards are
-/// unknown there, so their knight cards count 0).
+/// unknown there, so their knight cards count 0). Numbers, ports and road lengths come from the
+/// trackers' own pieces, so temporary pieces are seen.
 #[derive(Clone, Debug)]
 pub struct GameInfo {
     pub lr_player: Option<usize>,
     pub la_player: Option<usize>,
-    pub lr_length: Vec<i32>,
     pub knights: Vec<i32>,
     pub knight_cards_old: Vec<i32>,
     pub knight_cards_new: Vec<i32>,
     pub dev_cards_left: i32,
+    /// SOCPlayer.getTotalVP at the snapshot; temporary pieces add to it through `vp_delta`.
     pub total_vp: Vec<i32>,
-    pub numbers: Vec<PlayerNumbers>,
-    pub ports: Vec<Ports>,
     pub vp_winner: i32,
 }
 
@@ -91,7 +100,17 @@ pub struct Trackers {
     /// SOCBoard.getPortCoordinates(portType): node coords per JSettlers port type (0 = 3:1), in the
     /// classic layout's port order.
     pub ports_by_type: [Vec<i32>; 6],
+    /// Building VP added by temporary pieces, per seat.
+    pub vp_delta: Vec<i32>,
     first_turn_done: bool,
+}
+
+/// SOCGame.putTempPiece's saved longest-road lengths, restored by undoPutTempPiece.
+pub struct TempPiece {
+    pub kind: u8,
+    pub pn: usize,
+    pub coord: i32,
+    lr_lengths: Vec<i32>,
 }
 
 /// SOCBoard4p.PORTS_EDGE_V1: the port edges in layout order.
@@ -119,7 +138,172 @@ impl Trackers {
             let pt = if p.resource < 0 { 0 } else { super::opening::JS_TYPE[p.resource as usize] };
             ports_by_type[pt].extend_from_slice(&nodes);
         }
-        Trackers { players: (0..n).map(|pn| Player::new(pn, &geom)).collect(), trackers: (0..n).map(Tracker::new).collect(), map, geom, board: Board::default(), port_res, ports_by_type, first_turn_done: false }
+        Trackers { players: (0..n).map(|pn| Player::new(pn, &geom)).collect(), trackers: (0..n).map(Tracker::new).collect(), map, geom, board: Board::default(), port_res, ports_by_type, vp_delta: vec![0; n], first_turn_done: false }
+    }
+
+    /// SOCGame.putPieceCommon: every player's putPiece, the board, a city's settlement removal, and
+    /// the longest-road recalculations the Java does (the placer for a road; the one opponent whose
+    /// road a settlement cuts).
+    fn put_piece_game(&mut self, kind: u8, pn: usize, coord: i32) {
+        for i in 0..self.players.len() {
+            let board = &self.board;
+            self.players[i].put_piece(kind, coord, pn, board, &self.geom);
+        }
+        self.board.put(kind, pn, coord);
+        match kind {
+            CITY => {
+                self.players[pn].remove_settlement(coord);
+                self.vp_delta[pn] += 1;
+            }
+            ROAD => {
+                let board = &self.board;
+                self.players[pn].calc_longest_road2(board, &self.geom);
+            }
+            _ => {
+                self.vp_delta[pn] += 1;
+                let mut roads = vec![0; self.players.len()];
+                for e in self.geom.adj_edges_to_node(coord) {
+                    if let Some(o) = self.board.road_at(e) {
+                        roads[o] += 1;
+                    }
+                }
+                for i in 0..self.players.len() {
+                    if i != pn && roads[i] == 2 {
+                        let board = &self.board;
+                        self.players[i].calc_longest_road2(board, &self.geom);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /// SOCGame.putTempPiece: the piece goes on the real board and players, lengths saved.
+    pub fn put_temp(&mut self, kind: u8, pn: usize, coord: i32) -> TempPiece {
+        let lr_lengths = self.players.iter().map(|p| p.longest_road_length).collect();
+        self.put_piece_game(kind, pn, coord);
+        TempPiece { kind, pn, coord, lr_lengths }
+    }
+
+    /// SOCGame.undoPutTempPiece: undoPutPieceCommon (board, every player's undoPutPiece, a city's
+    /// settlement put back) and the saved lengths restored; the players' LR paths are left as the
+    /// temporary piece's recalculation made them, as in the Java.
+    pub fn undo_temp(&mut self, t: TempPiece) {
+        self.board.remove(t.kind, t.coord);
+        let board = self.board.clone();
+        for i in 0..self.players.len() {
+            self.players[i].undo_put_piece(t.kind, t.coord, t.pn, &board, &self.geom, self.first_turn_done);
+        }
+        match t.kind {
+            CITY => {
+                for i in 0..self.players.len() {
+                    let board = &self.board;
+                    self.players[i].put_piece(SETTLEMENT, t.coord, t.pn, board, &self.geom);
+                }
+                self.board.put(SETTLEMENT, t.pn, t.coord);
+                self.vp_delta[t.pn] -= 1;
+            }
+            SETTLEMENT => self.vp_delta[t.pn] -= 1,
+            _ => {}
+        }
+        for (p, &len) in self.players.iter_mut().zip(&t.lr_lengths) {
+            p.longest_road_length = len;
+        }
+    }
+
+    pub fn save_lr_paths(&self) -> Vec<Vec<LrPath>> {
+        self.players.iter().map(|p| p.lr_paths.clone()).collect()
+    }
+
+    pub fn restore_lr_paths(&mut self, saved: &[Vec<LrPath>]) {
+        for (p, s) in self.players.iter_mut().zip(saved) {
+            p.lr_paths = s.clone();
+        }
+    }
+
+    /// SOCPlayerTracker.copyPlayerTrackers: the copy constructors keep coordinates, necessary-road
+    /// counts and speedups, then the necessary roads, new possibilities and conflicts are relinked
+    /// among the copies; threats, scores and the expanded flags start empty.
+    pub fn copy_trackers(&self) -> Vec<Tracker> {
+        self.trackers
+            .iter()
+            .map(|t| Tracker {
+                pn: t.pn,
+                possible_roads: t.possible_roads.iter().map(|(&c, r)| (c, PossibleRoad { coord: c, n_necessary: r.n_necessary, necessary_roads: r.necessary_roads.clone(), new_possibilities: r.new_possibilities.clone(), ..Default::default() })).collect(),
+                possible_settlements: t.possible_settlements.iter().map(|(&c, s)| (c, PossibleSettlement { coord: c, n_necessary: s.n_necessary, speedup: s.speedup, necessary_roads: s.necessary_roads.clone(), conflicts: s.conflicts.clone(), ..Default::default() })).collect(),
+                possible_cities: t.possible_cities.clone(),
+                longest_road_eta: t.longest_road_eta,
+                roads_to_go: t.roads_to_go,
+                largest_army_eta: t.largest_army_eta,
+                knights_to_buy: t.knights_to_buy,
+                win_game_eta: 0,
+                need_lr: false,
+                need_la: false,
+            })
+            .collect()
+    }
+
+    /// Run `f` with `copies` standing in for the trackers (the Java passes the copy array around).
+    pub fn with_trackers<R>(&mut self, copies: &mut Vec<Tracker>, f: impl FnOnce(&mut Trackers) -> R) -> R {
+        std::mem::swap(&mut self.trackers, copies);
+        let r = f(self);
+        std::mem::swap(&mut self.trackers, copies);
+        r
+    }
+
+    /// SOCPlayerTracker.tryPutPiece: copies of the trackers, the piece placed for real (temporarily),
+    /// and the copies told about it.
+    pub fn try_put_piece(&mut self, kind: u8, pn: usize, coord: i32) -> (Vec<Tracker>, TempPiece) {
+        let mut copies = self.copy_trackers();
+        let temp = self.put_temp(kind, pn, coord);
+        self.with_trackers(&mut copies, |tr| match kind {
+            ROAD => {
+                for t in 0..tr.trackers.len() {
+                    if t == pn {
+                        tr.add_our_new_road(t, coord, EXPAND_LEVEL);
+                    } else {
+                        tr.add_their_new_road(t, coord);
+                    }
+                }
+            }
+            SETTLEMENT => {
+                for t in 0..tr.trackers.len() {
+                    if t == pn {
+                        tr.add_our_new_settlement(t, coord);
+                    } else {
+                        tr.add_their_new_settlement(t, coord, pn);
+                    }
+                }
+            }
+            _ => {
+                tr.trackers[pn].possible_cities.remove(&coord);
+            }
+        });
+        (copies, temp)
+    }
+
+    /// SOCPossibleCity.updateSpeedup: our building speed minus the speed with the city's extra
+    /// production.
+    fn city_speedup(&self, pn: usize, node: i32) -> [i32; 5] {
+        let numbers = self.numbers(pn);
+        let ports = self.port_flags(pn);
+        let ours = Bse::new(&numbers, None).from_nothing_fast(&ports, 40);
+        let mut with = numbers.clone();
+        with.add_node_map(&self.map, self.geom.node(node).unwrap());
+        let sp = Bse::new(&with, None).from_nothing_fast(&ports, 40);
+        let mut out = [0; 5];
+        for b in 0..5 {
+            out[b] = ours[b] - sp[b];
+        }
+        out
+    }
+
+    fn refresh_speedups(&mut self, pn: usize) {
+        let coords: Vec<i32> = self.trackers[pn].possible_cities.keys().copied().collect();
+        for c in coords {
+            let sp = self.city_speedup(pn, c);
+            self.trackers[pn].possible_cities.get_mut(&c).unwrap().speedup = sp;
+        }
     }
 
     pub fn port_res_at(&self, node: i32) -> i8 {
@@ -154,23 +338,17 @@ impl Trackers {
         if !initial {
             self.first_turn();
         }
-        for i in 0..self.players.len() {
-            let board = &self.board;
-            self.players[i].put_piece(kind, coord, pn, board, &self.geom);
-        }
-        self.board.put(kind, pn, coord);
-        if kind == CITY {
-            self.players[pn].remove_settlement(coord);
-        }
-        for i in 0..self.players.len() {
-            let board = &self.board;
-            self.players[i].calc_longest_road2(board, &self.geom);
-        }
+        self.put_piece_game(kind, pn, coord);
+        self.vp_delta[pn] = 0; // a real piece: the caller's snapshot carries the VP
         match kind {
             ROAD => self.track_new_road(coord, pn),
-            SETTLEMENT => self.track_new_settlement(coord, pn),
+            SETTLEMENT => {
+                self.track_new_settlement(coord, pn);
+                self.refresh_speedups(pn);
+            }
             _ => {
                 self.trackers[pn].possible_cities.remove(&coord);
+                self.refresh_speedups(pn);
             }
         }
     }
@@ -374,7 +552,8 @@ impl Trackers {
     }
 
     fn add_our_new_settlement(&mut self, t: usize, coord: i32) {
-        self.trackers[t].possible_cities.insert(coord, ());
+        let speedup = self.city_speedup(t, coord);
+        self.trackers[t].possible_cities.insert(coord, PossibleCity { coord, speedup });
         if self.trackers[t].possible_settlements.contains_key(&coord) {
             let conflicts = self.trackers[t].possible_settlements[&coord].conflicts.clone();
             self.trackers[t].possible_settlements.remove(&coord);
@@ -647,15 +826,15 @@ impl Trackers {
     }
 
     pub fn recalc_longest_road_eta(&mut self, t: usize, info: &GameInfo) {
-        let bse = Bse::new(&info.numbers[t], None);
-        let road_eta = bse.rolls_fast(&[0; 5], &ROAD_COST, 500, &info.ports[t]);
+        let bse = Bse::new(&self.numbers(t), None);
+        let road_eta = bse.rolls_fast(&[0; 5], &ROAD_COST, 500, &self.port_flags(t));
         let mut roads_to_go = 500;
         if info.lr_player == Some(t) {
             roads_to_go = 0;
         } else {
             let lr_len = match info.lr_player {
                 None => self.players[t].longest_road_length.max(4),
-                Some(p) => info.lr_length[p],
+                Some(p) => self.players[p].longest_road_length,
             };
             for path in self.players[t].lr_paths.clone() {
                 let depth = ((lr_len + 1) - path.len).min(self.players[t].num_pieces[0]);
@@ -669,11 +848,30 @@ impl Trackers {
 
     /// SOCRobotDM.recalcLongestRoadETAAux (the count, not the path).
     fn lr_eta_aux(&self, t: usize, start: i32, path_len: i32, lr_len: i32, depth: i32) -> i32 {
+        self.lr_eta_search(t, start, path_len, lr_len, depth).0
+    }
+
+    /// recalcLongestRoadETAAux with wantsStack: the edges (root first) of the best extension.
+    pub fn lr_eta_path(&self, t: usize, start: i32, path_len: i32, lr_len: i32, depth: i32) -> Option<Vec<i32>> {
+        let (n, nodes) = self.lr_eta_search(t, start, path_len, lr_len, depth);
+        if n == 500 {
+            return None;
+        }
+        let nodes = nodes?;
+        if nodes.len() < 2 {
+            return None;
+        }
+        Some(nodes.windows(2).map(|w| super::geom::edge_between(w[1], w[0])).collect())
+    }
+
+    /// The search behind both: (roads to go or 500, the node list of the best path when found).
+    fn lr_eta_search(&self, t: usize, start: i32, path_len: i32, lr_len: i32, depth: i32) -> (i32, Option<Vec<i32>>) {
         let pl = &self.players[t];
         let mut longest = 0;
         let mut num_roads = 500;
-        let mut pending: Vec<(i32, i32, Vec<i32>)> = vec![(start, path_len, vec![])];
-        while let Some((coord, mut len, visited)) = pending.pop() {
+        let mut best: Option<Vec<i32>> = None;
+        let mut pending: Vec<(i32, i32, Vec<i32>, Option<Vec<i32>>)> = vec![(start, path_len, vec![], None)];
+        while let Some((coord, mut len, visited, parents)) = pending.pop() {
             let cur_len = len;
             let mut path_end = false;
             if len > 0 {
@@ -702,22 +900,33 @@ impl Trackers {
                     if pl.is_legal_road(j) && !visited.contains(&j) {
                         let mut nv = visited.clone();
                         nv.push(j);
+                        let mut np = parents.clone().unwrap_or_default();
+                        np.push(coord);
                         let next = self.geom.adj_node_to_node(coord, dir);
-                        pending.push((next, len + 1, nv));
+                        pending.push((next, len + 1, nv, Some(np)));
                         path_end = false;
                     }
                 }
             }
             if path_end {
+                let mut record = false;
                 if len > longest {
                     longest = len;
                     num_roads = cur_len - path_len;
+                    record = true;
                 } else if len == longest && cur_len < num_roads {
                     num_roads = cur_len - path_len;
+                    record = true;
+                }
+                if record {
+                    best = parents.map(|mut p| {
+                        p.push(coord);
+                        p
+                    });
                 }
             }
         }
-        if longest > lr_len { num_roads } else { 500 }
+        if longest > lr_len { (num_roads, best) } else { (500, None) }
     }
 
     pub fn recalc_largest_army_eta(&mut self, t: usize, info: &GameInfo) {
@@ -735,7 +944,7 @@ impl Trackers {
         }
         self.trackers[t].knights_to_buy = knights_to_buy;
         self.trackers[t].largest_army_eta = if info.dev_cards_left >= knights_to_buy {
-            let card_eta = Bse::new(&info.numbers[t], None).from_nothing_fast(&info.ports[t], 40)[CARD];
+            let card_eta = Bse::new(&self.numbers(t), None).from_nothing_fast(&self.port_flags(t), 40)[CARD];
             (card_eta + 1) * knights_to_buy
         } else {
             500
@@ -793,8 +1002,8 @@ impl Trackers {
         let mut need_lr = false;
         let mut need_la = false;
         let mut win_game_eta = 0;
-        let mut temp_numbers = info.numbers[t].clone();
-        let mut temp_ports = info.ports[t];
+        let mut temp_numbers = self.numbers(t);
+        let mut temp_ports = self.port_flags(t);
         let mut chosen_set_speed = [[0i32; 5]; 2];
         let mut chosen_city_speed = [[0i32; 5]; 2];
         let mut our_speed = Bse::new(&temp_numbers, None).from_nothing_fast(&temp_ports, 40);
@@ -812,8 +1021,8 @@ impl Trackers {
         let roads_to_go = self.trackers[t].roads_to_go;
         let mut knights_to_buy = self.trackers[t].knights_to_buy;
         let mut pos_sets: BTreeMap<i32, PossibleSettlement> = self.trackers[t].possible_settlements.clone();
-        let mut pos_cities: BTreeMap<i32, ()> = self.trackers[t].possible_cities.clone();
-        let mut points = info.total_vp[t];
+        let mut pos_cities: BTreeMap<i32, ()> = self.trackers[t].possible_cities.keys().map(|&c| (c, ())).collect();
+        let mut points = info.total_vp[t] + self.vp_delta[t];
         let vp_winner = info.vp_winner;
         // ETA of a settlement after its necessary roads, with the speedups its numbers and port bring
         let speed_at = |numbers: &mut PlayerNumbers, ports: &Ports, node: i32| -> [i32; 5] {

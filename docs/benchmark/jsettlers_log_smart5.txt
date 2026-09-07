@@ -1,0 +1,10 @@
+~botsOnly~12 2 1 6 10 8 8 robot_3 droid_1 extrabot_1 robot_2
+~botsOnly~11 3 2 8 6 6 9 robot_4 robot_2 robot_3 extrabot_1
+~botsOnly~9 3 0 10 3 2 7 robot_2 droid_1 robot_3 extrabot_1
+~botsOnly~8 3 3 4 7 8 10 robot_2 droid_1 robot_3 extrabot_1
+~botsOnly~6 2 1 8 10 6 5 robot_3 droid_1 extrabot_1 robot_2
+~botsOnly~5 0 2 9 6 10 5 extrabot_1 robot_4 droid_1 robot_3
+~botsOnly~4 1 2 5 7 9 6 robot_4 extrabot_1 robot_3 droid_1
+~botsOnly~3 2 1 8 8 6 6 robot_3 robot_4 extrabot_1 robot_2
+~botsOnly~2 2 0 8 8 7 4 robot_3 droid_1 extrabot_1 robot_4
+~botsOnly~1 0 2 8 5 9 8 extrabot_1 robot_4 robot_2 robot_3

@@ -2619,3 +2619,13 @@ strategy are ported and match JSettlers 2.6.10 on 100% of 13k+ logged decisions 
 (`tools/jsettlers_oracle.py`). Two Java behaviours a clean reimplementation would miss: potential
 settlements are cleared at the first regular turn (a jSettler must build a road before its first
 settlement), and dev-card scoring leaves the planner's own win ETA computed with a phantom +1 VP card.
+
+## 2026-09-07: jsettler.rs complete, exact where the oracle can see (docs/BENCHMARK.md Phase E)
+
+The whole JSettlers 2.6.10 robot now runs on the engine (`jsrobot`, `jsdroid`; site bots of the same
+names). Against the log-mode oracle the build plans match the Java on 100% of 307 smart and 867 fast
+plans, with every favourite piece and score identical; replies to offers match on 210 of 212; offers
+match 293 of 325 once the client's trade messages are replayed into the negotiator's bookkeeping (the
+rest come from opponents' hands, which the Java client sees as unknown cards). On the arena the smart jSettler wins 25.7% [21.1, 30.9] against three `rab`
+(16.7% with its negotiator off, so the paper is right that trading is its strength); the fast one 15.7%.
+Through the bridge against three stock jSettlers the port wins 32.0% [23.5, 41.8] (97 games), and 16.5% [10.4, 25.1] with the negotiator off; a stock jSettler in that seat expects about 25%.

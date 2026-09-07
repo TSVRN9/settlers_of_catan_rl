@@ -126,6 +126,8 @@ class Server:
         if self.player is not None:  # one server plays a sequence of games, in different seats
             self.player.color = self.colors[self.our]
             self.player.reset_state()
+            if hasattr(self.player, "pieces_log"):
+                self.player.node_js = [self.inv_node[i] for i in range(54)]
 
     # ---- the catanatron game behind one decision ----
     def game(self, st, prompt, msg):
@@ -249,6 +251,10 @@ class Server:
 
             self.player = make_player(self.token, colors[self.our])
             self.player.bridge = True  # a DrrlPlayer may answer an offer with a counter-offer here
+            if hasattr(self.player, "pieces_log"):  # the jsettler port's trackers follow the client's piece log
+                self.player.node_js = [self.inv_node[i] for i in range(54)]
+        if hasattr(self.player, "pieces_log"):
+            self.player.pieces_log = msg["state"]["pieces"]
         acts = []
 
         def step():

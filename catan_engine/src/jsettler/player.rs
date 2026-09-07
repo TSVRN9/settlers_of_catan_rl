@@ -41,6 +41,16 @@ impl Board {
         if (0..0x100).contains(&edge) && self.edge_owner[edge as usize] >= 0 { Some(self.edge_owner[edge as usize] as usize) } else { None }
     }
 
+    pub fn remove(&mut self, kind: u8, coord: i32) {
+        match kind {
+            ROAD => self.edge_owner[coord as usize] = -1,
+            _ => {
+                self.node_owner[coord as usize] = -1;
+                self.node_city[coord as usize] = false;
+            }
+        }
+    }
+
     pub fn put(&mut self, kind: u8, pn: usize, coord: i32) {
         match kind {
             ROAD => self.edge_owner[coord as usize] = pn as i8,
@@ -271,6 +281,62 @@ impl Player {
                 self.potential_roads.insert(adj_edge);
             } else {
                 self.potential_roads.remove(&adj_edge);
+            }
+        }
+    }
+
+    /// SOCPlayer.undoPutPiece (classic board), after the board has dropped the piece.
+    pub fn undo_put_piece(&mut self, kind: u8, coord: i32, owner: usize, board: &Board, geom: &Geom, regular_play: bool) {
+        let ours = owner == self.pn;
+        match kind {
+            ROAD => {
+                if ours {
+                    self.remove_road(coord, board, geom);
+                } else {
+                    self.legal_roads.insert(coord);
+                    let adj = geom.adj_edges_to_edge(coord);
+                    for r in self.roads.clone() {
+                        if adj.contains(&r) {
+                            self.update_potentials(ROAD, r, self.pn, board, geom);
+                        }
+                    }
+                }
+            }
+            SETTLEMENT => {
+                if ours {
+                    self.remove_settlement(coord);
+                }
+                self.undo_put_piece_aux_settlement(coord, board, geom, regular_play);
+                for n in geom.adj_nodes_to_node(coord) {
+                    self.undo_put_piece_aux_settlement(n, board, geom, regular_play);
+                }
+            }
+            _ => {
+                if ours {
+                    if let Some(i) = self.cities.iter().position(|&c| c == coord) {
+                        self.cities.remove(i);
+                        self.num_pieces[2] += 1;
+                    }
+                    self.potential_cities.insert(coord);
+                }
+            }
+        }
+    }
+
+    /// undoPutPieceAuxSettlement: a node becomes legal again without neighbours, potential again
+    /// during initial placement or when one of our roads touches it.
+    fn undo_put_piece_aux_settlement(&mut self, node: i32, board: &Board, geom: &Geom, regular_play: bool) {
+        let have_neighbor = geom.adj_nodes_to_node(node).iter().any(|&n| board.settlement_at(n).is_some());
+        if have_neighbor || geom.node(node).is_none() {
+            return;
+        }
+        self.legal_settlements.insert(node);
+        if !regular_play {
+            self.potential_settlements.insert(node);
+        } else {
+            let adj = geom.adj_edges_to_node(node);
+            if self.roads.iter().any(|r| adj.contains(r)) {
+                self.potential_settlements.insert(node);
             }
         }
     }

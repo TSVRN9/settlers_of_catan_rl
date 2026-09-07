@@ -93,6 +93,9 @@ pub struct State {
     /// House rule so trading terminates: offers rejected by everyone or cancelled this turn.
     pub spent_offers: Vec<[u8; 10]>,
     pub rng: u64,
+    /// Every piece placed, in order: (kind 0 road / 1 settlement / 2 city, seat, node or edge id,
+    /// during initial placement). The jSettler port's trackers replay it (jsettler/brain.rs).
+    pub pieces: Vec<(u8, u8, u8, bool)>,
 }
 
 impl State {
@@ -137,6 +140,7 @@ impl State {
             current_trade: [0; 11],
             acceptees: [false; 4],
             spent_offers: vec![],
+            pieces: Vec::new(),
             rng: seed,
         };
         for i in (1..s.dev_deck.len()).rev() {

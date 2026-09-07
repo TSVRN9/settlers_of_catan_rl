@@ -9,7 +9,7 @@ import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
 import { set, useApp } from "../store";
 
-const KINDS: BotKind[] = ["human", "vnet", "heuristic", "drrl", "uct", "buct", "vpi", "random"];
+const KINDS: BotKind[] = ["human", "vnet", "heuristic", "jsrobot", "jsdroid", "drrl", "uct", "buct", "vpi", "random"];
 const ORDINAL = ["first", "second", "third", "fourth"];
 const MAX = 4, MIN = 2;
 

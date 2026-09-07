@@ -265,6 +265,7 @@ impl PyState {
                 current_trade,
                 acceptees,
                 spent_offers,
+                pieces: Vec::new(),
                 rng: seed,
             },
             search: None,
@@ -670,10 +671,25 @@ fn jsettler_bse(state: &PyState, pn: usize) -> (Vec<i32>, Vec<i32>, Vec<i32>, Ve
 }
 
 /// jsettler::tracker::Trackers for the oracle check: fed the logged piece events, asked for the ETAs.
+fn game_info(lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>) -> crate::jsettler::tracker::GameInfo {
+    crate::jsettler::tracker::GameInfo {
+        lr_player: if lr_player < 0 { None } else { Some(lr_player as usize) },
+        la_player: if la_player < 0 { None } else { Some(la_player as usize) },
+        knights,
+        knight_cards_old,
+        knight_cards_new,
+        dev_cards_left,
+        total_vp,
+        vp_winner: 10,
+    }
+}
+
 #[pyclass(name = "JsTrackers")]
 struct PyTrackers {
     inner: crate::jsettler::tracker::Trackers,
     openings: Vec<crate::jsettler::opening::Opening>,
+    dms: Vec<Option<crate::jsettler::dm::Dm>>,
+    negotiators: Vec<Option<crate::jsettler::negotiator::Negotiator>>,
 }
 
 #[pymethods]
@@ -683,7 +699,7 @@ impl PyTrackers {
     fn new(state: &PyState, node_js: Vec<u16>) -> PyResult<PyTrackers> {
         let arr: [u16; crate::map::NUM_NODES] = node_js.try_into().map_err(|_| PyValueError::new_err("node_js needs 54 coords"))?;
         let n = state.inner.n;
-        Ok(PyTrackers { inner: crate::jsettler::tracker::Trackers::new(state.inner.map.clone(), n, arr), openings: vec![Default::default(); n] })
+        Ok(PyTrackers { inner: crate::jsettler::tracker::Trackers::new(state.inner.map.clone(), n, arr), openings: vec![Default::default(); n], dms: vec![None; n], negotiators: (0..n).map(|_| None).collect() })
     }
 
     /// OpeningBuildStrategy for one seat: the first settlement node.
@@ -711,28 +727,121 @@ impl PyTrackers {
         self.inner.first_turn()
     }
 
-    /// updateWinGameETAs with the client's view: numbers and ports from `state`, the rest given.
+    /// updateWinGameETAs with the client's view (pieces from the trackers, the rest given).
     /// Returns (winGameEta, longestRoadEta, largestArmyEta, roadsToGo) per seat.
     #[allow(clippy::too_many_arguments)]
-    fn etas(&mut self, state: &PyState, lr_player: i32, la_player: i32, lr_length: Vec<i32>, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>) -> (Vec<i32>, Vec<i32>, Vec<i32>, Vec<i32>) {
-        use crate::jsettler::bse::{PlayerNumbers, Ports};
-        let s = &state.inner;
-        let info = crate::jsettler::tracker::GameInfo {
-            lr_player: if lr_player < 0 { None } else { Some(lr_player as usize) },
-            la_player: if la_player < 0 { None } else { Some(la_player as usize) },
-            lr_length,
-            knights,
-            knight_cards_old,
-            knight_cards_new,
-            dev_cards_left,
-            total_vp,
-            numbers: (0..s.n).map(|p| PlayerNumbers::of(s, p)).collect(),
-            ports: (0..s.n).map(|p| Ports::of(s, p)).collect(),
-            vp_winner: 10,
-        };
+    fn etas(&mut self, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>) -> (Vec<i32>, Vec<i32>, Vec<i32>, Vec<i32>) {
+        let info = game_info(lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp);
         self.inner.update_win_game_etas(&info);
         let t = &self.inner.trackers;
         (t.iter().map(|x| x.win_game_eta).collect(), t.iter().map(|x| x.longest_road_eta).collect(), t.iter().map(|x| x.largest_army_eta).collect(), t.iter().map(|x| x.roads_to_go).collect())
+    }
+
+    /// A new turn for the negotiator of one seat: resetIsSelling, resetOffersMade, resetTargetPieces.
+    fn new_turn(&mut self, pn: usize, state: &PyState, smart: bool) {
+        use crate::jsettler::dm::Params;
+        let n = self.inner.players.len();
+        let neg = self.negotiators[pn].get_or_insert_with(|| crate::jsettler::negotiator::Negotiator::new(pn, n, if smart { Params::SMART } else { Params::FAST }));
+        neg.reset_is_selling(&state.inner);
+        neg.reset_offers_made();
+        neg.reset_target_pieces();
+    }
+
+    /// SOCRobotNegotiator.considerOffer2 for `receiver` on an offer from `from` (JSettlers-ordered
+    /// give/get counts): 0 reject, 1 accept, 2 counter.
+    #[allow(clippy::too_many_arguments)]
+    fn consider_offer(&mut self, receiver: usize, smart: bool, state: &PyState, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>, from: usize, give: Vec<i32>, get: Vec<i32>) -> i32 {
+        use crate::jsettler::dm::Params;
+        use crate::jsettler::negotiator::{Negotiator, Offer, Set};
+        let info = game_info(lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp);
+        let n = self.inner.players.len();
+        let neg = self.negotiators[receiver].get_or_insert_with(|| Negotiator::new(receiver, n, if smart { Params::SMART } else { Params::FAST }));
+        let mut g = Set::default();
+        let mut r = Set::default();
+        for t in 1..=5 {
+            g.0[t] = give[t - 1];
+            r.0[t] = get[t - 1];
+        }
+        let offer = Offer { from, to: (0..n).map(|q| q != from).collect(), give: g, get: r };
+        neg.record_resources_from_offer(&offer);
+        neg.consider_offer2(&mut self.inner, &state.inner, &info, &offer, receiver)
+    }
+
+    /// SOCRobotNegotiator.makeOffer for `pn` toward its target piece (from the last plan): the offer's
+    /// JSettlers-ordered give and get counts, or None.
+    #[allow(clippy::too_many_arguments)]
+    fn make_offer(&mut self, pn: usize, smart: bool, state: &PyState, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>) -> Option<(Vec<i32>, Vec<i32>)> {
+        use crate::jsettler::dm::Params;
+        use crate::jsettler::negotiator::Negotiator;
+        let info = game_info(lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp);
+        let n = self.inner.players.len();
+        let neg = self.negotiators[pn].get_or_insert_with(|| Negotiator::new(pn, n, if smart { Params::SMART } else { Params::FAST }));
+        let target = neg.target_pieces[pn]?;
+        let o = neg.make_offer(&mut self.inner, &state.inner, &info, target, None)?;
+        neg.reset_wants_another_offer();
+        Some((o.give.0[1..].to_vec(), o.get.0[1..].to_vec()))
+    }
+
+    /// A trade message for one seat's negotiator: kind "offer" (another player's offer: from, give, get,
+    /// to), "reject" (rejector of our offer: give/get are ours), "made" (everyone rejected our offer: it
+    /// joins offersMade) or "noresponse" (our offer timed out). Counts are JSettlers-ordered.
+    #[allow(clippy::too_many_arguments)]
+    fn trade_event(&mut self, pn: usize, smart: bool, kind: &str, from: usize, give: Vec<i32>, get: Vec<i32>, to: Vec<bool>) {
+        use crate::jsettler::dm::Params;
+        use crate::jsettler::negotiator::{Negotiator, Offer, Set};
+        let n = self.inner.players.len();
+        let neg = self.negotiators[pn].get_or_insert_with(|| Negotiator::new(pn, n, if smart { Params::SMART } else { Params::FAST }));
+        let mut g = Set::default();
+        let mut r = Set::default();
+        for t in 1..=5 {
+            g.0[t] = give[t - 1];
+            r.0[t] = get[t - 1];
+        }
+        let to = if to.len() == n { to } else { (0..n).map(|q| q != from).collect() };
+        let offer = Offer { from, to, give: g, get: r };
+        match kind {
+            "offer" => neg.record_resources_from_offer(&offer),
+            "reject" => neg.record_resources_from_reject(from, &offer),
+            "made" => neg.add_to_offers_made(g, r),
+            "noresponse" => neg.record_resources_from_no_response(&offer),
+            _ => {}
+        }
+    }
+
+    /// The trackers' ETAs as they stand (no recomputation): (winGameEta, longestRoadEta, largestArmyEta).
+    fn stored_etas(&self) -> (Vec<i32>, Vec<i32>, Vec<i32>) {
+        let t = &self.inner.trackers;
+        (t.iter().map(|x| x.win_game_eta).collect(), t.iter().map(|x| x.longest_road_eta).collect(), t.iter().map(|x| x.largest_army_eta).collect())
+    }
+
+    /// The last plan's favourite settlement, city, road (coord, score) and card score for one seat.
+    fn favorites(&self, pn: usize) -> (Option<(i32, f32)>, Option<(i32, f32)>, Option<(i32, f32)>, Option<f32>) {
+        self.dms[pn].as_ref().map(|d| d.favorites()).unwrap_or((None, None, None, None))
+    }
+
+    /// SOCRobotDM.planStuff for one seat: the plan in build order as (type, coord) with the Java's
+    /// type codes (road 0, settlement 1, city 2, card -2). `resources` in engine order.
+    #[allow(clippy::too_many_arguments)]
+    fn plan(&mut self, pn: usize, smart: bool, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>, resources: Vec<i32>, has_played_dev_card: bool, roads_card_playable: bool, for_special_building: bool) -> Vec<(i32, i32)> {
+        use crate::jsettler::dm::{Dm, Params, Piece, PlanInput};
+        let info = game_info(lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp);
+        let dm = self.dms[pn].get_or_insert_with(|| Dm::new(if smart { Params::SMART } else { Params::FAST }, pn));
+        dm.plan.clear();
+        let mut res = [0; 5];
+        res.copy_from_slice(&resources[..5]);
+        dm.plan_stuff(&mut self.inner, &PlanInput { info: &info, resources: res, has_played_dev_card, roads_card_playable, for_special_building });
+        let first = dm.plan_in_order().first().copied();
+        let neg = self.negotiators[pn].get_or_insert_with(|| crate::jsettler::negotiator::Negotiator::new(pn, self.inner.players.len(), if smart { Params::SMART } else { Params::FAST }));
+        neg.target_pieces[pn] = first; // SOCRobotBrain.planBuilding -> negotiator.setTargetPiece
+        dm.plan_in_order()
+            .into_iter()
+            .map(|p| match p {
+                Piece::Road(c) => (0, c),
+                Piece::Settlement(c) => (1, c),
+                Piece::City(c) => (2, c),
+                Piece::Card => (-2, 0),
+            })
+            .collect()
     }
 
     /// One seat's potential settlements and roads (SOCPlayer's sets), for the oracle check.
@@ -745,6 +854,44 @@ impl PyTrackers {
     fn possibles(&self, pn: usize) -> (Vec<(i32, i32)>, Vec<(i32, i32)>, Vec<i32>) {
         let t = &self.inner.trackers[pn];
         (t.possible_settlements.values().map(|p| (p.coord, p.n_necessary)).collect(), t.possible_roads.values().map(|p| (p.coord, p.n_necessary)).collect(), t.possible_cities.keys().copied().collect())
+    }
+}
+
+/// jsettler::brain::Jsettler: the ported JSettlers robot as a player on this engine.
+#[pyclass(name = "Jsettler")]
+struct PyJsettler {
+    inner: crate::jsettler::brain::Jsettler,
+}
+
+#[pymethods]
+impl PyJsettler {
+    /// `smart`: SOCRobotDM.SMART_STRATEGY ("robot N") else FAST ("droid N"); `node_js`: JSettlers node
+    /// coord per catanatron node id when the board is a bridge board (default: the BASE template).
+    #[new]
+    #[pyo3(signature = (state, pn, smart, seed, node_js=None))]
+    fn new(state: &PyState, pn: usize, smart: bool, seed: u64, node_js: Option<Vec<u16>>) -> PyResult<PyJsettler> {
+        use crate::jsettler::dm::Params;
+        let arr: [u16; crate::map::NUM_NODES] = match node_js {
+            Some(v) => v.try_into().map_err(|_| PyValueError::new_err("node_js needs 54 coords"))?,
+            None => crate::jsettler::geom::NODE_JS_ROT0,
+        };
+        Ok(PyJsettler { inner: crate::jsettler::brain::Jsettler::new(state.inner.map.clone(), state.inner.n, pn, if smart { Params::SMART } else { Params::FAST }, seed, arr) })
+    }
+
+    /// A piece the trackers have not seen: kind 0 road / 1 settlement / 2 city, seat, engine node or
+    /// edge id, during initial placement. Only needed when the state carries no piece log (a state
+    /// rebuilt from Python).
+    fn observe(&mut self, kind: u8, pn: usize, coord: u8, initial: bool) {
+        self.inner.observe(kind, pn, coord, initial)
+    }
+
+    /// The same with a JSettlers coordinate (the bridge's piece log).
+    fn observe_js(&mut self, kind: u8, pn: usize, coord: i32, initial: bool) {
+        self.inner.tr.on_piece(kind, pn, coord, initial)
+    }
+
+    fn decide(&mut self, state: &PyState) -> Option<Canon> {
+        self.inner.decide(&state.inner).map(to_canon)
     }
 }
 
@@ -819,6 +966,7 @@ fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyValueNet>()?;
     m.add_class::<PyDrrl>()?;
     m.add_class::<PyTrackers>()?;
+    m.add_class::<PyJsettler>()?;
     m.add_function(wrap_pyfunction!(jsettler_bse, m)?)?;
     m.add("DRRL_N_IN", DRRL_N_IN)?;
     m.add_class::<PyMcts>()?;

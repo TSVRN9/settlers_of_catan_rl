@@ -95,6 +95,7 @@ impl State {
                 Ok((-1, -1))
             }
             Action::BuildSettlement(node) => {
+                self.pieces.push((1, p as u8, node, self.initial_phase));
                 if self.initial_phase {
                     self.board_build_settlement(p, node, true);
                     self.build_settlement(p, node, true);
@@ -119,6 +120,7 @@ impl State {
                 Ok((-1, -1))
             }
             Action::BuildRoad(edge) => {
+                self.pieces.push((0, p as u8, edge, self.initial_phase));
                 if self.initial_phase {
                     self.board_build_road(p, edge);
                     self.build_road(p, edge, true);
@@ -153,6 +155,7 @@ impl State {
                 Ok((-1, -1))
             }
             Action::BuildCity(node) => {
+                self.pieces.push((2, p as u8, node, false));
                 self.is_city[node as usize] = true;
                 let pl = &mut self.players[p];
                 let pos = pl.settlements.iter().position(|&n| n == node).ok_or("no settlement there")?;

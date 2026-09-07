@@ -8,5 +8,8 @@ pub mod bse;
 pub mod geom;
 pub mod jcoll;
 pub mod opening;
+pub mod dm;
+pub mod brain;
+pub mod negotiator;
 pub mod player;
 pub mod tracker;

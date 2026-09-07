@@ -22,9 +22,11 @@ import rust_bridge as rb  # noqa: E402
 from jsettlers_server import Server  # noqa: E402
 
 KNIGHT_JS = "9"
+# the log's resource arrays are JSettlers order (clay, ore, sheep, wheat, wood, unknown); engine order is wood, brick, sheep, wheat, ore
+RES_ENGINE = [4, 0, 2, 3, 1]
 
 
-def main(paths, verbose=False):
+def main(paths, verbose=False, smart=True):
     hits, total = Counter(), Counter()
     shown = Counter()
     for path in paths:
@@ -40,7 +42,29 @@ def main(paths, verbose=False):
         rs, _ = rb.rust_state(game)
         trackers = catan_engine.JsTrackers(rs, node_js)
         first_player = next((r["piece"][1] for r in lines[1:] if "piece" in r), 0)
+        last_turn = -1
+        our_pn = lines[0]["ourPn"]
+        rejected = set()
+        our_offer = None  # (give, get, to) of the last offer the Java made
         for rec in lines[1:]:
+            if "trade" in rec:
+                ev = rec["trade"]
+                if ev["kind"] == "offer":
+                    trackers.trade_event(our_pn, smart, "offer", ev["offer"]["from"], ev["offer"]["give"], ev["offer"]["get"], ev["to"])
+                elif our_offer is not None:
+                    give, get, to = our_offer
+                    if ev["kind"] == "reject" and ev["pn"] >= 0 and ev["reason"] == 0 and ev["waiting"]:
+                        trackers.trade_event(our_pn, smart, "reject", ev["pn"], give, get, to)
+                        rejected.add(ev["pn"])
+                        if all(rejected.__contains__(q) for q in range(srv.n) if to[q]):
+                            trackers.trade_event(our_pn, smart, "made", our_pn, give, get, to)
+                            our_offer = None
+                    elif ev["kind"] == "response" and ev["accepted"]:
+                        our_offer = None
+                    elif ev["kind"] == "noresponse" and ev["waiting"]:
+                        trackers.trade_event(our_pn, smart, "noresponse", our_pn, give, get, to)
+                        our_offer = None
+                continue
             if rec["gameState"] >= 15:
                 trackers.first_turn()
             if "piece" in rec:
@@ -68,14 +92,66 @@ def main(paths, verbose=False):
                 continue
             game, _ = srv.game(st, "PLAY_TURN", rec)
             rs, _ = rb.rust_state(game)
+            if st["turns"] != last_turn:
+                last_turn = st["turns"]
+                trackers.new_turn(pn, rs, smart)
+            players = st["players"]
+            args = (st["longestRoad"], st["largestArmy"], [p["knights"] for p in players],
+                    [p["devOld"].get(KNIGHT_JS, 0) for p in players], [p["devNew"].get(KNIGHT_JS, 0) for p in players], st["devDeck"], [p["totalVp"] for p in players])
+            if rec["hook"] == "considerOffer":
+                o = rec["chosen"]["offer"]
+                ours = trackers.consider_offer(pn, smart, rs, *args, o["from"], o["give"], o["get"])
+                total["considerOffer"] += 1
+                hits["considerOffer"] += ours == rec["chosen"]["response"]
+                if verbose and ours != rec["chosen"]["response"] and shown["considerOffer"] < 6:
+                    shown["considerOffer"] += 1
+                    print(f"  {Path(path).stem} turn {st['turns']} pn {pn} considerOffer {o}: java {rec['chosen']['response']} rust {ours}")
+                continue
+            if rec["hook"] == "makeOffer":
+                ours = trackers.make_offer(pn, smart, rs, *args)
+                java = None if rec["chosen"] is None else (rec["chosen"]["give"], rec["chosen"]["get"])
+                if java is not None:
+                    our_offer = (java[0], java[1], [q != pn for q in range(srv.n)])
+                    rejected = set()
+                ours_t = None if ours is None else (list(ours[0]), list(ours[1]))
+                total["makeOffer"] += 1
+                hits["makeOffer"] += ours_t == java
+                if verbose and ours_t != java and shown["makeOffer"] < 6:
+                    shown["makeOffer"] += 1
+                    print(f"  {Path(path).stem} turn {st['turns']} pn {pn} makeOffer: java {java} rust {ours_t}")
+                continue
             _, from_now_fast, _, _ = catan_engine.jsettler_bse(rs, pn)
             total["buildingEtas"] += 1
             hits["buildingEtas"] += list(from_now_fast) == rec["buildingEtas"]
             if rec["hook"] != "planBuilding":
                 continue
-            players = st["players"]
-            wg, lr, la, _ = trackers.etas(rs, st["longestRoad"], st["largestArmy"], [p["lrLen"] for p in players], [p["knights"] for p in players],
-                                          [p["devOld"].get(KNIGHT_JS, 0) for p in players], [p["devNew"].get(KNIGHT_JS, 0) for p in players], st["devDeck"], [p["totalVp"] for p in players])
+            wg, lr, la, _ = trackers.etas(*args)
+            # the plan: SOCRobotDM.planStuff on the same trackers (it recomputes the ETAs itself)
+            me = players[pn]
+            res = [me["res"][RES_ENGINE[r]] for r in range(5)]
+            roads_card = me["devOld"].get("1", 0) > 0
+            ours = trackers.plan(pn, smart, *args, res, me["playedDevThisTurn"], roads_card, st["current"] != pn)
+            java = [tuple(x) for x in rec["chosen"]] if rec["chosen"] else []
+            total["plan"] += 1
+            if [tuple(x) for x in ours] == java:
+                hits["plan"] += 1
+            elif verbose and shown["plan"] < 8:
+                shown["plan"] += 1
+                fmt = lambda xs: [(t, hex(c)) for t, c in xs]
+                print(f"  {Path(path).stem} turn {st['turns']} pn {pn} plan: java {fmt(java)} rust {fmt(ours)}  vp {me['totalVp']} res {res} wg {list(wg)}")
+                if "favorites" in rec:
+                    print(f"    java favorites {rec['favorites']}\n    rust favorites {trackers.favorites(pn)}")
+            if "favorites" in rec:
+                fs, fc, fr, card = trackers.favorites(pn)
+                jf = rec["favorites"]
+                for name, ours_f, java_f in (("settlement", fs, jf["settlement"]), ("city", fc, jf["city"]), ("road", fr, jf["road"])):
+                    total[f"favorite {name}"] += 1
+                    same = (ours_f is None and java_f is None) or (ours_f is not None and java_f is not None and ours_f[0] == java_f[0] and abs(ours_f[1] - java_f[1]) < 1e-3 * max(1.0, abs(java_f[1])))
+                    hits[f"favorite {name}"] += same
+                total["card score"] += 1
+                hits["card score"] += (card is None and jf["card"] is None) or (card is not None and jf["card"] is not None and abs(card - jf["card"]) < 1e-3 * max(1.0, abs(jf["card"])))
+            # the ETAs the plan left behind are what the Java logged
+            wg, lr, la = trackers.stored_etas()
             if "potSets" in rec:
                 ps, prd = trackers.potentials(pn)
                 total["potentialSettlements/own seat"] += 1
@@ -100,10 +176,6 @@ def main(paths, verbose=False):
             # SOCRobotDM.getDevCardScore leaves the real trackers recomputed with one extra VP card in our
             # hand (and never recomputes after), so while the deck lasts the logged own-seat ETA is that one
             wg_plus = wg
-            if st["devDeck"] > 0:
-                vp_plus = [p["totalVp"] + (1 if q == pn else 0) for q, p in enumerate(players)]
-                wg_plus, _, _, _ = trackers.etas(rs, st["longestRoad"], st["largestArmy"], [p["lrLen"] for p in players], [p["knights"] for p in players],
-                                                 [p["devOld"].get(KNIGHT_JS, 0) for p in players], [p["devNew"].get(KNIGHT_JS, 0) for p in players], st["devDeck"], vp_plus)
             for q in range(srv.n):
                 key = "winGameEta/own seat" if q == pn else "winGameEta/other seats"
                 total[key] += 1
@@ -126,5 +198,5 @@ def main(paths, verbose=False):
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if a != "-v"]
-    main(args or sorted(map(str, Path("data/jsettlers_oracle_smart").glob("*.jsonl"))), verbose="-v" in sys.argv)
+    args = [a for a in sys.argv[1:] if a not in ("-v", "--fast")]
+    main(args or sorted(map(str, Path("data/jsettlers_oracle_smart").glob("*.jsonl"))), verbose="-v" in sys.argv, smart="--fast" not in sys.argv)

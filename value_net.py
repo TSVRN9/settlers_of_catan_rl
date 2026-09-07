@@ -495,6 +495,59 @@ class DrrlPlayer(Player):
         return f"DrrlPlayer:{self.color.value}(steps={self.drrl.steps() if self.drrl else 0})"
 
 
+class JsettlerPlayer(Player):
+    """The JSettlers 2.6.10 robot ported to the engine (catan_engine jsettler/): `jsrobot` = SMART_STRATEGY
+    ("robot N"), `jsdroid` = FAST_STRATEGY ("droid N"), `jsettler` = jsrobot. The trackers see every piece in
+    order through the game's action records (or, on the bridge, the client's piece log in `pieces_log`)."""
+
+    def __init__(self, color, smart=True):
+        super().__init__(color)
+        self.smart = smart
+        self.bot = None
+        self.seen = 0
+        self.pieces_seen = 0
+        self.pieces_log = None  # bridge: [[kind, pn, jsCoord, gameState], ...] in server order
+        self.node_js = None  # bridge: JSettlers node coord per catanatron node id
+        self.bridge = False
+
+    def reset_state(self):
+        self.bot = None
+        self.seen = 0
+        self.pieces_seen = 0
+
+    def decide(self, game, playable_actions):
+        import catan_engine
+        import rust_bridge as rb
+
+        colors = list(game.state.colors)
+        pn = colors.index(self.color)
+        rs, ctx = rb.rust_state(game)
+        if self.bot is None:
+            self.bot = catan_engine.Jsettler(rs, pn, self.smart, (int(game.seed or 0) * 4 + pn) & (2**63 - 1), self.node_js)
+        if self.pieces_log is not None:  # the bridge's client-side log, JSettlers coords, server order
+            for kind, who, coord, gs in self.pieces_log[self.seen:]:
+                self.bot.observe_js(kind, who, coord, gs < 15)
+            self.seen = len(self.pieces_log)
+        else:  # the game's action records; the first 4 pieces per player are the initial placement
+            recs = game.state.action_records
+            for rec in recs[self.seen:]:
+                a = rec.action
+                t = a.action_type.value
+                if t in ("BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY"):
+                    kind = {"BUILD_ROAD": 0, "BUILD_SETTLEMENT": 1, "BUILD_CITY": 2}[t]
+                    coord = ctx.edge_idx[tuple(sorted(a.value))] if kind == 0 else a.value
+                    self.bot.observe(kind, colors.index(a.color), coord, self.pieces_seen < 4 * len(colors))
+                    self.pieces_seen += 1
+            self.seen = len(recs)
+        a = self.bot.decide(rs)
+        if a is None:
+            return without_offers(playable_actions)[0]
+        return rb.uncanon(a, self.color, ctx, colors, state=game.state)
+
+    def __repr__(self):
+        return f"JsettlerPlayer:{self.color.value}({'smart' if self.smart else 'fast'})"
+
+
 class MctsPlayer(Player):
     """The thesis MCTS agents (catan_engine mcts.rs): uct | buct | vpi over the agent's own turn, random playouts,
     heuristic search and the 1-ply trade policy on every other prompt. Tokens `uct`, `buct`, `vpi`; `uct2000` = 2,000
@@ -541,6 +594,8 @@ def make_player(spec, color):
     m = re.fullmatch(r"drrl(\d*)(\+?)(?::([a-z]+))?", spec)  # drrl = the EUMAS 2018 agent over the Rust heuristic base, drrl32 = hidden 32, drrl+ = weights kept across games, drrl:blcw = literal readings
     if m:
         return DrrlPlayer(color, hidden=int(m.group(1)) if m.group(1) else None, persist=bool(m.group(2)), variant=m.group(3) or "")
+    if spec in ("jsettler", "jsrobot", "jsdroid"):  # the JSettlers robot port: smart ("robot N") / fast ("droid N")
+        return JsettlerPlayer(color, smart=spec != "jsdroid")
     m = re.fullmatch(r"(uct|buct|vpi)(\d*)", spec)  # the thesis MCTS agents; uct2000 = 2,000 playouts per decision
     if m:
         return MctsPlayer(color, m.group(1), int(m.group(2)) if m.group(2) else None)

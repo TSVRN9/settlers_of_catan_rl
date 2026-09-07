@@ -1,7 +1,7 @@
 // Types shared by the worker (owns the wasm Engine) and the UI, plus the request/response client.
 
 export type Canon = [string, number, number, number];
-export type BotKind = "random" | "heuristic" | "vnet" | "drrl" | "uct" | "buct" | "vpi" | "human";
+export type BotKind = "random" | "heuristic" | "vnet" | "drrl" | "jsrobot" | "jsdroid" | "uct" | "buct" | "vpi" | "human";
 export interface BotSpec { kind: BotKind; depth: number }
 
 export interface PlayerView {

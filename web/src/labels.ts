@@ -132,11 +132,13 @@ export const BOT_NAMES: Record<string, string> = {
   heuristic: "Heuristic search (AlphaBeta's evaluator)",
   vnet: "Value-net search (v40)",
   drrl: "DRRL (EUMAS 2018) trades, heuristic search plays",
+  jsrobot: "jSettler, smart strategy (JSettlers 2.6.10 robot)",
+  jsdroid: "jSettler, fast strategy (JSettlers 2.6.10 droid)",
   uct: "MCTS, UCT (Karamalegos 2016)",
   buct: "MCTS, Bayesian UCT (Karamalegos 2016)",
   vpi: "MCTS, value of perfect information (Karamalegos 2016)",
 };
-export const BOT_SHORT: Record<string, string> = { human: "You", random: "Random", heuristic: "Heuristic search", vnet: "Value-net search", drrl: "DRRL", uct: "UCT", buct: "BUCT", vpi: "VPI" };
+export const BOT_SHORT: Record<string, string> = { human: "You", random: "Random", heuristic: "Heuristic search", vnet: "Value-net search", drrl: "DRRL", jsrobot: "jSettler", jsdroid: "jSettler fast", uct: "UCT", buct: "BUCT", vpi: "VPI" };
 
 export function fmtPct(p: number | null | undefined) {
   return p == null || Number.isNaN(p) ? "–" : `${(100 * p).toFixed(1)}%`;

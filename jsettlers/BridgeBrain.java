@@ -31,7 +31,9 @@ import soc.game.SOCRoutePiece;
 import soc.game.SOCSettlement;
 import soc.game.SOCTradeOffer;
 import soc.message.SOCGameStats;
+import soc.message.SOCMakeOffer;
 import soc.message.SOCMessage;
+import soc.message.SOCRejectOffer;
 import soc.robot.DiscardStrategy;
 import soc.robot.MonopolyStrategy;
 import soc.robot.OpeningBuildStrategy;
@@ -86,6 +88,8 @@ public class BridgeBrain extends SOCRobotBrain
     private String[] cachedPlay1; // a PLAY_TURN answer asked by the knight check, consumed by planStuff
     /** Offers made this turn (JSettlers order, give then get): the engine's spent-offer rule, so a rejected offer is not repeated. */
     private final List<int[]> spentOffers = new ArrayList<>();
+    /** Every piece the trackers saw, in server order: type, player, coord, game state (for the jsettler port's trackers). */
+    private final List<int[]> pieceLog = new ArrayList<>();
     private static final boolean TRACE = Boolean.getBoolean("bridge.trace");
     private String lastRequest, lastReply, lastBoard; // for the dump when the server rejects a placement
 
@@ -245,7 +249,13 @@ public class BridgeBrain extends SOCRobotBrain
         sb.append("{\"current\":").append(game.getCurrentPlayerNumber()).append(",\"turns\":").append(turns())
           .append(",\"robber\":").append(b.getRobberHex()).append(",\"devDeck\":").append(game.getNumDevCards())
           .append(",\"longestRoad\":").append(lr == null ? -1 : lr.getPlayerNumber())
-          .append(",\"largestArmy\":").append(la == null ? -1 : la.getPlayerNumber()).append(",\"spentOffers\":[");
+          .append(",\"largestArmy\":").append(la == null ? -1 : la.getPlayerNumber()).append(",\"pieces\":[");
+        for (int i = 0; i < pieceLog.size(); ++i)
+        {
+            int[] q = pieceLog.get(i);
+            sb.append(i == 0 ? "" : ",").append('[').append(q[0]).append(',').append(q[1]).append(',').append(q[2]).append(',').append(q[3]).append(']');
+        }
+        sb.append("],\"spentOffers\":[");
         for (int i = 0; i < spentOffers.size(); ++i)
         {
             sb.append(i == 0 ? "[" : ",[");
@@ -387,7 +397,19 @@ public class BridgeBrain extends SOCRobotBrain
                     }
                 sb.append("]}");
             }
-            sb.append("],\"state\":");
+            sb.append("],\"favorites\":{");
+            if (decisionMaker != null)
+            {
+                SOCPossibleSettlement fs = decisionMaker.getFavoriteSettlement();
+                SOCPossibleCity fc = decisionMaker.getFavoriteCity();
+                SOCPossibleRoad fr = decisionMaker.getFavoriteRoad();
+                soc.robot.SOCPossibleCard card = decisionMaker.getPossibleCard();
+                sb.append("\"settlement\":").append(fs == null ? "null" : "[" + fs.getCoordinates() + "," + fs.getScore() + "]")
+                  .append(",\"city\":").append(fc == null ? "null" : "[" + fc.getCoordinates() + "," + fc.getScore() + "]")
+                  .append(",\"road\":").append(fr == null ? "null" : "[" + fr.getCoordinates() + "," + fr.getScore() + "]")
+                  .append(",\"card\":").append(card == null ? "null" : Float.toString(card.getScore()));
+            }
+            sb.append("},\"state\":");
             stateJson(sb);
             sb.append("}\n");
             oracleLine(sb.toString());
@@ -410,10 +432,62 @@ public class BridgeBrain extends SOCRobotBrain
         return out;
     }
 
+    /** log mode: the trade messages the negotiator's bookkeeping reacts to, in order. */
+    private void tradeEvent(String json)
+    {
+        if (! oracle)
+            return;
+        try
+        {
+            oracleLine("{\"trade\":" + json + "}\n");
+        }
+        catch (IOException e)
+        {
+            System.err.println("bridge oracle: " + e);
+        }
+    }
+
+    @Override
+    protected void handleMAKEOFFER(SOCMakeOffer mes)
+    {
+        SOCTradeOffer o = mes.getOffer();
+        if (o.getFrom() != ourPlayerNumber)
+        {
+            StringBuilder sb = new StringBuilder("{\"kind\":\"offer\",").append(offerJson(o)).append(",\"to\":[");
+            boolean[] to = o.getTo();
+            for (int pn = 0; pn < to.length; ++pn)
+                sb.append(pn == 0 ? "" : ",").append(to[pn]);
+            tradeEvent(sb.append("]}").toString());
+        }
+        super.handleMAKEOFFER(mes);
+    }
+
+    @Override
+    protected void handleREJECTOFFER(SOCRejectOffer mes)
+    {
+        tradeEvent("{\"kind\":\"reject\",\"pn\":" + mes.getPlayerNumber() + ",\"reason\":" + mes.getReasonCode() + ",\"waiting\":" + waitingForTradeResponse + "}");
+        super.handleREJECTOFFER(mes);
+    }
+
+    @Override
+    protected void handleTradeResponse(final int toPlayerNum, final boolean accepted)
+    {
+        tradeEvent("{\"kind\":\"response\",\"pn\":" + toPlayerNum + ",\"accepted\":" + accepted + "}");
+        super.handleTradeResponse(toPlayerNum, accepted);
+    }
+
+    @Override
+    protected void tradeStopWaitingClearOffer()
+    {
+        tradeEvent("{\"kind\":\"noresponse\",\"waiting\":" + waitingForTradeResponse + "}");
+        super.tradeStopWaitingClearOffer();
+    }
+
     /** log mode: every piece the trackers see, in server order, so the port can replay them. */
     @Override
     public void handlePUTPIECE_updateTrackers(final int pn, final int coord, final int pieceType)
     {
+        pieceLog.add(new int[] { pieceType, pn, coord, game.getGameState() });
         if (oracle)
         {
             try

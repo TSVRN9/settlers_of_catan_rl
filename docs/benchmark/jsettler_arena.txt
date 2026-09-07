@@ -1,0 +1,9 @@
+# 2026-09-07T12:23 each token vs 3x rab, 300 games, seeds 0.., seat order per seed
+jsrobot: 50/300 = 16.7% [12.9, 21.3]  mean VP 6.28  0.16 s/game
+jsdroid: 35/300 = 11.7% [8.5, 15.8]  mean VP 6.31  0.11 s/game
+# done
+# 2026-09-07T12:30:11-04:00 with the negotiator (offers and replies)
+# 2026-09-07T12:30 each token vs 3x rab, 300 games, seeds 0.., seat order per seed
+jsrobot: 77/300 = 25.7% [21.1, 30.9]  mean VP 6.87  0.27 s/game
+jsdroid: 47/300 = 15.7% [12.0, 20.2]  mean VP 6.76  0.11 s/game
+# done
