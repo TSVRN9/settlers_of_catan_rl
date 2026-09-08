@@ -10,3 +10,7 @@ drrl:blw: 22/300 = 7.3% [4.9, 10.9]  mean VP 5.31  0.12 s/game
 drrl:lcw: 28/300 = 9.3% [6.5, 13.2]  mean VP 5.78  1.66 s/game
 drrl:blcw: 32/300 = 10.7% [7.7, 14.7]  mean VP 5.73  0.13 s/game
 # done
+# 2026-09-07T21:47-04:00 drrl:c with the engine applying counters
+# 2026-09-07T21:47 each token vs 3x rab, 100 games, seeds 0.., seat order per seed
+drrl:c: 5/100 = 5.0% [2.2, 11.2]  mean VP 4.33  0.38 s/game
+# done

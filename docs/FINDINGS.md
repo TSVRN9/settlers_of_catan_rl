@@ -2629,3 +2629,32 @@ match 293 of 325 once the client's trade messages are replayed into the negotiat
 rest come from opponents' hands, which the Java client sees as unknown cards). On the arena the smart jSettler wins 25.7% [21.1, 30.9] against three `rab`
 (16.7% with its negotiator off, so the paper is right that trading is its strength); the fast one 15.7%.
 Through the bridge against three stock jSettlers the port wins 32.0% [23.5, 41.8] (97 games), and 16.5% [10.4, 25.1] with the negotiator off; a stock jSettler in that seat expects about 25%.
+
+## 2026-09-07: the jSettler port's three deviations closed (docs/BENCHMARK.md Phase E, docs/superpowers/plans/2026-09-07-jsettler-deviations.md)
+
+Counter-offers now exist in both engines: a responder's `OFFER_TRADE` at `DECIDE_TRADE` is a counter to the
+turn player, legal while nobody has accepted; the turn player accepts (the trade executes at once, as in
+JSettlers) or rejects (spent for the turn, with the offer it answered). `State.events` logs every card
+movement and trade message the JSettlers server announces, and `jsettler/view.rs` replays it into each seat's
+`SOCPlayer.getResources()` view (known counts plus UNKNOWN, with `SOCResourceSet`'s arithmetic: a discard or
+a robbery hides the whole hand), which the negotiator's simulations of other seats read; every offer and
+rejection on the table reaches its bookkeeping, `recordResourcesFromRejectAlt` included. The `JsettlerPlayer`
+keeps a mirrored Rust state on the Python path (the replay oracle asserts it equals its own); the bridge
+forwards the client's view and trade messages.
+
+What the oracle then showed: offers match 248 of 264 with the client's view against 233 of 264 on the exact
+hands, replies 155 of 156, and counter-offers 64 of 68 — where the Java's own `makeCounterOffer` returns
+null in 67 of those 68 calls. JSettlers says "counter" often and almost never finds a counter to make; the
+"no counter-offers" deviation was worth about one reply per ten games. Strength moved within noise: `jsrobot`
+24.7% [20.1, 29.8] and `jsdroid` 16.7% [12.9, 21.3] against three `rab` (300 games each; 25.7% and 15.7%
+before), and 30.0% [21.5, 40.1] against three stock jSettlers through the bridge (90 games; 32.0% before).
+
+One number did move: `drrl:c`, the paper's counter-offer reading, fell from 10.7% [7.7, 14.7] to 5.0%
+[2.2, 11.2] (100 games, mean 4.33 VP) once the engine applies its counters instead of rejecting. A fresh
+net's argmax over 72 heads lands on an offer head nearly every reply, and `rab` accepts the counters that
+suit it. The earlier gain from `c` was the gain of rejecting.
+
+Remaining deviations, recorded in BENCHMARK.md: the turn player cannot counter a counter; counters only
+before any seat accepted, replies in seat order; `recordResourcesFromNoResponse` never fires. The fork commit
+carrying the counter rule (`vendor/catanatron` 71ab0f3) is not yet pushed or pinned; the venv runs it as an
+editable install.

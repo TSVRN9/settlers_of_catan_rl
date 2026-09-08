@@ -7,3 +7,8 @@ jsdroid: 35/300 = 11.7% [8.5, 15.8]  mean VP 6.31  0.11 s/game
 jsrobot: 77/300 = 25.7% [21.1, 30.9]  mean VP 6.87  0.27 s/game
 jsdroid: 47/300 = 15.7% [12.0, 20.2]  mean VP 6.76  0.11 s/game
 # done
+# 2026-09-07T21:47-04:00 counter-offers + client view of hands + rejection bookkeeping (docs/superpowers/plans/2026-09-07-jsettler-deviations.md)
+# 2026-09-07T21:47 each token vs 3x rab, 300 games, seeds 0.., seat order per seed
+jsrobot: 74/300 = 24.7% [20.1, 29.8]  mean VP 6.94  0.05 s/game
+jsdroid: 50/300 = 16.7% [12.9, 21.3]  mean VP 6.89  0.03 s/game
+# done

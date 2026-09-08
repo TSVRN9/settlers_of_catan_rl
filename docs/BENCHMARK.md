@@ -97,7 +97,7 @@ token (`drrl:blcw` = all four), so they can be measured alone and together:
 |---|---|---|---|
 | `b` | Eq. 5: phi_j(s_t) = (1 - sigmoid(s_j)) phi_j(s_{t-1}) + sigmoid(s_j) tanh(s_j), applied per state variable; the network's only parameters are the theta^i | a real LSTM cell per action (the user's choice), scaled inputs | the weightless Eq. 5 recurrence on the raw integer features; theta^i (154 weights per head) is all that trains |
 | `l` | Algorithm 1: at time t, SGD on every Q^i(s_t) toward r + gamma Q-hat, where Q-hat is the input (the previous step's chosen value), then argmax | the standard one-step TD update: the previous state's heads move toward r + gamma max over the legal heads now | the current state's heads move toward r_t + gamma Q-hat_{t-1} before the action is chosen (line 11 re-evaluates) |
-| `c` | "accept, reject, or make a counter-offer"; "rarely accepting ... it would rather counter-offer" | replies are accept/reject | a reply's legal set is accept, reject and every affordable offer; an offer head wins = a counter-offer (through the bridge as a JSettlers counter-offer to the offerer; the engine cannot express it and rejects instead) |
+| `c` | "accept, reject, or make a counter-offer"; "rarely accepting ... it would rather counter-offer" | replies are accept/reject | a reply's legal set is accept, reject and every affordable, unspent offer; an offer head wins = a counter-offer, which both engines apply as such since 2026-09-07 (before that the engine rejected instead; through the bridge it was always a JSettlers counter-offer) |
 | `w` | theta "initialized with a truncated normal distribution" (TensorFlow's default sigma is 1), LSTM defaults | sigma 0.1 everywhere | theta sigma 1, glorot-uniform LSTM kernel, forget bias 1 |
 
 Arena screen, each variant vs 3x `rab`, 300 games, seeds 0.., seat order per seed (`docs/benchmark/drrl_variants.txt`):
@@ -109,6 +109,12 @@ Arena screen, each variant vs 3x `rab`, 300 games, seeds 0.., seat order per see
 | `drrl:l` | 8.0% [5.4, 11.6] | | `drrl:blw` | 7.3% [4.9, 10.9] |
 | `drrl:c` | 10.7% [7.7, 14.7] | | `drrl:lcw` | 9.3% [6.5, 13.2] |
 | `drrl:w` | 9.0% [6.3, 12.8] | | `drrl:blcw` | 10.7% [7.7, 14.7] |
+
+Those `c` numbers were measured while the engine turned a counter-offer into a rejection. Once the engine
+applies counters (2026-09-07 evening, Phase E "deviations closed"), `drrl:c` vs 3x `rab` over 100 games is
+5.0% [2.2, 11.2] with a mean of 4.33 VP: a fresh net's argmax over 72 heads lands on one of the 70 offer heads
+nearly every reply, and the counters it makes are the ones `rab` is glad to accept. The literal reading is
+harmful with an untrained net; the earlier "+3 to +4 points" came from replying with a rejection instead.
 
 Through the bridge, the paper's own setting (DRRL deciding only trades over a stock jSettler, 3 stock jSettlers
 as opponents, default mix, 100 games each):
@@ -125,8 +131,10 @@ as opponents, default mix, 100 games each):
 
 Reading: none of the literal readings, alone or together, moves DRRL toward the paper's 45%. `l` alone changes
 nothing measurable because, at the paper's reward scale, neither update rule moves the weights within a game
-(`drrl` and `drrl:l` win the same 24 seeds). Counter-offers (`c`) are the one reading that matters, +3 to +4
-points on both arenas, which fits the paper's remark that its agent countered rather than accepted; the
+(`drrl` and `drrl:l` win the same 24 seeds). Counter-offers (`c`) looked like the one reading that matters, +3 to +4
+points on both arenas, which fit the paper's remark that its agent countered rather than accepted — but that
+was measured with the engine turning every counter into a rejection; applied for real (the note under the
+table) the reading costs 5 points; the
 weightless basis (`b`) makes the agent 10x cheaper and no better, and with everything literal it is the
 weakest of all. The gap to the paper is not in the network or the update; the remaining candidates are the
 opponents' replies (the paper's jSettlers accepted enough of DRRL's 10-40 offers per game to matter; here the
@@ -291,8 +299,9 @@ pieces with their scores. `tools/jsettlers_oracle.py` replays the pieces through
 | possible settlements (with necessary-road counts), roads, cities, all seats | `tracker.rs` | 100% (1308) |
 | the build plan, smart strategy | `dm.rs` | 100% (307), favourite settlement / city / road and their scores 100% |
 | the build plan, fast strategy | `dm.rs` | 100% (867) |
-| replies to offers (considerOffer2) | `negotiator.rs` | 397 / 400 |
-| offers made (makeOffer), with the client's trade messages replayed into its bookkeeping | `negotiator.rs` | 293 / 325 (the rest: the offer simulations read opponents' hands, which the Java client sees as unknown cards and the port sees exactly) |
+| replies to offers (considerOffer2) | `negotiator.rs` | 397 / 400 (a later 10-game series with the client's view of every hand: 155 / 156) |
+| offers made (makeOffer), with the client's trade messages replayed into its bookkeeping | `negotiator.rs` | 293 / 325 with the exact hands the Java cannot see; 248 / 264 on the later series once the simulations read the client's view (`view.rs`), where the same series gave 233 / 264 on the exact hands |
+| counter-offers (makeCounterOffer), on the offer the reply answered | `negotiator.rs` | 64 / 68 — and the Java itself makes a counter in 1 of those 68 calls: `considerOffer2` says "counter" often, `makeCounterOffer` almost always finds nothing to offer and the brain rejects |
 
 Java behaviours a clean reimplementation would miss, all reproduced: at the first regular turn
 `SOCGame.updateAtGameFirstTurn` clears every player's potential settlements, which only come back through
@@ -304,11 +313,26 @@ settlement speedups are always zero; tracker copies relink necessary roads and c
 temporary pieces leave the players' longest-road paths as they recomputed them, restored by the decision
 maker at two points only; `HashSet<Integer>` and `Hashtable` iteration orders decide the strict argmaxes.
 
-Deviations of the port, recorded: the engine's trade round has no counter-offers, so a reply the Java would
-counter is a rejection here (the Java counters far more than it accepts); the port sees opponents' hands and
-dev cards (the Java client sees unknown cards), which the negotiator's simulations of the other players'
-plans use; rejections of other players' offers are not observed (`recordResourcesFromRejectAlt`); the
-Java's unseeded random choices (robber fallback, discards without a plan) use the engine's seeded stream.
+Three deviations recorded on 2026-09-07 morning were closed the same day
+(`docs/superpowers/plans/2026-09-07-jsettler-deviations.md`): the engine's trade round had no counter-offers
+(a reply the Java would counter was a rejection); the port read opponents' exact hands where the Java client
+sees unknown cards; rejections of other players' offers were not observed. Now: a responder's `OFFER_TRADE`
+at `DECIDE_TRADE` is a counter-offer to the turn player in both engines (the fork and `catan_engine`), legal
+while nobody has accepted, answered by the turn player with accept (the trade executes at once, as in
+JSettlers) or reject (spent for the turn, as is the offer it answered); `State.events` logs every card
+movement and trade message the JSettlers server would announce (types for public movements, none for a
+discard or a steal), and `jsettler/view.rs` replays it into each seat's `SOCPlayer.getResources()` view
+with `SOCResourceSet`'s arithmetic (a hidden loss converts the whole hand to UNKNOWN), which the negotiator's
+simulations of other seats read; every offer and reply on the table reaches the negotiator's isSelling /
+wantsAnotherOffer / offersMade bookkeeping, `recordResourcesFromRejectAlt` included. On the Python path the
+`JsettlerPlayer` keeps a mirrored Rust state (records applied with their outcomes pinned; `test_env.py`
+asserts it equals the replay's); on the bridge the client's own view and trade messages are forwarded.
+
+Deviations that remain: the turn player answers a counter with accept or reject only (JSettlers lets it
+counter again); a counter is possible only before any seat accepted, and replies come in seat order where
+JSettlers' come at once and the first accept trades; `recordResourcesFromNoResponse` never fires (every
+seat answers); the Java's unseeded random choices (robber fallback, discards without a plan) use the
+engine's seeded stream.
 
 Results (100 games unless noted; win ratios with 95% Wilson intervals):
 
@@ -320,9 +344,14 @@ Results (100 games unless noted; win ratios with 95% Wilson intervals):
 | `jsdroid` vs 3x `rab`, arena, 300 games | 15.7% [12.0, 20.2] |
 | `jsrobot` vs 3 stock jSettlers through the bridge (full mode, default mix), 97 games | 32.0% [23.5, 41.8] |
 | the same with the negotiator off, 97 games | 16.5% [10.4, 25.1] |
+| `jsrobot` vs 3x `rab`, arena, 300 games, deviations closed (2026-09-07 evening) | 24.7% [20.1, 29.8] |
+| `jsdroid` vs 3x `rab`, arena, 300 games, deviations closed | 16.7% [12.9, 21.3] |
+| `jsrobot` vs 3 stock jSettlers through the bridge (full mode, default mix), deviations closed, 90 games | 30.0% [21.5, 40.1] |
 
 A stock jSettler in that seat wins about 25% (four equals); the port with its negotiator is inside that range
-and the one without is not: the negotiator is what the paper says it is, the jSettler's edge.
+and the one without is not: the negotiator is what the paper says it is, the jSettler's edge. Closing the three
+deviations moved nothing outside its interval, which the oracle explains: the Java's `makeCounterOffer` finds a
+counter in 1 of 68 calls, and the client's view of hands changes 15 of 264 offers.
 
 The paper's exact pool on the Rust arena at last (`tournament.py --pool drrl,jsrobot,uct,buct,vpi --games 100`,
 `docs/benchmark/paper_pool_jsrobot.json`), against Fig. 3a:
