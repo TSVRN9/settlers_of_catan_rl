@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
-    "catanatron[gym] @ git+https://github.com/TSVRN9/catanatron@1937321d1c8c22260fe6bbaba5e134b159ddaab2",
+    "catanatron[gym] @ git+https://github.com/TSVRN9/catanatron@de759e4d75f5cabbd062892fb7b512cc85b33d0f",
     "torch==2.13.0+xpu",
     "triton-xpu==3.7.2",
     "sb3-contrib",

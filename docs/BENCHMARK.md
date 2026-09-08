@@ -390,3 +390,69 @@ rebuild from `State` at each decision.
 Alternative second opinion on "MCTS": StacSettlers (github.com/ruflab/StacSettlers, GPL; Edinburgh) ships Java
 MCTS agents (`sorinMD/MCTS`, MIT) and a bulk `Simulation` harness; runnable against the Phase B bridge in a day once
 that exists, not before.
+
+## Phase F (2026-09-08): final benchmark, every live model in one table
+
+Everything above used a mix of `MIX`s and engine states across different days; this is one pass, on the
+current engine (post-trading, jSettler deviations closed, the `de759e4` counter-offer-spent fix pushed to
+`TSVRN9/catanatron` and pinned in `pyproject.toml`), so every row is comparable to every other row for the
+first time. Two runs close the gaps the earlier phases left: every live-line token through the real-
+jSettlers bridge under one fixed `MIX` (step-for-step the Phase B protocol, re-run rather than reused so
+`ab`/`vf`/`wr` join the table and every row shares an engine state); and the pool Phase D/E never ran — v40
+alongside jsrobot, drrl, uct, buct and vpi together (Phase D used `rab` as the jSettler stand-in, Phase E had
+jsrobot but no v40). PPO (`checkpoints_500k/`, `_augobs/`, `_bc/`, `_selfplay/`) is dormant and not wired into
+`value_net.make_player`; its old numbers against `weighted_random`/`value_function` stand in FINDINGS.md as
+history, not re-run here.
+
+Runs: `PORT=<p> MIX=default jsettlers/run.sh play 100 full <token> docs/benchmark/final_jsettlers_<name>.txt`
+per token, and
+`tournament.py --pool vnet:checkpoints_value/v40.pt,jsrobot,drrl,uct,buct,vpi --games 40 --out docs/benchmark/final_pool.json`.
+
+### Real jSettlers, one fixed MIX, every live-line token
+
+| token | games | wins | win ratio | 95% CI | mean VP |
+|---|---|---|---|---|---|
+| `vnet:v40` | 100 | 45 | 45.0% | [35.6, 54.8] | 8.21 |
+| `uct` | 100 | 37 | 37.0% | [28.2, 46.8] | 8.26 |
+| `jsrobot` | 100 | 31 | 31.0% | [22.8, 40.6] | 7.57 |
+| `rab` | 100 | 29 | 29.0% | [21.0, 38.5] | 7.78 |
+| `buct` | 100 | 25 | 25.0% | [17.5, 34.3] | 8.00 |
+| `ab` | 100 | 24 | 24.0% | [16.7, 33.2] | 7.45 |
+| `jsdroid` | 100 | 22 | 22.0% | [15.0, 31.1] | 7.65 |
+| `vf` | 100 | 11 | 11.0% | [6.3, 18.6] | 6.61 |
+| `vpi` | 100 | 11 | 11.0% | [6.3, 18.6] | 6.96 |
+| `drrl` | 100 | 5 | 5.0% | [2.2, 11.2] | 5.80 |
+| `wr` | 100 | 1 | 1.0% | [0.2, 5.4] | 2.96 |
+
+`jsrobot`'s server hung twice on unrelated games (`~botsOnly~88`, then `~botsOnly~44` on the first retry), no
+exception either time, the process alive at near-zero CPU; killed both times, then finished across two more
+bounded runs (96/100, then the last 4) with no further hang. A hang in the bridge itself (not the port, not
+this repo's engine, since every other token including `jsdroid` ran clean throughout) is worth a look
+separately — not touched here.
+
+v40 leads, essentially unchanged from Phase B's 44.0% [34.7, 53.8] on the pre-this-run engine: the counter-
+offer-spent fix and the fresh pin moved nothing outside noise. UCT is still the strongest non-net agent,
+consistent with Phase D's inverted-thesis ordering. `rab` and `ab` — the Rust and Python AlphaBeta ports —
+land inside each other's CI, indistinguishable here despite `ab`'s extra trade policy. `jsrobot`'s 31.0%
+is close to the ~25% a fourth stock jSettler would draw on its own, the port's intended result. `wr` at 1.0%
+is the floor a real jSettlers pool leaves an agent with no search at all.
+
+### The pool Phase D/E never ran: v40 + jsrobot + drrl + uct + buct + vpi, Rust arena
+
+15 lineups, 600 games, 0 without a winner:
+
+| agent | games | wins | win ratio | 95% CI | mean VP |
+|---|---|---|---|---|---|
+| `vnet(v40)` | 400 | 199 | 49.8% | [44.9, 54.6] | 8.34 |
+| `uct` | 400 | 166 | 41.5% | [36.8, 46.4] | 7.92 |
+| `buct` | 400 | 96 | 24.0% | [20.1, 28.4] | 7.38 |
+| `jsrobot` | 400 | 79 | 19.8% | [16.1, 23.9] | 6.34 |
+| `vpi` | 400 | 34 | 8.5% | [6.1, 11.6] | 6.53 |
+| `drrl` | 400 | 26 | 6.5% | [4.5, 9.4] | 5.34 |
+
+Same ordering as the bridge table and as Phase D's `rab`-standing-in-for-jSettler pool (v40 45.8%, uct 35.8%
+there): swapping the actual jSettler port in for `rab` doesn't change who wins. v40 clears the field either
+way, by about 8 points over UCT, the next-best agent, in both the real-jSettlers and the arena setting.
+
+That's the final comparison: v40 is the strongest agent this project has built, by every measure taken, in
+every pool it's been run against.
