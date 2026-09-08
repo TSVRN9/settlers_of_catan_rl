@@ -40,7 +40,7 @@ export function install() {
       return;
     }
     if (e.key === "ArrowLeft" && review && s.step != null) { e.preventDefault(); set({ step: Math.max(0, s.step - 1) }); return; }
-    if (e.key === "ArrowRight" && review && s.step != null) { e.preventDefault(); set({ step: s.step + 1 }); return; }
+    if (e.key === "ArrowRight" && review && s.step != null) { e.preventDefault(); set({ step: Math.min(s.frames.length - 1, s.step + 1) }); return; }
     // In the stands the arrows are the seek: ← holds the game and looks back a step, → looks
     // forward until live, then plays one step of the held game.
     if (e.key === "ArrowLeft" && stands && s.view) { e.preventDefault(); seek(s.view.steps - 1); return; }
