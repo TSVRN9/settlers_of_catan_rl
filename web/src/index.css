@@ -179,6 +179,11 @@ body {
 .hand-line > * { overflow: hidden; min-height: 0; }
 .hand-line.open { grid-template-rows: 1fr; opacity: 0.62; }
 
+/* A list that unfolds in flow: same mechanism, full ink. */
+.unfold { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows var(--t-panel) var(--ease), opacity var(--t-panel) var(--ease); }
+.unfold > * { overflow: hidden; min-height: 0; }
+.unfold.open { grid-template-rows: 1fr; opacity: 1; }
+
 /* A card lifts under the pointer. Motion only: no outline, no halo. */
 .card { transition: translate var(--t-feel) var(--ease); }
 .card:hover { translate: 0 -7px; }

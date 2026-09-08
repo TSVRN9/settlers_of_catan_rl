@@ -139,9 +139,11 @@ async function watch() {
     return;
   }
   if (runToken !== token) return;
-  // The run's last frame is the final position; the playhead may still be well behind it.
+  // The run's last frame is the final position; the playhead may still be well behind it, and
+  // then walking or stepping there announces the ending. Only a playhead already on the last
+  // frame needs re-showing — re-showing it anywhere else would wipe a review view's `step`.
   const cur = get();
-  if (cur.view && cur.frames[cur.view.steps]) show(cur.view.steps);
+  if (cur.view && cur.frames[cur.view.steps] && !cur.frames[cur.view.steps + 1]) show(cur.view.steps);
 }
 export function stopWatching() { runToken++; stopTimer(); void live.abort(); }
 
@@ -154,6 +156,10 @@ export function togglePause() {
 export const stepOnce = () => { const s = get(); if (s.paused && s.view && s.frames[s.view.steps + 1]) show(s.view.steps + 1); };
 export function setPace(pace: Pace) { set({ pace }); if (timer != null) startTimer(); }
 
+/** Holds the playback where it is: the stands' seek does this, and so does opening a review view,
+ *  whose `step` the playhead would otherwise wipe every tick. */
+export function hold() { stopTimer(); set({ paused: true }); }
+
 /** Look at a step of the game. In the stands that is the playhead itself, held; at a seat it
  *  is a look back (`step`) while the live position stays where it is. */
 export function seek(step: number) {
@@ -161,7 +167,7 @@ export function seek(step: number) {
   const last = s.frames.length - 1;
   if (last < 0) return;
   const at = Math.max(0, Math.min(last, step));
-  if (!playing(s)) { stopTimer(); set({ paused: true }); show(at); return; }
+  if (!playing(s)) { hold(); show(at); return; }
   set({ step: at >= last ? null : at, staged: null, hover: null });
 }
 

@@ -4,12 +4,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { BotKind, BotSpec } from "../engine";
 import { deal, resume, start } from "../game";
-import { BOT_SHORT, SEAT_NAMES } from "../labels";
+import { BOT_INFO, BOT_NAMES, BOT_SHORT, SEAT_NAMES } from "../labels";
+import Picker from "./Picker";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
 import { set, useApp } from "../store";
 
-const KINDS: BotKind[] = ["human", "vnet", "heuristic", "jsrobot", "jsdroid", "drrl", "uct", "buct", "vpi", "random"];
 const ORDINAL = ["first", "second", "third", "fourth"];
 const MAX = 4, MIN = 2;
 
@@ -21,11 +21,6 @@ const humanFor = (lineup: BotSpec[], prefer: number) => {
   return found >= 0 ? found : Math.min(prefer, lineup.length - 1);
 };
 
-const chevron = (
-  <svg width="9" height="6" viewBox="0 0 9 6" aria-hidden="true" style={{ flex: "0 0 9px" }}>
-    <path d="M0 0 L4.5 5 L9 0" fill="none" stroke="var(--color-moss)" strokeWidth="1.5" />
-  </svg>
-);
 
 export default function Lineup() {
   const s = useApp();
@@ -53,6 +48,11 @@ export default function Lineup() {
     if (text.trim() !== "" && Number.isFinite(v)) timer.current = window.setTimeout(() => set({ seed: Math.floor(Math.abs(v)) }), 300);
   };
 
+  // Which seat's list is unfolded, and the card open beside one of its rows. `top` is the row's
+  // offset in this Dock, the nearest positioned ancestor — nothing between them is positioned.
+  const [open, setOpen] = useState<number | null>(null);
+  const [info, setInfo] = useState<{ kind: BotKind; top: number } | null>(null);
+
   const setSeat = (i: number, kind: BotKind) => {
     const lineup = s.lineup.map((b, j) => (j === i ? { ...b, kind } : b));
     set({ lineup, human: humanFor(lineup, i) });
@@ -73,28 +73,15 @@ export default function Lineup() {
         <div style={{ font: "600 12.5px var(--font-sans)" }}>Seats</div>
         <div style={{ marginTop: 11, display: "flex", flexDirection: "column", gap: 6 }}>
           {s.lineup.map((b, i) => {
-            const person = b.kind === "human";
             return (
-              <div key={i} style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
-                <label className="cut8 chip" style={{
-                  position: "relative", flex: 1, display: "flex", alignItems: "center", gap: 10,
-                  background: "var(--color-chalk)", padding: "9px 11px", cursor: "pointer",
-                }}>
-                  <span style={{ width: 12, height: 12, flex: "0 0 12px", background: SEAT_FILL[i] }} />
-                  <span style={{ flex: 1, font: `${person ? 600 : 500} 13.5px var(--font-sans)` }}>
-                    {person ? SEAT_NAMES[i] : BOT_SHORT[b.kind]}
-                  </span>
-                  <span className="cap" style={{ fontSize: 12 }}>{person ? "person" : `bot · depth ${b.depth}`}</span>
-                  {chevron}
-                  <select value={b.kind} onChange={(e) => setSeat(i, e.target.value as BotKind)}
-                          aria-label={`${SEAT_NAMES[i]} is`}
-                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}>
-                    {KINDS.map((k) => <option key={k} value={k}>{BOT_SHORT[k]}</option>)}
-                  </select>
-                </label>
+              <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                <Picker seat={i} spec={b} open={open === i} info={open === i ? info?.kind ?? null : null}
+                        onOpen={(o) => { setOpen(o ? i : null); if (!o) setInfo(null); }}
+                        onPick={(k) => setSeat(i, k)}
+                        onInfo={(k, row) => setInfo(k && row ? { kind: k, top: row.offsetTop } : null)} />
                 {n > MIN && (
                   <button className="act cut8" aria-label={`Take ${SEAT_NAMES[i]} out`} title="Take this seat out"
-                          style={{ height: "auto", padding: "0 11px", fontSize: 15, background: "var(--color-chalk)" }}
+                          style={{ height: 36, padding: "0 11px", fontSize: 15, background: "var(--color-chalk)" }}
                           onClick={() => removeSeat(i)}>×</button>
                 )}
               </div>
@@ -134,6 +121,19 @@ export default function Lineup() {
       )}
 
       {s.error && <div className="cap" style={{ marginTop: 12, color: "var(--color-warn)" }}>{s.error}</div>}
+
+      {info && (
+        <div key={info.kind} className="cut8 arrive dock-l" style={{
+          position: "absolute", left: 352 + 12, top: info.top - 12, width: 304,
+          background: "var(--color-paper)", padding: "13px 15px 12px", fontSize: 12.5, lineHeight: 1.5,
+        }}>
+          <div className="d" style={{ fontSize: 17, lineHeight: 1.2 }}>{BOT_SHORT[info.kind]}</div>
+          <div className="cap" style={{ fontSize: 11.5, marginTop: 2 }}>{BOT_NAMES[info.kind]}</div>
+          <div style={{ marginTop: 9, fontWeight: 600 }}>{BOT_INFO[info.kind].what}</div>
+          <div style={{ marginTop: 4 }}>{BOT_INFO[info.kind].how}</div>
+          {BOT_INFO[info.kind].measured && <div className="cap" style={{ marginTop: 9, fontSize: 11.5 }}>{BOT_INFO[info.kind].measured}</div>}
+        </div>
+      )}
     </Dock>
   );
 }

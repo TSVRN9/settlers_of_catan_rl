@@ -10,8 +10,9 @@ import type { Attribution, BotKind, Decision, Frame, LuckRoll, MapView, View } f
 import { EDGES } from "./board/geometry";
 import { num, type Row } from "./coach";
 import { RESOURCES, SEAT_NAMES, who, whose } from "./labels";
+import { hold } from "./game";
 import { push } from "./route";
-import { get, set } from "./store";
+import { get, playing, set } from "./store";
 
 export const review = new EngineClient();
 
@@ -179,13 +180,16 @@ export function events(frames: Frame[], you: number): Event[] {
 /** Opens at the step being looked at (the stands' seek), else at the live position. */
 export function openGameAnalysis() {
   const s = get();
-  if (s.view) push("game", s.step ?? s.view.steps);
+  if (!s.view) return;
+  if (!playing(s)) hold();
+  push("game", s.step ?? s.view.steps);
 }
 
 export function openMoveAnalysis(step?: number) {
-  const v = get().view;
-  if (!v && step == null) return;
-  push("move", step ?? v!.steps);
+  const s = get();
+  if (!s.view && step == null) return;
+  if (!playing(s)) hold();
+  push("move", step ?? s.view!.steps);
 }
 
 const AUTOPLAY_MS = 450;

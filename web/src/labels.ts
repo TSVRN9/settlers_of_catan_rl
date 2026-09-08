@@ -1,4 +1,4 @@
-import type { Attribution, Canon, MapView } from "./engine";
+import type { Attribution, BotKind, Canon, MapView } from "./engine";
 
 export const RESOURCES = ["Wood", "Brick", "Sheep", "Wheat", "Ore"];
 export const RESOURCE_EMOJI = ["🌲", "🧱", "🐑", "🌾", "⛰️"];
@@ -137,6 +137,60 @@ export const BOT_NAMES: Record<string, string> = {
   uct: "MCTS, UCT (Karamalegos 2016)",
   buct: "MCTS, Bayesian UCT (Karamalegos 2016)",
   vpi: "MCTS, value of perfect information (Karamalegos 2016)",
+};
+/** The lineup's card on each bot: the chip caption, what decides, how, and one measured figure with its
+ *  lineup (docs/BENCHMARK.md results tables). `sub` gets " · depth N" appended for the bots that search. */
+export const BOT_INFO: Record<BotKind, { sub: string; what: string; how: string; measured?: string }> = {
+  human: { sub: "person", what: "A person at this seat.", how: "Hand, action column and coach; the readings are written from this seat." },
+  random: { sub: "uniform over legal moves", what: "Picks uniformly among the legal actions.", how: "No search, no evaluation, no trades." },
+  heuristic: {
+    sub: "search",
+    what: "Catanatron's AlphaBeta player, ported to Rust.",
+    how: "Depth-2 expectimax over the dice, leaves scored by AlphaBeta's hand-written evaluator (production, pieces, hand, road and army). Offers and replies come from a 1-ply trade policy over the same evaluator.",
+    measured: "AlphaBeta, which this ports: 32.2% of 400 games in the catanatron pool",
+  },
+  vnet: {
+    sub: "search",
+    what: "The same search with the evaluator replaced by a learned win-probability net.",
+    how: "v40: a value net trained expert-iteration style on rollout outcomes of its own games, read at every leaf of the depth-2 expectimax; leaves are batched per decision. Trades use the 1-ply policy over the net.",
+    measured: "72.0% of 400 games in the catanatron pool (AlphaBeta, MCTS and two greedy bots)",
+  },
+  drrl: {
+    sub: "trades by DRRL",
+    what: "The EUMAS 2018 agent: a learned trade layer over a fixed base.",
+    how: "72 heads (70 offers, accept, reject), one LSTM cell per head over a 154-int state, online SGD after every decision with a VP-difference reward, weights fresh each game. Every prompt that is not an offer or a reply goes to the heuristic search.",
+    measured: "11.0% of 400 games in the paper's five-agent pool",
+  },
+  jsrobot: {
+    sub: "SOCRobotBrain, smart",
+    what: "JSettlers 2.6.10's robot, ported hook for hook.",
+    how: "Building-speed estimates, player trackers, the SMART_STRATEGY planner, the robber, discard and monopoly strategies and the negotiator with counter-offers. Matched against the Java on a replay oracle.",
+    measured: "20.8% of 400 games in the paper's five-agent pool (the paper: 21%)",
+  },
+  jsdroid: {
+    sub: "SOCRobotBrain, fast",
+    what: "The same JSettlers robot on its FAST_STRATEGY planner.",
+    how: "Plans by building-speed estimates alone instead of the smart planner's threat and win-ETA search; otherwise the smart robot's code, negotiator included.",
+    measured: "16.7% of 300 games against three heuristic searches",
+  },
+  uct: {
+    sub: "MCTS · 5,000 playouts",
+    what: "Monte Carlo tree search with the UCT rule (Karamalegos 2016).",
+    how: "A tree over the agent's own post-roll turn, random playouts to a 10-round cut-off, every seat's VP as the reward, selection by UCT with C_p = 1/√2. Placement, robber, discards and trades go to the heuristic search. About 0.25 s a decision.",
+    measured: "44.5% of 400 games in the paper's five-agent pool",
+  },
+  buct: {
+    sub: "MCTS · 5,000 playouts",
+    what: "The same search with Bayesian UCT selection.",
+    how: "Backups keep a Dirichlet count per node; selection takes mean + sqrt(2 ln N) · sigma over the posterior (Tesauro's second rule). Playouts, reward and delegation as UCT.",
+    measured: "36.2% of 400 games in the paper's five-agent pool",
+  },
+  vpi: {
+    sub: "MCTS · 1,500 playouts",
+    what: "The same search choosing by value of perfect information.",
+    how: "Myopic VPI over the Dirichlet posteriors, sampled through Gamma draws; picks max E[q] + VPI. Playouts, reward and delegation as UCT, on a third of the budget.",
+    measured: "12.5% of 400 games in the paper's five-agent pool",
+  },
 };
 export const BOT_SHORT: Record<string, string> = { human: "You", random: "Random", heuristic: "Heuristic search", vnet: "Value-net search", drrl: "DRRL", jsrobot: "jSettler", jsdroid: "jSettler fast", uct: "UCT", buct: "BUCT", vpi: "VPI" };
 
