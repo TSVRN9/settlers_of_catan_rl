@@ -4,7 +4,7 @@
 // `boardOverride`, with the mover's producing tiles outlined.
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { isStale } from "../engine";
-import type { Attribution, LuckRoll } from "../engine";
+import type { Attribution, LuckRoll, PlayerView } from "../engine";
 import { fmtDelta, fmtPct, who, whom, whose } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
@@ -18,6 +18,10 @@ const MARK = 15, MARK_ROW = 17, CAP_ROW = 14, GAP = 6;
 
 /** Rows for things laid along one axis: each takes the first row where it does not touch
  *  what is already there. Returns -1 for something that would need more rows than allowed. */
+/** Public VP unless the row is entitled to the hand: your own, or every row when nobody is seated. */
+const vpOf = (p: PlayerView, i: number, you: number) => (i === you || you < 0 ? p.actual_vp ?? p.vp : p.vp);
+const cards = (p: PlayerView) => p.hand.reduce((a, b) => a + b, 0);
+
 function lanes(items: { x: number; w: number }[], max: number): number[] {
   const taken: [number, number][][] = [];
   return items.map(({ x, w }) => {
@@ -213,10 +217,11 @@ export default function Game() {
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <span className="d" style={{ fontSize: 17 }}>Who is winning, all game</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 14 }}>
-            {frame.view.players.map((_, i) => (
+            {frame.view.players.map((p, i) => (
               <span key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
                 <i style={{ width: 8, height: 8, borderRadius: "50%", background: SEAT_FILL[i], display: "inline-block" }} />
                 {who(i, me)} <b className="num">{fmtPct(frame.evals[i]?.win)}</b>
+                <span className="cap num" style={{ fontSize: 11, marginLeft: 3 }}>{vpOf(p, i, me)} vp · {cards(p)} cards</span>
               </span>
             ))}
           </span>
@@ -323,11 +328,12 @@ export default function Game() {
                   </div>
                 )}
                 <div className="cap" style={{ color: "var(--color-dust)", fontSize: 11.5 }}>Step {hover}, turn {hf.view.num_turns}, {who(hf.seat, me)} to move</div>
-                {hf.view.players.map((_, i) => (
+                {hf.view.players.map((p, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                     <i style={{ width: 7, height: 7, borderRadius: "50%", background: SEAT_FILL[i] }} />
                     <span style={{ flex: 1, fontWeight: i === hf.seat ? 600 : 400 }}>{who(i, me)}</span>
-                    <span className="num" style={{ fontWeight: i === hf.seat ? 700 : 400 }}>{fmtPct(hf.evals[i]?.win)}</span>
+                    <span className="cap num" style={{ fontSize: 11, color: "var(--color-dust)" }}>{vpOf(p, i, me)} vp · {cards(p)} cards</span>
+                    <span className="num" style={{ width: 38, textAlign: "right", fontWeight: i === hf.seat ? 700 : 400 }}>{fmtPct(hf.evals[i]?.win)}</span>
                   </div>
                 ))}
                 {hoverRow && <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(238,240,233,.25)" }}>{narrate(hoverRow, map, me)}</div>}

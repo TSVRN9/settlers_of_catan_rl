@@ -22,6 +22,7 @@ import { playing, set, useApp, you, type Pace, type State } from "../store";
 import { waiting } from "../waiting";
 import Coach from "./Coach";
 import Ring from "./Ring";
+import Seats from "./Seats";
 import Strip from "./Strip";
 
 /** The board takes builds and the robber; the column takes the standing actions. Everything
@@ -205,11 +206,18 @@ const PACES: Pace[] = ["slow", "normal", "fast"];
 
 /** The stands: a log and a transport over a playback. Nothing here asks you to play. */
 function Stands({ s, over }: { s: State; over: boolean }) {
+  // The rail reads the position on screen, like the board — seeking back shows those hands.
+  const pv = s.frames[shown(s)]?.view ?? s.view!;
+  const railHeight = pv.players.length * 44;
   return (
     <>
+      <Dock name="table-seats" side="l" style={{ position: "absolute", left: 34, top: 72, width: 262 }}>
+        <Seats players={pv.players} you={-1} open />
+      </Dock>
+      {/* The log opens upward, so it may only have the room between itself and the rail above it. */}
       <Dock name="table-log" side="b" style={{
         position: "absolute", left: 34, bottom: 26, width: 300,
-        ["--log-open" as string]: `calc(100vh - ${SPINE + 160}px)`,
+        ["--log-open" as string]: `calc(100vh - ${SPINE + 26 + 72 + railHeight + 18}px)`,
       }}>
         <Log s={s} />
       </Dock>
@@ -285,48 +293,9 @@ function Seated({ s, over }: { s: State; over: boolean }) {
         </Dock>
       )}
 
-      {/* Every seat, yours included. The ring says all this and more, but the ring is
-          analysis and is folded away for most of a seated game — and how far ahead someone
-          is, and how much they are holding, is table information you can see across a real
-          table. Opponents get public `p.vp`; only your own row may use `actual_vp`, which
-          counts the victory-point cards in a hand nobody else is entitled to see.
-
-          With the analysis open each row also spells out the hand itself. That is hidden
-          information, so it is deliberately behind the same fold the rest of the analysis
-          lives behind, and it is drawn as its own dimmer sub-row rather than as more
-          numbers on the public line — a glance has to tell you which of the two you are
-          reading. */}
+      {/* Every seat, yours included: table information you can see across a real table. */}
       <Dock name="table-seats" side="l" style={{ position: "absolute", left: 34, top: railTop, width: 262 }}>
-        {v.players.map((p, i) => {
-          const own = i === s.human;
-          return (
-            <div key={i} style={{ padding: "3px 0" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12.5 }}>
-                <span style={{ width: 9, height: 9, flex: "0 0 9px", background: SEAT_FILL[i] }} />
-                <span style={{ flex: 1, fontWeight: own ? 700 : 600 }}>{who(i, s.human)}</span>
-                <span className="d num" style={{ fontSize: 15 }}>{own ? p.actual_vp ?? p.vp : p.vp}</span>
-                <span className="cap" style={{ fontSize: 11 }}>vp</span>
-                <span className="d num" style={{ fontSize: 15, marginLeft: 6 }}>{p.hand.reduce((a, b) => a + b, 0)}</span>
-                <span className="cap" style={{ fontSize: 11 }}>cards</span>
-              </div>
-              {/* Always mounted, opened by a class: a row that is conditionally rendered can
-                  animate in at best, and never out. */}
-              <div className={`hand-line${s.analysis ? " open" : ""}`}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: 18, paddingTop: 2 }}>
-                  {p.hand.map((n, r) => (
-                    <span key={r} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                      <i style={{ width: 6, height: 6, borderRadius: "50%", background: RES_FILL[r] }} />
-                      <span className="num" style={{ fontSize: 11.5 }}>{n}</span>
-                    </span>
-                  ))}
-                  <span className="cap" style={{ fontSize: 10.5, marginLeft: 2 }}>
-                    {p.devs.reduce((a, b) => a + b, 0)} dev
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        <Seats players={v.players} you={s.human} open={s.analysis} />
       </Dock>
 
       {/* The analysis, folded against the right edge: a zone, not a button. */}

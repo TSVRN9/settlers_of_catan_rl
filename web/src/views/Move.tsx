@@ -11,6 +11,7 @@ import Dock from "../Dock";
 import { evidence, gap, narrate, noun, type Ctx } from "../coach";
 import { rankedAt, rowAt, stopAutoplay, toggleAutoplay } from "../review";
 import { get, set, useApp, you } from "../store";
+import Seats from "./Seats";
 import Strip from "./Strip";
 
 const sortRoot = (d: Decision | null) =>
@@ -82,6 +83,11 @@ export default function Move() {
 
       <Dock name="move-strip" side="t" style={{ position: "absolute", left: 34, right: 34, top: 76 }}>
         <Strip frames={frames} step={step} you={me} onSeek={(at) => { stopAutoplay(); set({ step: at }); }} />
+      </Dock>
+
+      {/* The hands at this position, between the strip and the board. */}
+      <Dock name="move-seats" side="l" style={{ position: "absolute", left: 34, top: 118 }}>
+        <Seats players={frame.view.players} you={me} open row />
       </Dock>
 
       <Dock name="move-ladder" side="r" className="cut" style={{
