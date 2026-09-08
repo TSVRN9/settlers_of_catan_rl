@@ -210,4 +210,55 @@ mod tests {
         s.apply(Action::EndTurn, None).unwrap();
         assert!(s.spent_offers.is_empty());
     }
+
+    /// A responder counters, the turn player accepts: hands swap at once. A rejected counter is spent.
+    #[test]
+    fn counter_offers_round_trip() {
+        let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
+        let map = Arc::new(Map::generate(3, &layout));
+        let mut s = State::new(map, 4, 3, 10);
+        s.initial_phase = false;
+        s.prompt = Prompt::PlayTurn;
+        s.current_turn = 0;
+        s.current_player = 0;
+        s.players[0].has_rolled = true;
+        s.players[0].hand = [2, 0, 0, 0, 0];
+        s.players[1].hand = [0, 0, 0, 3, 0];
+        s.apply(Action::OfferTrade { give: [1, 0, 0, 0, 0], get: [0, 0, 0, 1, 0] }, None).unwrap();
+        assert_eq!(s.prompt, Prompt::DecideTrade);
+        assert_eq!(s.current_player, 1);
+        let counters: Vec<Action> = s.playable_actions().into_iter().filter(|a| matches!(a, Action::OfferTrade { .. })).collect();
+        assert!(counters.contains(&Action::OfferTrade { give: [0, 0, 0, 1, 0], get: [2, 0, 0, 0, 0] }), "seat 1 may counter with what it holds");
+        // seat 1 counters: 1 wheat for 2 wood, addressed to seat 0 only
+        s.apply(Action::OfferTrade { give: [0, 0, 0, 1, 0], get: [2, 0, 0, 0, 0] }, None).unwrap();
+        assert_eq!(s.prompt, Prompt::DecideTrade);
+        assert_eq!(s.current_player, 0, "the turn player answers the counter");
+        assert_eq!(s.current_trade, [0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 1]);
+        assert!(!s.playable_actions().iter().any(|a| matches!(a, Action::OfferTrade { .. })), "no counter to a counter");
+        let mut rejecting = s.clone();
+        rejecting.apply(Action::RejectTrade, None).unwrap();
+        assert_eq!(rejecting.prompt, Prompt::PlayTurn);
+        assert_eq!(rejecting.current_player, 0);
+        assert!(rejecting.spent_offers.contains(&[0, 0, 0, 1, 0, 2, 0, 0, 0, 0]), "a rejected counter is spent");
+        assert_eq!(rejecting.players[0].hand, [2, 0, 0, 0, 0]);
+        s.apply(Action::AcceptTrade, None).unwrap();
+        assert_eq!(s.prompt, Prompt::PlayTurn);
+        assert_eq!(s.current_player, 0);
+        assert_eq!(s.players[0].hand, [0, 0, 0, 1, 0], "seat 0 gave 2 wood, got 1 wheat");
+        assert_eq!(s.players[1].hand, [2, 0, 0, 2, 0]);
+        assert!(!s.is_resolving_trade);
+        // once someone accepted, later responders cannot counter
+        let mut t = State::new(Arc::clone(&s.map), 4, 3, 10);
+        t.initial_phase = false;
+        t.prompt = Prompt::PlayTurn;
+        t.players[0].has_rolled = true;
+        t.players[0].hand = [1, 0, 0, 0, 0];
+        t.players[1].hand = [0, 0, 0, 1, 0];
+        t.players[2].hand = [0, 0, 0, 1, 0];
+        t.apply(Action::OfferTrade { give: [1, 0, 0, 0, 0], get: [0, 0, 0, 1, 0] }, None).unwrap();
+        t.apply(Action::AcceptTrade, None).unwrap();
+        assert_eq!(t.current_player, 2);
+        assert!(!t.playable_actions().iter().any(|a| matches!(a, Action::OfferTrade { .. })));
+        assert!(t.apply(Action::OfferTrade { give: [0, 0, 0, 1, 0], get: [1, 0, 0, 0, 0] }, None).is_err());
+    }
 }

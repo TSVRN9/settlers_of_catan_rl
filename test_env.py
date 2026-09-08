@@ -722,15 +722,16 @@ def test_rust_engine_replays_python_games():
     replay oracle from docs/RUST-ENGINE.md): every legal-action set and every
     state field, over random, weighted-random and value-function games."""
     from catanatron.players.value import ValueFunctionPlayer
+    from value_net import JsettlerPlayer
 
-    lineups = [(RandomPlayer, range(6)), (WeightedRandomPlayer, range(3)), (ValueFunctionPlayer, range(2))]
+    lineups = [(RandomPlayer, range(6)), (WeightedRandomPlayer, range(3)), (ValueFunctionPlayer, range(2)), (JsettlerPlayer, range(2))]
     total = 0
     for cls, seeds in lineups:
         for seed in seeds:
             steps, err = _rust_replay([cls(c) for c in (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)], seed)
             assert err is None, f"{cls.__name__} seed {seed} diverged after {steps} steps: {err}"
             total += steps
-    print(f"  Rust engine replays 11 Python games identically ({total} steps): ok")
+    print(f"  Rust engine replays 13 Python games identically ({total} steps): ok")
 
 
 def test_rust_encoder_matches_python():

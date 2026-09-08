@@ -185,6 +185,11 @@ impl State {
                 if self.can_accept_offer(p) {
                     actions.push(Action::AcceptTrade);
                 }
+                // a responder may counter while nobody has accepted; the turn player answering a
+                // counter may only accept or reject (JSettlers: a counter is a new offer to the offerer)
+                if p != self.current_turn && !self.acceptees.iter().any(|&a| a) {
+                    actions.extend(self.domestic_trade_possibilities(p));
+                }
                 actions
             }
             Prompt::DecideAcceptees => {

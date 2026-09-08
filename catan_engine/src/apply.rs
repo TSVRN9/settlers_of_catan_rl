@@ -19,8 +19,9 @@ impl State {
                 Ok((-1, -1))
             }
             Action::OfferTrade { give, get } => {
-                if self.prompt != Prompt::PlayTurn || !self.players[p].has_rolled || self.is_road_building || self.is_resolving_trade {
-                    return Err("offers are made on your own turn after rolling".into());
+                let countering = self.prompt == Prompt::DecideTrade && p != self.current_turn && !self.acceptees.iter().any(|&a| a);
+                if !countering && (self.prompt != Prompt::PlayTurn || !self.players[p].has_rolled || self.is_road_building || self.is_resolving_trade) {
+                    return Err("offers are made on your own turn after rolling, or as a counter before anyone accepted".into());
                 }
                 if !valid_offer(&give, &get) {
                     return Err("an offer must give and receive cards and not the same resource on both sides".into());
@@ -38,13 +39,35 @@ impl State {
                 }
                 self.current_trade[10] = p as i32;
                 self.acceptees = [false; 4];
-                self.current_player = (0..self.n).find(|&i| i != self.current_turn).expect("another player");
+                // a counter goes to the turn player alone; an offer goes round the table
+                self.current_player = if countering { self.current_turn } else { (0..self.n).find(|&i| i != self.current_turn).expect("another player") };
                 self.prompt = Prompt::DecideTrade;
                 Ok((-1, -1))
             }
             Action::AcceptTrade | Action::RejectTrade => {
                 if self.prompt != Prompt::DecideTrade {
                     return Err("no offer to answer".into());
+                }
+                if p == self.current_turn {
+                    // the turn player answers a counter-offer: accepting executes it (JSettlers: an
+                    // accepted offer trades at once), rejecting spends it
+                    let q = self.current_trade[10] as usize;
+                    if action == Action::AcceptTrade {
+                        if !self.can_accept_offer(p) {
+                            return Err("you do not hold what is asked".into());
+                        }
+                        for r in 0..5 {
+                            let give = self.current_trade[r];
+                            let get = self.current_trade[5 + r];
+                            self.players[q].hand[r] += get - give;
+                            self.players[p].hand[r] += give - get;
+                        }
+                    } else {
+                        self.spend_current_offer();
+                    }
+                    self.reset_trade();
+                    self.prompt = Prompt::PlayTurn;
+                    return Ok((-1, -1));
                 }
                 if action == Action::AcceptTrade {
                     if !self.can_accept_offer(p) {
