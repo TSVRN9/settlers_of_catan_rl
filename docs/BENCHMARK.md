@@ -356,13 +356,13 @@ counter in 1 of 68 calls, and the client's view of hands changes 15 of 264 offer
 The paper's exact pool on the Rust arena at last (`tournament.py --pool drrl,jsrobot,uct,buct,vpi --games 100`,
 `docs/benchmark/paper_pool_jsrobot.json`), against Fig. 3a:
 
-| agent | here | paper |
-|---|---|---|
-| DRRL | 9.0% [6.6, 12.2] | 31% |
-| jSettler (`jsrobot`) | 20.8% [17.1, 25.0] | 21% |
-| UCT | 47.2% [42.4, 52.1] | 23% |
-| BUCT | 34.5% [30.0, 39.3] | 26% |
-| VPI | 13.5% [10.5, 17.2] | 22% |
+| agent | here | here, deviations closed (`paper_pool_jsrobot_counters.json`, same seeds) | paper |
+|---|---|---|---|
+| DRRL | 9.0% [6.6, 12.2] | 11.0% [8.3, 14.4] | 31% |
+| jSettler (`jsrobot`) | 20.8% [17.1, 25.0] | 20.8% [17.1, 25.0] | 21% |
+| UCT | 47.2% [42.4, 52.1] | 44.5% [39.7, 49.4] | 23% |
+| BUCT | 34.5% [30.0, 39.3] | 36.2% [31.7, 41.1] | 26% |
+| VPI | 13.5% [10.5, 17.2] | 12.5% [9.6, 16.1] | 22% |
 
 The jSettler lands on the paper's number; the MCTS agents (fully observable engine, playouts at Rust speed)
 and DRRL (Phase A) are where they were in the Phase D pool.

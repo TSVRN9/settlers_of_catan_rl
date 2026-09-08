@@ -1,0 +1,9863 @@
+{
+ "protocol": "Xenou et al. 2018, five 4-player tournaments each leaving one agent out; seats permuted per game",
+ "pool": [
+  "drrl",
+  "jsrobot",
+  "uct",
+  "buct",
+  "vpi"
+ ],
+ "lineups": [
+  [
+   "drrl",
+   "jsrobot",
+   "uct",
+   "buct"
+  ],
+  [
+   "drrl",
+   "jsrobot",
+   "uct",
+   "vpi"
+  ],
+  [
+   "drrl",
+   "jsrobot",
+   "buct",
+   "vpi"
+  ],
+  [
+   "drrl",
+   "uct",
+   "buct",
+   "vpi"
+  ],
+  [
+   "jsrobot",
+   "uct",
+   "buct",
+   "vpi"
+  ]
+ ],
+ "games_per_tournament": 100,
+ "seed": 1000000,
+ "done": 500,
+ "total": 500,
+ "elapsed_s": 1680,
+ "summary": {
+  "drrl": {
+   "games": 400,
+   "wins": 44,
+   "ratio": 0.11,
+   "ci95": [
+    0.08296824650193971,
+    0.14445161316581123
+   ],
+   "mean_vp": 5.4775
+  },
+  "jsrobot": {
+   "games": 400,
+   "wins": 83,
+   "ratio": 0.2075,
+   "ci95": [
+    0.17063353432585826,
+    0.24993136042495495
+   ],
+   "mean_vp": 6.4075
+  },
+  "uct": {
+   "games": 400,
+   "wins": 178,
+   "ratio": 0.445,
+   "ci95": [
+    0.3970499227484684,
+    0.4939964677174965
+   ],
+   "mean_vp": 8.15
+  },
+  "buct": {
+   "games": 400,
+   "wins": 145,
+   "ratio": 0.3625,
+   "ci95": [
+    0.31690358933984025,
+    0.41071238682507194
+   ],
+   "mean_vp": 8.0775
+  },
+  "vpi": {
+   "games": 400,
+   "wins": 50,
+   "ratio": 0.125,
+   "ci95": [
+    0.09611465529837437,
+    0.16101982515138613
+   ],
+   "mean_vp": 6.8325
+  }
+ },
+ "per_tournament": [
+  {
+   "drrl": {
+    "games": 100,
+    "wins": 10,
+    "ratio": 0.1,
+    "ci95": [
+     0.05522854161313613,
+     0.1743673043676654
+    ],
+    "mean_vp": 5.25
+   },
+   "jsrobot": {
+    "games": 100,
+    "wins": 24,
+    "ratio": 0.24,
+    "ci95": [
+     0.16691211265459965,
+     0.3323251872329213
+    ],
+    "mean_vp": 6.68
+   },
+   "uct": {
+    "games": 100,
+    "wins": 35,
+    "ratio": 0.35,
+    "ci95": [
+     0.26364104653478027,
+     0.4474573957080203
+    ],
+    "mean_vp": 8.19
+   },
+   "buct": {
+    "games": 100,
+    "wins": 31,
+    "ratio": 0.31,
+    "ci95": [
+     0.22779563206132378,
+     0.40626239477955695
+    ],
+    "mean_vp": 7.74
+   },
+   "vpi": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   }
+  },
+  {
+   "drrl": {
+    "games": 100,
+    "wins": 11,
+    "ratio": 0.11,
+    "ci95": [
+     0.06254131955225124,
+     0.18631463027903025
+    ],
+    "mean_vp": 5.55
+   },
+   "jsrobot": {
+    "games": 100,
+    "wins": 19,
+    "ratio": 0.19,
+    "ci95": [
+     0.12514653992704258,
+     0.2777902407080786
+    ],
+    "mean_vp": 6.14
+   },
+   "uct": {
+    "games": 100,
+    "wins": 59,
+    "ratio": 0.59,
+    "ci95": [
+     0.4920125056109662,
+     0.6813284290433533
+    ],
+    "mean_vp": 8.64
+   },
+   "buct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "vpi": {
+    "games": 100,
+    "wins": 11,
+    "ratio": 0.11,
+    "ci95": [
+     0.06254131955225124,
+     0.18631463027903025
+    ],
+    "mean_vp": 6.76
+   }
+  },
+  {
+   "drrl": {
+    "games": 100,
+    "wins": 14,
+    "ratio": 0.14,
+    "ci95": [
+     0.08526265754464904,
+     0.2213736038380724
+    ],
+    "mean_vp": 5.85
+   },
+   "jsrobot": {
+    "games": 100,
+    "wins": 21,
+    "ratio": 0.21,
+    "ci95": [
+     0.14165549531645785,
+     0.2998014930196232
+    ],
+    "mean_vp": 6.61
+   },
+   "uct": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "buct": {
+    "games": 100,
+    "wins": 52,
+    "ratio": 0.52,
+    "ci95": [
+     0.42316405090176545,
+     0.6153561567991945
+    ],
+    "mean_vp": 8.66
+   },
+   "vpi": {
+    "games": 100,
+    "wins": 13,
+    "ratio": 0.13,
+    "ci95": [
+     0.07757093858414264,
+     0.2098052189480988
+    ],
+    "mean_vp": 6.93
+   }
+  },
+  {
+   "drrl": {
+    "games": 100,
+    "wins": 9,
+    "ratio": 0.09,
+    "ci95": [
+     0.048071995163884884,
+     0.16226374696643667
+    ],
+    "mean_vp": 5.26
+   },
+   "jsrobot": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "uct": {
+    "games": 100,
+    "wins": 43,
+    "ratio": 0.43,
+    "ci95": [
+     0.3373313900052838,
+     0.5278478830413564
+    ],
+    "mean_vp": 7.78
+   },
+   "buct": {
+    "games": 100,
+    "wins": 31,
+    "ratio": 0.31,
+    "ci95": [
+     0.22779563206132378,
+     0.40626239477955695
+    ],
+    "mean_vp": 7.82
+   },
+   "vpi": {
+    "games": 100,
+    "wins": 17,
+    "ratio": 0.17,
+    "ci95": [
+     0.10893476059773155,
+     0.25548181233642975
+    ],
+    "mean_vp": 6.87
+   }
+  },
+  {
+   "drrl": {
+    "games": 0,
+    "wins": 0,
+    "ratio": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "mean_vp": 0.0
+   },
+   "jsrobot": {
+    "games": 100,
+    "wins": 19,
+    "ratio": 0.19,
+    "ci95": [
+     0.12514653992704258,
+     0.2777902407080786
+    ],
+    "mean_vp": 6.2
+   },
+   "uct": {
+    "games": 100,
+    "wins": 41,
+    "ratio": 0.41,
+    "ci95": [
+     0.31867157095664655,
+     0.5079874943890338
+    ],
+    "mean_vp": 7.99
+   },
+   "buct": {
+    "games": 100,
+    "wins": 31,
+    "ratio": 0.31,
+    "ci95": [
+     0.22779563206132378,
+     0.40626239477955695
+    ],
+    "mean_vp": 8.09
+   },
+   "vpi": {
+    "games": 100,
+    "wins": 9,
+    "ratio": 0.09,
+    "ci95": [
+     0.048071995163884884,
+     0.16226374696643667
+    ],
+    "mean_vp": 6.77
+   }
+  }
+ ],
+ "games": [
+  {
+   "tournament": 2,
+   "seed": 1000298,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 2,
+    "jsrobot": 5,
+    "drrl": 3
+   },
+   "turns": 56,
+   "secs": 13.57
+  },
+  {
+   "tournament": 1,
+   "seed": 1000172,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 5,
+    "jsrobot": 6,
+    "vpi": 10,
+    "uct": 6
+   },
+   "turns": 61,
+   "secs": 17.73
+  },
+  {
+   "tournament": 0,
+   "seed": 1000074,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "buct": 7,
+    "uct": 9,
+    "jsrobot": 6
+   },
+   "turns": 91,
+   "secs": 24.87
+  },
+  {
+   "tournament": 4,
+   "seed": 1000438,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "uct": 6,
+    "jsrobot": 3,
+    "buct": 10
+   },
+   "turns": 69,
+   "secs": 14.11
+  },
+  {
+   "tournament": 0,
+   "seed": 1000016,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 5,
+    "buct": 9,
+    "drrl": 4
+   },
+   "turns": 72,
+   "secs": 14.62
+  },
+  {
+   "tournament": 2,
+   "seed": 1000270,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 6,
+    "drrl": 8,
+    "jsrobot": 6
+   },
+   "turns": 83,
+   "secs": 15.47
+  },
+  {
+   "tournament": 2,
+   "seed": 1000249,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "vpi",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 6,
+    "jsrobot": 10,
+    "vpi": 7,
+    "buct": 4
+   },
+   "turns": 78,
+   "secs": 15.9
+  },
+  {
+   "tournament": 1,
+   "seed": 1000194,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "uct": 10,
+    "jsrobot": 2,
+    "vpi": 5
+   },
+   "turns": 58,
+   "secs": 14.1
+  },
+  {
+   "tournament": 3,
+   "seed": 1000305,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "vpi": 8,
+    "buct": 6,
+    "uct": 10
+   },
+   "turns": 89,
+   "secs": 45.28
+  },
+  {
+   "tournament": 1,
+   "seed": 1000154,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 5,
+    "jsrobot": 10,
+    "drrl": 8,
+    "uct": 8
+   },
+   "turns": 99,
+   "secs": 15.99
+  },
+  {
+   "tournament": 4,
+   "seed": 1000432,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 5,
+    "vpi": 5,
+    "jsrobot": 4
+   },
+   "turns": 51,
+   "secs": 13.14
+  },
+  {
+   "tournament": 0,
+   "seed": 1000019,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 7,
+    "drrl": 6,
+    "jsrobot": 10,
+    "uct": 7
+   },
+   "turns": 68,
+   "secs": 21.62
+  },
+  {
+   "tournament": 3,
+   "seed": 1000350,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 5,
+    "drrl": 2,
+    "vpi": 10,
+    "buct": 5
+   },
+   "turns": 73,
+   "secs": 19.71
+  },
+  {
+   "tournament": 2,
+   "seed": 1000277,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 5,
+    "vpi": 7,
+    "jsrobot": 10,
+    "drrl": 5
+   },
+   "turns": 58,
+   "secs": 13.87
+  },
+  {
+   "tournament": 3,
+   "seed": 1000315,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "vpi": 8,
+    "uct": 10,
+    "buct": 9
+   },
+   "turns": 83,
+   "secs": 39.37
+  },
+  {
+   "tournament": 4,
+   "seed": 1000472,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "uct": 10,
+    "jsrobot": 6,
+    "buct": 9
+   },
+   "turns": 106,
+   "secs": 32.95
+  },
+  {
+   "tournament": 1,
+   "seed": 1000157,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "vpi": 7,
+    "jsrobot": 2,
+    "uct": 10
+   },
+   "turns": 114,
+   "secs": 23.11
+  },
+  {
+   "tournament": 0,
+   "seed": 1000055,
+   "seats": [
+    "uct",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 9,
+    "drrl": 9,
+    "jsrobot": 10,
+    "buct": 4
+   },
+   "turns": 74,
+   "secs": 11.98
+  },
+  {
+   "tournament": 1,
+   "seed": 1000152,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 8,
+    "vpi": 8,
+    "jsrobot": 7,
+    "uct": 10
+   },
+   "turns": 94,
+   "secs": 24.91
+  },
+  {
+   "tournament": 3,
+   "seed": 1000316,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 4,
+    "drrl": 3,
+    "buct": 4
+   },
+   "turns": 48,
+   "secs": 8.92
+  },
+  {
+   "tournament": 4,
+   "seed": 1000428,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "uct": 7,
+    "vpi": 7,
+    "buct": 9
+   },
+   "turns": 113,
+   "secs": 27.55
+  },
+  {
+   "tournament": 1,
+   "seed": 1000133,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 5,
+    "uct": 10,
+    "drrl": 5,
+    "vpi": 8
+   },
+   "turns": 99,
+   "secs": 21.08
+  },
+  {
+   "tournament": 3,
+   "seed": 1000373,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 7,
+    "vpi": 5,
+    "drrl": 6
+   },
+   "turns": 88,
+   "secs": 25.77
+  },
+  {
+   "tournament": 0,
+   "seed": 1000098,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 6,
+    "uct": 10,
+    "drrl": 4,
+    "buct": 5
+   },
+   "turns": 51,
+   "secs": 14.76
+  },
+  {
+   "tournament": 0,
+   "seed": 1000013,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "jsrobot": 4,
+    "uct": 10,
+    "drrl": 7
+   },
+   "turns": 73,
+   "secs": 23.18
+  },
+  {
+   "tournament": 0,
+   "seed": 1000003,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 9,
+    "jsrobot": 4,
+    "drrl": 10,
+    "buct": 6
+   },
+   "turns": 82,
+   "secs": 20.71
+  },
+  {
+   "tournament": 3,
+   "seed": 1000367,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 8,
+    "buct": 9,
+    "drrl": 4,
+    "vpi": 10
+   },
+   "turns": 75,
+   "secs": 33.03
+  },
+  {
+   "tournament": 4,
+   "seed": 1000460,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 7,
+    "vpi": 7,
+    "uct": 8,
+    "buct": 10
+   },
+   "turns": 117,
+   "secs": 38.63
+  },
+  {
+   "tournament": 0,
+   "seed": 1000096,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 2,
+    "drrl": 2,
+    "buct": 2,
+    "uct": 10
+   },
+   "turns": 32,
+   "secs": 8.89
+  },
+  {
+   "tournament": 3,
+   "seed": 1000392,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 5,
+    "drrl": 3,
+    "vpi": 4,
+    "buct": 10
+   },
+   "turns": 56,
+   "secs": 19.68
+  },
+  {
+   "tournament": 3,
+   "seed": 1000356,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "buct": 8,
+    "uct": 5,
+    "drrl": 5
+   },
+   "turns": 73,
+   "secs": 35.3
+  },
+  {
+   "tournament": 4,
+   "seed": 1000400,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 4,
+    "uct": 5,
+    "buct": 10,
+    "jsrobot": 4
+   },
+   "turns": 87,
+   "secs": 18.44
+  },
+  {
+   "tournament": 3,
+   "seed": 1000352,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 4,
+    "uct": 5,
+    "vpi": 10,
+    "drrl": 8
+   },
+   "turns": 72,
+   "secs": 22.32
+  },
+  {
+   "tournament": 0,
+   "seed": 1000093,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 5,
+    "jsrobot": 10,
+    "drrl": 5,
+    "uct": 9
+   },
+   "turns": 53,
+   "secs": 22.22
+  },
+  {
+   "tournament": 0,
+   "seed": 1000012,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 6,
+    "buct": 10,
+    "drrl": 5,
+    "uct": 9
+   },
+   "turns": 101,
+   "secs": 28.75
+  },
+  {
+   "tournament": 2,
+   "seed": 1000276,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 4,
+    "drrl": 5,
+    "buct": 10,
+    "jsrobot": 8
+   },
+   "turns": 83,
+   "secs": 18.03
+  },
+  {
+   "tournament": 1,
+   "seed": 1000143,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "jsrobot": 8,
+    "uct": 10,
+    "vpi": 5
+   },
+   "turns": 64,
+   "secs": 17.06
+  },
+  {
+   "tournament": 2,
+   "seed": 1000222,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 4,
+    "jsrobot": 3,
+    "vpi": 6
+   },
+   "turns": 73,
+   "secs": 15.08
+  },
+  {
+   "tournament": 4,
+   "seed": 1000479,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "vpi": 7,
+    "buct": 8,
+    "uct": 7
+   },
+   "turns": 98,
+   "secs": 30.4
+  },
+  {
+   "tournament": 1,
+   "seed": 1000170,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "jsrobot": 5,
+    "uct": 4,
+    "drrl": 5
+   },
+   "turns": 68,
+   "secs": 17.81
+  },
+  {
+   "tournament": 1,
+   "seed": 1000177,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "drrl": 7,
+    "jsrobot": 2,
+    "uct": 10
+   },
+   "turns": 70,
+   "secs": 21.21
+  },
+  {
+   "tournament": 4,
+   "seed": 1000416,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 7,
+    "buct": 8,
+    "vpi": 8,
+    "jsrobot": 10
+   },
+   "turns": 70,
+   "secs": 31.29
+  },
+  {
+   "tournament": 3,
+   "seed": 1000377,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 4,
+    "vpi": 4,
+    "buct": 5
+   },
+   "turns": 69,
+   "secs": 12.38
+  },
+  {
+   "tournament": 2,
+   "seed": 1000253,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 5,
+    "drrl": 7,
+    "vpi": 6
+   },
+   "turns": 105,
+   "secs": 18.76
+  },
+  {
+   "tournament": 1,
+   "seed": 1000122,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "jsrobot": 6,
+    "uct": 10,
+    "drrl": 6
+   },
+   "turns": 103,
+   "secs": 30.86
+  },
+  {
+   "tournament": 1,
+   "seed": 1000124,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 5,
+    "uct": 7,
+    "jsrobot": 6,
+    "drrl": 10
+   },
+   "turns": 79,
+   "secs": 17.99
+  },
+  {
+   "tournament": 4,
+   "seed": 1000436,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "jsrobot": 6,
+    "uct": 10,
+    "vpi": 9
+   },
+   "turns": 87,
+   "secs": 23.47
+  },
+  {
+   "tournament": 3,
+   "seed": 1000391,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 6,
+    "vpi": 4,
+    "buct": 10,
+    "drrl": 4
+   },
+   "turns": 54,
+   "secs": 11.75
+  },
+  {
+   "tournament": 3,
+   "seed": 1000325,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 8,
+    "buct": 10,
+    "vpi": 7,
+    "drrl": 6
+   },
+   "turns": 83,
+   "secs": 21.46
+  },
+  {
+   "tournament": 0,
+   "seed": 1000099,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 9,
+    "buct": 8,
+    "drrl": 10,
+    "jsrobot": 4
+   },
+   "turns": 84,
+   "secs": 18.73
+  },
+  {
+   "tournament": 4,
+   "seed": 1000490,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 8,
+    "jsrobot": 6,
+    "uct": 7
+   },
+   "turns": 61,
+   "secs": 15.7
+  },
+  {
+   "tournament": 3,
+   "seed": 1000358,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "uct": 6,
+    "drrl": 5,
+    "buct": 5
+   },
+   "turns": 69,
+   "secs": 14.78
+  },
+  {
+   "tournament": 0,
+   "seed": 1000006,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 5,
+    "buct": 7,
+    "uct": 10,
+    "drrl": 3
+   },
+   "turns": 78,
+   "secs": 13.44
+  },
+  {
+   "tournament": 0,
+   "seed": 1000071,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 8,
+    "buct": 10,
+    "jsrobot": 7,
+    "uct": 9
+   },
+   "turns": 85,
+   "secs": 19.19
+  },
+  {
+   "tournament": 1,
+   "seed": 1000109,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 9,
+    "jsrobot": 8,
+    "vpi": 5,
+    "uct": 10
+   },
+   "turns": 100,
+   "secs": 21.48
+  },
+  {
+   "tournament": 4,
+   "seed": 1000446,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 4,
+    "vpi": 7,
+    "buct": 6
+   },
+   "turns": 88,
+   "secs": 15.49
+  },
+  {
+   "tournament": 1,
+   "seed": 1000134,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 6,
+    "vpi": 3,
+    "jsrobot": 4
+   },
+   "turns": 63,
+   "secs": 11.4
+  },
+  {
+   "tournament": 2,
+   "seed": 1000256,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 9,
+    "vpi": 5,
+    "drrl": 5,
+    "buct": 10
+   },
+   "turns": 70,
+   "secs": 10.49
+  },
+  {
+   "tournament": 4,
+   "seed": 1000425,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "uct": 10,
+    "jsrobot": 6,
+    "buct": 7
+   },
+   "turns": 64,
+   "secs": 15.9
+  },
+  {
+   "tournament": 3,
+   "seed": 1000368,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 9,
+    "drrl": 6,
+    "buct": 10,
+    "vpi": 7
+   },
+   "turns": 77,
+   "secs": 24.56
+  },
+  {
+   "tournament": 3,
+   "seed": 1000395,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 3,
+    "uct": 7,
+    "drrl": 3,
+    "buct": 10
+   },
+   "turns": 59,
+   "secs": 21.34
+  },
+  {
+   "tournament": 1,
+   "seed": 1000140,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 7,
+    "vpi": 7,
+    "drrl": 2
+   },
+   "turns": 61,
+   "secs": 11.52
+  },
+  {
+   "tournament": 3,
+   "seed": 1000321,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "vpi": 5,
+    "drrl": 4,
+    "uct": 10
+   },
+   "turns": 75,
+   "secs": 13.07
+  },
+  {
+   "tournament": 0,
+   "seed": 1000001,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 6,
+    "drrl": 3,
+    "buct": 8,
+    "jsrobot": 10
+   },
+   "turns": 55,
+   "secs": 17.27
+  },
+  {
+   "tournament": 4,
+   "seed": 1000451,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 8,
+    "vpi": 6,
+    "jsrobot": 3,
+    "buct": 10
+   },
+   "turns": 78,
+   "secs": 20.49
+  },
+  {
+   "tournament": 3,
+   "seed": 1000301,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "drrl": 4,
+    "vpi": 7,
+    "uct": 11
+   },
+   "turns": 62,
+   "secs": 22.77
+  },
+  {
+   "tournament": 2,
+   "seed": 1000250,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 7,
+    "buct": 10,
+    "drrl": 4,
+    "jsrobot": 4
+   },
+   "turns": 74,
+   "secs": 12.09
+  },
+  {
+   "tournament": 1,
+   "seed": 1000123,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "jsrobot": 6,
+    "drrl": 10,
+    "vpi": 5,
+    "uct": 6
+   },
+   "turns": 89,
+   "secs": 12.45
+  },
+  {
+   "tournament": 4,
+   "seed": 1000424,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "jsrobot": 2,
+    "buct": 8,
+    "uct": 10
+   },
+   "turns": 56,
+   "secs": 10.93
+  },
+  {
+   "tournament": 4,
+   "seed": 1000482,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 5,
+    "uct": 7,
+    "vpi": 6
+   },
+   "turns": 82,
+   "secs": 19.2
+  },
+  {
+   "tournament": 4,
+   "seed": 1000415,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 3,
+    "vpi": 7,
+    "jsrobot": 4
+   },
+   "turns": 72,
+   "secs": 13.63
+  },
+  {
+   "tournament": 3,
+   "seed": 1000332,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "buct": 10,
+    "vpi": 7,
+    "uct": 8
+   },
+   "turns": 99,
+   "secs": 22.13
+  },
+  {
+   "tournament": 4,
+   "seed": 1000483,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 11,
+    "vpi": 7,
+    "buct": 6,
+    "jsrobot": 4
+   },
+   "turns": 94,
+   "secs": 36.14
+  },
+  {
+   "tournament": 4,
+   "seed": 1000462,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "uct": 10,
+    "buct": 6,
+    "jsrobot": 4
+   },
+   "turns": 94,
+   "secs": 19.97
+  },
+  {
+   "tournament": 4,
+   "seed": 1000445,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 7,
+    "buct": 8,
+    "vpi": 10,
+    "jsrobot": 5
+   },
+   "turns": 81,
+   "secs": 19.09
+  },
+  {
+   "tournament": 1,
+   "seed": 1000130,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 7,
+    "uct": 7,
+    "jsrobot": 10,
+    "drrl": 3
+   },
+   "turns": 58,
+   "secs": 22.02
+  },
+  {
+   "tournament": 2,
+   "seed": 1000266,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 3,
+    "buct": 10,
+    "vpi": 8,
+    "jsrobot": 4
+   },
+   "turns": 65,
+   "secs": 21.61
+  },
+  {
+   "tournament": 1,
+   "seed": 1000151,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "uct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 5,
+    "jsrobot": 10,
+    "uct": 9,
+    "drrl": 7
+   },
+   "turns": 84,
+   "secs": 25.25
+  },
+  {
+   "tournament": 1,
+   "seed": 1000193,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 6,
+    "drrl": 2,
+    "uct": 10,
+    "vpi": 7
+   },
+   "turns": 86,
+   "secs": 32.63
+  },
+  {
+   "tournament": 2,
+   "seed": 1000283,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 6,
+    "jsrobot": 2,
+    "drrl": 5
+   },
+   "turns": 46,
+   "secs": 14.15
+  },
+  {
+   "tournament": 2,
+   "seed": 1000297,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 9,
+    "vpi": 6,
+    "drrl": 10,
+    "jsrobot": 3
+   },
+   "turns": 92,
+   "secs": 14.51
+  },
+  {
+   "tournament": 1,
+   "seed": 1000101,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 7,
+    "drrl": 4,
+    "vpi": 7
+   },
+   "turns": 60,
+   "secs": 17.37
+  },
+  {
+   "tournament": 2,
+   "seed": 1000237,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 5,
+    "vpi": 6,
+    "drrl": 10,
+    "jsrobot": 4
+   },
+   "turns": 94,
+   "secs": 20.36
+  },
+  {
+   "tournament": 1,
+   "seed": 1000156,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 6,
+    "vpi": 7,
+    "uct": 4,
+    "jsrobot": 10
+   },
+   "turns": 72,
+   "secs": 15.31
+  },
+  {
+   "tournament": 1,
+   "seed": 1000136,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 4,
+    "jsrobot": 10,
+    "vpi": 5,
+    "drrl": 4
+   },
+   "turns": 70,
+   "secs": 6.2
+  },
+  {
+   "tournament": 2,
+   "seed": 1000272,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "jsrobot": 4,
+    "buct": 10,
+    "drrl": 4
+   },
+   "turns": 57,
+   "secs": 21.33
+  },
+  {
+   "tournament": 3,
+   "seed": 1000327,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 4,
+    "buct": 10,
+    "uct": 5,
+    "drrl": 3
+   },
+   "turns": 56,
+   "secs": 24.02
+  },
+  {
+   "tournament": 4,
+   "seed": 1000493,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 8,
+    "uct": 10,
+    "vpi": 9,
+    "buct": 9
+   },
+   "turns": 92,
+   "secs": 37.47
+  },
+  {
+   "tournament": 0,
+   "seed": 1000029,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 7,
+    "uct": 5,
+    "buct": 10,
+    "drrl": 8
+   },
+   "turns": 67,
+   "secs": 11.39
+  },
+  {
+   "tournament": 3,
+   "seed": 1000304,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 5,
+    "drrl": 5,
+    "uct": 5,
+    "vpi": 10
+   },
+   "turns": 78,
+   "secs": 10.18
+  },
+  {
+   "tournament": 3,
+   "seed": 1000339,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 3,
+    "uct": 4,
+    "buct": 10
+   },
+   "turns": 53,
+   "secs": 13.59
+  },
+  {
+   "tournament": 4,
+   "seed": 1000478,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "jsrobot": 8,
+    "uct": 10,
+    "vpi": 6
+   },
+   "turns": 77,
+   "secs": 12.27
+  },
+  {
+   "tournament": 1,
+   "seed": 1000188,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 5,
+    "vpi": 4,
+    "uct": 6,
+    "jsrobot": 10
+   },
+   "turns": 90,
+   "secs": 9.99
+  },
+  {
+   "tournament": 3,
+   "seed": 1000307,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "uct": 10,
+    "buct": 5,
+    "vpi": 5
+   },
+   "turns": 83,
+   "secs": 16.45
+  },
+  {
+   "tournament": 4,
+   "seed": 1000466,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 6,
+    "uct": 9,
+    "buct": 6,
+    "jsrobot": 10
+   },
+   "turns": 81,
+   "secs": 12.6
+  },
+  {
+   "tournament": 1,
+   "seed": 1000176,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "jsrobot": 6,
+    "vpi": 8,
+    "drrl": 10,
+    "uct": 9
+   },
+   "turns": 104,
+   "secs": 11.56
+  },
+  {
+   "tournament": 4,
+   "seed": 1000420,
+   "seats": [
+    "buct",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "uct": 9,
+    "jsrobot": 6,
+    "vpi": 7
+   },
+   "turns": 116,
+   "secs": 20.73
+  },
+  {
+   "tournament": 3,
+   "seed": 1000362,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "uct": 10,
+    "buct": 3,
+    "drrl": 3
+   },
+   "turns": 58,
+   "secs": 7.74
+  },
+  {
+   "tournament": 4,
+   "seed": 1000453,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 8,
+    "jsrobot": 5,
+    "vpi": 10,
+    "uct": 8
+   },
+   "turns": 92,
+   "secs": 16.49
+  },
+  {
+   "tournament": 0,
+   "seed": 1000020,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 3,
+    "drrl": 5,
+    "buct": 8
+   },
+   "turns": 85,
+   "secs": 12.48
+  },
+  {
+   "tournament": 2,
+   "seed": 1000254,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 8,
+    "buct": 10,
+    "jsrobot": 6,
+    "drrl": 7
+   },
+   "turns": 105,
+   "secs": 14.61
+  },
+  {
+   "tournament": 4,
+   "seed": 1000488,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 4,
+    "buct": 7,
+    "vpi": 6
+   },
+   "turns": 51,
+   "secs": 7.18
+  },
+  {
+   "tournament": 1,
+   "seed": 1000191,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 6,
+    "jsrobot": 5,
+    "drrl": 9
+   },
+   "turns": 100,
+   "secs": 12.09
+  },
+  {
+   "tournament": 1,
+   "seed": 1000110,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 3,
+    "vpi": 4,
+    "drrl": 7,
+    "uct": 10
+   },
+   "turns": 66,
+   "secs": 7.59
+  },
+  {
+   "tournament": 0,
+   "seed": 1000004,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 6,
+    "drrl": 3,
+    "jsrobot": 2
+   },
+   "turns": 55,
+   "secs": 6.83
+  },
+  {
+   "tournament": 0,
+   "seed": 1000081,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "uct": 7,
+    "buct": 11,
+    "jsrobot": 7
+   },
+   "turns": 93,
+   "secs": 14.44
+  },
+  {
+   "tournament": 1,
+   "seed": 1000189,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "drrl": 4,
+    "uct": 10,
+    "jsrobot": 5
+   },
+   "turns": 47,
+   "secs": 8.22
+  },
+  {
+   "tournament": 2,
+   "seed": 1000248,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 11,
+    "buct": 5,
+    "drrl": 4,
+    "jsrobot": 3
+   },
+   "turns": 80,
+   "secs": 10.36
+  },
+  {
+   "tournament": 0,
+   "seed": 1000080,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 7,
+    "jsrobot": 7,
+    "drrl": 3,
+    "uct": 10
+   },
+   "turns": 94,
+   "secs": 11.05
+  },
+  {
+   "tournament": 0,
+   "seed": 1000066,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 8,
+    "buct": 10,
+    "jsrobot": 2,
+    "uct": 4
+   },
+   "turns": 57,
+   "secs": 6.66
+  },
+  {
+   "tournament": 4,
+   "seed": 1000477,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 5,
+    "vpi": 10,
+    "uct": 4,
+    "buct": 5
+   },
+   "turns": 69,
+   "secs": 14.22
+  },
+  {
+   "tournament": 3,
+   "seed": 1000312,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "buct": 5,
+    "vpi": 9,
+    "uct": 9
+   },
+   "turns": 76,
+   "secs": 16.76
+  },
+  {
+   "tournament": 3,
+   "seed": 1000389,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 4,
+    "vpi": 8,
+    "uct": 5
+   },
+   "turns": 66,
+   "secs": 14.34
+  },
+  {
+   "tournament": 2,
+   "seed": 1000289,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 6,
+    "jsrobot": 4,
+    "drrl": 3
+   },
+   "turns": 74,
+   "secs": 10.65
+  },
+  {
+   "tournament": 1,
+   "seed": 1000173,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "uct": 10,
+    "jsrobot": 6,
+    "drrl": 5
+   },
+   "turns": 86,
+   "secs": 10.58
+  },
+  {
+   "tournament": 2,
+   "seed": 1000263,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 2,
+    "drrl": 4,
+    "vpi": 10,
+    "buct": 4
+   },
+   "turns": 40,
+   "secs": 11.68
+  },
+  {
+   "tournament": 4,
+   "seed": 1000455,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 5,
+    "jsrobot": 4,
+    "buct": 10,
+    "vpi": 6
+   },
+   "turns": 89,
+   "secs": 11.54
+  },
+  {
+   "tournament": 0,
+   "seed": 1000030,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "uct": 8,
+    "jsrobot": 7,
+    "buct": 10
+   },
+   "turns": 93,
+   "secs": 10.7
+  },
+  {
+   "tournament": 3,
+   "seed": 1000334,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 5,
+    "uct": 4,
+    "vpi": 8
+   },
+   "turns": 71,
+   "secs": 9.48
+  },
+  {
+   "tournament": 3,
+   "seed": 1000336,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 7,
+    "uct": 10,
+    "drrl": 4,
+    "vpi": 7
+   },
+   "turns": 60,
+   "secs": 10.12
+  },
+  {
+   "tournament": 2,
+   "seed": 1000265,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 5,
+    "vpi": 9,
+    "buct": 10,
+    "drrl": 6
+   },
+   "turns": 82,
+   "secs": 17.01
+  },
+  {
+   "tournament": 0,
+   "seed": 1000091,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "jsrobot": 8,
+    "uct": 10,
+    "buct": 7
+   },
+   "turns": 74,
+   "secs": 10.38
+  },
+  {
+   "tournament": 4,
+   "seed": 1000484,
+   "seats": [
+    "uct",
+    "buct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 6,
+    "buct": 9,
+    "jsrobot": 10,
+    "vpi": 3
+   },
+   "turns": 56,
+   "secs": 6.43
+  },
+  {
+   "tournament": 0,
+   "seed": 1000022,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 7,
+    "jsrobot": 10,
+    "buct": 6,
+    "drrl": 5
+   },
+   "turns": 72,
+   "secs": 6.89
+  },
+  {
+   "tournament": 3,
+   "seed": 1000394,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "buct": 7,
+    "drrl": 5
+   },
+   "turns": 77,
+   "secs": 11.95
+  },
+  {
+   "tournament": 4,
+   "seed": 1000431,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "buct": 6,
+    "jsrobot": 6
+   },
+   "turns": 75,
+   "secs": 11.31
+  },
+  {
+   "tournament": 3,
+   "seed": 1000388,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "uct": 5,
+    "vpi": 6,
+    "buct": 10
+   },
+   "turns": 81,
+   "secs": 9.71
+  },
+  {
+   "tournament": 3,
+   "seed": 1000372,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "uct": 11,
+    "vpi": 7,
+    "buct": 5
+   },
+   "turns": 68,
+   "secs": 11.27
+  },
+  {
+   "tournament": 2,
+   "seed": 1000213,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 7,
+    "jsrobot": 7,
+    "drrl": 3
+   },
+   "turns": 81,
+   "secs": 11.54
+  },
+  {
+   "tournament": 2,
+   "seed": 1000202,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "buct": 7,
+    "drrl": 8,
+    "vpi": 7
+   },
+   "turns": 85,
+   "secs": 10.04
+  },
+  {
+   "tournament": 3,
+   "seed": 1000310,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 3,
+    "vpi": 6,
+    "uct": 5
+   },
+   "turns": 82,
+   "secs": 13.14
+  },
+  {
+   "tournament": 3,
+   "seed": 1000306,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 7,
+    "buct": 8,
+    "uct": 10
+   },
+   "turns": 109,
+   "secs": 20.16
+  },
+  {
+   "tournament": 2,
+   "seed": 1000245,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 2,
+    "vpi": 6,
+    "jsrobot": 6,
+    "buct": 10
+   },
+   "turns": 86,
+   "secs": 7.26
+  },
+  {
+   "tournament": 1,
+   "seed": 1000168,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "vpi": 7,
+    "uct": 10,
+    "jsrobot": 5
+   },
+   "turns": 62,
+   "secs": 9.31
+  },
+  {
+   "tournament": 1,
+   "seed": 1000108,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "jsrobot": 5,
+    "drrl": 8,
+    "uct": 10
+   },
+   "turns": 74,
+   "secs": 10.45
+  },
+  {
+   "tournament": 2,
+   "seed": 1000208,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 9,
+    "drrl": 8,
+    "buct": 7,
+    "vpi": 10
+   },
+   "turns": 99,
+   "secs": 19.76
+  },
+  {
+   "tournament": 4,
+   "seed": 1000417,
+   "seats": [
+    "buct",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 7,
+    "uct": 8,
+    "jsrobot": 7,
+    "vpi": 10
+   },
+   "turns": 94,
+   "secs": 23.68
+  },
+  {
+   "tournament": 3,
+   "seed": 1000330,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "uct": 5,
+    "drrl": 4,
+    "buct": 9
+   },
+   "turns": 98,
+   "secs": 39.39
+  },
+  {
+   "tournament": 3,
+   "seed": 1000397,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 11,
+    "uct": 9,
+    "buct": 9,
+    "drrl": 4
+   },
+   "turns": 94,
+   "secs": 28.55
+  },
+  {
+   "tournament": 3,
+   "seed": 1000322,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 5,
+    "vpi": 6,
+    "drrl": 10,
+    "buct": 8
+   },
+   "turns": 74,
+   "secs": 13.73
+  },
+  {
+   "tournament": 2,
+   "seed": 1000273,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 9,
+    "drrl": 10,
+    "buct": 8,
+    "jsrobot": 8
+   },
+   "turns": 126,
+   "secs": 17.65
+  },
+  {
+   "tournament": 2,
+   "seed": 1000214,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 4,
+    "buct": 10,
+    "drrl": 5,
+    "jsrobot": 3
+   },
+   "turns": 49,
+   "secs": 6.83
+  },
+  {
+   "tournament": 4,
+   "seed": 1000449,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 9,
+    "jsrobot": 6,
+    "uct": 6,
+    "vpi": 10
+   },
+   "turns": 82,
+   "secs": 16.4
+  },
+  {
+   "tournament": 1,
+   "seed": 1000198,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 5,
+    "drrl": 6,
+    "vpi": 10,
+    "uct": 9
+   },
+   "turns": 87,
+   "secs": 12.54
+  },
+  {
+   "tournament": 0,
+   "seed": 1000050,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 9,
+    "jsrobot": 10,
+    "uct": 9,
+    "drrl": 7
+   },
+   "turns": 80,
+   "secs": 15.3
+  },
+  {
+   "tournament": 0,
+   "seed": 1000046,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 8,
+    "drrl": 3,
+    "uct": 8
+   },
+   "turns": 77,
+   "secs": 12.05
+  },
+  {
+   "tournament": 4,
+   "seed": 1000450,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "jsrobot": 6,
+    "buct": 10,
+    "vpi": 7
+   },
+   "turns": 77,
+   "secs": 13.54
+  },
+  {
+   "tournament": 2,
+   "seed": 1000262,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 7,
+    "buct": 9,
+    "jsrobot": 4,
+    "drrl": 10
+   },
+   "turns": 89,
+   "secs": 12.07
+  },
+  {
+   "tournament": 4,
+   "seed": 1000498,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 2,
+    "vpi": 4,
+    "uct": 7
+   },
+   "turns": 66,
+   "secs": 11.46
+  },
+  {
+   "tournament": 2,
+   "seed": 1000227,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 3,
+    "jsrobot": 2,
+    "vpi": 9
+   },
+   "turns": 64,
+   "secs": 8.41
+  },
+  {
+   "tournament": 0,
+   "seed": 1000027,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 7,
+    "drrl": 5,
+    "buct": 9,
+    "uct": 10
+   },
+   "turns": 87,
+   "secs": 11.14
+  },
+  {
+   "tournament": 0,
+   "seed": 1000060,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 6,
+    "buct": 10,
+    "drrl": 8,
+    "uct": 8
+   },
+   "turns": 93,
+   "secs": 18.09
+  },
+  {
+   "tournament": 2,
+   "seed": 1000226,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 3,
+    "buct": 11,
+    "jsrobot": 6,
+    "vpi": 5
+   },
+   "turns": 85,
+   "secs": 10.94
+  },
+  {
+   "tournament": 0,
+   "seed": 1000041,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 6,
+    "jsrobot": 6,
+    "uct": 10,
+    "buct": 6
+   },
+   "turns": 65,
+   "secs": 10.59
+  },
+  {
+   "tournament": 2,
+   "seed": 1000201,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 8,
+    "buct": 5,
+    "jsrobot": 5,
+    "drrl": 10
+   },
+   "turns": 81,
+   "secs": 13.05
+  },
+  {
+   "tournament": 4,
+   "seed": 1000440,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 5,
+    "uct": 10,
+    "vpi": 6,
+    "buct": 7
+   },
+   "turns": 97,
+   "secs": 16.94
+  },
+  {
+   "tournament": 1,
+   "seed": 1000119,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 9,
+    "jsrobot": 5,
+    "uct": 10,
+    "vpi": 7
+   },
+   "turns": 105,
+   "secs": 11.35
+  },
+  {
+   "tournament": 0,
+   "seed": 1000042,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 4,
+    "buct": 8,
+    "drrl": 4
+   },
+   "turns": 52,
+   "secs": 6.45
+  },
+  {
+   "tournament": 1,
+   "seed": 1000185,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "vpi": 9,
+    "jsrobot": 6,
+    "uct": 10
+   },
+   "turns": 76,
+   "secs": 13.21
+  },
+  {
+   "tournament": 3,
+   "seed": 1000337,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "vpi": 7,
+    "uct": 6,
+    "buct": 10
+   },
+   "turns": 106,
+   "secs": 23.82
+  },
+  {
+   "tournament": 4,
+   "seed": 1000423,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "jsrobot": 5,
+    "vpi": 6,
+    "uct": 10
+   },
+   "turns": 57,
+   "secs": 9.79
+  },
+  {
+   "tournament": 1,
+   "seed": 1000139,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "drrl": 2,
+    "jsrobot": 6,
+    "uct": 10
+   },
+   "turns": 63,
+   "secs": 9.59
+  },
+  {
+   "tournament": 3,
+   "seed": 1000354,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "vpi": 7,
+    "buct": 8,
+    "uct": 5
+   },
+   "turns": 90,
+   "secs": 15.09
+  },
+  {
+   "tournament": 4,
+   "seed": 1000441,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "jsrobot": 4,
+    "uct": 10,
+    "vpi": 6
+   },
+   "turns": 85,
+   "secs": 15.9
+  },
+  {
+   "tournament": 1,
+   "seed": 1000115,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 4,
+    "drrl": 6,
+    "vpi": 8,
+    "uct": 10
+   },
+   "turns": 87,
+   "secs": 12.27
+  },
+  {
+   "tournament": 1,
+   "seed": 1000116,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 8,
+    "drrl": 5,
+    "uct": 10,
+    "vpi": 5
+   },
+   "turns": 86,
+   "secs": 9.15
+  },
+  {
+   "tournament": 4,
+   "seed": 1000427,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 6,
+    "buct": 5,
+    "jsrobot": 10,
+    "uct": 6
+   },
+   "turns": 53,
+   "secs": 8.43
+  },
+  {
+   "tournament": 2,
+   "seed": 1000246,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 6,
+    "jsrobot": 10,
+    "drrl": 6,
+    "buct": 6
+   },
+   "turns": 78,
+   "secs": 9.2
+  },
+  {
+   "tournament": 4,
+   "seed": 1000470,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 3,
+    "vpi": 5,
+    "uct": 10,
+    "jsrobot": 4
+   },
+   "turns": 50,
+   "secs": 6.44
+  },
+  {
+   "tournament": 3,
+   "seed": 1000346,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 4,
+    "drrl": 4,
+    "buct": 8
+   },
+   "turns": 55,
+   "secs": 12.47
+  },
+  {
+   "tournament": 3,
+   "seed": 1000308,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 9,
+    "drrl": 9,
+    "vpi": 5,
+    "uct": 10
+   },
+   "turns": 70,
+   "secs": 13.72
+  },
+  {
+   "tournament": 2,
+   "seed": 1000233,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 6,
+    "buct": 10,
+    "drrl": 3,
+    "vpi": 4
+   },
+   "turns": 74,
+   "secs": 9.13
+  },
+  {
+   "tournament": 2,
+   "seed": 1000271,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 11,
+    "drrl": 5,
+    "vpi": 6,
+    "buct": 8
+   },
+   "turns": 80,
+   "secs": 12.35
+  },
+  {
+   "tournament": 2,
+   "seed": 1000258,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "buct": 10,
+    "vpi": 4,
+    "jsrobot": 5
+   },
+   "turns": 58,
+   "secs": 6.72
+  },
+  {
+   "tournament": 3,
+   "seed": 1000371,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 4,
+    "drrl": 4,
+    "uct": 10,
+    "vpi": 8
+   },
+   "turns": 74,
+   "secs": 14.51
+  },
+  {
+   "tournament": 1,
+   "seed": 1000103,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 7,
+    "drrl": 3,
+    "jsrobot": 4
+   },
+   "turns": 50,
+   "secs": 8.84
+  },
+  {
+   "tournament": 2,
+   "seed": 1000209,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 7,
+    "drrl": 10,
+    "jsrobot": 6,
+    "buct": 9
+   },
+   "turns": 102,
+   "secs": 15.63
+  },
+  {
+   "tournament": 1,
+   "seed": 1000107,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "drrl": 8,
+    "uct": 9,
+    "vpi": 9
+   },
+   "turns": 129,
+   "secs": 16.72
+  },
+  {
+   "tournament": 1,
+   "seed": 1000111,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 8,
+    "jsrobot": 3,
+    "drrl": 3
+   },
+   "turns": 56,
+   "secs": 9.11
+  },
+  {
+   "tournament": 3,
+   "seed": 1000335,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 6,
+    "uct": 9,
+    "drrl": 10,
+    "buct": 7
+   },
+   "turns": 85,
+   "secs": 14.21
+  },
+  {
+   "tournament": 3,
+   "seed": 1000349,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "uct": 5,
+    "drrl": 6,
+    "buct": 8
+   },
+   "turns": 72,
+   "secs": 18.03
+  },
+  {
+   "tournament": 4,
+   "seed": 1000487,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 5,
+    "uct": 9,
+    "vpi": 5,
+    "buct": 10
+   },
+   "turns": 86,
+   "secs": 11.19
+  },
+  {
+   "tournament": 3,
+   "seed": 1000380,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 6,
+    "uct": 5,
+    "drrl": 10,
+    "vpi": 7
+   },
+   "turns": 91,
+   "secs": 15.17
+  },
+  {
+   "tournament": 0,
+   "seed": 1000009,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 5,
+    "uct": 10,
+    "drrl": 5
+   },
+   "turns": 71,
+   "secs": 12.6
+  },
+  {
+   "tournament": 2,
+   "seed": 1000212,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 8,
+    "drrl": 8,
+    "jsrobot": 8,
+    "buct": 10
+   },
+   "turns": 101,
+   "secs": 16.82
+  },
+  {
+   "tournament": 0,
+   "seed": 1000072,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "buct": 4,
+    "uct": 6,
+    "jsrobot": 6
+   },
+   "turns": 81,
+   "secs": 9.02
+  },
+  {
+   "tournament": 1,
+   "seed": 1000145,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "uct": 10,
+    "drrl": 8,
+    "jsrobot": 5
+   },
+   "turns": 106,
+   "secs": 18.45
+  },
+  {
+   "tournament": 1,
+   "seed": 1000163,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 4,
+    "jsrobot": 10,
+    "vpi": 9,
+    "drrl": 3
+   },
+   "turns": 73,
+   "secs": 9.83
+  },
+  {
+   "tournament": 0,
+   "seed": 1000034,
+   "seats": [
+    "uct",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 6,
+    "buct": 10,
+    "jsrobot": 7,
+    "drrl": 3
+   },
+   "turns": 78,
+   "secs": 8.38
+  },
+  {
+   "tournament": 0,
+   "seed": 1000002,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 9,
+    "buct": 6,
+    "drrl": 5,
+    "uct": 11
+   },
+   "turns": 92,
+   "secs": 14.09
+  },
+  {
+   "tournament": 0,
+   "seed": 1000095,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 6,
+    "uct": 11,
+    "jsrobot": 7,
+    "buct": 6
+   },
+   "turns": 89,
+   "secs": 13.33
+  },
+  {
+   "tournament": 4,
+   "seed": 1000419,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 8,
+    "vpi": 9,
+    "uct": 10
+   },
+   "turns": 89,
+   "secs": 14.58
+  },
+  {
+   "tournament": 2,
+   "seed": 1000224,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 4,
+    "buct": 3,
+    "vpi": 10,
+    "drrl": 3
+   },
+   "turns": 55,
+   "secs": 5.21
+  },
+  {
+   "tournament": 4,
+   "seed": 1000486,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 7,
+    "uct": 10,
+    "buct": 9,
+    "vpi": 5
+   },
+   "turns": 68,
+   "secs": 16.29
+  },
+  {
+   "tournament": 0,
+   "seed": 1000051,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 4,
+    "drrl": 5,
+    "uct": 7,
+    "buct": 10
+   },
+   "turns": 56,
+   "secs": 8.93
+  },
+  {
+   "tournament": 3,
+   "seed": 1000319,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 5,
+    "uct": 10,
+    "buct": 7
+   },
+   "turns": 57,
+   "secs": 10.52
+  },
+  {
+   "tournament": 2,
+   "seed": 1000207,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 4,
+    "vpi": 10,
+    "jsrobot": 7,
+    "buct": 5
+   },
+   "turns": 65,
+   "secs": 7.83
+  },
+  {
+   "tournament": 2,
+   "seed": 1000220,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 5,
+    "drrl": 10,
+    "jsrobot": 6,
+    "buct": 7
+   },
+   "turns": 73,
+   "secs": 10.12
+  },
+  {
+   "tournament": 1,
+   "seed": 1000181,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "jsrobot": 2,
+    "uct": 10,
+    "vpi": 3
+   },
+   "turns": 48,
+   "secs": 5.3
+  },
+  {
+   "tournament": 2,
+   "seed": 1000205,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "vpi": 6,
+    "buct": 10,
+    "jsrobot": 9
+   },
+   "turns": 108,
+   "secs": 14.81
+  },
+  {
+   "tournament": 0,
+   "seed": 1000008,
+   "seats": [
+    "buct",
+    "uct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "uct": 10,
+    "jsrobot": 5,
+    "drrl": 5
+   },
+   "turns": 63,
+   "secs": 9.07
+  },
+  {
+   "tournament": 1,
+   "seed": 1000149,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "uct": 10,
+    "vpi": 7,
+    "jsrobot": 6
+   },
+   "turns": 62,
+   "secs": 10.2
+  },
+  {
+   "tournament": 4,
+   "seed": 1000465,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 6,
+    "jsrobot": 8,
+    "buct": 9
+   },
+   "turns": 65,
+   "secs": 11.4
+  },
+  {
+   "tournament": 0,
+   "seed": 1000092,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 9,
+    "jsrobot": 8,
+    "drrl": 6,
+    "buct": 10
+   },
+   "turns": 95,
+   "secs": 17.02
+  },
+  {
+   "tournament": 4,
+   "seed": 1000459,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "vpi": 7,
+    "buct": 8,
+    "uct": 7
+   },
+   "turns": 87,
+   "secs": 8.55
+  },
+  {
+   "tournament": 2,
+   "seed": 1000244,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "drrl": 3,
+    "vpi": 9,
+    "buct": 9
+   },
+   "turns": 75,
+   "secs": 12.99
+  },
+  {
+   "tournament": 2,
+   "seed": 1000243,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 9,
+    "jsrobot": 8,
+    "drrl": 8,
+    "buct": 10
+   },
+   "turns": 119,
+   "secs": 15.73
+  },
+  {
+   "tournament": 4,
+   "seed": 1000430,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 6,
+    "buct": 8,
+    "vpi": 9,
+    "uct": 10
+   },
+   "turns": 76,
+   "secs": 21.51
+  },
+  {
+   "tournament": 3,
+   "seed": 1000359,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 7,
+    "buct": 9,
+    "vpi": 9
+   },
+   "turns": 122,
+   "secs": 26.98
+  },
+  {
+   "tournament": 2,
+   "seed": 1000290,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 4,
+    "drrl": 7,
+    "buct": 10,
+    "jsrobot": 9
+   },
+   "turns": 108,
+   "secs": 14.23
+  },
+  {
+   "tournament": 1,
+   "seed": 1000169,
+   "seats": [
+    "uct",
+    "drrl",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 6,
+    "drrl": 4,
+    "jsrobot": 10,
+    "vpi": 5
+   },
+   "turns": 118,
+   "secs": 12.05
+  },
+  {
+   "tournament": 2,
+   "seed": 1000204,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "buct": 9,
+    "jsrobot": 9,
+    "drrl": 7
+   },
+   "turns": 100,
+   "secs": 21.29
+  },
+  {
+   "tournament": 4,
+   "seed": 1000494,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 7,
+    "uct": 8,
+    "jsrobot": 8
+   },
+   "turns": 86,
+   "secs": 15.62
+  },
+  {
+   "tournament": 2,
+   "seed": 1000206,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 9,
+    "vpi": 10,
+    "drrl": 6
+   },
+   "turns": 104,
+   "secs": 18.42
+  },
+  {
+   "tournament": 3,
+   "seed": 1000344,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 7,
+    "drrl": 7,
+    "uct": 8,
+    "buct": 10
+   },
+   "turns": 90,
+   "secs": 18.59
+  },
+  {
+   "tournament": 2,
+   "seed": 1000269,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 7,
+    "drrl": 8,
+    "vpi": 8
+   },
+   "turns": 111,
+   "secs": 18.65
+  },
+  {
+   "tournament": 2,
+   "seed": 1000291,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 9,
+    "vpi": 7,
+    "drrl": 10,
+    "jsrobot": 5
+   },
+   "turns": 82,
+   "secs": 14.37
+  },
+  {
+   "tournament": 3,
+   "seed": 1000328,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "buct": 7,
+    "uct": 11,
+    "vpi": 8
+   },
+   "turns": 76,
+   "secs": 18.59
+  },
+  {
+   "tournament": 4,
+   "seed": 1000489,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 10,
+    "uct": 8,
+    "vpi": 9
+   },
+   "turns": 103,
+   "secs": 22.25
+  },
+  {
+   "tournament": 2,
+   "seed": 1000241,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 7,
+    "drrl": 7,
+    "jsrobot": 6
+   },
+   "turns": 60,
+   "secs": 10.78
+  },
+  {
+   "tournament": 3,
+   "seed": 1000333,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 6,
+    "vpi": 5,
+    "buct": 9
+   },
+   "turns": 62,
+   "secs": 11.37
+  },
+  {
+   "tournament": 2,
+   "seed": 1000228,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 5,
+    "buct": 8,
+    "jsrobot": 10,
+    "vpi": 5
+   },
+   "turns": 103,
+   "secs": 11.59
+  },
+  {
+   "tournament": 1,
+   "seed": 1000129,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 6,
+    "uct": 10,
+    "vpi": 6,
+    "drrl": 8
+   },
+   "turns": 72,
+   "secs": 9.32
+  },
+  {
+   "tournament": 1,
+   "seed": 1000146,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 4,
+    "jsrobot": 10,
+    "uct": 8,
+    "vpi": 5
+   },
+   "turns": 63,
+   "secs": 8.64
+  },
+  {
+   "tournament": 0,
+   "seed": 1000032,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 7,
+    "drrl": 2,
+    "buct": 8,
+    "jsrobot": 10
+   },
+   "turns": 62,
+   "secs": 10.21
+  },
+  {
+   "tournament": 1,
+   "seed": 1000131,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 7,
+    "jsrobot": 10,
+    "drrl": 3,
+    "uct": 6
+   },
+   "turns": 77,
+   "secs": 8.82
+  },
+  {
+   "tournament": 1,
+   "seed": 1000127,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 4,
+    "jsrobot": 10,
+    "drrl": 6,
+    "vpi": 9
+   },
+   "turns": 81,
+   "secs": 11.16
+  },
+  {
+   "tournament": 1,
+   "seed": 1000118,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 4,
+    "vpi": 10,
+    "drrl": 5,
+    "jsrobot": 4
+   },
+   "turns": 56,
+   "secs": 7.44
+  },
+  {
+   "tournament": 2,
+   "seed": 1000255,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 9,
+    "jsrobot": 9,
+    "drrl": 10,
+    "buct": 7
+   },
+   "turns": 132,
+   "secs": 21.98
+  },
+  {
+   "tournament": 0,
+   "seed": 1000089,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 8,
+    "drrl": 5,
+    "jsrobot": 7,
+    "uct": 10
+   },
+   "turns": 79,
+   "secs": 9.56
+  },
+  {
+   "tournament": 2,
+   "seed": 1000287,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 7,
+    "jsrobot": 8,
+    "buct": 10,
+    "vpi": 8
+   },
+   "turns": 86,
+   "secs": 17.49
+  },
+  {
+   "tournament": 1,
+   "seed": 1000190,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 5,
+    "drrl": 4,
+    "jsrobot": 4
+   },
+   "turns": 63,
+   "secs": 7.73
+  },
+  {
+   "tournament": 4,
+   "seed": 1000491,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "buct": 9,
+    "uct": 10,
+    "jsrobot": 8
+   },
+   "turns": 92,
+   "secs": 22.72
+  },
+  {
+   "tournament": 4,
+   "seed": 1000403,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 8,
+    "uct": 9,
+    "buct": 10,
+    "jsrobot": 4
+   },
+   "turns": 97,
+   "secs": 24.6
+  },
+  {
+   "tournament": 0,
+   "seed": 1000018,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 9,
+    "buct": 8,
+    "jsrobot": 8
+   },
+   "turns": 85,
+   "secs": 14.95
+  },
+  {
+   "tournament": 0,
+   "seed": 1000077,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "uct": 10,
+    "buct": 6,
+    "jsrobot": 8
+   },
+   "turns": 72,
+   "secs": 11.92
+  },
+  {
+   "tournament": 1,
+   "seed": 1000187,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "jsrobot": 8,
+    "drrl": 10,
+    "uct": 8,
+    "vpi": 7
+   },
+   "turns": 79,
+   "secs": 17.62
+  },
+  {
+   "tournament": 4,
+   "seed": 1000485,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 7,
+    "jsrobot": 6,
+    "uct": 4
+   },
+   "turns": 63,
+   "secs": 9.2
+  },
+  {
+   "tournament": 4,
+   "seed": 1000421,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 5,
+    "vpi": 4,
+    "buct": 10,
+    "jsrobot": 4
+   },
+   "turns": 52,
+   "secs": 8.34
+  },
+  {
+   "tournament": 1,
+   "seed": 1000114,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "drrl": 7,
+    "uct": 8,
+    "jsrobot": 2
+   },
+   "turns": 86,
+   "secs": 14.67
+  },
+  {
+   "tournament": 3,
+   "seed": 1000309,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 6,
+    "drrl": 4,
+    "buct": 10,
+    "vpi": 5
+   },
+   "turns": 59,
+   "secs": 12.69
+  },
+  {
+   "tournament": 0,
+   "seed": 1000069,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "uct": 11,
+    "jsrobot": 2,
+    "buct": 7
+   },
+   "turns": 66,
+   "secs": 10.25
+  },
+  {
+   "tournament": 1,
+   "seed": 1000167,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "vpi": 7,
+    "uct": 6,
+    "jsrobot": 7
+   },
+   "turns": 99,
+   "secs": 17.95
+  },
+  {
+   "tournament": 2,
+   "seed": 1000264,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 2,
+    "drrl": 7,
+    "vpi": 8,
+    "buct": 10
+   },
+   "turns": 108,
+   "secs": 15.47
+  },
+  {
+   "tournament": 4,
+   "seed": 1000413,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 5,
+    "jsrobot": 6,
+    "uct": 6,
+    "buct": 10
+   },
+   "turns": 68,
+   "secs": 11.46
+  },
+  {
+   "tournament": 0,
+   "seed": 1000005,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 3,
+    "uct": 7,
+    "jsrobot": 3
+   },
+   "turns": 51,
+   "secs": 7.97
+  },
+  {
+   "tournament": 4,
+   "seed": 1000463,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 4,
+    "uct": 10,
+    "vpi": 8
+   },
+   "turns": 88,
+   "secs": 21.34
+  },
+  {
+   "tournament": 2,
+   "seed": 1000223,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "buct": 6,
+    "vpi": 6,
+    "jsrobot": 5
+   },
+   "turns": 71,
+   "secs": 9.88
+  },
+  {
+   "tournament": 0,
+   "seed": 1000053,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 7,
+    "drrl": 9,
+    "uct": 8,
+    "jsrobot": 10
+   },
+   "turns": 119,
+   "secs": 16.45
+  },
+  {
+   "tournament": 4,
+   "seed": 1000402,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 5,
+    "jsrobot": 11,
+    "buct": 7,
+    "vpi": 8
+   },
+   "turns": 84,
+   "secs": 11.03
+  },
+  {
+   "tournament": 2,
+   "seed": 1000216,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "jsrobot": 2,
+    "buct": 8,
+    "vpi": 9,
+    "drrl": 10
+   },
+   "turns": 82,
+   "secs": 10.24
+  },
+  {
+   "tournament": 4,
+   "seed": 1000433,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 5,
+    "buct": 10,
+    "vpi": 7,
+    "uct": 9
+   },
+   "turns": 91,
+   "secs": 17.03
+  },
+  {
+   "tournament": 4,
+   "seed": 1000437,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 4,
+    "vpi": 5,
+    "uct": 8
+   },
+   "turns": 57,
+   "secs": 10.18
+  },
+  {
+   "tournament": 4,
+   "seed": 1000454,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 4,
+    "buct": 7,
+    "jsrobot": 10,
+    "uct": 5
+   },
+   "turns": 64,
+   "secs": 10.31
+  },
+  {
+   "tournament": 1,
+   "seed": 1000102,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "uct": 10,
+    "vpi": 6,
+    "jsrobot": 3
+   },
+   "turns": 91,
+   "secs": 10.02
+  },
+  {
+   "tournament": 1,
+   "seed": 1000125,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 8,
+    "drrl": 6,
+    "jsrobot": 8
+   },
+   "turns": 79,
+   "secs": 17.03
+  },
+  {
+   "tournament": 3,
+   "seed": 1000338,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "uct": 10,
+    "buct": 5,
+    "drrl": 3
+   },
+   "turns": 51,
+   "secs": 8.65
+  },
+  {
+   "tournament": 2,
+   "seed": 1000293,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 2,
+    "vpi": 3,
+    "jsrobot": 5,
+    "buct": 10
+   },
+   "turns": 35,
+   "secs": 5.49
+  },
+  {
+   "tournament": 3,
+   "seed": 1000396,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "drrl": 8,
+    "vpi": 6,
+    "uct": 11
+   },
+   "turns": 88,
+   "secs": 16.28
+  },
+  {
+   "tournament": 1,
+   "seed": 1000184,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 5,
+    "uct": 10,
+    "drrl": 4,
+    "vpi": 6
+   },
+   "turns": 63,
+   "secs": 8.76
+  },
+  {
+   "tournament": 0,
+   "seed": 1000084,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 7,
+    "drrl": 10,
+    "jsrobot": 6,
+    "uct": 9
+   },
+   "turns": 80,
+   "secs": 13.01
+  },
+  {
+   "tournament": 3,
+   "seed": 1000353,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 5,
+    "vpi": 8,
+    "buct": 9
+   },
+   "turns": 80,
+   "secs": 22.2
+  },
+  {
+   "tournament": 2,
+   "seed": 1000239,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 5,
+    "buct": 10,
+    "vpi": 7,
+    "drrl": 5
+   },
+   "turns": 78,
+   "secs": 8.83
+  },
+  {
+   "tournament": 2,
+   "seed": 1000210,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 7,
+    "drrl": 4,
+    "jsrobot": 7,
+    "buct": 10
+   },
+   "turns": 74,
+   "secs": 10.86
+  },
+  {
+   "tournament": 1,
+   "seed": 1000112,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "uct": 10,
+    "drrl": 5,
+    "jsrobot": 7
+   },
+   "turns": 98,
+   "secs": 16.44
+  },
+  {
+   "tournament": 1,
+   "seed": 1000162,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "uct": 10,
+    "vpi": 8,
+    "jsrobot": 7
+   },
+   "turns": 85,
+   "secs": 14.13
+  },
+  {
+   "tournament": 2,
+   "seed": 1000257,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 8,
+    "jsrobot": 10,
+    "vpi": 7,
+    "drrl": 4
+   },
+   "turns": 63,
+   "secs": 9.58
+  },
+  {
+   "tournament": 4,
+   "seed": 1000452,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "vpi": 7,
+    "buct": 10,
+    "jsrobot": 7
+   },
+   "turns": 91,
+   "secs": 17.73
+  },
+  {
+   "tournament": 1,
+   "seed": 1000117,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 8,
+    "jsrobot": 4,
+    "drrl": 5
+   },
+   "turns": 81,
+   "secs": 14.63
+  },
+  {
+   "tournament": 2,
+   "seed": 1000232,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "drrl": 5,
+    "jsrobot": 3,
+    "buct": 9
+   },
+   "turns": 71,
+   "secs": 9.85
+  },
+  {
+   "tournament": 4,
+   "seed": 1000444,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 7,
+    "vpi": 9,
+    "uct": 7,
+    "jsrobot": 10
+   },
+   "turns": 89,
+   "secs": 17.29
+  },
+  {
+   "tournament": 0,
+   "seed": 1000082,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "buct": 7,
+    "jsrobot": 6,
+    "uct": 10
+   },
+   "turns": 81,
+   "secs": 14.59
+  },
+  {
+   "tournament": 4,
+   "seed": 1000422,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "vpi": 7,
+    "buct": 8,
+    "uct": 7
+   },
+   "turns": 91,
+   "secs": 19.2
+  },
+  {
+   "tournament": 3,
+   "seed": 1000393,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 6,
+    "uct": 10,
+    "buct": 5
+   },
+   "turns": 74,
+   "secs": 9.46
+  },
+  {
+   "tournament": 0,
+   "seed": 1000015,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 5,
+    "jsrobot": 10,
+    "uct": 3,
+    "buct": 7
+   },
+   "turns": 62,
+   "secs": 8.4
+  },
+  {
+   "tournament": 3,
+   "seed": 1000323,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "buct": 5,
+    "drrl": 4
+   },
+   "turns": 67,
+   "secs": 12.54
+  },
+  {
+   "tournament": 1,
+   "seed": 1000197,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "uct": 7,
+    "jsrobot": 6,
+    "vpi": 5
+   },
+   "turns": 93,
+   "secs": 11.29
+  },
+  {
+   "tournament": 2,
+   "seed": 1000221,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 7,
+    "vpi": 4,
+    "jsrobot": 7,
+    "buct": 10
+   },
+   "turns": 65,
+   "secs": 7.67
+  },
+  {
+   "tournament": 1,
+   "seed": 1000164,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 5,
+    "jsrobot": 9,
+    "uct": 10
+   },
+   "turns": 77,
+   "secs": 8.39
+  },
+  {
+   "tournament": 1,
+   "seed": 1000171,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "jsrobot": 8,
+    "drrl": 5,
+    "uct": 10
+   },
+   "turns": 105,
+   "secs": 18.14
+  },
+  {
+   "tournament": 4,
+   "seed": 1000409,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "uct": 8,
+    "vpi": 7,
+    "jsrobot": 6
+   },
+   "turns": 63,
+   "secs": 17.99
+  },
+  {
+   "tournament": 0,
+   "seed": 1000067,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "uct": 5,
+    "buct": 5,
+    "drrl": 5
+   },
+   "turns": 66,
+   "secs": 8.14
+  },
+  {
+   "tournament": 1,
+   "seed": 1000132,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 3,
+    "uct": 10,
+    "drrl": 3,
+    "vpi": 3
+   },
+   "turns": 58,
+   "secs": 5.68
+  },
+  {
+   "tournament": 1,
+   "seed": 1000106,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "jsrobot": 6,
+    "drrl": 3,
+    "uct": 10
+   },
+   "turns": 53,
+   "secs": 8.05
+  },
+  {
+   "tournament": 2,
+   "seed": 1000286,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 2,
+    "drrl": 6,
+    "vpi": 6,
+    "buct": 10
+   },
+   "turns": 75,
+   "secs": 10.51
+  },
+  {
+   "tournament": 2,
+   "seed": 1000294,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "jsrobot": 8,
+    "drrl": 8,
+    "buct": 9
+   },
+   "turns": 109,
+   "secs": 27.38
+  },
+  {
+   "tournament": 4,
+   "seed": 1000497,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 4,
+    "uct": 5,
+    "vpi": 6
+   },
+   "turns": 117,
+   "secs": 19.8
+  },
+  {
+   "tournament": 4,
+   "seed": 1000457,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "uct": 10,
+    "buct": 9,
+    "jsrobot": 4
+   },
+   "turns": 90,
+   "secs": 17.15
+  },
+  {
+   "tournament": 4,
+   "seed": 1000469,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 6,
+    "uct": 7,
+    "jsrobot": 10,
+    "buct": 6
+   },
+   "turns": 69,
+   "secs": 10.29
+  },
+  {
+   "tournament": 3,
+   "seed": 1000355,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 5,
+    "buct": 10,
+    "uct": 6,
+    "drrl": 3
+   },
+   "turns": 66,
+   "secs": 11.67
+  },
+  {
+   "tournament": 1,
+   "seed": 1000100,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 4,
+    "vpi": 8,
+    "drrl": 5
+   },
+   "turns": 94,
+   "secs": 9.67
+  },
+  {
+   "tournament": 3,
+   "seed": 1000374,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 6,
+    "vpi": 5,
+    "drrl": 3
+   },
+   "turns": 64,
+   "secs": 14.19
+  },
+  {
+   "tournament": 4,
+   "seed": 1000401,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "jsrobot": 8,
+    "buct": 5,
+    "uct": 10
+   },
+   "turns": 89,
+   "secs": 15.41
+  },
+  {
+   "tournament": 0,
+   "seed": 1000017,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 4,
+    "drrl": 6,
+    "uct": 7
+   },
+   "turns": 69,
+   "secs": 9.79
+  },
+  {
+   "tournament": 3,
+   "seed": 1000302,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "uct": 5,
+    "drrl": 2,
+    "vpi": 4
+   },
+   "turns": 59,
+   "secs": 10.1
+  },
+  {
+   "tournament": 3,
+   "seed": 1000329,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "vpi": 7,
+    "uct": 10,
+    "drrl": 4
+   },
+   "turns": 53,
+   "secs": 9.98
+  },
+  {
+   "tournament": 2,
+   "seed": 1000292,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 9,
+    "buct": 10,
+    "vpi": 8,
+    "jsrobot": 7
+   },
+   "turns": 100,
+   "secs": 14.36
+  },
+  {
+   "tournament": 0,
+   "seed": 1000039,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "buct": 8,
+    "uct": 11,
+    "jsrobot": 3
+   },
+   "turns": 51,
+   "secs": 7.63
+  },
+  {
+   "tournament": 2,
+   "seed": 1000279,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 3,
+    "buct": 10,
+    "jsrobot": 7
+   },
+   "turns": 81,
+   "secs": 14.54
+  },
+  {
+   "tournament": 1,
+   "seed": 1000166,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "uct": 10,
+    "vpi": 5,
+    "jsrobot": 7
+   },
+   "turns": 89,
+   "secs": 9.27
+  },
+  {
+   "tournament": 1,
+   "seed": 1000148,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "uct": 10,
+    "jsrobot": 4,
+    "vpi": 8
+   },
+   "turns": 85,
+   "secs": 8.89
+  },
+  {
+   "tournament": 3,
+   "seed": 1000345,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 7,
+    "drrl": 8,
+    "buct": 10,
+    "uct": 9
+   },
+   "turns": 90,
+   "secs": 17.12
+  },
+  {
+   "tournament": 4,
+   "seed": 1000405,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 6,
+    "vpi": 7,
+    "buct": 7
+   },
+   "turns": 74,
+   "secs": 10.67
+  },
+  {
+   "tournament": 2,
+   "seed": 1000236,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "jsrobot": 3,
+    "vpi": 7,
+    "drrl": 11,
+    "buct": 9
+   },
+   "turns": 69,
+   "secs": 13.44
+  },
+  {
+   "tournament": 2,
+   "seed": 1000278,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 9,
+    "jsrobot": 6,
+    "drrl": 10,
+    "buct": 7
+   },
+   "turns": 85,
+   "secs": 14.55
+  },
+  {
+   "tournament": 1,
+   "seed": 1000104,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "jsrobot": 6,
+    "drrl": 8,
+    "uct": 10
+   },
+   "turns": 77,
+   "secs": 12.21
+  },
+  {
+   "tournament": 2,
+   "seed": 1000247,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "buct": 8,
+    "drrl": 5,
+    "vpi": 7
+   },
+   "turns": 61,
+   "secs": 5.98
+  },
+  {
+   "tournament": 4,
+   "seed": 1000496,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 9,
+    "vpi": 8,
+    "uct": 10,
+    "buct": 6
+   },
+   "turns": 89,
+   "secs": 12.13
+  },
+  {
+   "tournament": 0,
+   "seed": 1000028,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "uct": 8,
+    "drrl": 5,
+    "buct": 5
+   },
+   "turns": 84,
+   "secs": 8.59
+  },
+  {
+   "tournament": 3,
+   "seed": 1000363,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 9,
+    "drrl": 10,
+    "vpi": 6,
+    "buct": 9
+   },
+   "turns": 66,
+   "secs": 12.32
+  },
+  {
+   "tournament": 3,
+   "seed": 1000365,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 6,
+    "uct": 4,
+    "vpi": 7
+   },
+   "turns": 79,
+   "secs": 14.04
+  },
+  {
+   "tournament": 4,
+   "seed": 1000414,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "jsrobot": 4,
+    "buct": 9
+   },
+   "turns": 92,
+   "secs": 17.54
+  },
+  {
+   "tournament": 0,
+   "seed": 1000026,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 4,
+    "drrl": 7,
+    "uct": 5,
+    "buct": 10
+   },
+   "turns": 48,
+   "secs": 6.46
+  },
+  {
+   "tournament": 4,
+   "seed": 1000411,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 4,
+    "buct": 8,
+    "vpi": 8
+   },
+   "turns": 95,
+   "secs": 12.12
+  },
+  {
+   "tournament": 4,
+   "seed": 1000443,
+   "seats": [
+    "buct",
+    "uct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 6,
+    "uct": 5,
+    "vpi": 10,
+    "jsrobot": 4
+   },
+   "turns": 67,
+   "secs": 10.64
+  },
+  {
+   "tournament": 2,
+   "seed": 1000281,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 4,
+    "drrl": 5,
+    "buct": 10,
+    "jsrobot": 4
+   },
+   "turns": 63,
+   "secs": 6.23
+  },
+  {
+   "tournament": 0,
+   "seed": 1000049,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "jsrobot": 5,
+    "buct": 5,
+    "uct": 10
+   },
+   "turns": 86,
+   "secs": 6.8
+  },
+  {
+   "tournament": 1,
+   "seed": 1000160,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 8,
+    "drrl": 6,
+    "jsrobot": 2
+   },
+   "turns": 75,
+   "secs": 9.81
+  },
+  {
+   "tournament": 0,
+   "seed": 1000047,
+   "seats": [
+    "uct",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 9,
+    "jsrobot": 7,
+    "drrl": 3
+   },
+   "turns": 91,
+   "secs": 11.73
+  },
+  {
+   "tournament": 3,
+   "seed": 1000313,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "uct": 10,
+    "buct": 6,
+    "vpi": 6
+   },
+   "turns": 61,
+   "secs": 10.56
+  },
+  {
+   "tournament": 2,
+   "seed": 1000218,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 6,
+    "jsrobot": 10,
+    "drrl": 3,
+    "buct": 5
+   },
+   "turns": 62,
+   "secs": 6.05
+  },
+  {
+   "tournament": 0,
+   "seed": 1000048,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 9,
+    "jsrobot": 10,
+    "drrl": 4,
+    "buct": 6
+   },
+   "turns": 99,
+   "secs": 10.32
+  },
+  {
+   "tournament": 0,
+   "seed": 1000033,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 6,
+    "jsrobot": 8,
+    "uct": 5,
+    "buct": 10
+   },
+   "turns": 78,
+   "secs": 11.59
+  },
+  {
+   "tournament": 4,
+   "seed": 1000492,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 4,
+    "vpi": 8,
+    "buct": 8
+   },
+   "turns": 78,
+   "secs": 12.52
+  },
+  {
+   "tournament": 4,
+   "seed": 1000499,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 8,
+    "uct": 8,
+    "vpi": 7
+   },
+   "turns": 84,
+   "secs": 15.78
+  },
+  {
+   "tournament": 2,
+   "seed": 1000200,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 7,
+    "buct": 10,
+    "jsrobot": 6,
+    "drrl": 4
+   },
+   "turns": 65,
+   "secs": 9.3
+  },
+  {
+   "tournament": 1,
+   "seed": 1000120,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 7,
+    "vpi": 6,
+    "jsrobot": 2
+   },
+   "turns": 66,
+   "secs": 7.11
+  },
+  {
+   "tournament": 2,
+   "seed": 1000285,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 5,
+    "vpi": 6,
+    "jsrobot": 10,
+    "drrl": 2
+   },
+   "turns": 59,
+   "secs": 5.76
+  },
+  {
+   "tournament": 4,
+   "seed": 1000448,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 6,
+    "buct": 5,
+    "jsrobot": 7
+   },
+   "turns": 67,
+   "secs": 9.2
+  },
+  {
+   "tournament": 1,
+   "seed": 1000180,
+   "seats": [
+    "vpi",
+    "uct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "uct": 6,
+    "jsrobot": 7,
+    "drrl": 4
+   },
+   "turns": 71,
+   "secs": 11.18
+  },
+  {
+   "tournament": 1,
+   "seed": 1000121,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 8,
+    "drrl": 10,
+    "jsrobot": 7,
+    "uct": 7
+   },
+   "turns": 102,
+   "secs": 12.41
+  },
+  {
+   "tournament": 2,
+   "seed": 1000240,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 9,
+    "drrl": 6,
+    "vpi": 10,
+    "jsrobot": 5
+   },
+   "turns": 80,
+   "secs": 11.02
+  },
+  {
+   "tournament": 4,
+   "seed": 1000456,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 6,
+    "uct": 10,
+    "vpi": 9,
+    "buct": 7
+   },
+   "turns": 90,
+   "secs": 9.24
+  },
+  {
+   "tournament": 0,
+   "seed": 1000052,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "buct": 9,
+    "uct": 9,
+    "drrl": 8
+   },
+   "turns": 97,
+   "secs": 12.59
+  },
+  {
+   "tournament": 1,
+   "seed": 1000196,
+   "seats": [
+    "uct",
+    "drrl",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 5,
+    "drrl": 10,
+    "jsrobot": 4,
+    "vpi": 4
+   },
+   "turns": 64,
+   "secs": 5.3
+  },
+  {
+   "tournament": 3,
+   "seed": 1000303,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "buct": 10,
+    "vpi": 3,
+    "uct": 5
+   },
+   "turns": 85,
+   "secs": 11.64
+  },
+  {
+   "tournament": 3,
+   "seed": 1000357,
+   "seats": [
+    "uct",
+    "drrl",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 4,
+    "drrl": 4,
+    "buct": 10,
+    "vpi": 6
+   },
+   "turns": 76,
+   "secs": 11.45
+  },
+  {
+   "tournament": 3,
+   "seed": 1000351,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "uct": 3,
+    "buct": 10,
+    "vpi": 7
+   },
+   "turns": 70,
+   "secs": 11.41
+  },
+  {
+   "tournament": 0,
+   "seed": 1000037,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 6,
+    "uct": 8,
+    "buct": 10,
+    "drrl": 3
+   },
+   "turns": 94,
+   "secs": 12.74
+  },
+  {
+   "tournament": 0,
+   "seed": 1000085,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 9,
+    "buct": 10,
+    "drrl": 4,
+    "jsrobot": 7
+   },
+   "turns": 66,
+   "secs": 8.34
+  },
+  {
+   "tournament": 1,
+   "seed": 1000174,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 4,
+    "vpi": 6,
+    "jsrobot": 10,
+    "uct": 5
+   },
+   "turns": 80,
+   "secs": 8.0
+  },
+  {
+   "tournament": 1,
+   "seed": 1000175,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 2,
+    "drrl": 3,
+    "jsrobot": 4,
+    "uct": 10
+   },
+   "turns": 47,
+   "secs": 4.64
+  },
+  {
+   "tournament": 3,
+   "seed": 1000317,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 7,
+    "vpi": 5,
+    "drrl": 3,
+    "uct": 10
+   },
+   "turns": 60,
+   "secs": 9.16
+  },
+  {
+   "tournament": 3,
+   "seed": 1000376,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "uct": 10,
+    "drrl": 5,
+    "buct": 7
+   },
+   "turns": 60,
+   "secs": 13.93
+  },
+  {
+   "tournament": 3,
+   "seed": 1000384,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "buct": 10,
+    "vpi": 7,
+    "uct": 6
+   },
+   "turns": 110,
+   "secs": 17.1
+  },
+  {
+   "tournament": 1,
+   "seed": 1000142,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 7,
+    "vpi": 7,
+    "jsrobot": 10,
+    "drrl": 3
+   },
+   "turns": 87,
+   "secs": 9.02
+  },
+  {
+   "tournament": 2,
+   "seed": 1000252,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "jsrobot": 8,
+    "drrl": 4,
+    "vpi": 6
+   },
+   "turns": 54,
+   "secs": 7.93
+  },
+  {
+   "tournament": 4,
+   "seed": 1000407,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 6,
+    "buct": 7,
+    "vpi": 7,
+    "jsrobot": 10
+   },
+   "turns": 71,
+   "secs": 11.12
+  },
+  {
+   "tournament": 2,
+   "seed": 1000268,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "buct",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "jsrobot": 6,
+    "buct": 8,
+    "drrl": 8
+   },
+   "turns": 113,
+   "secs": 27.14
+  },
+  {
+   "tournament": 4,
+   "seed": 1000480,
+   "seats": [
+    "buct",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 9,
+    "uct": 9,
+    "jsrobot": 9,
+    "vpi": 10
+   },
+   "turns": 106,
+   "secs": 20.71
+  },
+  {
+   "tournament": 2,
+   "seed": 1000225,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 7,
+    "drrl": 11,
+    "jsrobot": 7,
+    "vpi": 7
+   },
+   "turns": 97,
+   "secs": 15.39
+  },
+  {
+   "tournament": 0,
+   "seed": 1000062,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 6,
+    "uct": 8,
+    "jsrobot": 5
+   },
+   "turns": 83,
+   "secs": 8.02
+  },
+  {
+   "tournament": 3,
+   "seed": 1000343,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 9,
+    "buct": 10,
+    "drrl": 7,
+    "uct": 8
+   },
+   "turns": 84,
+   "secs": 15.81
+  },
+  {
+   "tournament": 4,
+   "seed": 1000464,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 5,
+    "uct": 5,
+    "buct": 10,
+    "vpi": 6
+   },
+   "turns": 71,
+   "secs": 11.15
+  },
+  {
+   "tournament": 3,
+   "seed": 1000331,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 8,
+    "vpi": 8,
+    "uct": 9,
+    "buct": 10
+   },
+   "turns": 140,
+   "secs": 26.64
+  },
+  {
+   "tournament": 2,
+   "seed": 1000282,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 4,
+    "vpi": 7,
+    "jsrobot": 10,
+    "buct": 5
+   },
+   "turns": 72,
+   "secs": 10.13
+  },
+  {
+   "tournament": 0,
+   "seed": 1000076,
+   "seats": [
+    "uct",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 7,
+    "buct": 9,
+    "jsrobot": 10,
+    "drrl": 5
+   },
+   "turns": 89,
+   "secs": 13.39
+  },
+  {
+   "tournament": 4,
+   "seed": 1000481,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 2,
+    "uct": 10,
+    "vpi": 6,
+    "buct": 9
+   },
+   "turns": 68,
+   "secs": 13.16
+  },
+  {
+   "tournament": 1,
+   "seed": 1000161,
+   "seats": [
+    "uct",
+    "drrl",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 6,
+    "jsrobot": 6,
+    "vpi": 9
+   },
+   "turns": 86,
+   "secs": 10.18
+  },
+  {
+   "tournament": 3,
+   "seed": 1000369,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "uct": 5,
+    "vpi": 6,
+    "buct": 8,
+    "drrl": 10
+   },
+   "turns": 65,
+   "secs": 7.0
+  },
+  {
+   "tournament": 2,
+   "seed": 1000295,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 4,
+    "vpi": 7,
+    "buct": 9,
+    "jsrobot": 10
+   },
+   "turns": 130,
+   "secs": 14.52
+  },
+  {
+   "tournament": 0,
+   "seed": 1000079,
+   "seats": [
+    "uct",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 9,
+    "drrl": 7,
+    "jsrobot": 6,
+    "buct": 10
+   },
+   "turns": 78,
+   "secs": 10.16
+  },
+  {
+   "tournament": 1,
+   "seed": 1000192,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 4,
+    "uct": 7,
+    "jsrobot": 10,
+    "vpi": 6
+   },
+   "turns": 69,
+   "secs": 5.28
+  },
+  {
+   "tournament": 4,
+   "seed": 1000418,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 5,
+    "vpi": 5,
+    "uct": 3,
+    "buct": 10
+   },
+   "turns": 65,
+   "secs": 7.36
+  },
+  {
+   "tournament": 4,
+   "seed": 1000408,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 7,
+    "buct": 5,
+    "vpi": 8
+   },
+   "turns": 89,
+   "secs": 11.48
+  },
+  {
+   "tournament": 4,
+   "seed": 1000474,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 5,
+    "buct": 7,
+    "jsrobot": 10,
+    "uct": 4
+   },
+   "turns": 76,
+   "secs": 8.88
+  },
+  {
+   "tournament": 0,
+   "seed": 1000014,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "buct": 9,
+    "uct": 8,
+    "drrl": 5
+   },
+   "turns": 91,
+   "secs": 10.72
+  },
+  {
+   "tournament": 1,
+   "seed": 1000186,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 3,
+    "uct": 8,
+    "vpi": 10,
+    "jsrobot": 5
+   },
+   "turns": 78,
+   "secs": 10.07
+  },
+  {
+   "tournament": 0,
+   "seed": 1000094,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "uct",
+    "drrl"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 8,
+    "jsrobot": 6,
+    "uct": 6,
+    "drrl": 10
+   },
+   "turns": 83,
+   "secs": 11.4
+  },
+  {
+   "tournament": 4,
+   "seed": 1000412,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 4,
+    "buct": 9,
+    "jsrobot": 3,
+    "uct": 10
+   },
+   "turns": 71,
+   "secs": 8.83
+  },
+  {
+   "tournament": 3,
+   "seed": 1000390,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 4,
+    "vpi": 6,
+    "buct": 5
+   },
+   "turns": 55,
+   "secs": 9.25
+  },
+  {
+   "tournament": 0,
+   "seed": 1000054,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 7,
+    "uct": 10,
+    "drrl": 9,
+    "buct": 7
+   },
+   "turns": 65,
+   "secs": 8.3
+  },
+  {
+   "tournament": 2,
+   "seed": 1000215,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 3,
+    "jsrobot": 6,
+    "buct": 9,
+    "vpi": 10
+   },
+   "turns": 73,
+   "secs": 9.78
+  },
+  {
+   "tournament": 0,
+   "seed": 1000040,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 6,
+    "jsrobot": 8,
+    "drrl": 3,
+    "buct": 10
+   },
+   "turns": 81,
+   "secs": 8.92
+  },
+  {
+   "tournament": 2,
+   "seed": 1000234,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 7,
+    "drrl": 4,
+    "vpi": 4,
+    "buct": 10
+   },
+   "turns": 63,
+   "secs": 7.15
+  },
+  {
+   "tournament": 3,
+   "seed": 1000340,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 9,
+    "vpi": 10,
+    "uct": 6,
+    "drrl": 5
+   },
+   "turns": 82,
+   "secs": 14.13
+  },
+  {
+   "tournament": 3,
+   "seed": 1000341,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "buct": 6,
+    "vpi": 7,
+    "uct": 7
+   },
+   "turns": 72,
+   "secs": 13.03
+  },
+  {
+   "tournament": 0,
+   "seed": 1000088,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "uct": 8,
+    "buct": 7,
+    "drrl": 4
+   },
+   "turns": 74,
+   "secs": 8.16
+  },
+  {
+   "tournament": 0,
+   "seed": 1000035,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "buct",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 5,
+    "jsrobot": 11,
+    "buct": 9,
+    "uct": 8
+   },
+   "turns": 75,
+   "secs": 12.09
+  },
+  {
+   "tournament": 2,
+   "seed": 1000296,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 9,
+    "buct": 6,
+    "jsrobot": 10,
+    "drrl": 9
+   },
+   "turns": 108,
+   "secs": 15.41
+  },
+  {
+   "tournament": 0,
+   "seed": 1000065,
+   "seats": [
+    "buct",
+    "uct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 6,
+    "uct": 4,
+    "drrl": 3,
+    "jsrobot": 10
+   },
+   "turns": 55,
+   "secs": 5.62
+  },
+  {
+   "tournament": 2,
+   "seed": 1000229,
+   "seats": [
+    "buct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 7,
+    "drrl": 3,
+    "jsrobot": 5
+   },
+   "turns": 77,
+   "secs": 11.9
+  },
+  {
+   "tournament": 0,
+   "seed": 1000070,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "buct": 8,
+    "uct": 8,
+    "drrl": 4
+   },
+   "turns": 78,
+   "secs": 11.36
+  },
+  {
+   "tournament": 0,
+   "seed": 1000011,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "buct",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "jsrobot": 8,
+    "buct": 10,
+    "uct": 8
+   },
+   "turns": 74,
+   "secs": 8.85
+  },
+  {
+   "tournament": 0,
+   "seed": 1000090,
+   "seats": [
+    "uct",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 6,
+    "drrl": 5,
+    "jsrobot": 5,
+    "buct": 11
+   },
+   "turns": 99,
+   "secs": 9.31
+  },
+  {
+   "tournament": 3,
+   "seed": 1000387,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "buct": 10,
+    "drrl": 7,
+    "uct": 4
+   },
+   "turns": 56,
+   "secs": 6.29
+  },
+  {
+   "tournament": 1,
+   "seed": 1000159,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "uct": 9,
+    "jsrobot": 4,
+    "vpi": 6
+   },
+   "turns": 86,
+   "secs": 10.7
+  },
+  {
+   "tournament": 0,
+   "seed": 1000038,
+   "seats": [
+    "buct",
+    "uct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "uct": 10,
+    "jsrobot": 2,
+    "drrl": 4
+   },
+   "turns": 56,
+   "secs": 6.48
+  },
+  {
+   "tournament": 4,
+   "seed": 1000410,
+   "seats": [
+    "vpi",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 7,
+    "buct": 10,
+    "jsrobot": 5,
+    "uct": 5
+   },
+   "turns": 75,
+   "secs": 10.4
+  },
+  {
+   "tournament": 0,
+   "seed": 1000025,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 2,
+    "drrl": 5,
+    "uct": 10,
+    "buct": 6
+   },
+   "turns": 70,
+   "secs": 8.75
+  },
+  {
+   "tournament": 0,
+   "seed": 1000075,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "uct": 8,
+    "jsrobot": 7,
+    "buct": 8
+   },
+   "turns": 112,
+   "secs": 15.46
+  },
+  {
+   "tournament": 0,
+   "seed": 1000078,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 6,
+    "drrl": 4,
+    "uct": 10,
+    "jsrobot": 5
+   },
+   "turns": 52,
+   "secs": 6.44
+  },
+  {
+   "tournament": 1,
+   "seed": 1000179,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 4,
+    "uct": 10,
+    "jsrobot": 3
+   },
+   "turns": 66,
+   "secs": 6.73
+  },
+  {
+   "tournament": 1,
+   "seed": 1000138,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "jsrobot": 4,
+    "vpi": 7,
+    "uct": 10
+   },
+   "turns": 53,
+   "secs": 7.72
+  },
+  {
+   "tournament": 3,
+   "seed": 1000385,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "vpi": 3,
+    "buct": 6,
+    "uct": 10
+   },
+   "turns": 48,
+   "secs": 7.88
+  },
+  {
+   "tournament": 0,
+   "seed": 1000061,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 6,
+    "buct": 6,
+    "drrl": 3
+   },
+   "turns": 67,
+   "secs": 7.61
+  },
+  {
+   "tournament": 3,
+   "seed": 1000379,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "buct": 7,
+    "uct": 10,
+    "vpi": 8
+   },
+   "turns": 75,
+   "secs": 22.89
+  },
+  {
+   "tournament": 3,
+   "seed": 1000342,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 5,
+    "buct": 9,
+    "drrl": 5,
+    "vpi": 10
+   },
+   "turns": 101,
+   "secs": 20.77
+  },
+  {
+   "tournament": 2,
+   "seed": 1000275,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "buct": 10,
+    "vpi": 5,
+    "jsrobot": 4
+   },
+   "turns": 56,
+   "secs": 4.68
+  },
+  {
+   "tournament": 0,
+   "seed": 1000056,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 4,
+    "jsrobot": 4,
+    "drrl": 3,
+    "buct": 10
+   },
+   "turns": 64,
+   "secs": 5.52
+  },
+  {
+   "tournament": 3,
+   "seed": 1000326,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 4,
+    "buct": 10,
+    "vpi": 8,
+    "drrl": 3
+   },
+   "turns": 61,
+   "secs": 10.43
+  },
+  {
+   "tournament": 0,
+   "seed": 1000000,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 5,
+    "buct": 9,
+    "drrl": 6,
+    "uct": 10
+   },
+   "turns": 87,
+   "secs": 11.25
+  },
+  {
+   "tournament": 3,
+   "seed": 1000378,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 8,
+    "buct": 10,
+    "drrl": 4,
+    "uct": 7
+   },
+   "turns": 65,
+   "secs": 11.94
+  },
+  {
+   "tournament": 2,
+   "seed": 1000217,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 7,
+    "vpi": 3,
+    "buct": 8,
+    "jsrobot": 10
+   },
+   "turns": 82,
+   "secs": 6.35
+  },
+  {
+   "tournament": 2,
+   "seed": 1000261,
+   "seats": [
+    "buct",
+    "drrl",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 9,
+    "drrl": 6,
+    "vpi": 7,
+    "jsrobot": 10
+   },
+   "turns": 72,
+   "secs": 9.95
+  },
+  {
+   "tournament": 1,
+   "seed": 1000182,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 8,
+    "drrl": 5,
+    "uct": 10,
+    "vpi": 7
+   },
+   "turns": 77,
+   "secs": 9.79
+  },
+  {
+   "tournament": 3,
+   "seed": 1000366,
+   "seats": [
+    "drrl",
+    "vpi",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "vpi": 7,
+    "buct": 7,
+    "uct": 10
+   },
+   "turns": 76,
+   "secs": 12.01
+  },
+  {
+   "tournament": 4,
+   "seed": 1000447,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 5,
+    "uct": 6,
+    "buct": 6,
+    "jsrobot": 10
+   },
+   "turns": 61,
+   "secs": 8.86
+  },
+  {
+   "tournament": 3,
+   "seed": 1000361,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 7,
+    "drrl": 4,
+    "uct": 10,
+    "vpi": 6
+   },
+   "turns": 64,
+   "secs": 11.64
+  },
+  {
+   "tournament": 4,
+   "seed": 1000475,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 9,
+    "vpi": 7,
+    "uct": 9,
+    "jsrobot": 10
+   },
+   "turns": 114,
+   "secs": 18.46
+  },
+  {
+   "tournament": 2,
+   "seed": 1000284,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 5,
+    "buct": 10,
+    "drrl": 4,
+    "jsrobot": 5
+   },
+   "turns": 60,
+   "secs": 5.35
+  },
+  {
+   "tournament": 2,
+   "seed": 1000280,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 8,
+    "buct": 6,
+    "vpi": 10,
+    "jsrobot": 8
+   },
+   "turns": 91,
+   "secs": 13.46
+  },
+  {
+   "tournament": 4,
+   "seed": 1000406,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "buct": 9,
+    "uct": 10,
+    "jsrobot": 5
+   },
+   "turns": 128,
+   "secs": 22.8
+  },
+  {
+   "tournament": 4,
+   "seed": 1000404,
+   "seats": [
+    "vpi",
+    "buct",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 6,
+    "buct": 9,
+    "uct": 5,
+    "jsrobot": 10
+   },
+   "turns": 102,
+   "secs": 19.6
+  },
+  {
+   "tournament": 0,
+   "seed": 1000031,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "uct",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 2,
+    "buct": 10,
+    "uct": 4,
+    "drrl": 5
+   },
+   "turns": 43,
+   "secs": 6.37
+  },
+  {
+   "tournament": 4,
+   "seed": 1000467,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 6,
+    "uct": 6,
+    "jsrobot": 7
+   },
+   "turns": 86,
+   "secs": 12.4
+  },
+  {
+   "tournament": 1,
+   "seed": 1000113,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 4,
+    "uct": 4,
+    "jsrobot": 4,
+    "vpi": 11
+   },
+   "turns": 60,
+   "secs": 6.86
+  },
+  {
+   "tournament": 3,
+   "seed": 1000348,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 8,
+    "vpi": 10,
+    "uct": 6,
+    "buct": 9
+   },
+   "turns": 104,
+   "secs": 21.29
+  },
+  {
+   "tournament": 3,
+   "seed": 1000300,
+   "seats": [
+    "drrl",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "buct": 10,
+    "vpi": 3,
+    "uct": 6
+   },
+   "turns": 55,
+   "secs": 9.3
+  },
+  {
+   "tournament": 1,
+   "seed": 1000199,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 4,
+    "drrl": 2,
+    "vpi": 6,
+    "uct": 10
+   },
+   "turns": 50,
+   "secs": 5.79
+  },
+  {
+   "tournament": 1,
+   "seed": 1000158,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "vpi",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "drrl": 5,
+    "vpi": 7,
+    "uct": 7
+   },
+   "turns": 72,
+   "secs": 6.98
+  },
+  {
+   "tournament": 2,
+   "seed": 1000238,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 6,
+    "jsrobot": 4,
+    "buct": 11,
+    "vpi": 4
+   },
+   "turns": 76,
+   "secs": 11.02
+  },
+  {
+   "tournament": 0,
+   "seed": 1000024,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 6,
+    "drrl": 3,
+    "jsrobot": 10,
+    "uct": 5
+   },
+   "turns": 60,
+   "secs": 5.57
+  },
+  {
+   "tournament": 2,
+   "seed": 1000211,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 6,
+    "drrl": 3,
+    "jsrobot": 10,
+    "buct": 8
+   },
+   "turns": 105,
+   "secs": 11.05
+  },
+  {
+   "tournament": 3,
+   "seed": 1000320,
+   "seats": [
+    "vpi",
+    "uct",
+    "buct",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "buct": 7,
+    "drrl": 6
+   },
+   "turns": 66,
+   "secs": 11.66
+  },
+  {
+   "tournament": 4,
+   "seed": 1000434,
+   "seats": [
+    "uct",
+    "buct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 6,
+    "buct": 8,
+    "jsrobot": 10,
+    "vpi": 8
+   },
+   "turns": 81,
+   "secs": 15.82
+  },
+  {
+   "tournament": 4,
+   "seed": 1000458,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "jsrobot": 2,
+    "uct": 8,
+    "buct": 10
+   },
+   "turns": 76,
+   "secs": 8.88
+  },
+  {
+   "tournament": 2,
+   "seed": 1000251,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "buct",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 5,
+    "jsrobot": 10,
+    "buct": 6,
+    "vpi": 6
+   },
+   "turns": 101,
+   "secs": 8.84
+  },
+  {
+   "tournament": 0,
+   "seed": 1000063,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 4,
+    "buct": 7,
+    "uct": 9,
+    "jsrobot": 10
+   },
+   "turns": 80,
+   "secs": 8.93
+  },
+  {
+   "tournament": 2,
+   "seed": 1000235,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 4,
+    "buct": 10,
+    "jsrobot": 2,
+    "vpi": 6
+   },
+   "turns": 51,
+   "secs": 5.98
+  },
+  {
+   "tournament": 1,
+   "seed": 1000135,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 9,
+    "vpi": 10,
+    "jsrobot": 8,
+    "drrl": 2
+   },
+   "turns": 83,
+   "secs": 8.78
+  },
+  {
+   "tournament": 0,
+   "seed": 1000083,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "buct": 8,
+    "drrl": 10,
+    "uct": 7,
+    "jsrobot": 8
+   },
+   "turns": 92,
+   "secs": 12.32
+  },
+  {
+   "tournament": 2,
+   "seed": 1000299,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "drrl",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 8,
+    "vpi": 6,
+    "drrl": 5,
+    "buct": 10
+   },
+   "turns": 69,
+   "secs": 8.56
+  },
+  {
+   "tournament": 2,
+   "seed": 1000242,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 10,
+    "vpi": 8,
+    "drrl": 3
+   },
+   "turns": 81,
+   "secs": 11.56
+  },
+  {
+   "tournament": 2,
+   "seed": 1000274,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 10,
+    "vpi": 4,
+    "drrl": 2
+   },
+   "turns": 58,
+   "secs": 4.6
+  },
+  {
+   "tournament": 4,
+   "seed": 1000461,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 6,
+    "vpi": 7,
+    "uct": 3,
+    "jsrobot": 10
+   },
+   "turns": 75,
+   "secs": 8.3
+  },
+  {
+   "tournament": 0,
+   "seed": 1000057,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 2,
+    "buct": 10,
+    "drrl": 4,
+    "uct": 9
+   },
+   "turns": 67,
+   "secs": 8.56
+  },
+  {
+   "tournament": 4,
+   "seed": 1000471,
+   "seats": [
+    "uct",
+    "vpi",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 6,
+    "buct": 9,
+    "jsrobot": 7
+   },
+   "turns": 70,
+   "secs": 13.69
+  },
+  {
+   "tournament": 0,
+   "seed": 1000007,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "drrl": 3,
+    "uct": 10,
+    "jsrobot": 7
+   },
+   "turns": 70,
+   "secs": 5.89
+  },
+  {
+   "tournament": 0,
+   "seed": 1000058,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 3,
+    "buct": 10,
+    "drrl": 5,
+    "uct": 9
+   },
+   "turns": 94,
+   "secs": 14.08
+  },
+  {
+   "tournament": 1,
+   "seed": 1000137,
+   "seats": [
+    "uct",
+    "vpi",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "vpi": 4,
+    "jsrobot": 4,
+    "drrl": 3
+   },
+   "turns": 63,
+   "secs": 7.06
+  },
+  {
+   "tournament": 4,
+   "seed": 1000435,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "vpi",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 5,
+    "buct": 6,
+    "vpi": 7,
+    "uct": 10
+   },
+   "turns": 82,
+   "secs": 8.42
+  },
+  {
+   "tournament": 1,
+   "seed": 1000150,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 6,
+    "uct": 8,
+    "drrl": 10,
+    "jsrobot": 5
+   },
+   "turns": 76,
+   "secs": 8.12
+  },
+  {
+   "tournament": 1,
+   "seed": 1000128,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "drrl": 6,
+    "vpi": 10,
+    "uct": 7,
+    "jsrobot": 2
+   },
+   "turns": 72,
+   "secs": 7.47
+  },
+  {
+   "tournament": 3,
+   "seed": 1000364,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "vpi"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 8,
+    "drrl": 6,
+    "uct": 9,
+    "vpi": 10
+   },
+   "turns": 84,
+   "secs": 17.53
+  },
+  {
+   "tournament": 0,
+   "seed": 1000023,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 8,
+    "buct": 7,
+    "drrl": 4,
+    "jsrobot": 10
+   },
+   "turns": 78,
+   "secs": 11.36
+  },
+  {
+   "tournament": 3,
+   "seed": 1000311,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 4,
+    "buct": 5,
+    "vpi": 10,
+    "drrl": 5
+   },
+   "turns": 59,
+   "secs": 7.01
+  },
+  {
+   "tournament": 1,
+   "seed": 1000153,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "uct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "jsrobot": 10,
+    "vpi": 9,
+    "uct": 8,
+    "drrl": 5
+   },
+   "turns": 118,
+   "secs": 14.56
+  },
+  {
+   "tournament": 0,
+   "seed": 1000059,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "buct": 5,
+    "jsrobot": 6,
+    "uct": 10
+   },
+   "turns": 56,
+   "secs": 7.83
+  },
+  {
+   "tournament": 1,
+   "seed": 1000183,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "uct": 10,
+    "drrl": 7,
+    "jsrobot": 5
+   },
+   "turns": 75,
+   "secs": 11.37
+  },
+  {
+   "tournament": 3,
+   "seed": 1000382,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 7,
+    "buct": 10,
+    "drrl": 4,
+    "vpi": 6
+   },
+   "turns": 81,
+   "secs": 12.86
+  },
+  {
+   "tournament": 4,
+   "seed": 1000442,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 6,
+    "jsrobot": 2,
+    "buct": 6,
+    "uct": 10
+   },
+   "turns": 56,
+   "secs": 9.4
+  },
+  {
+   "tournament": 0,
+   "seed": 1000097,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 8,
+    "buct": 9,
+    "drrl": 3,
+    "uct": 10
+   },
+   "turns": 68,
+   "secs": 10.45
+  },
+  {
+   "tournament": 0,
+   "seed": 1000036,
+   "seats": [
+    "drrl",
+    "uct",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "uct": 4,
+    "buct": 10,
+    "jsrobot": 7
+   },
+   "turns": 54,
+   "secs": 5.22
+  },
+  {
+   "tournament": 2,
+   "seed": 1000259,
+   "seats": [
+    "drrl",
+    "buct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 3,
+    "buct": 10,
+    "jsrobot": 5,
+    "vpi": 9
+   },
+   "turns": 65,
+   "secs": 7.78
+  },
+  {
+   "tournament": 1,
+   "seed": 1000141,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 4,
+    "uct": 10,
+    "jsrobot": 5,
+    "vpi": 5
+   },
+   "turns": 46,
+   "secs": 9.52
+  },
+  {
+   "tournament": 3,
+   "seed": 1000381,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "vpi": 6,
+    "drrl": 10,
+    "buct": 9,
+    "uct": 4
+   },
+   "turns": 74,
+   "secs": 11.7
+  },
+  {
+   "tournament": 3,
+   "seed": 1000318,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "drrl": 4,
+    "buct": 5,
+    "uct": 7
+   },
+   "turns": 66,
+   "secs": 7.97
+  },
+  {
+   "tournament": 3,
+   "seed": 1000314,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "vpi": 10,
+    "buct": 9,
+    "drrl": 4,
+    "uct": 6
+   },
+   "turns": 66,
+   "secs": 13.96
+  },
+  {
+   "tournament": 2,
+   "seed": 1000260,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 7,
+    "jsrobot": 10,
+    "drrl": 7,
+    "vpi": 5
+   },
+   "turns": 81,
+   "secs": 10.87
+  },
+  {
+   "tournament": 3,
+   "seed": 1000383,
+   "seats": [
+    "vpi",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "buct": 7,
+    "drrl": 8,
+    "uct": 10
+   },
+   "turns": 76,
+   "secs": 16.19
+  },
+  {
+   "tournament": 1,
+   "seed": 1000126,
+   "seats": [
+    "uct",
+    "jsrobot",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "jsrobot": 6,
+    "vpi": 3,
+    "drrl": 2
+   },
+   "turns": 52,
+   "secs": 5.42
+  },
+  {
+   "tournament": 1,
+   "seed": 1000144,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "drrl": 7,
+    "vpi": 7,
+    "jsrobot": 10,
+    "uct": 9
+   },
+   "turns": 92,
+   "secs": 12.69
+  },
+  {
+   "tournament": 3,
+   "seed": 1000399,
+   "seats": [
+    "uct",
+    "buct",
+    "vpi",
+    "drrl"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "uct": 4,
+    "buct": 6,
+    "vpi": 10,
+    "drrl": 5
+   },
+   "turns": 79,
+   "secs": 9.15
+  },
+  {
+   "tournament": 2,
+   "seed": 1000230,
+   "seats": [
+    "vpi",
+    "drrl",
+    "buct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 6,
+    "drrl": 5,
+    "buct": 11,
+    "jsrobot": 7
+   },
+   "turns": 68,
+   "secs": 8.73
+  },
+  {
+   "tournament": 4,
+   "seed": 1000495,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "vpi": 3,
+    "jsrobot": 2,
+    "uct": 5,
+    "buct": 10
+   },
+   "turns": 40,
+   "secs": 6.0
+  },
+  {
+   "tournament": 2,
+   "seed": 1000231,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 3,
+    "jsrobot": 7,
+    "vpi": 7,
+    "buct": 10
+   },
+   "turns": 61,
+   "secs": 10.3
+  },
+  {
+   "tournament": 3,
+   "seed": 1000370,
+   "seats": [
+    "uct",
+    "drrl",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "drrl": 7,
+    "vpi": 8,
+    "buct": 9
+   },
+   "turns": 114,
+   "secs": 28.1
+  },
+  {
+   "tournament": 2,
+   "seed": 1000219,
+   "seats": [
+    "buct",
+    "drrl",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 9,
+    "jsrobot": 9,
+    "vpi": 9
+   },
+   "turns": 98,
+   "secs": 13.51
+  },
+  {
+   "tournament": 4,
+   "seed": 1000426,
+   "seats": [
+    "buct",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 7,
+    "uct": 11,
+    "jsrobot": 4,
+    "vpi": 7
+   },
+   "turns": 78,
+   "secs": 9.7
+  },
+  {
+   "tournament": 1,
+   "seed": 1000155,
+   "seats": [
+    "drrl",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "drrl": 10,
+    "vpi": 6,
+    "jsrobot": 7,
+    "uct": 5
+   },
+   "turns": 79,
+   "secs": 7.82
+  },
+  {
+   "tournament": 2,
+   "seed": 1000267,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "buct",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 8,
+    "jsrobot": 10,
+    "buct": 8,
+    "drrl": 9
+   },
+   "turns": 91,
+   "secs": 9.62
+  },
+  {
+   "tournament": 3,
+   "seed": 1000360,
+   "seats": [
+    "vpi",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 5,
+    "uct": 10,
+    "drrl": 4,
+    "buct": 4
+   },
+   "turns": 49,
+   "secs": 9.97
+  },
+  {
+   "tournament": 0,
+   "seed": 1000086,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "drrl",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "jsrobot": 5,
+    "uct": 9,
+    "drrl": 10,
+    "buct": 8
+   },
+   "turns": 118,
+   "secs": 12.57
+  },
+  {
+   "tournament": 4,
+   "seed": 1000429,
+   "seats": [
+    "buct",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 4,
+    "uct": 6,
+    "jsrobot": 2
+   },
+   "turns": 51,
+   "secs": 5.29
+  },
+  {
+   "tournament": 3,
+   "seed": 1000375,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "vpi": 6,
+    "uct": 8,
+    "buct": 10
+   },
+   "turns": 55,
+   "secs": 10.69
+  },
+  {
+   "tournament": 0,
+   "seed": 1000045,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "jsrobot": 2,
+    "drrl": 2,
+    "buct": 4,
+    "uct": 10
+   },
+   "turns": 38,
+   "secs": 4.48
+  },
+  {
+   "tournament": 1,
+   "seed": 1000147,
+   "seats": [
+    "uct",
+    "vpi",
+    "drrl",
+    "jsrobot"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "uct": 7,
+    "vpi": 7,
+    "drrl": 5,
+    "jsrobot": 10
+   },
+   "turns": 95,
+   "secs": 11.51
+  },
+  {
+   "tournament": 2,
+   "seed": 1000203,
+   "seats": [
+    "vpi",
+    "drrl",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "vpi": 7,
+    "drrl": 8,
+    "jsrobot": 10,
+    "buct": 7
+   },
+   "turns": 92,
+   "secs": 11.89
+  },
+  {
+   "tournament": 1,
+   "seed": 1000195,
+   "seats": [
+    "drrl",
+    "vpi",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 6,
+    "vpi": 3,
+    "uct": 10,
+    "jsrobot": 5
+   },
+   "turns": 79,
+   "secs": 7.71
+  },
+  {
+   "tournament": 4,
+   "seed": 1000439,
+   "seats": [
+    "buct",
+    "vpi",
+    "jsrobot",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "vpi": 5,
+    "jsrobot": 9,
+    "uct": 7
+   },
+   "turns": 63,
+   "secs": 11.7
+  },
+  {
+   "tournament": 0,
+   "seed": 1000043,
+   "seats": [
+    "uct",
+    "buct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "buct",
+   "vps": {
+    "uct": 9,
+    "buct": 10,
+    "jsrobot": 8,
+    "drrl": 5
+   },
+   "turns": 75,
+   "secs": 10.67
+  },
+  {
+   "tournament": 3,
+   "seed": 1000324,
+   "seats": [
+    "drrl",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 3,
+    "uct": 10,
+    "vpi": 5,
+    "buct": 3
+   },
+   "turns": 60,
+   "secs": 9.16
+  },
+  {
+   "tournament": 1,
+   "seed": 1000105,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 4,
+    "jsrobot": 3,
+    "drrl": 4,
+    "uct": 10
+   },
+   "turns": 56,
+   "secs": 6.27
+  },
+  {
+   "tournament": 4,
+   "seed": 1000468,
+   "seats": [
+    "vpi",
+    "jsrobot",
+    "buct",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 7,
+    "jsrobot": 5,
+    "buct": 9,
+    "uct": 10
+   },
+   "turns": 125,
+   "secs": 21.7
+  },
+  {
+   "tournament": 0,
+   "seed": 1000087,
+   "seats": [
+    "jsrobot",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "drrl",
+   "vps": {
+    "jsrobot": 8,
+    "drrl": 10,
+    "uct": 4,
+    "buct": 5
+   },
+   "turns": 77,
+   "secs": 6.77
+  },
+  {
+   "tournament": 0,
+   "seed": 1000068,
+   "seats": [
+    "buct",
+    "drrl",
+    "uct",
+    "jsrobot"
+   ],
+   "winner": "buct",
+   "vps": {
+    "buct": 10,
+    "drrl": 5,
+    "uct": 6,
+    "jsrobot": 6
+   },
+   "turns": 63,
+   "secs": 7.99
+  },
+  {
+   "tournament": 0,
+   "seed": 1000010,
+   "seats": [
+    "jsrobot",
+    "buct",
+    "drrl",
+    "uct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "jsrobot": 5,
+    "buct": 10,
+    "drrl": 2,
+    "uct": 7
+   },
+   "turns": 78,
+   "secs": 7.86
+  },
+  {
+   "tournament": 2,
+   "seed": 1000288,
+   "seats": [
+    "drrl",
+    "jsrobot",
+    "vpi",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 6,
+    "jsrobot": 5,
+    "vpi": 8,
+    "buct": 10
+   },
+   "turns": 88,
+   "secs": 15.62
+  },
+  {
+   "tournament": 1,
+   "seed": 1000165,
+   "seats": [
+    "jsrobot",
+    "vpi",
+    "drrl",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 8,
+    "vpi": 10,
+    "drrl": 5,
+    "uct": 7
+   },
+   "turns": 104,
+   "secs": 14.95
+  },
+  {
+   "tournament": 3,
+   "seed": 1000386,
+   "seats": [
+    "drrl",
+    "buct",
+    "uct",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 5,
+    "buct": 9,
+    "uct": 10,
+    "vpi": 6
+   },
+   "turns": 95,
+   "secs": 18.88
+  },
+  {
+   "tournament": 0,
+   "seed": 1000021,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 5,
+    "jsrobot": 10,
+    "drrl": 4,
+    "uct": 4
+   },
+   "turns": 55,
+   "secs": 4.01
+  },
+  {
+   "tournament": 0,
+   "seed": 1000064,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "drrl",
+    "uct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "buct": 5,
+    "jsrobot": 4,
+    "drrl": 3,
+    "uct": 10
+   },
+   "turns": 64,
+   "secs": 8.26
+  },
+  {
+   "tournament": 3,
+   "seed": 1000347,
+   "seats": [
+    "uct",
+    "buct",
+    "drrl",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "uct": 10,
+    "buct": 9,
+    "drrl": 7,
+    "vpi": 8
+   },
+   "turns": 76,
+   "secs": 19.86
+  },
+  {
+   "tournament": 1,
+   "seed": 1000178,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "vpi"
+   ],
+   "winner": "uct",
+   "vps": {
+    "drrl": 7,
+    "uct": 10,
+    "jsrobot": 8,
+    "vpi": 9
+   },
+   "turns": 107,
+   "secs": 22.51
+  },
+  {
+   "tournament": 0,
+   "seed": 1000073,
+   "seats": [
+    "drrl",
+    "uct",
+    "jsrobot",
+    "buct"
+   ],
+   "winner": "buct",
+   "vps": {
+    "drrl": 5,
+    "uct": 9,
+    "jsrobot": 9,
+    "buct": 10
+   },
+   "turns": 72,
+   "secs": 13.73
+  },
+  {
+   "tournament": 4,
+   "seed": 1000476,
+   "seats": [
+    "jsrobot",
+    "uct",
+    "vpi",
+    "buct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "jsrobot": 7,
+    "uct": 7,
+    "vpi": 10,
+    "buct": 8
+   },
+   "turns": 102,
+   "secs": 18.15
+  },
+  {
+   "tournament": 0,
+   "seed": 1000044,
+   "seats": [
+    "buct",
+    "uct",
+    "jsrobot",
+    "drrl"
+   ],
+   "winner": "jsrobot",
+   "vps": {
+    "buct": 4,
+    "uct": 5,
+    "jsrobot": 10,
+    "drrl": 2
+   },
+   "turns": 62,
+   "secs": 4.86
+  },
+  {
+   "tournament": 3,
+   "seed": 1000398,
+   "seats": [
+    "vpi",
+    "drrl",
+    "uct",
+    "buct"
+   ],
+   "winner": "uct",
+   "vps": {
+    "vpi": 8,
+    "drrl": 3,
+    "uct": 10,
+    "buct": 9
+   },
+   "turns": 73,
+   "secs": 14.62
+  },
+  {
+   "tournament": 4,
+   "seed": 1000473,
+   "seats": [
+    "buct",
+    "jsrobot",
+    "vpi",
+    "uct"
+   ],
+   "winner": "vpi",
+   "vps": {
+    "buct": 9,
+    "jsrobot": 2,
+    "vpi": 10,
+    "uct": 6
+   },
+   "turns": 71,
+   "secs": 9.97
+  }
+ ]
+}

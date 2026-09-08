@@ -2647,7 +2647,8 @@ hands, replies 155 of 156, and counter-offers 64 of 68 — where the Java's own 
 null in 67 of those 68 calls. JSettlers says "counter" often and almost never finds a counter to make; the
 "no counter-offers" deviation was worth about one reply per ten games. Strength moved within noise: `jsrobot`
 24.7% [20.1, 29.8] and `jsdroid` 16.7% [12.9, 21.3] against three `rab` (300 games each; 25.7% and 15.7%
-before), and 30.0% [21.5, 40.1] against three stock jSettlers through the bridge (90 games; 32.0% before).
+before), and 30.0% [21.5, 40.1] against three stock jSettlers through the bridge (90 games; 32.0% before); in the
+paper's pool on the arena `jsrobot` wins 83 of 400 again, 20.8% [17.1, 25.0], the paper's 21%.
 
 One number did move: `drrl:c`, the paper's counter-offer reading, fell from 10.7% [7.7, 14.7] to 5.0%
 [2.2, 11.2] (100 games, mean 4.33 VP) once the engine applies its counters instead of rejecting. A fresh
