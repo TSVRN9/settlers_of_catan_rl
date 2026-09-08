@@ -139,26 +139,27 @@ export const BOT_NAMES: Record<string, string> = {
   vpi: "MCTS, value of perfect information (Karamalegos 2016)",
 };
 /** The lineup's card on each bot: the chip caption, what decides, how, and one measured figure with its
- *  lineup (docs/BENCHMARK.md results tables). `sub` gets " · depth N" appended for the bots that search. */
+ *  lineup (docs/BENCHMARK.md results tables). `sub` gets " · depth N" appended for the bots that search.
+ *  `how` may carry LaTeX between $…$ (views/Tex.tsx). */
 export const BOT_INFO: Record<BotKind, { sub: string; what: string; how: string; measured?: string }> = {
   human: { sub: "person", what: "A person at this seat.", how: "Hand, action column and coach; the readings are written from this seat." },
   random: { sub: "uniform over legal moves", what: "Picks uniformly among the legal actions.", how: "No search, no evaluation, no trades." },
   heuristic: {
     sub: "search",
     what: "Catanatron's AlphaBeta player, ported to Rust.",
-    how: "Depth-2 expectimax over the dice, leaves scored by AlphaBeta's hand-written evaluator (production, pieces, hand, road and army). Offers and replies come from a 1-ply trade policy over the same evaluator.",
+    how: "Depth-2 expectimax, $\\max_a\\, \\mathbb{E}_{d \\sim 2\\mathrm{d}6}\\, \\min_b\\, v(s_{a d b})$, with leaves scored by AlphaBeta's hand-written $v$ (production, pieces, hand, road and army). Offers and replies come from a 1-ply trade policy over the same $v$.",
     measured: "AlphaBeta, which this ports: 32.2% of 400 games in the catanatron pool",
   },
   vnet: {
     sub: "search",
     what: "The same search with the evaluator replaced by a learned win-probability net.",
-    how: "v40: a value net trained expert-iteration style on rollout outcomes of its own games, read at every leaf of the depth-2 expectimax; leaves are batched per decision. Trades use the 1-ply policy over the net.",
+    how: "v40: a value net $V_\\theta(s) \\approx P(\\text{win} \\mid s)$ trained expert-iteration style on rollout outcomes of its own games, read at every leaf of the depth-2 expectimax; leaves are batched per decision. Trades use the 1-ply policy over $V_\\theta$.",
     measured: "72.0% of 400 games in the catanatron pool (AlphaBeta, MCTS and two greedy bots)",
   },
   drrl: {
     sub: "trades by DRRL",
     what: "The EUMAS 2018 agent: a learned trade layer over a fixed base.",
-    how: "72 heads (70 offers, accept, reject), one LSTM cell per head over a 154-int state, online SGD after every decision with a VP-difference reward, weights fresh each game. Every prompt that is not an offer or a reply goes to the heuristic search.",
+    how: "72 heads (70 offers, accept, reject), one LSTM cell per head over a 154-int state, $Q^i = \\sigma(h^i \\cdot \\theta^i)$; online SGD after every decision towards $r + \\gamma \\max_{a'} Q(a')$ with $r = k\\,\\Delta\\mathrm{VP}$ on a gain and $-k\\,\\mathrm{VP}$ otherwise, $k = 0.01$, learning rate $0.0023$; weights fresh each game. Every prompt that is not an offer or a reply goes to the heuristic search.",
     measured: "11.0% of 400 games in the paper's five-agent pool",
   },
   jsrobot: {
@@ -176,19 +177,19 @@ export const BOT_INFO: Record<BotKind, { sub: string; what: string; how: string;
   uct: {
     sub: "MCTS · 5,000 playouts",
     what: "Monte Carlo tree search with the UCT rule (Karamalegos 2016).",
-    how: "A tree over the agent's own post-roll turn, random playouts to a 10-round cut-off, every seat's VP as the reward, selection by UCT with C_p = 1/√2. Placement, robber, discards and trades go to the heuristic search. About 0.25 s a decision.",
+    how: "A tree over the agent's own post-roll turn, random playouts to a 10-round cut-off, every seat's $\\mathrm{VP}/10$ as the reward, selection by $\\arg\\max_a\\, \\bar q_a + C_p \\sqrt{\\ln N / n_a}$ with $C_p = 1/\\sqrt{2}$. Placement, robber, discards and trades go to the heuristic search. About 0.25 s a decision.",
     measured: "44.5% of 400 games in the paper's five-agent pool",
   },
   buct: {
     sub: "MCTS · 5,000 playouts",
     what: "The same search with Bayesian UCT selection.",
-    how: "Backups keep a Dirichlet count per node; selection takes mean + sqrt(2 ln N) · sigma over the posterior (Tesauro's second rule). Playouts, reward and delegation as UCT.",
+    how: "Backups keep a Dirichlet count per node; selection takes $\\arg\\max_a\\, \\mu_a + \\sqrt{2 \\ln N}\\, \\sigma_a$ over the posterior (Tesauro's second rule). Playouts, reward and delegation as UCT.",
     measured: "36.2% of 400 games in the paper's five-agent pool",
   },
   vpi: {
     sub: "MCTS · 1,500 playouts",
     what: "The same search choosing by value of perfect information.",
-    how: "Myopic VPI over the Dirichlet posteriors, sampled through Gamma draws; picks max E[q] + VPI. Playouts, reward and delegation as UCT, on a third of the budget.",
+    how: "Myopic value of perfect information over the Dirichlet posteriors, sampled through Gamma draws; picks $\\arg\\max_a\\, \\mathbb{E}[q_a] + \\mathrm{VPI}(a)$. Playouts, reward and delegation as UCT, on a third of the budget.",
     measured: "12.5% of 400 games in the paper's five-agent pool",
   },
 };

@@ -6,6 +6,7 @@ import type { BotKind, BotSpec } from "../engine";
 import { deal, resume, start } from "../game";
 import { BOT_INFO, BOT_NAMES, BOT_SHORT, SEAT_NAMES } from "../labels";
 import Picker from "./Picker";
+import Tex from "./Tex";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
 import { set, useApp } from "../store";
@@ -130,7 +131,7 @@ export default function Lineup() {
           <div className="d" style={{ fontSize: 17, lineHeight: 1.2 }}>{BOT_SHORT[info.kind]}</div>
           <div className="cap" style={{ fontSize: 11.5, marginTop: 2 }}>{BOT_NAMES[info.kind]}</div>
           <div style={{ marginTop: 9, fontWeight: 600 }}>{BOT_INFO[info.kind].what}</div>
-          <div style={{ marginTop: 4 }}>{BOT_INFO[info.kind].how}</div>
+          <div style={{ marginTop: 4 }}><Tex text={BOT_INFO[info.kind].how} /></div>
           {BOT_INFO[info.kind].measured && <div className="cap" style={{ marginTop: 9, fontSize: 11.5 }}>{BOT_INFO[info.kind].measured}</div>}
         </div>
       )}

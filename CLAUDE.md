@@ -74,7 +74,7 @@ deleted. See `docs/FINDINGS.md` "M4 reframed" before touching training.
   `train_value.py`, `soup.py`, `evaluate.py`, `tournament.py`, `test_env.py`).
 - `catan_engine/` Rust engine (features `python` default, `wasm` for the site). `scripts/` loop drivers.
 - `legacy/ppo/` the dormant PPO/self-play era (M1-M3), runnable via sys.path shims. `bench/` micro-benchmarks.
-- `web/` the static site (React + Vite + Tailwind + zag.js, engine via wasm-pack). `docs/` findings and plans.
+- `web/` the static site (React + Vite + Tailwind, engine via wasm-pack). `docs/` findings and plans.
 - Training artefacts (`checkpoints*/`, `data/`) and `docs/papers/` are gitignored.
 
 ## Conventions

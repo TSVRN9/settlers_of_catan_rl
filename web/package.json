@@ -11,13 +11,15 @@
     "smoke": "node tools/smoke.mjs"
   },
   "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
     "@fontsource-variable/chivo": "^5.2.5",
-    "@fontsource/syne": "^5.2.5"
+    "@fontsource/syne": "^5.2.5",
+    "katex": "^0.18.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/katex": "^0.16.8",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.1",
