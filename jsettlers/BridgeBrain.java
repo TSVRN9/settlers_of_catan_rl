@@ -447,6 +447,22 @@ public class BridgeBrain extends SOCRobotBrain
         }
     }
 
+    /** Every mode but log: a trade message the port's negotiator bookkeeps (jsettlers_server.py `trade` op). */
+    private void forwardTrade(String json)
+    {
+        if (oracle)
+            return;
+        try
+        {
+            ensureServer();
+            decider.ask("{\"op\":\"trade\"," + json + "}");
+        }
+        catch (IOException e)
+        {
+            System.err.println("bridge: " + e);
+        }
+    }
+
     @Override
     protected void handleMAKEOFFER(SOCMakeOffer mes)
     {
@@ -458,6 +474,10 @@ public class BridgeBrain extends SOCRobotBrain
             for (int pn = 0; pn < to.length; ++pn)
                 sb.append(pn == 0 ? "" : ",").append(to[pn]);
             tradeEvent(sb.append("]}").toString());
+            StringBuilder fw = new StringBuilder("\"kind\":\"offer\",\"from\":").append(o.getFrom()).append(",\"give\":").append(set(o.getGiveSet())).append(",\"get\":").append(set(o.getGetSet())).append(",\"to\":[");
+            for (int pn = 0; pn < to.length; ++pn)
+                fw.append(pn == 0 ? "" : ",").append(to[pn]);
+            forwardTrade(fw.append(']').toString());
         }
         super.handleMAKEOFFER(mes);
     }
@@ -466,6 +486,8 @@ public class BridgeBrain extends SOCRobotBrain
     protected void handleREJECTOFFER(SOCRejectOffer mes)
     {
         tradeEvent("{\"kind\":\"reject\",\"pn\":" + mes.getPlayerNumber() + ",\"reason\":" + mes.getReasonCode() + ",\"waiting\":" + waitingForTradeResponse + "}");
+        if ((mes.getPlayerNumber() >= 0) && (mes.getReasonCode() == 0))
+            forwardTrade("\"kind\":\"reject\",\"pn\":" + mes.getPlayerNumber());
         super.handleREJECTOFFER(mes);
     }
 

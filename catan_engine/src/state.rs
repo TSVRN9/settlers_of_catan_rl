@@ -32,6 +32,26 @@ pub enum Prompt {
     DecideAcceptees, // the offerer confirms one acceptee or cancels
 }
 
+/// What every client learns about cards and trades, in order. Public movements carry their types; a
+/// discard or a steal carries none (the JSettlers server sends those as UNKNOWN to everyone but the
+/// parties). The jSettler port replays this into the Java client's view of each hand
+/// (jsettler/view.rs) and into its negotiator's bookkeeping.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Event {
+    /// Roll payouts, start resources, year of plenty, a monopoly's take, a trade's receipts.
+    Gain { seat: u8, res: [i8; 5] },
+    /// Build and dev-card costs, bank and player trades' payments, a monopoly's victims.
+    Lose { seat: u8, res: [i8; 5] },
+    /// One discarded card; the type is hidden from the table.
+    Discard { seat: u8 },
+    /// A robbery; the type is known to the two parties only.
+    Steal { thief: u8, victim: u8, res: u8 },
+    /// An offer to everyone (`to == -1`) or a counter-offer to one seat.
+    Offer { from: u8, to: i8, give: [u8; 5], get: [u8; 5] },
+    /// A responder's answer, or the turn player's answer to a counter.
+    Reply { seat: u8, accept: bool },
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Player {
     pub hand: [i32; 5],
@@ -96,6 +116,8 @@ pub struct State {
     /// Every piece placed, in order: (kind 0 road / 1 settlement / 2 city, seat, node or edge id,
     /// during initial placement). The jSettler port's trackers replay it (jsettler/brain.rs).
     pub pieces: Vec<(u8, u8, u8, bool)>,
+    /// Every card movement and trade message, in order (see `Event`).
+    pub events: Vec<Event>,
 }
 
 impl State {
@@ -141,6 +163,7 @@ impl State {
             acceptees: [false; 4],
             spent_offers: vec![],
             pieces: Vec::new(),
+            events: Vec::new(),
             rng: seed,
         };
         for i in (1..s.dev_deck.len()).rev() {

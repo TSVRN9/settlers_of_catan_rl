@@ -6,14 +6,15 @@
 
 use super::bse::{Bse, PlayerNumbers, Ports, Res, CARD as B_CARD, ROAD as B_ROAD};
 use super::dm::{Dm, Params, Piece, PlanInput};
-use super::negotiator::{Negotiator, Offer, Set, ACCEPT_OFFER};
+use super::negotiator::{Negotiator, Offer, Set, ACCEPT_OFFER, COUNTER_OFFER};
 use super::geom::NONE;
 use super::opening::{Opening, Turn, START1A, START1B};
 use super::player::{CITY, ROAD, SETTLEMENT};
 use super::tracker::{GameInfo, Trackers};
+use super::view::Views;
 use crate::actions::Action;
 use crate::map::Map;
-use crate::state::{Prompt, State, KNIGHT, MONOPOLY, ROAD_BUILDING, YEAR_OF_PLENTY};
+use crate::state::{Event, Prompt, State, KNIGHT, MONOPOLY, ROAD_BUILDING, YEAR_OF_PLENTY};
 use std::sync::Arc;
 
 pub const MAX_DENIED_BUILDING_PER_TURN: i32 = 3;
@@ -38,7 +39,19 @@ pub struct Jsettler {
     done_trading: bool,
     pending_offer: Option<Offer>,
     pub offers_made: u32,
+    pub counters_made: u32,
+    seen_events: usize,
+    views_ready: bool,
+    standing_offer: Option<Offer>,
+    replied: Vec<bool>,
+    accepted_any: bool,
     rng: u64,
+}
+
+/// One trade message as the table saw it.
+enum TradeMsg {
+    Offer(Offer),
+    Reply { seat: usize, accept: bool },
 }
 
 /// The client's view of the game for the trackers' ETAs: our own dev cards known, the others' not.
@@ -66,7 +79,7 @@ pub fn game_info(s: &State, pn: usize) -> GameInfo {
 
 impl Jsettler {
     pub fn new(map: Arc<Map>, n: usize, pn: usize, params: Params, seed: u64, node_js: [u16; crate::map::NUM_NODES]) -> Jsettler {
-        Jsettler { pn, tr: Trackers::new(map, n, node_js), dm: Dm::new(params, pn), opening: Opening::default(), negotiator: Negotiator::new(pn, n, params), trade: true, seen: 0, last_turn: -1, failed_attempts: 0, free_road: None, pending_discards: vec![], done_trading: false, pending_offer: None, offers_made: 0, rng: seed ^ 0x5E77_1E25_0000_0001 }
+        Jsettler { pn, tr: Trackers::new(map, n, node_js), dm: Dm::new(params, pn), opening: Opening::default(), negotiator: Negotiator::new(pn, n, params), trade: true, seen: 0, last_turn: -1, failed_attempts: 0, free_road: None, pending_discards: vec![], done_trading: false, pending_offer: None, offers_made: 0, counters_made: 0, seen_events: 0, views_ready: false, standing_offer: None, replied: vec![false; n], accepted_any: false, rng: seed ^ 0x5E77_1E25_0000_0001 }
     }
 
     fn next_rand(&mut self) -> u64 {
@@ -83,6 +96,57 @@ impl Jsettler {
         self.tr.on_piece(kind, pn, js, initial);
     }
 
+    /// The client's view of every hand, from a client that saw the game (the bridge).
+    pub fn set_views(&mut self, views: Views) {
+        self.negotiator.views = views;
+        self.views_ready = true;
+    }
+
+    /// handleMAKEOFFER / handleREJECTOFFER / handleTradeResponse: the negotiator's bookkeeping of one
+    /// trade message, derived from the messages themselves (the state's trade fields may be reset by
+    /// the time a message is seen).
+    fn on_trade(&mut self, msg: TradeMsg) {
+        match msg {
+            TradeMsg::Offer(offer) => {
+                if offer.from != self.pn {
+                    self.negotiator.record_resources_from_offer(&offer); // every offer on the table
+                }
+                self.replied = vec![false; offer.to.len()];
+                self.accepted_any = false;
+                self.standing_offer = Some(offer);
+            }
+            TradeMsg::Reply { seat, accept } => {
+                let Some(offer) = self.standing_offer.clone() else { return };
+                self.replied[seat] = true;
+                self.accepted_any |= accept;
+                if accept {
+                    return;
+                }
+                if offer.from == self.pn {
+                    // recordResourcesFromReject while waiting; everyone rejected -> offersMade
+                    self.negotiator.record_resources_from_reject(seat, &offer);
+                    let n = offer.to.len();
+                    if !self.accepted_any && (0..n).all(|q| !offer.to[q] || self.replied[q]) {
+                        self.negotiator.add_to_offers_made(offer.give, offer.get);
+                    }
+                } else {
+                    self.negotiator.record_resources_from_reject_alt(seat, &offer);
+                }
+            }
+        }
+    }
+
+    /// A trade message from a client that sees the table (the bridge): kind "offer" (any player's
+    /// offer: from, give, get, to), "reject" / "accept" (`from` = the answering seat). Engine order.
+    pub fn trade_event(&mut self, kind: &str, from: usize, give: [i32; 5], get: [i32; 5], to: Vec<bool>) {
+        match kind {
+            "offer" => self.on_trade(TradeMsg::Offer(Offer { from, to, give: Set::from_engine(&give), get: Set::from_engine(&get) })),
+            "reject" => self.on_trade(TradeMsg::Reply { seat: from, accept: false }),
+            "accept" => self.on_trade(TradeMsg::Reply { seat: from, accept: true }),
+            _ => {}
+        }
+    }
+
     /// Feed the state's piece log from where we left off.
     fn catch_up(&mut self, s: &State) {
         while self.seen < s.pieces.len() {
@@ -90,6 +154,32 @@ impl Jsettler {
             self.observe(kind, pn as usize, coord, initial);
             self.seen += 1;
         }
+        if !self.views_ready {
+            // first sight of the game: the hands as they stand are what the client knows (start
+            // resources are public); events already reflected in them are skipped, not replayed
+            let hands: Vec<[i32; 5]> = s.players.iter().map(|p| p.hand).collect();
+            self.negotiator.views = Views::from_hands(&hands);
+            self.seen_events = s.events.len();
+            self.views_ready = true;
+        }
+        while self.seen_events < s.events.len() {
+            let e = s.events[self.seen_events];
+            match e {
+                Event::Offer { from, to, give, get } => {
+                    let from = from as usize;
+                    let to: Vec<bool> = (0..s.n).map(|q| q != from && (to < 0 || q == to as usize)).collect();
+                    self.on_trade(TradeMsg::Offer(Offer { from, to, give: Set::from_engine(&give.map(|x| x as i32)), get: Set::from_engine(&get.map(|x| x as i32)) }));
+                }
+                Event::Reply { seat, accept } => self.on_trade(TradeMsg::Reply { seat: seat as usize, accept }),
+                _ => {}
+            }
+            self.negotiator.views.apply(&e, self.pn);
+            self.seen_events += 1;
+        }
+        self.negotiator.views.0[self.pn] = {
+            let h = s.players[self.pn].hand;
+            [h[0], h[1], h[2], h[3], h[4], 0]
+        };
         if !s.initial_phase {
             self.tr.first_turn();
         }
@@ -135,7 +225,16 @@ impl Jsettler {
         }
         match s.prompt {
             Prompt::InitialSettlement => {
-                let js = if s.players[p].settlements.is_empty() { self.opening.plan_initial_settlements(&self.tr, p) } else { self.opening.plan_second_settlement(&self.tr, p) };
+                let js = if s.players[p].settlements.is_empty() {
+                    self.opening.plan_initial_settlements(&self.tr, p)
+                } else {
+                    if self.opening.first_settlement == 0 {
+                        // a brain created after its first placement (the bridge's self-check): the
+                        // first settlement is on the board
+                        self.opening.first_settlement = self.tr.geom.node_js[s.players[p].settlements[0] as usize] as i32;
+                    }
+                    self.opening.plan_second_settlement(&self.tr, p)
+                };
                 let a = self.engine_node(js).map(Action::BuildSettlement)?;
                 acts.contains(&a).then_some(a)
             }
@@ -154,7 +253,7 @@ impl Jsettler {
                 acts.contains(&a).then_some(a)
             }
             Prompt::MoveRobber => self.move_robber(s, &acts),
-            Prompt::DecideTrade => Some(self.consider_offer(s)),
+            Prompt::DecideTrade => Some(self.consider_offer(s, &acts)),
             Prompt::DecideAcceptees => Some(self.confirm_offer(s)),
             Prompt::PlayTurn => self.play_turn(s, &acts),
         }
@@ -371,44 +470,53 @@ impl Jsettler {
         Offer { from: s.current_trade[10] as usize, to: (0..s.n).map(|q| q != s.current_trade[10] as usize).collect(), give: Set::from_engine(&give), get: Set::from_engine(&get) }
     }
 
-    /// SOCRobotBrain.considerOffer for an opponent's offer: accept, else reject (a counter-offer the
-    /// Java would send cannot be made here).
-    fn consider_offer(&mut self, s: &State) -> Action {
+    /// SOCRobotBrain.handleMAKEOFFER for an offer to us: accept, counter (makeCounterOffer: toward our
+    /// target piece, planning first when we have none) or reject. The turn player answering a counter
+    /// may only accept or reject here (JSettlers lets it counter again; deviation, recorded).
+    fn consider_offer(&mut self, s: &State, acts: &[Action]) -> Action {
         let p = self.pn;
-        let offer = Jsettler::current_offer(s);
-        self.negotiator.record_resources_from_offer(&offer);
+        let offer = Jsettler::current_offer(s); // already bookkept from its Offer event
         let info = game_info(s, p);
         let response = self.negotiator.consider_offer2(&mut self.tr, s, &info, &offer, p);
         if response == ACCEPT_OFFER && s.can_accept_offer(p) {
             self.negotiator.target_pieces[p] = None;
-            Action::AcceptTrade
-        } else {
-            Action::RejectTrade
+            return Action::AcceptTrade;
         }
+        if response == COUNTER_OFFER && p != s.current_turn {
+            let target = match self.negotiator.target_pieces[p] {
+                Some(t) => Some(t),
+                None => {
+                    if self.dm.plan.is_empty() {
+                        let inp = self.plan_input(s, &info);
+                        self.dm.plan_stuff(&mut self.tr, &inp);
+                    }
+                    let t = self.dm.plan.last().copied();
+                    self.negotiator.target_pieces[p] = t;
+                    t
+                }
+            };
+            if let Some(target) = target {
+                if let Some(o) = self.negotiator.make_offer(&mut self.tr, s, &info, target, Some(&offer.give)) {
+                    let (give, get) = (o.give.to_engine(), o.get.to_engine());
+                    let act = Action::OfferTrade { give: give.map(|x| x as u8), get: get.map(|x| x as u8) };
+                    if acts.contains(&act) {
+                        self.pending_offer = Some(o);
+                        self.counters_made += 1;
+                        return act;
+                    }
+                }
+            }
+        }
+        Action::RejectTrade
     }
 
-    /// Our offer answered: the first acceptor among those it was for, else everyone rejected it.
+    /// Our offer answered: the first acceptor among those it was for (the bookkeeping of the replies
+    /// came from their events), else cancel.
     fn confirm_offer(&mut self, s: &State) -> Action {
         let Some(offer) = self.pending_offer.take() else { return Action::CancelTrade };
-        let mut partner = None;
-        for q in 0..s.n {
-            if !offer.to[q] {
-                continue;
-            }
-            if s.acceptees[q] {
-                if partner.is_none() {
-                    partner = Some(q);
-                }
-            } else {
-                self.negotiator.record_resources_from_reject(q, &offer);
-            }
-        }
-        match partner {
+        match (0..s.n).find(|&q| offer.to[q] && s.acceptees[q]) {
             Some(q) => Action::ConfirmTrade { partner: q as u8 },
-            None => {
-                self.negotiator.add_to_offers_made(offer.give, offer.get);
-                Action::CancelTrade
-            }
+            None => Action::CancelTrade,
         }
     }
 
@@ -585,11 +693,22 @@ mod tests {
             let a = bots[p].decide(&s).unwrap_or(acts[0]);
             assert!(acts.contains(&a), "step {steps}: {a:?} not legal, prompt {:?}", s.prompt);
             s.apply(a, None).unwrap();
+            for b in bots.iter_mut() {
+                b.catch_up(&s);
+                for q in 0..4 {
+                    let v = b.negotiator.views.0[q];
+                    let truth = s.players[q].hand;
+                    assert_eq!(v[..5].iter().sum::<i32>() + v[5], truth.iter().sum::<i32>(), "seat {} view of {q}: {v:?} vs {truth:?}", b.pn);
+                    assert!((0..5).all(|r| v[r] <= truth[r]) && v[5] >= 0, "seat {} view of {q}: {v:?} vs {truth:?}", b.pn);
+                }
+            }
             steps += 1;
         }
         assert!(s.winner() >= 0, "no winner after {steps} steps, turn {}", s.num_turns);
         assert!(s.pieces.len() >= 16);
         let offers: u32 = bots.iter().map(|b| b.offers_made).sum();
         assert!(offers > 0, "no jSettler ever offered a trade");
+        let counters: u32 = bots.iter().map(|b| b.counters_made).sum();
+        assert!(counters > 0, "no jSettler ever countered (seed 11 produced counters when this was written; if the seed changes, pick one that does)");
     }
 }

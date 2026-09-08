@@ -422,7 +422,7 @@ function Seated({ s, over }: { s: State; over: boolean }) {
             {offers.length > 0 && (
               <button className="act cut8" style={{ height: 42 }} disabled={!mine}
                       onClick={() => set({ offering: true })}>
-                Offer a trade
+                {v.prompt === "DECIDE_TRADE" ? "Counter-offer" : "Offer a trade"}
               </button>
             )}
             {(["BUY_DEVELOPMENT_CARD", "ROLL", "END_TURN"] as const).map((t) => {

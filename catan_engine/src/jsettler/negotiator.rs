@@ -6,6 +6,7 @@ use super::bse::{Bse, Ports, Res};
 use super::dm::{Dm, Params, Piece, PlanInput};
 use super::player::{ROAD, SETTLEMENT};
 use super::tracker::{GameInfo, Trackers};
+use super::view::Views;
 use crate::state::{State, ROAD_BUILDING};
 
 pub const WIN_GAME_CUTOFF: i32 = 25;
@@ -16,7 +17,7 @@ pub const COUNTER_OFFER: i32 = 2;
 /// JSettlers resource id (1..5) -> engine id.
 const ENGINE_OF_JS: [usize; 6] = [0, 1, 4, 2, 3, 0];
 
-fn js(r: usize) -> usize {
+pub(crate) fn js(r: usize) -> usize {
     ENGINE_OF_JS[r]
 }
 
@@ -89,16 +90,25 @@ pub struct Negotiator {
     wants_another: Vec<[bool; 6]>,
     offers_made: Vec<(Set, Set)>,
     pub target_pieces: Vec<Option<Piece>>,
-}
-
-/// What a plan simulation for another seat reads: the client's view of that player.
-fn plan_input_for<'a>(s: &State, info: &'a GameInfo, seat: usize, us: usize) -> PlanInput<'a> {
-    PlanInput { info, resources: s.players[seat].hand, has_played_dev_card: s.players[seat].has_played_dev, roads_card_playable: seat == us && s.can_play_dev(seat, ROAD_BUILDING), for_special_building: s.current_player != seat }
+    /// The client's view of every hand (jsettler/view.rs); our own row is exact.
+    pub views: Views,
 }
 
 impl Negotiator {
     pub fn new(pn: usize, n: usize, params: Params) -> Negotiator {
-        Negotiator { pn, params, is_selling: vec![[false; 6]; n], wants_another: vec![[false; 6]; n], offers_made: vec![], target_pieces: vec![None; n] }
+        Negotiator { pn, params, is_selling: vec![[false; 6]; n], wants_another: vec![[false; 6]; n], offers_made: vec![], target_pieces: vec![None; n], views: Views::new(n) }
+    }
+
+    /// A seat's resources as this client sees them: our exact hand, or the known part of the view.
+    fn hand_of(&self, s: &State, seat: usize) -> [i32; 5] {
+        if seat == self.pn { s.players[seat].hand } else { self.views.known(seat) }
+    }
+
+    /// What a plan simulation for another seat reads: the client's view of that player (known cards
+    /// only; SOCBuildingSpeedEstimate ignores UNKNOWN).
+    fn plan_input_for<'a>(&self, s: &State, info: &'a GameInfo, seat: usize) -> PlanInput<'a> {
+        let us = self.pn;
+        PlanInput { info, resources: self.hand_of(s, seat), has_played_dev_card: s.players[seat].has_played_dev, roads_card_playable: seat == us && s.can_play_dev(seat, ROAD_BUILDING), for_special_building: s.current_player != seat }
     }
 
     pub fn reset_target_pieces(&mut self) {
@@ -117,7 +127,7 @@ impl Negotiator {
     pub fn reset_is_selling(&mut self, s: &State) {
         for t in 1..=5 {
             for pn in 0..s.n {
-                if s.players[pn].hand[js(t)] > 0 {
+                if self.hand_of(s, pn)[js(t)] > 0 {
                     self.is_selling[pn][t] = true;
                 }
             }
@@ -147,6 +157,18 @@ impl Negotiator {
         }
     }
 
+    /// recordResourcesFromRejectAlt: `rejector` said no to another player's standing offer.
+    pub fn record_resources_from_reject_alt(&mut self, rejector: usize, offer: &Offer) {
+        if !offer.to.get(rejector).copied().unwrap_or(false) {
+            return;
+        }
+        for t in 1..=5 {
+            if offer.get.has(t) && !self.wants_another[rejector][t] {
+                self.is_selling[rejector][t] = false;
+            }
+        }
+    }
+
     pub fn record_resources_from_no_response(&mut self, our_offer: &Offer) {
         for t in 1..=5 {
             if our_offer.get.has(t) {
@@ -163,7 +185,7 @@ impl Negotiator {
     // ------------------------------------------------------------ helpers
 
     fn eta_to_target(&self, tr: &Trackers, s: &State, player: usize, target: &Set, give: &Set, get: &Set, bse: &Bse) -> i32 {
-        let mut copy = Set::from_engine(&s.players[player].hand);
+        let mut copy = Set::from_engine(&self.hand_of(s, player));
         for t in 1..=5 {
             copy.sub(give.0[t], t);
             copy.add(get.0[t], t);
@@ -249,12 +271,12 @@ impl Negotiator {
 
     /// The target piece of a seat, planning for it when unknown (a fresh SOCRobotDM on the shared
     /// trackers, as the Java does).
-    fn target_piece(&mut self, tr: &mut Trackers, s: &State, info: &GameInfo, seat: usize) -> Option<Piece> {
+    pub(crate) fn target_piece(&mut self, tr: &mut Trackers, s: &State, info: &GameInfo, seat: usize) -> Option<Piece> {
         if let Some(p) = self.target_pieces[seat] {
             return Some(p);
         }
         let mut dm = Dm::new(self.params, seat);
-        dm.plan_stuff(tr, &plan_input_for(s, info, seat, self.pn));
+        dm.plan_stuff(tr, &self.plan_input_for(s, info, seat));
         let first = dm.plan_in_order().first().copied()?;
         self.target_pieces[seat] = Some(first);
         Some(first)
@@ -564,3 +586,30 @@ impl Negotiator {
 
 #[allow(dead_code)]
 fn _ports(_: Ports) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::jsettler::dm::Params;
+
+    /// recordResourcesFromRejectAlt: someone rejected another player's offer; they are not selling
+    /// what it asked for, unless they had offered it themselves this turn (wantsAnotherOffer).
+    #[test]
+    fn reject_alt_marks_not_selling() {
+        let mut neg = Negotiator::new(0, 4, Params::SMART);
+        neg.is_selling = vec![[true; 6]; 4];
+        let mut give = Set::default();
+        give.0[1] = 1; // clay
+        let mut get = Set::default();
+        get.0[5] = 1; // wood
+        let offer = Offer { from: 1, to: vec![true, false, true, true], give, get };
+        neg.wants_another[3][5] = true;
+        neg.record_resources_from_reject_alt(2, &offer);
+        neg.record_resources_from_reject_alt(3, &offer);
+        neg.record_resources_from_reject_alt(1, &offer); // the offerer: not addressed, nothing changes
+        assert!(!neg.is_selling[2][5]);
+        assert!(neg.is_selling[3][5], "wantsAnotherOffer overrides");
+        assert!(neg.is_selling[1][5]);
+        assert!(neg.is_selling[2][1], "only what the offer asked for");
+    }
+}

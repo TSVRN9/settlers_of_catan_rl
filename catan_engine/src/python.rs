@@ -266,6 +266,7 @@ impl PyState {
                 acceptees,
                 spent_offers,
                 pieces: Vec::new(),
+                events: Vec::new(),
                 rng: seed,
             },
             search: None,
@@ -671,6 +672,22 @@ fn jsettler_bse(state: &PyState, pn: usize) -> (Vec<i32>, Vec<i32>, Vec<i32>, Ve
 }
 
 /// jsettler::tracker::Trackers for the oracle check: fed the logged piece events, asked for the ETAs.
+/// JSettlers-ordered 6-vectors per seat (CLAY, ORE, SHEEP, WHEAT, WOOD, UNKNOWN) -> engine-ordered Views.
+fn views_from_js(views: Vec<Vec<i32>>) -> PyResult<crate::jsettler::view::Views> {
+    use crate::jsettler::negotiator::js;
+    let mut out = crate::jsettler::view::Views::new(views.len());
+    for (seat, v) in views.iter().enumerate() {
+        if v.len() != 6 {
+            return Err(PyValueError::new_err("each view has 6 counts: CLAY, ORE, SHEEP, WHEAT, WOOD, UNKNOWN"));
+        }
+        for t in 1..=5 {
+            out.0[seat][js(t)] = v[t - 1];
+        }
+        out.0[seat][5] = v[5];
+    }
+    Ok(out)
+}
+
 fn game_info(lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>) -> crate::jsettler::tracker::GameInfo {
     crate::jsettler::tracker::GameInfo {
         lr_player: if lr_player < 0 { None } else { Some(lr_player as usize) },
@@ -738,24 +755,33 @@ impl PyTrackers {
     }
 
     /// A new turn for the negotiator of one seat: resetIsSelling, resetOffersMade, resetTargetPieces.
-    fn new_turn(&mut self, pn: usize, state: &PyState, smart: bool) {
+    #[pyo3(signature = (pn, state, smart, views=None))]
+    fn new_turn(&mut self, pn: usize, state: &PyState, smart: bool, views: Option<Vec<Vec<i32>>>) -> PyResult<()> {
         use crate::jsettler::dm::Params;
         let n = self.inner.players.len();
         let neg = self.negotiators[pn].get_or_insert_with(|| crate::jsettler::negotiator::Negotiator::new(pn, n, if smart { Params::SMART } else { Params::FAST }));
+        if let Some(v) = views {
+            neg.views = views_from_js(v)?;
+        }
         neg.reset_is_selling(&state.inner);
         neg.reset_offers_made();
         neg.reset_target_pieces();
+        Ok(())
     }
 
     /// SOCRobotNegotiator.considerOffer2 for `receiver` on an offer from `from` (JSettlers-ordered
     /// give/get counts): 0 reject, 1 accept, 2 counter.
     #[allow(clippy::too_many_arguments)]
-    fn consider_offer(&mut self, receiver: usize, smart: bool, state: &PyState, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>, from: usize, give: Vec<i32>, get: Vec<i32>) -> i32 {
+    #[pyo3(signature = (receiver, smart, state, lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp, from, give, get, views=None))]
+    fn consider_offer(&mut self, receiver: usize, smart: bool, state: &PyState, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>, from: usize, give: Vec<i32>, get: Vec<i32>, views: Option<Vec<Vec<i32>>>) -> PyResult<i32> {
         use crate::jsettler::dm::Params;
         use crate::jsettler::negotiator::{Negotiator, Offer, Set};
         let info = game_info(lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp);
         let n = self.inner.players.len();
         let neg = self.negotiators[receiver].get_or_insert_with(|| Negotiator::new(receiver, n, if smart { Params::SMART } else { Params::FAST }));
+        if let Some(v) = views {
+            neg.views = views_from_js(v)?;
+        }
         let mut g = Set::default();
         let mut r = Set::default();
         for t in 1..=5 {
@@ -764,22 +790,49 @@ impl PyTrackers {
         }
         let offer = Offer { from, to: (0..n).map(|q| q != from).collect(), give: g, get: r };
         neg.record_resources_from_offer(&offer);
-        neg.consider_offer2(&mut self.inner, &state.inner, &info, &offer, receiver)
+        Ok(neg.consider_offer2(&mut self.inner, &state.inner, &info, &offer, receiver))
     }
 
     /// SOCRobotNegotiator.makeOffer for `pn` toward its target piece (from the last plan): the offer's
     /// JSettlers-ordered give and get counts, or None.
     #[allow(clippy::too_many_arguments)]
-    fn make_offer(&mut self, pn: usize, smart: bool, state: &PyState, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>) -> Option<(Vec<i32>, Vec<i32>)> {
+    #[pyo3(signature = (pn, smart, state, lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp, views=None))]
+    fn make_offer(&mut self, pn: usize, smart: bool, state: &PyState, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>, views: Option<Vec<Vec<i32>>>) -> PyResult<Option<(Vec<i32>, Vec<i32>)>> {
         use crate::jsettler::dm::Params;
         use crate::jsettler::negotiator::Negotiator;
         let info = game_info(lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp);
         let n = self.inner.players.len();
         let neg = self.negotiators[pn].get_or_insert_with(|| Negotiator::new(pn, n, if smart { Params::SMART } else { Params::FAST }));
-        let target = neg.target_pieces[pn]?;
-        let o = neg.make_offer(&mut self.inner, &state.inner, &info, target, None)?;
+        if let Some(v) = views {
+            neg.views = views_from_js(v)?;
+        }
+        let Some(target) = neg.target_pieces[pn] else { return Ok(None) };
+        let Some(o) = neg.make_offer(&mut self.inner, &state.inner, &info, target, None) else { return Ok(None) };
         neg.reset_wants_another_offer();
-        Some((o.give.0[1..].to_vec(), o.get.0[1..].to_vec()))
+        Ok(Some((o.give.0[1..].to_vec(), o.get.0[1..].to_vec())))
+    }
+
+    /// SOCRobotNegotiator.makeCounterOffer for `pn` answering an offer (from, JSettlers-ordered give/get):
+    /// the counter's JSettlers-ordered give and get counts, or None.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (pn, smart, state, lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp, from, give, get, views=None))]
+    fn make_counter_offer(&mut self, pn: usize, smart: bool, state: &PyState, lr_player: i32, la_player: i32, knights: Vec<i32>, knight_cards_old: Vec<i32>, knight_cards_new: Vec<i32>, dev_cards_left: i32, total_vp: Vec<i32>, from: usize, give: Vec<i32>, get: Vec<i32>, views: Option<Vec<Vec<i32>>>) -> PyResult<Option<(Vec<i32>, Vec<i32>)>> {
+        use crate::jsettler::dm::Params;
+        use crate::jsettler::negotiator::{Negotiator, Set};
+        let info = game_info(lr_player, la_player, knights, knight_cards_old, knight_cards_new, dev_cards_left, total_vp);
+        let n = self.inner.players.len();
+        let neg = self.negotiators[pn].get_or_insert_with(|| Negotiator::new(pn, n, if smart { Params::SMART } else { Params::FAST }));
+        if let Some(v) = views {
+            neg.views = views_from_js(v)?;
+        }
+        let mut g = Set::default();
+        for t in 1..=5 {
+            g.0[t] = give[t - 1];
+        }
+        let _ = (from, get);
+        let Some(target) = neg.target_piece(&mut self.inner, &state.inner, &info, pn) else { return Ok(None) };
+        let Some(o) = neg.make_offer(&mut self.inner, &state.inner, &info, target, Some(&g)) else { return Ok(None) };
+        Ok(Some((o.give.0[1..].to_vec(), o.get.0[1..].to_vec())))
     }
 
     /// A trade message for one seat's negotiator: kind "offer" (another player's offer: from, give, get,
@@ -802,6 +855,7 @@ impl PyTrackers {
         match kind {
             "offer" => neg.record_resources_from_offer(&offer),
             "reject" => neg.record_resources_from_reject(from, &offer),
+            "rejectalt" => neg.record_resources_from_reject_alt(from, &offer),
             "made" => neg.add_to_offers_made(g, r),
             "noresponse" => neg.record_resources_from_no_response(&offer),
             _ => {}
@@ -888,6 +942,30 @@ impl PyJsettler {
     /// The same with a JSettlers coordinate (the bridge's piece log).
     fn observe_js(&mut self, kind: u8, pn: usize, coord: i32, initial: bool) {
         self.inner.tr.on_piece(kind, pn, coord, initial)
+    }
+
+    /// The client's SOCPlayer.getResources() per seat, JSettlers order (CLAY, ORE, SHEEP, WHEAT, WOOD,
+    /// UNKNOWN), for a state rebuilt from a client that saw the game (the bridge).
+    fn set_views(&mut self, views: Vec<Vec<i32>>) -> PyResult<()> {
+        self.inner.set_views(views_from_js(views)?);
+        Ok(())
+    }
+
+    /// A trade message the client saw: kind "offer" (from, give, get, to) or "reject" / "accept"
+    /// (`from` = the answering seat). Counts JSettlers-ordered (CLAY, ORE, SHEEP, WHEAT, WOOD).
+    fn trade_event(&mut self, kind: &str, from: usize, give: Vec<i32>, get: Vec<i32>, to: Vec<bool>) -> PyResult<()> {
+        use crate::jsettler::negotiator::js;
+        if give.len() != 5 || get.len() != 5 {
+            return Err(PyValueError::new_err("give and get have 5 counts"));
+        }
+        let mut g = [0i32; 5];
+        let mut r = [0i32; 5];
+        for t in 1..=5 {
+            g[js(t)] = give[t - 1];
+            r[js(t)] = get[t - 1];
+        }
+        self.inner.trade_event(kind, from, g, r, to);
+        Ok(())
     }
 
     fn decide(&mut self, state: &PyState) -> Option<Canon> {

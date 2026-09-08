@@ -92,12 +92,28 @@ def js_view(game, our_pn, full=False):
         })
     lr = colors.index(s.board.road_color) if s.board.road_color is not None else -1
     la = next((pn for pn in range(len(colors)) if ps[f"P{pn}_HAS_ARMY"]), -1)
+    # the client's piece log: [type, pn, coord, gameState] in server order (SOCPlayingPiece types)
+    pieces, builds = [], 0
+    for rec in s.action_records:
+        a = rec.action
+        t = a.action_type.value
+        if t in ("BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY"):
+            kind = {"BUILD_ROAD": 0, "BUILD_SETTLEMENT": 1, "BUILD_CITY": 2}[t]
+            coord = js_edge(nm[a.value[0]], nm[a.value[1]]) if kind == 0 else nm[a.value]
+            pieces.append([kind, colors.index(a.color), coord, 10 if builds < 4 * len(colors) else 20])
+            builds += 1
     return {
+        "pieces": pieces,
         "current": s.current_turn_index, "turns": s.num_turns, "robber": hm[s.board.robber_coordinate],
         "devDeck": len(s.development_listdeck), "longestRoad": lr, "largestArmy": la, "players": players,
         "spentOffers": [[o[RESOURCES.index(JS_RES[i + 1]) + 5 * half] for half in (0, 1) for i in range(5)] for o in s.spent_offers],
         "hasRolled": bool(ps[f"P{s.current_turn_index}_HAS_ROLLED"]),
     }
+
+
+def js_edge(a, b):
+    """The JSettlers edge coordinate between two adjacent JSettlers node coordinates (SOCBoard4p)."""
+    return {0x11: b, -0x11: a, 0x0F: a - 0x10, -0x0F: a - 0x01}[a - b]
 
 
 def _inverse_maps(game):
@@ -224,6 +240,8 @@ class Server:
             get = [o["get"][RES_JS[r] - 1] for r in RESOURCES]
             s.current_trade = tuple(give + get + [o["from"]])
             s.is_resolving_trade = True
+            if "acceptees" in msg:  # the self-check's round trip; a JSettlers client never knows these
+                s.acceptees = tuple(msg["acceptees"])
         game.playable_actions = generate_playable_actions(s)
         return game, colors
 
@@ -255,6 +273,8 @@ class Server:
                 self.player.node_js = [self.inv_node[i] for i in range(54)]
         if hasattr(self.player, "pieces_log"):
             self.player.pieces_log = msg["state"]["pieces"]
+        if hasattr(self.player, "views"):  # the client's SOCPlayer.getResources() per seat, unknown included
+            self.player.views = [p["res"] for p in msg["state"]["players"]]
         acts = []
 
         def step():
@@ -312,6 +332,15 @@ class Server:
             return "OFFER_TRADE " + " ".join(map(str, js))
         return t.value  # ROLL, END_TURN, BUY_DEVELOPMENT_CARD, PLAY_KNIGHT_CARD, ACCEPT_TRADE, REJECT_TRADE
 
+    def trade(self, msg):
+        """A trade message the client saw, for a port that keeps negotiator bookkeeping (JsettlerPlayer)."""
+        if self.player is not None and hasattr(self.player, "trade_events"):
+            if msg["kind"] == "offer":
+                self.player.trade_events.append(("offer", msg["from"], msg["give"], msg["get"], msg["to"]))
+            elif msg["kind"] == "reject":
+                self.player.trade_events.append(("reject", msg["pn"], [0] * 5, [0] * 5, [True] * self.n))
+        return "OK"
+
     def end(self):
         if self.player is not None:
             self.player.reset_state()
@@ -326,7 +355,7 @@ def serve(token):
         try:
             msg = json.loads(line)
             op = msg["op"]
-            out = "OK" if op == "board" else srv.decide(msg) if op == "decide" else "OK"
+            out = "OK" if op == "board" else srv.decide(msg) if op == "decide" else srv.trade(msg) if op == "trade" else "OK"
             if op == "board":
                 srv.board(msg)
             elif op == "end":
@@ -347,10 +376,11 @@ def selfcheck():
     from catanatron.models.enums import Action
 
     checked = 0
-    for seed in (11, 12):
+    for seed, token in ((11, "rab"), (12, "jsrobot")):
         players = [make_player("rab", c) for c in COLORS]
         game = Game(players, seed=seed)
-        srv = Server("rab")
+        srv = Server(token)
+        traded = False
         m = game.state.board.map
         js_type = {v: k for k, v in jb.JS_RESOURCE.items()}
         nm, hm = _inverse_maps(game)
@@ -377,6 +407,7 @@ def selfcheck():
                 if prompt == "DECIDE_TRADE":
                     ct = s.current_trade
                     msg["offer"] = {"from": ct[10], "give": [ct[RESOURCES.index(JS_RES[i + 1])] for i in range(5)], "get": [ct[5 + RESOURCES.index(JS_RES[i + 1])] for i in range(5)]}
+                    msg["acceptees"] = list(s.acceptees)
                 rebuilt, colors = srv.game(view, p, msg)
                 want, got = rb.state_spec(game), rb.state_spec(rebuilt)
                 # the rebuilt board may be a rotated copy: compare through each side's own node/edge names
@@ -395,9 +426,16 @@ def selfcheck():
                 assert sorted(a.action_type.value for a in game.playable_actions) == sorted(a.action_type.value for a in rebuilt.playable_actions)
                 srv.player = None
                 line = srv.decide(msg)
-                legal = {a.action_type.value for a in rebuilt.playable_actions} | {"OFFER_TRADE"}
+                legal = {a.action_type.value for a in rebuilt.playable_actions} | {"OFFER_TRADE", "COUNTER_OFFER_TRADE"}
                 assert line.split()[0] in legal or (line.startswith("DISCARD ") and "DISCARD_RESOURCE" in legal), line
                 checked += 1
+                if not traded and hasattr(srv.player, "trade_events"):  # the `trade` op reaches the port
+                    srv.trade({"op": "trade", "kind": "offer", "from": (our + 1) % 4, "give": [1, 0, 0, 0, 0], "get": [0, 0, 0, 0, 1], "to": [True] * 4})
+                    srv.trade({"op": "trade", "kind": "reject", "pn": (our + 2) % 4})
+                    assert len(srv.player.trade_events) == 2, srv.player.trade_events
+                    srv.decide(msg)
+                    assert srv.player.trade_events == [], "consumed by the next decision"
+                    traded = True
             game.play_tick()
             steps += 1
     # a request the server rejected on 2026-09-07: our road ended at an enemy settlement (node 201) and the

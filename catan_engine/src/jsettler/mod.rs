@@ -11,5 +11,6 @@ pub mod opening;
 pub mod dm;
 pub mod brain;
 pub mod negotiator;
+pub mod view;
 pub mod player;
 pub mod tracker;

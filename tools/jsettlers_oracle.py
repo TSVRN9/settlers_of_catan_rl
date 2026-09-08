@@ -45,12 +45,19 @@ def main(paths, verbose=False, smart=True):
         last_turn = -1
         our_pn = lines[0]["ourPn"]
         rejected = set()
+        last_offer = {}  # per seat: the offer its last considerOffer hook answered
         our_offer = None  # (give, get, to) of the last offer the Java made
+        other_offer = None  # (from, give, get, to) of the last offer another player made
         for rec in lines[1:]:
             if "trade" in rec:
                 ev = rec["trade"]
                 if ev["kind"] == "offer":
                     trackers.trade_event(our_pn, smart, "offer", ev["offer"]["from"], ev["offer"]["give"], ev["offer"]["get"], ev["to"])
+                    other_offer = (ev["offer"]["from"], ev["offer"]["give"], ev["offer"]["get"], ev["to"])
+                elif ev["kind"] == "reject" and ev["pn"] >= 0 and ev["reason"] == 0 and not ev["waiting"]:
+                    if other_offer is not None:  # recordResourcesFromRejectAlt
+                        _, give, get, to = other_offer
+                        trackers.trade_event(our_pn, smart, "rejectalt", ev["pn"], give, get, to)
                 elif our_offer is not None:
                     give, get, to = our_offer
                     if ev["kind"] == "reject" and ev["pn"] >= 0 and ev["reason"] == 0 and ev["waiting"]:
@@ -94,21 +101,33 @@ def main(paths, verbose=False, smart=True):
             rs, _ = rb.rust_state(game)
             if st["turns"] != last_turn:
                 last_turn = st["turns"]
-                trackers.new_turn(pn, rs, smart)
+                trackers.new_turn(pn, rs, smart, [p["res"] for p in st["players"]])
             players = st["players"]
             args = (st["longestRoad"], st["largestArmy"], [p["knights"] for p in players],
                     [p["devOld"].get(KNIGHT_JS, 0) for p in players], [p["devNew"].get(KNIGHT_JS, 0) for p in players], st["devDeck"], [p["totalVp"] for p in players])
             if rec["hook"] == "considerOffer":
                 o = rec["chosen"]["offer"]
-                ours = trackers.consider_offer(pn, smart, rs, *args, o["from"], o["give"], o["get"])
+                last_offer[pn] = o
+                ours = trackers.consider_offer(pn, smart, rs, *args, o["from"], o["give"], o["get"], [p["res"] for p in players])
                 total["considerOffer"] += 1
                 hits["considerOffer"] += ours == rec["chosen"]["response"]
                 if verbose and ours != rec["chosen"]["response"] and shown["considerOffer"] < 6:
                     shown["considerOffer"] += 1
                     print(f"  {Path(path).stem} turn {st['turns']} pn {pn} considerOffer {o}: java {rec['chosen']['response']} rust {ours}")
                 continue
+            if rec["hook"] == "makeCounterOffer" and pn in last_offer:
+                o = last_offer[pn]
+                ours = trackers.make_counter_offer(pn, smart, rs, *args, o["from"], o["give"], o["get"], [p["res"] for p in players])
+                java = None if rec["chosen"] is None else (rec["chosen"]["give"], rec["chosen"]["get"])
+                ours_t = None if ours is None else (list(ours[0]), list(ours[1]))
+                total["makeCounterOffer"] += 1
+                hits["makeCounterOffer"] += ours_t == java
+                if verbose and ours_t != java and shown["makeCounterOffer"] < 6:
+                    shown["makeCounterOffer"] += 1
+                    print(f"  {Path(path).stem} turn {st['turns']} pn {pn} makeCounterOffer to {o}: java {java} rust {ours_t}")
+                continue
             if rec["hook"] == "makeOffer":
-                ours = trackers.make_offer(pn, smart, rs, *args)
+                ours = trackers.make_offer(pn, smart, rs, *args, [p["res"] for p in players])
                 java = None if rec["chosen"] is None else (rec["chosen"]["give"], rec["chosen"]["get"])
                 if java is not None:
                     our_offer = (java[0], java[1], [q != pn for q in range(srv.n)])

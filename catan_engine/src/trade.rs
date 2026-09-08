@@ -240,6 +240,7 @@ mod tests {
         assert_eq!(rejecting.prompt, Prompt::PlayTurn);
         assert_eq!(rejecting.current_player, 0);
         assert!(rejecting.spent_offers.contains(&[0, 0, 0, 1, 0, 2, 0, 0, 0, 0]), "a rejected counter is spent");
+        assert!(rejecting.spent_offers.contains(&[1, 0, 0, 0, 0, 0, 0, 0, 1, 0]), "the countered offer is spent too");
         assert_eq!(rejecting.players[0].hand, [2, 0, 0, 0, 0]);
         s.apply(Action::AcceptTrade, None).unwrap();
         assert_eq!(s.prompt, Prompt::PlayTurn);

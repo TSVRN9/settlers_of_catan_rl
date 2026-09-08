@@ -451,8 +451,8 @@ class DrrlPlayer(Player):
     (the jSettler's role in the paper). Token `drrl`, `drrl32` for a 32-unit hidden layer; `drrl+` keeps the
     weights across games (the paper's 30-game setting; only meaningful where one player object plays a
     sequence of games, e.g. the jSettlers bridge); `drrl:blcw` switches on the paper's literal readings
-    (drrl.rs Variant: b basis, l literal update, c counter-offers, w TF init). A counter-offer reply is
-    only possible through the bridge (`bridge = True`); the engine's replies are accept/reject."""
+    (drrl.rs Variant: b basis, l literal update, c counter-offers, w TF init; a counter is an OFFER_TRADE
+    reply at DECIDE_TRADE, which both engines apply)."""
 
     def __init__(self, color, depth=2, hidden=None, persist=False, variant=""):
         super().__init__(color)
@@ -479,8 +479,6 @@ class DrrlPlayer(Player):
             self.drrl = catan_engine.Drrl(seed, self.hidden or catan_engine.DRRL_N_IN, self.variant)
         rs, ctx = rb.rust_state(game)
         a = self.drrl.trade_action(rs)
-        if a is not None and a[0] == "OFFER_TRADE" and game.state.current_prompt.value == "DECIDE_TRADE" and not self.bridge:
-            a = ("REJECT_TRADE", -1, -1, -1)  # a counter-offer, which this engine cannot express
         if a is None and game.state.current_prompt.value == "DECIDE_ACCEPTEES":
             a = rs.trade_action(rb.layout(ctx))
         if a is not None:
@@ -504,16 +502,21 @@ class JsettlerPlayer(Player):
         super().__init__(color)
         self.smart = smart
         self.bot = None
+        self.rs = None  # a Rust State kept in step with the game (its piece and event logs feed the port)
+        self.ctx = None
         self.seen = 0
-        self.pieces_seen = 0
         self.pieces_log = None  # bridge: [[kind, pn, jsCoord, gameState], ...] in server order
         self.node_js = None  # bridge: JSettlers node coord per catanatron node id
+        self.views = None  # bridge: the client's res[6] per seat, JSettlers order
+        self.trade_events = []  # bridge: ("offer"|"reject", from, give5, get5, to) in JSettlers order
         self.bridge = False
 
     def reset_state(self):
         self.bot = None
+        self.rs = None
+        self.ctx = None
         self.seen = 0
-        self.pieces_seen = 0
+        self.trade_events = []
 
     def decide(self, game, playable_actions):
         import catan_engine
@@ -521,28 +524,50 @@ class JsettlerPlayer(Player):
 
         colors = list(game.state.colors)
         pn = colors.index(self.color)
-        rs, ctx = rb.rust_state(game)
-        if self.bot is None:
-            self.bot = catan_engine.Jsettler(rs, pn, self.smart, (int(game.seed or 0) * 4 + pn) & (2**63 - 1), self.node_js)
-        if self.pieces_log is not None:  # the bridge's client-side log, JSettlers coords, server order
+        if self.pieces_log is not None:  # the bridge rebuilds a state per decision; the client saw the game
+            rs, ctx = rb.rust_state(game)
+            if self.bot is None:
+                self.bot = catan_engine.Jsettler(rs, pn, self.smart, (int(game.seed or 0) * 4 + pn) & (2**63 - 1), self.node_js)
             for kind, who, coord, gs in self.pieces_log[self.seen:]:
                 self.bot.observe_js(kind, who, coord, gs < 15)
             self.seen = len(self.pieces_log)
-        else:  # the game's action records; the first 4 pieces per player are the initial placement
-            recs = game.state.action_records
-            for rec in recs[self.seen:]:
-                a = rec.action
-                t = a.action_type.value
-                if t in ("BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY"):
-                    kind = {"BUILD_ROAD": 0, "BUILD_SETTLEMENT": 1, "BUILD_CITY": 2}[t]
-                    coord = ctx.edge_idx[tuple(sorted(a.value))] if kind == 0 else a.value
-                    self.bot.observe(kind, colors.index(a.color), coord, self.pieces_seen < 4 * len(colors))
-                    self.pieces_seen += 1
-            self.seen = len(recs)
+            for kind, frm, give, get, to in self.trade_events:
+                self.bot.trade_event(kind, frm, give, get, to)
+            self.trade_events = []
+            if self.views is not None:
+                self.bot.set_views(self.views)
+        else:
+            rs, ctx = self.sync(game), self.ctx
         a = self.bot.decide(rs)
         if a is None:
             return without_offers(playable_actions)[0]
         return rb.uncanon(a, self.color, ctx, colors, state=game.state)
+
+    def sync(self, game):
+        """The mirror: a Rust state kept in step with the game by applying its records with their outcomes
+        pinned (the replay oracle in test_env proves apply parity). Its piece and event logs feed the port."""
+        import catan_engine
+        import rust_bridge as rb
+
+        colors = list(game.state.colors)
+        recs = game.state.action_records
+        if self.rs is None:
+            pn = colors.index(self.color)
+            self.rs, self.ctx = rb.rust_state(game)
+            self.bot = catan_engine.Jsettler(self.rs, pn, self.smart, (int(game.seed or 0) * 4 + pn) & (2**63 - 1), None)
+            # pieces placed before the mirror started: earlier seats' opening moves
+            for rec in recs:
+                a = rec.action
+                t = a.action_type.value
+                if t in ("BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY"):
+                    kind = {"BUILD_ROAD": 0, "BUILD_SETTLEMENT": 1, "BUILD_CITY": 2}[t]
+                    coord = self.ctx.edge_idx[tuple(sorted(a.value))] if kind == 0 else a.value
+                    self.bot.observe(kind, colors.index(a.color), coord, True)
+            self.seen = len(recs)
+        for rec in recs[self.seen:]:
+            self.rs.apply(rb.canon(rec.action, self.ctx, colors), rb.result_of(rec))
+        self.seen = len(recs)
+        return self.rs
 
     def __repr__(self):
         return f"JsettlerPlayer:{self.color.value}({'smart' if self.smart else 'fast'})"

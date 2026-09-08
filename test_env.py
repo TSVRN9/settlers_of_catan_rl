@@ -714,6 +714,11 @@ def _rust_replay(players, seed):
             return steps, f"after {record.action.action_type.value}: " + "; ".join(f"{k}: py={py[k]!r} rs={rust.get(k)!r}"[:200] for k in bad[:3])
         steps += 1
     assert rs.winner() == (-1 if game.winning_color() is None else colors.index(game.winning_color()))
+    for p in players:
+        if getattr(p, "rs", None) is not None:
+            mine, theirs = rs.snapshot(), p.sync(game).snapshot()
+            bad = [k for k in mine if mine[k] != theirs.get(k)]
+            assert not bad, f"{p}: mirror diverged on {bad[:3]}"
     return steps, None
 
 

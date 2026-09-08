@@ -32,6 +32,9 @@ impl State {
                 if self.spent_offers.contains(&offer_key(&give, &get)) {
                     return Err("that offer was already rejected or cancelled this turn".into());
                 }
+                if countering {
+                    self.spend_current_offer(); // the offer it answers is off the table for the turn
+                }
                 self.is_resolving_trade = true;
                 for r in 0..5 {
                     self.current_trade[r] = give[r] as i32;
@@ -39,6 +42,10 @@ impl State {
                 }
                 self.current_trade[10] = p as i32;
                 self.acceptees = [false; 4];
+                if countering {
+                    self.note(Event::Reply { seat: p as u8, accept: false }); // JSettlers: a counter rejects the offer it answers
+                }
+                self.note(Event::Offer { from: p as u8, to: if countering { self.current_turn as i8 } else { -1 }, give, get });
                 // a counter goes to the turn player alone; an offer goes round the table
                 self.current_player = if countering { self.current_turn } else { (0..self.n).find(|&i| i != self.current_turn).expect("another player") };
                 self.prompt = Prompt::DecideTrade;
@@ -48,6 +55,7 @@ impl State {
                 if self.prompt != Prompt::DecideTrade {
                     return Err("no offer to answer".into());
                 }
+                self.note(Event::Reply { seat: p as u8, accept: action == Action::AcceptTrade });
                 if p == self.current_turn {
                     // the turn player answers a counter-offer: accepting executes it (JSettlers: an
                     // accepted offer trades at once), rejecting spends it
@@ -62,6 +70,7 @@ impl State {
                             self.players[q].hand[r] += get - give;
                             self.players[p].hand[r] += give - get;
                         }
+                        self.note_trade(q, p);
                     } else {
                         self.spend_current_offer();
                     }
@@ -102,6 +111,7 @@ impl State {
                     self.players[p].hand[r] += get - give;
                     self.players[q].hand[r] += give - get;
                 }
+                self.note_trade(p, q);
                 self.reset_trade();
                 self.current_player = self.current_turn;
                 self.prompt = Prompt::PlayTurn;
@@ -123,12 +133,17 @@ impl State {
                     self.board_build_settlement(p, node, true);
                     self.build_settlement(p, node, true);
                     if self.players[p].settlements.len() == 2 {
+                        let mut got = [0i32; 5];
                         for &tid in &self.map.node_tiles[node as usize].clone() {
                             let r = self.map.tiles[tid as usize].resource;
                             if r >= 0 {
                                 self.bank[r as usize] -= 1;
                                 self.players[p].hand[r as usize] += 1;
+                                got[r as usize] += 1;
                             }
+                        }
+                        if got.iter().any(|&x| x > 0) {
+                            self.note(Event::Gain { seat: p as u8, res: Self::delta(&got) });
                         }
                     }
                     self.prompt = Prompt::InitialRoad;
@@ -193,6 +208,7 @@ impl State {
                 for i in 0..5 {
                     self.bank[i] += CITY_COST[i];
                 }
+                self.note(Event::Lose { seat: p as u8, res: Self::delta(&CITY_COST) });
                 Ok((-1, -1))
             }
             Action::BuyDev => {
@@ -222,6 +238,7 @@ impl State {
                 for i in 0..5 {
                     self.bank[i] += DEV_COST[i];
                 }
+                self.note(Event::Lose { seat: p as u8, res: Self::delta(&DEV_COST) });
                 Ok((card as i32, -1))
             }
             Action::Roll => {
@@ -263,6 +280,7 @@ impl State {
                 }
                 self.players[p].hand[r] -= 1;
                 self.bank[r] += 1;
+                self.note(Event::Discard { seat: p as u8 });
                 self.discard_counts[p] -= 1;
                 if self.discard_counts[p] <= 0 {
                     let next = (self.current_player + 1..self.n).find(|&i| self.discard_counts[i] > 0);
@@ -307,6 +325,7 @@ impl State {
                     }
                     self.players[v].hand[r as usize] -= 1;
                     self.players[p].hand[r as usize] += 1;
+                    self.note(Event::Steal { thief: p as u8, victim: v as u8, res: r as u8 });
                     robbed = r;
                 }
                 self.robber = tile;
@@ -337,6 +356,7 @@ impl State {
                     self.players[p].hand[i] += need[i];
                     self.bank[i] -= need[i];
                 }
+                self.note(Event::Gain { seat: p as u8, res: Self::delta(&need) });
                 self.play_dev_card(p, YEAR_OF_PLENTY);
                 self.prompt = Prompt::PlayTurn;
                 Ok((-1, -1))
@@ -348,12 +368,20 @@ impl State {
                 let r = r as usize;
                 let mut stolen = 0;
                 for i in 0..self.n {
-                    if i != p {
+                    if i != p && self.players[i].hand[r] > 0 {
+                        let mut res = [0i8; 5];
+                        res[r] = self.players[i].hand[r] as i8;
                         stolen += self.players[i].hand[r];
                         self.players[i].hand[r] = 0;
+                        self.note(Event::Lose { seat: i as u8, res });
                     }
                 }
                 self.players[p].hand[r] += stolen;
+                if stolen > 0 {
+                    let mut res = [0i8; 5];
+                    res[r] = stolen as i8;
+                    self.note(Event::Gain { seat: p as u8, res });
+                }
                 self.play_dev_card(p, MONOPOLY);
                 self.prompt = Prompt::PlayTurn;
                 Ok((-1, -1))
@@ -380,6 +408,12 @@ impl State {
                 self.bank[give] += rate;
                 self.players[p].hand[get] += 1;
                 self.bank[get] -= 1;
+                let mut lose = [0i8; 5];
+                lose[give] = rate as i8;
+                let mut gain = [0i8; 5];
+                gain[get] = 1;
+                self.note(Event::Lose { seat: p as u8, res: lose });
+                self.note(Event::Gain { seat: p as u8, res: gain });
                 self.prompt = Prompt::PlayTurn;
                 Ok((-1, -1))
             }
@@ -397,6 +431,7 @@ impl State {
             pl.hand[BRICK] -= 1;
             pl.hand[SHEEP] -= 1;
             pl.hand[WHEAT] -= 1;
+            self.note(Event::Lose { seat: p as u8, res: Self::delta(&SETTLEMENT_COST) });
         }
     }
 
@@ -410,6 +445,7 @@ impl State {
             for i in 0..5 {
                 self.bank[i] += ROAD_COST[i];
             }
+            self.note(Event::Lose { seat: p as u8, res: Self::delta(&ROAD_COST) });
         }
     }
 
@@ -541,6 +577,70 @@ impl State {
                 self.players[p].hand[r] += payout[p][r];
                 self.bank[r] -= payout[p][r];
             }
+            if payout[p].iter().any(|&x| x > 0) {
+                self.note(Event::Gain { seat: p as u8, res: Self::delta(&payout[p]) });
+            }
         }
+    }
+
+    fn note(&mut self, e: Event) {
+        self.events.push(e);
+    }
+
+    fn delta(res: &[i32; 5]) -> [i8; 5] {
+        [res[0] as i8, res[1] as i8, res[2] as i8, res[3] as i8, res[4] as i8]
+    }
+
+    /// A completed player trade: `from` gave current_trade's give and received its get, `to` the reverse.
+    fn note_trade(&mut self, from: usize, to: usize) {
+        let ct = self.current_trade;
+        let give = [ct[0], ct[1], ct[2], ct[3], ct[4]];
+        let get = [ct[5], ct[6], ct[7], ct[8], ct[9]];
+        self.note(Event::Lose { seat: from as u8, res: Self::delta(&give) });
+        self.note(Event::Gain { seat: from as u8, res: Self::delta(&get) });
+        self.note(Event::Lose { seat: to as u8, res: Self::delta(&get) });
+        self.note(Event::Gain { seat: to as u8, res: Self::delta(&give) });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encode::Layout;
+    use crate::map::Map;
+    use crate::trade::Eval;
+    use std::sync::Arc;
+
+    /// Every card that moves is logged: replaying the public events plus the hidden totals lands on
+    /// the true hand totals for every seat, at every step of a played game.
+    #[test]
+    fn events_account_for_every_card() {
+        let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
+        let map = Arc::new(Map::generate(5, &layout));
+        let mut s = State::new(map, 4, 5, 10);
+        let mut seen = 0;
+        let mut totals = [0i32; 4];
+        let mut steps = 0;
+        let mut kinds = [0u32; 6];
+        while s.winner() < 0 && steps < 3000 {
+            let a = s.trade_action(&Eval::Heuristic).or_else(|| s.decide_heuristic(1)).unwrap_or(s.playable_actions()[0]);
+            s.apply(a, None).unwrap();
+            for e in &s.events[seen..] {
+                match *e {
+                    Event::Gain { seat, res } => { totals[seat as usize] += res.iter().map(|&x| x as i32).sum::<i32>(); kinds[0] += 1 }
+                    Event::Lose { seat, res } => { totals[seat as usize] -= res.iter().map(|&x| x as i32).sum::<i32>(); kinds[1] += 1 }
+                    Event::Discard { seat } => { totals[seat as usize] -= 1; kinds[2] += 1 }
+                    Event::Steal { thief, victim, .. } => { totals[thief as usize] += 1; totals[victim as usize] -= 1; kinds[3] += 1 }
+                    Event::Offer { .. } => kinds[4] += 1,
+                    Event::Reply { .. } => kinds[5] += 1,
+                }
+            }
+            seen = s.events.len();
+            for p in 0..4 {
+                assert_eq!(totals[p], s.num_resources(p), "step {steps} seat {p}: events {:?} vs hand {:?}", totals, s.players[p].hand);
+            }
+            steps += 1;
+        }
+        assert!(kinds.iter().all(|&k| k > 0), "every event kind occurred: {kinds:?}");
     }
 }

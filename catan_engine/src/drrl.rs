@@ -30,7 +30,7 @@ pub const MAX_OFFERS_PER_TURN: u32 = 3;
 /// `b` the literal Eq. 5 basis (a weightless gated recurrence on the raw integer features, theta the only
 /// weights), `l` the literal Algorithm 1 update (the current state's heads regressed toward
 /// r_t + gamma * Q-hat_{t-1} before the action is chosen), `c` counter-offers (a reply may be any
-/// affordable offer; the engine cannot counter, so the caller turns it into a reject there), `w`
+/// affordable, unspent offer, applied by the engine as a counter to the turn player), `w`
 /// TensorFlow's default initialisers (theta truncated normal sigma 1, glorot-uniform LSTM kernel, forget
 /// bias 1).
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
@@ -304,8 +304,10 @@ impl Drrl {
                 if s.can_accept_offer(p) {
                     v.push(ACCEPT);
                 }
-                if self.variant.counter {
-                    v.extend(self.affordable(s, false));
+                // `c`: a reply may be any affordable, unspent offer — a counter, which the engine
+                // takes from a responder while nobody has accepted
+                if self.variant.counter && p != s.current_turn && !s.acceptees.iter().any(|&a| a) {
+                    v.extend(self.affordable(s, true));
                 }
                 v
             }
@@ -320,7 +322,7 @@ impl Drrl {
 
     /// The trade decision for the current player, learning from the previous one on the way; None
     /// means "not a trade decision" or "no offer": the base bot decides. Under the `c` variant a reply
-    /// may be an `OfferTrade` (a counter-offer); callers on an engine that cannot counter reject instead.
+    /// may be an `OfferTrade` (a counter-offer, which the engine applies as such).
     pub fn trade_action(&mut self, s: &State) -> Option<Action> {
         let legal = self.legal(s);
         if legal.is_empty() {
