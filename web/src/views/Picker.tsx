@@ -1,7 +1,7 @@
 // The seat chip and the list it unfolds into. In the panel's flow, not an overlay: the panel is
 // clipped (`.cut`), so nothing positioned outside it would show, and a list in flow needs no
-// positioning at all. Each row is two sibling buttons — the option, and the info chip that
-// asks the lineup for the card on that bot — never one inside the other.
+// positioning at all. Each row is one button; hovering or focusing it asks the lineup for the
+// card on that bot.
 import { useEffect, useRef } from "react";
 import type { BotKind, BotSpec } from "../engine";
 import { BOT_INFO, BOT_SHORT, SEAT_NAMES } from "../labels";
@@ -12,13 +12,13 @@ const DEPTH = new Set<BotKind>(["heuristic", "vnet", "drrl"]);
 export const sub = (b: BotSpec) => BOT_INFO[b.kind].sub + (DEPTH.has(b.kind) ? ` · depth ${b.depth}` : "");
 
 interface Props {
-  seat: number; spec: BotSpec; open: boolean; info: BotKind | null;
+  seat: number; spec: BotSpec; open: boolean;
   onOpen: (open: boolean) => void; onPick: (k: BotKind) => void;
   /** The row the card belongs beside, or null to close it. */
   onInfo: (k: BotKind | null, row: HTMLElement | null) => void;
 }
 
-export default function Picker({ seat, spec, open, info, onOpen, onPick, onInfo }: Props) {
+export default function Picker({ seat, spec, open, onOpen, onPick, onInfo }: Props) {
   const chip = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const person = spec.kind === "human";
@@ -27,7 +27,8 @@ export default function Picker({ seat, spec, open, info, onOpen, onPick, onInfo 
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
-      if (info) onInfo(null, null); else if (open) close(); else return;
+      if (!open) return;
+      close();
       e.preventDefault(); e.stopPropagation();       // keys.ts would pop a page
       return;
     }
@@ -61,24 +62,17 @@ export default function Picker({ seat, spec, open, info, onOpen, onPick, onInfo 
         <div ref={list} role="listbox" aria-label={`${SEAT_NAMES[seat]} could be`} style={{ padding: "4px 0 2px 22px" }}>
           {KINDS.map((k) => {
             const on = k === spec.kind;
+            const showInfo = (e: { currentTarget: HTMLElement }) => k !== "human" && onInfo(k, e.currentTarget);
+            const hideInfo = () => onInfo(null, null);
             return (
-              <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <button role="option" aria-selected={on} tabIndex={open ? 0 : -1} className="chip"
-                        onClick={() => { onPick(k); close(); }}
-                        style={{ flex: 1, display: "flex", alignItems: "baseline", gap: 8, padding: "6px 8px", border: 0, background: "none",
-                                 font: `${on ? 700 : 500} 13px var(--font-sans)`, color: "inherit", cursor: "pointer", textAlign: "left" }}>
-                  <span style={{ flex: 1 }}>{k === "human" ? "A person" : BOT_SHORT[k]}</span>
-                  <span className="cap" style={{ fontSize: 11 }}>{BOT_INFO[k].sub}</span>
-                </button>
-                {k !== "human" && (
-                  <button className="cut8 chip cap" tabIndex={open ? 0 : -1} aria-label={`About ${BOT_SHORT[k]}`} aria-pressed={info === k}
-                          onClick={(e) => onInfo(info === k ? null : k, e.currentTarget.parentElement)}
-                          style={{ width: 20, height: 20, padding: 0, border: 0, cursor: "pointer", fontSize: 11, fontStyle: "italic",
-                                   background: info === k ? "var(--color-pine)" : "var(--color-chalk)", color: info === k ? "var(--color-chalk)" : "inherit" }}>
-                    i
-                  </button>
-                )}
-              </div>
+              <button key={k} role="option" aria-selected={on} tabIndex={open ? 0 : -1} className="chip"
+                      onClick={() => { onPick(k); close(); }}
+                      onMouseEnter={showInfo} onMouseLeave={hideInfo} onFocus={showInfo} onBlur={hideInfo}
+                      style={{ width: "100%", display: "flex", alignItems: "baseline", gap: 8, padding: "6px 8px", border: 0, background: "none",
+                               font: `${on ? 700 : 500} 13px var(--font-sans)`, color: "inherit", cursor: "pointer", textAlign: "left" }}>
+                <span style={{ flex: 1 }}>{k === "human" ? "A person" : BOT_SHORT[k]}</span>
+                <span className="cap" style={{ fontSize: 11 }}>{BOT_INFO[k].sub}</span>
+              </button>
             );
           })}
         </div>

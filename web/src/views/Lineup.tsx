@@ -76,7 +76,7 @@ export default function Lineup() {
           {s.lineup.map((b, i) => {
             return (
               <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-                <Picker seat={i} spec={b} open={open === i} info={open === i ? info?.kind ?? null : null}
+                <Picker seat={i} spec={b} open={open === i}
                         onOpen={(o) => { setOpen(o ? i : null); if (!o) setInfo(null); }}
                         onPick={(k) => setSeat(i, k)}
                         onInfo={(k, row) => setInfo(k && row ? { kind: k, top: row.offsetTop } : null)} />
