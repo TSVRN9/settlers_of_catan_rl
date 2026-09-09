@@ -38,8 +38,6 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - name: Build
         working-directory: web
-        env:
-          VITE_BASE: /${{ github.event.repository.name }}/
         run: |
           pnpm install --frozen-lockfile
           pnpm build
