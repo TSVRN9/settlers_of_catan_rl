@@ -39,7 +39,7 @@ export interface LuckRoll { step: number; luck: number[] }
 export type Request =
   | { op: "new"; seed: number; n: number }
   | { op: "apply"; action: Canon; steps?: number }
-  | { op: "decide"; bot: BotKind; depth: number }
+  | { op: "decide"; bot: BotKind; depth: number; full?: boolean }
   | { op: "evaluateAll" }
   | { op: "attribution"; seat: number }
   | { op: "preview"; action: Canon }
@@ -117,7 +117,9 @@ export class EngineClient {
    *  if the engine has moved on — the only check that can see the round-trip, since the store's
    *  view is not replaced until this resolves. */
   apply(action: Canon, steps?: number) { return this.call<{ outcome: [number, number]; view: View; legal: Canon[] }>({ op: "apply", action, steps }); }
-  decide(bot: BotKind, depth: number) { return this.call<Decision>({ op: "decide", bot, depth }); }
+  /** `full` skips a bot's own 1-ply trade policy even for a trade prompt, for the ranked
+   *  search the coach's reading needs instead of the bare action a bot decides with. */
+  decide(bot: BotKind, depth: number, full = false) { return this.call<Decision>({ op: "decide", bot, depth, full }); }
   evaluateAll() { return this.call<Evaluation[]>({ op: "evaluateAll" }); }
   attribution(seat: number) { return this.call<Attribution[]>({ op: "attribution", seat }); }
   /** The view after `action`, without touching the live game — for showing several hypotheticals at once. */

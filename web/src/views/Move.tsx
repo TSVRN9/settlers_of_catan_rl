@@ -5,7 +5,7 @@
 // argued with evidence for both candidates.
 import { useEffect, useState } from "react";
 import type { Canon, Decision } from "../engine";
-import { fmtDelta, fmtPct, label, whom } from "../labels";
+import { fmtDelta, fmtPct, label, turnSeat, whom } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
 import { evidence, gap, narrate, noun, type Ctx } from "../coach";
@@ -87,7 +87,7 @@ export default function Move() {
 
       {/* The hands at this position, between the strip and the board. */}
       <Dock name="move-seats" side="l" style={{ position: "absolute", left: 34, top: 118 }}>
-        <Seats players={frame.view.players} you={me} open row />
+        <Seats players={frame.view.players} you={me} open row current={turnSeat(frame.view)} />
       </Dock>
 
       <Dock name="move-ladder" side="r" className="cut" style={{

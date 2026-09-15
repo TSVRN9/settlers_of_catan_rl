@@ -197,6 +197,18 @@ impl Engine {
     /// | "uct" | "buct" | "vpi" (the thesis MCTS agents, mcts.rs, at their default playout budgets).
     /// Returns {action, value, root: [[action, ev], ...], leaves}.
     pub fn decide(&mut self, bot: &str, depth: u32) -> Result<String, JsValue> {
+        self.decide_inner(bot, depth, true)
+    }
+
+    /// `decide`, but for a trade prompt: always the full ranked search instead of the 1-ply
+    /// trade policy every bot decides offers and replies with. That policy is the right call for
+    /// a bot playing thousands of trades a game, but it returns a bare action with no root at
+    /// all — the coach's own reading of a trade needs the ranked comparison, not the shortcut.
+    pub fn decide_full(&mut self, bot: &str, depth: u32) -> Result<String, JsValue> {
+        self.decide_inner(bot, depth, false)
+    }
+
+    fn decide_inner(&mut self, bot: &str, depth: u32, allow_trade_policy: bool) -> Result<String, JsValue> {
         let actions = self.state.playable_actions();
         if actions.is_empty() {
             return Err(err("no legal actions"));
@@ -217,23 +229,28 @@ impl Engine {
             return Ok(json!({"action": canon_json(a), "value": Value::Null, "root": [], "leaves": m.playouts}).to_string());
         }
         // Trade prompts and worthwhile offers: the 1-ply policy with the bot's own evaluator.
-        let policy = match bot {
-            "heuristic" => self.state.trade_action(&Eval::Heuristic),
-            "drrl" => {
-                let seat = self.state.current_player;
-                let seed = self.seed as u64;
-                let d = self.drrl[seat].get_or_insert_with(|| Drrl::new(seed ^ (seat as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15), DRRL_N_IN, DrrlVariant::default()));
-                match d.trade_action(&self.state) {
-                    Some(a) => Some(a),
-                    None if self.state.prompt == Prompt::DecideAcceptees => self.state.trade_action(&Eval::Heuristic),
-                    None => None,
+        // `decide_full` skips this — it wants the ranked search below even for a trade prompt.
+        let policy = if !allow_trade_policy {
+            None
+        } else {
+            match bot {
+                "heuristic" => self.state.trade_action(&Eval::Heuristic),
+                "drrl" => {
+                    let seat = self.state.current_player;
+                    let seed = self.seed as u64;
+                    let d = self.drrl[seat].get_or_insert_with(|| Drrl::new(seed ^ (seat as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15), DRRL_N_IN, DrrlVariant::default()));
+                    match d.trade_action(&self.state) {
+                        Some(a) => Some(a),
+                        None if self.state.prompt == Prompt::DecideAcceptees => self.state.trade_action(&Eval::Heuristic),
+                        None => None,
+                    }
                 }
+                "vnet" => {
+                    let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
+                    self.state.trade_action(&Eval::Net(net, &layout()))
+                }
+                _ => None,
             }
-            "vnet" => {
-                let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
-                self.state.trade_action(&Eval::Net(net, &layout()))
-            }
-            _ => None,
         };
         if let Some(a) = policy {
             return Ok(json!({"action": canon_json(a), "value": Value::Null, "root": [], "leaves": 0, "trade": true}).to_string());

@@ -13,7 +13,11 @@ import { deciding, pointOfNoReturn, worstLuckWindow } from "../deciding";
 import { attributionAt, events, luckRolls, luckTotals, openMoveAnalysis, rowAt, stopAutoplay, tilesForGroup, toggleAutoplay } from "../review";
 import { get, set, useApp, you } from "../store";
 
-const PANEL_TOP = 92, CHART_H = 156, SPLIT = 392;
+// SPLIT also fixes where "The position now" row starts, which the CSS board anchor
+// ([data-anchor="game"], index.css) is tuned to sit right at the top of — moving SPLIT
+// desyncs the board from its own heading, so the timeline's new step line (2.3) has to
+// fit inside the curve panel's existing height instead of growing it.
+const PANEL_TOP = 92, CHART_H = 148, SPLIT = 392;
 const MARK = 15, MARK_ROW = 17, CAP_ROW = 14, GAP = 6;
 
 /** Rows for things laid along one axis: each takes the first row where it does not touch
@@ -339,7 +343,22 @@ export default function Game() {
                 {hoverRow && <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(238,240,233,.25)" }}>{narrate(hoverRow, map, me)}</div>}
               </div>
             )}
+
           </div>
+        </div>
+
+        {/* The clicked step's own line, under the timeline rather than floating over it —
+            hovering elsewhere still reads the curve above, since this and the hover tooltip
+            no longer share one flag to fight over. */}
+        <div className="cut8" style={{ marginTop: 6, background: "var(--color-tint)", padding: "7px 11px", fontSize: 12.5, lineHeight: 1.4, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ flex: 1 }}>
+            {nowRow
+              ? <>At this step {narrate(nowRow, map, me).replace(/^./, (c) => c.toLowerCase())} — worth <b className="num">{fmtDelta(nowDelta)}</b> to {whom(mover, me)}.</>
+              : frame.view.winner >= 0 ? <>The game ends here: {who(frame.view.winner, me)} won.</> : <>This is the live position, {whom(mover, me)} to move.</>}
+          </span>
+          {nowRow && (
+            <button className="act cut8" style={{ height: 24, fontSize: 11.5, flex: "0 0 auto" }} onClick={() => openMoveAnalysis(step)}>Open this decision</button>
+          )}
         </div>
       </Dock>
 
@@ -437,16 +456,6 @@ export default function Game() {
             )}
           </div>
         )}
-        <div className="cut8" style={{ marginTop: "auto", background: "var(--color-tint)", padding: "10px 12px", fontSize: 12.5, lineHeight: 1.45 }}>
-          {nowRow
-            ? <>At this step {narrate(nowRow, map, me).replace(/^./, (c) => c.toLowerCase())} — worth <b className="num">{fmtDelta(nowDelta)}</b> to {whom(mover, me)}.</>
-            : frame.view.winner >= 0 ? <>The game ends here: {who(frame.view.winner, me)} won.</> : <>This is the live position, {whom(mover, me)} to move.</>}
-          {nowRow && (
-            <div style={{ marginTop: 8 }}>
-              <button className="act cut8" style={{ height: 30, fontSize: 12 }} onClick={() => openMoveAnalysis(step)}>Open this decision</button>
-            </div>
-          )}
-        </div>
       </Dock>
     </>
   );

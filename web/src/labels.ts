@@ -1,4 +1,4 @@
-import type { Attribution, BotKind, Canon, MapView } from "./engine";
+import type { Attribution, BotKind, Canon, MapView, View } from "./engine";
 
 export const RESOURCES = ["Wood", "Brick", "Sheep", "Wheat", "Ore"];
 export const RESOURCE_EMOJI = ["🌲", "🧱", "🐑", "🌾", "⛰️"];
@@ -204,6 +204,13 @@ export function fmtDelta(d: number) {
   const v = (100 * Math.abs(d)).toFixed(1);
   return d < 0 ? `−${v}` : `+${v}`;
 }
+
+/** Whose turn it is, for display — stable through a trade decision, unlike `current_player`
+ *  itself, which the engine points at whoever is currently being asked to answer an offer
+ *  (the responder, then back to the offerer for DECIDE_ACCEPTEES/CONFIRM_TRADE). The offerer
+ *  is the one whose turn it actually is throughout, so a passive "whose turn" indicator reads
+ *  off `current_trade[10]` while a trade is live rather than flickering onto every responder. */
+export function turnSeat(v: View) { return v.is_resolving_trade ? v.current_trade[10] : v.current_player; }
 
 /** A seat by name, or "You" when it is the seat the reader is playing from. `you` is -1
  *  when nobody is seated, so a watched game never says "You". */

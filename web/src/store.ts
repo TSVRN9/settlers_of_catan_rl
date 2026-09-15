@@ -92,6 +92,11 @@ export interface State {
    *  (whoever the readings are currently written from) moves to it. `null` outside a handoff —
    *  which is always, unless two different human seats are actually sharing the table. */
   pendingHandoff: number | null;
+
+  /** "Ignore this bot's trades for its turn": the offering seat and the `current_turn` it was
+   *  muted on. Expires by itself once `current_turn` moves past it — no separate clear needed. */
+  mutedSeat: number | null;
+  mutedTurn: number | null;
 }
 
 const initial: State = {
@@ -131,6 +136,8 @@ const initial: State = {
   frames: [],
   reviewPlaying: false,
   pendingHandoff: null,
+  mutedSeat: null,
+  mutedTurn: null,
 };
 
 let state: State = initial;

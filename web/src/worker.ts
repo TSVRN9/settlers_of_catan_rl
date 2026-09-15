@@ -63,10 +63,10 @@ const view = (e: Engine) => JSON.parse(e.view()) as View;
 const legal = (e: Engine) => JSON.parse(e.legal_actions()) as Canon[];
 const evalAll = (e: Engine) => JSON.parse(e.evaluate_all()) as Evaluation[];
 
-function decide(e: Engine, bot: BotKind, depth: number): Decision {
+function decide(e: Engine, bot: BotKind, depth: number, full: boolean): Decision {
   if (bot === "human") throw new Error("a human seat has no bot");
   const t0 = performance.now();
-  const d = JSON.parse(e.decide(bot, depth));
+  const d = JSON.parse(full ? e.decide_full(bot, depth) : e.decide(bot, depth));
   return { bot, action: d.action, value: d.value, root: d.root, leaves: d.leaves, ms: performance.now() - t0, trade: !!d.trade };
 }
 
@@ -89,7 +89,7 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
       return { outcome, view: view(e), legal: legal(e) };
     }
     case "decide":
-      return decide(need(), req.bot, req.depth);
+      return decide(need(), req.bot, req.depth, !!req.full);
     case "evaluateAll":
       return evalAll(need());
     case "attribution":
@@ -162,7 +162,7 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
         const acts = legal(e);
         const bot = req.bots[seat];
         const forced = acts.length === 1;
-        const decision = forced ? { bot: bot.kind, action: acts[0], value: null, root: [], leaves: 0, ms: 0 } as Decision : decide(e, bot.kind, bot.depth);
+        const decision = forced ? { bot: bot.kind, action: acts[0], value: null, root: [], leaves: 0, ms: 0 } as Decision : decide(e, bot.kind, bot.depth, false);
         const evals = evalAll(e);
         const attribution = forced ? null : (JSON.parse(e.attribution(seat)) as Attribution[]);
         const outcome = JSON.parse(e.apply(JSON.stringify(decision.action))) as [number, number];

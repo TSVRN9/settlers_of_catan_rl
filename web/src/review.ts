@@ -48,7 +48,7 @@ export async function rankedAt(step: number, bot: BotKind = "vnet"): Promise<Dec
   const cached = rankedCache.get(key);
   if (cached) return cached;
   await positionAt(step);
-  const d = await review.decide(bot, 2);
+  const d = await review.decide(bot, 2, true);
   rankedCache.set(key, d);
   return d;
 }

@@ -49,7 +49,7 @@ export async function deal() {
   resetReview();
   stopWatching();
   set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, staged: null, hover: null, mark: null,
-        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], frames: [] });
+        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], frames: [], mutedSeat: null, mutedTurn: null });
   try {
     const g = await live.newGame(seed, n);
     // A game has an address, so it can be linked and a reload keeps the board. The play
@@ -85,7 +85,8 @@ export async function start() {
 export function toLineup() {
   stopWatching();
   transition(() => set({ phase: "lineup", pending: null, offering: false, advice: null, status: "idle", crumbs: ["table"], step: null,
-                          boardOverride: null, pendingHandoff: null, paused: false, staged: null, hover: null, mark: null }));
+                          boardOverride: null, pendingHandoff: null, paused: false, staged: null, hover: null, mark: null,
+                          mutedSeat: null, mutedTurn: null }));
 }
 
 /** Hotseat's own gate: the seat waiting in `pendingHandoff` has looked away from whoever was
@@ -242,7 +243,7 @@ export async function advise() {
   if (s.lineup[s.view.current_player].kind !== "human") return;
   const at = s.view;
   try {
-    const d = await live.decide("vnet", 2);
+    const d = await live.decide("vnet", 2, true);
     if (get().view === at) set({ advice: d });
   } catch (e) { if (!isStale(e)) console.error(e); }
 }
@@ -261,7 +262,21 @@ export async function pump(once = false) {
       if (s.paused && !once) return;
       const seat = v.current_player;
       const spec = s.lineup[seat];
-      const forced = s.legal.length === 1;
+      // A human's only-legal roll still needs a click — unlike every other forced move,
+      // which plays itself because there is nothing to decide.
+      const forced = s.legal.length === 1 && !(spec.kind === "human" && s.legal[0][0] === "ROLL");
+      // A trade offered to the seated person: answer it for them, silently, when it can't be
+      // afforded or when they've muted this bot for its turn — it never reaches the panel.
+      if (v.prompt === "DECIDE_TRADE" && seat === s.human && spec.kind === "human") {
+        const give = [5, 6, 7, 8, 9].map((i) => v.current_trade[i]);
+        const hand = v.players[s.human].hand;
+        const cannotAfford = give.some((n, i) => hand[i] < n);
+        const muted = v.current_trade[10] === s.mutedSeat && v.current_turn === s.mutedTurn;
+        if (cannotAfford || muted) {
+          if (!await advance(["REJECT_TRADE", -1, -1, -1], v)) return;
+          continue;
+        }
+      }
       if (spec.kind === "human" && !forced) {
         // Hotseat: a different human seat is on move than whoever is currently revealed.
         // Hold there — `human` (and the hand/coach it drives) does not move until that

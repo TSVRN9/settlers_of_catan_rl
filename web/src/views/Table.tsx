@@ -12,7 +12,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Canon, Frame } from "../engine";
 import { act, advise, seek, setPace, start, stepOnce, toLineup, togglePause } from "../game";
-import { GROUP, PROMPTS, actionKey, fmtDelta, fmtPct, label, rows, tradeText, who, type Row } from "../labels";
+import { GROUP, PROMPTS, SEAT_NAMES, actionKey, fmtDelta, fmtPct, label, rows, tradeText, turnSeat, who, type Row } from "../labels";
 import { RES_FILL, SEAT_FILL } from "../board/palette";
 import Card from "../board/Card";
 import Dock from "../Dock";
@@ -135,8 +135,17 @@ function GameStrip({ s, over }: { s: State; over: boolean }) {
   return (
     <Dock name="table-strip" side="t" style={{ position: "absolute", ...STRIP_X, top: 24 }}>
       <Strip frames={s.frames} step={at} you={you(s)} onSeek={seek} />
-      <div className="cap num" style={{ marginTop: 6, fontSize: 11.5, display: "flex", justifyContent: "space-between" }}>
+      <div className="cap num" style={{ marginTop: 6, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span>step {at} of {last}{done || playing(s) ? "" : " so far"} · turn {f.view.num_turns}</span>
+        {!done && (() => {
+          const turn = turnSeat(f.view);
+          return (
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <i style={{ width: 7, height: 7, flex: "0 0 7px", background: SEAT_FILL[turn] }} />
+              {who(turn, you(s))} {turn === you(s) ? "are" : "is"} up
+            </span>
+          );
+        })()}
         {looking && <button className="cap" style={{ background: "none", border: 0, padding: 0, cursor: "pointer", fontSize: 11.5 }} onClick={() => seek(last)}>back to live ›</button>}
       </div>
     </Dock>
@@ -212,7 +221,7 @@ function Stands({ s, over }: { s: State; over: boolean }) {
   return (
     <>
       <Dock name="table-seats" side="l" style={{ position: "absolute", left: 34, top: 72, width: 262 }}>
-        <Seats players={pv.players} you={-1} open />
+        <Seats players={pv.players} you={-1} open current={turnSeat(pv)} />
       </Dock>
       {/* The log opens upward, so it may only have the room between itself and the rail above it. */}
       <Dock name="table-log" side="b" style={{
@@ -295,7 +304,7 @@ function Seated({ s, over }: { s: State; over: boolean }) {
 
       {/* Every seat, yours included: table information you can see across a real table. */}
       <Dock name="table-seats" side="l" style={{ position: "absolute", left: 34, top: railTop, width: 262 }}>
-        <Seats players={v.players} you={s.human} open={s.analysis} />
+        <Seats players={v.players} you={s.human} open={s.analysis} current={turnSeat(v)} />
       </Dock>
 
       {/* The analysis, folded against the right edge: a zone, not a button. */}
@@ -384,37 +393,54 @@ function Seated({ s, over }: { s: State; over: boolean }) {
                   </button>
                 ))}
               </div>
+              {v.prompt === "DECIDE_TRADE" && (
+                <button className="cap" style={{ background: "none", border: 0, cursor: "pointer", fontSize: 11.5, padding: 0, marginTop: 10 }}
+                        onClick={() => { set({ mutedSeat: v.current_trade[10], mutedTurn: v.current_turn }); void act(["REJECT_TRADE", -1, -1, -1]); }}>
+                  Ignore {SEAT_NAMES[v.current_trade[10]]} this turn
+                </button>
+              )}
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 9, flex: "0 0 auto", pointerEvents: "auto" }}>
-            {offers.length > 0 && (
-              <button className="act cut8" style={{ height: 42 }} disabled={!mine}
-                      onClick={() => set({ offering: true })}>
-                {v.prompt === "DECIDE_TRADE" ? "Counter-offer" : "Offer a trade"}
-              </button>
-            )}
-            {(["BUY_DEVELOPMENT_CARD", "ROLL", "END_TURN"] as const).map((t) => {
-              const a = of(t);
-              if (!a) return null;
-              const cost = COST[t];
-              return (
-                <button key={t} className={`act cut8${t === "END_TURN" || t === "ROLL" ? " go" : ""}`}
-                        style={{ height: 42 }}
-                        disabled={!mine || (cost ? !has(cost) : false)}
-                        onClick={() => void act(a)}>
-                  {label(a, map)}
-                  {cost && (
-                    <span style={{ display: "inline-flex", gap: 3, marginLeft: 4 }}>
-                      {cost.flatMap((n, i) => Array.from({ length: n }, (_, k) => (
-                        <i key={`${i}-${k}`} style={{ width: 7, height: 7, borderRadius: "50%", background: RES_FILL[i] }} />
-                      )))}
-                    </span>
-                  )}
+          {/* Whoever's turn it is has their own legal actions, so this block would otherwise
+              render for a bot's turn too — merely disabled. Not your move, not your buttons. */}
+          {mine && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 9, flex: "0 0 auto", pointerEvents: "auto" }}>
+              {offers.length > 0 && (
+                <button className="act cut8" onClick={() => set({ offering: true })} style={{ height: 42 }}>
+                  {v.prompt === "DECIDE_TRADE" ? "Counter-offer" : "Offer a trade"}
                 </button>
-              );
-            })}
-          </div>
+              )}
+              {/* The one thing every turn starts with — its own size, not folded into the
+                  other standing actions, which don't become legal until after it anyway. */}
+              {of("ROLL") && (
+                <button className="act cut8 go" style={{ height: 56, fontSize: 16, fontWeight: 700 }}
+                        onClick={() => void act(of("ROLL")!)}>
+                  {label(of("ROLL")!, map)}
+                </button>
+              )}
+              {(["BUY_DEVELOPMENT_CARD", "END_TURN"] as const).map((t) => {
+                const a = of(t);
+                if (!a) return null;
+                const cost = COST[t];
+                return (
+                  <button key={t} className={`act cut8${t === "END_TURN" ? " go" : ""}`}
+                          style={{ height: 42 }}
+                          disabled={cost ? !has(cost) : false}
+                          onClick={() => void act(a)}>
+                    {label(a, map)}
+                    {cost && (
+                      <span style={{ display: "inline-flex", gap: 3, marginLeft: 4 }}>
+                        {cost.flatMap((n, i) => Array.from({ length: n }, (_, k) => (
+                          <i key={`${i}-${k}`} style={{ width: 7, height: 7, borderRadius: "50%", background: RES_FILL[i] }} />
+                        )))}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </Dock>
       )}
     </>
