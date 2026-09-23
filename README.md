@@ -3,12 +3,12 @@
 A search-based agent for 4-player Settlers of Catan that beats Catanatron's `AlphaBetaPlayer`, and a static
 site to play against it and replay bot games.
 
-**Headline result (2026-09-03):** `v40` — depth-2 expectimax over a learned win-probability net — wins
-**55.2% [52.1%, 58.3%]** of 1,000 games against three `AlphaBetaPlayer`s (symmetry 25%, AlphaBeta against
-itself 26.3%). The net was trained by expert iteration on rollout-labelled child states; measurements and negative results
-are in [`docs/FINDINGS.md`](docs/FINDINGS.md). The paper-protocol tournament
-(Xenou et al., EUMAS 2018) and the roadmap for real jSettlers / thesis-MCTS opponents are in
-[`docs/BENCHMARK.md`](docs/BENCHMARK.md).
+**Headline result (2026-09-23):** `v57` — depth-2 expectimax over a learned win-probability net, its side of a
+trade judged by the same net — wins **49.2% [46.1%, 52.3%]** of 1,000 games against three stock
+[JSettlers 2.6.10](https://github.com/jdmonin/JSettlers2) robots on their own server (an equal share is 25%). The
+net was trained by expert iteration on rollout-labelled child states; measurements and negative results are in
+[`docs/FINDINGS.md`](docs/FINDINGS.md). The protocol, the paper-protocol tournament (Xenou et al., EUMAS 2018) and
+every other opponent's numbers are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 
 ## How it works
 

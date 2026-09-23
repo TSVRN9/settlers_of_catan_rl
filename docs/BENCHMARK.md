@@ -28,7 +28,7 @@ Excluded: `GreedyPlayoutsPlayer` (34 s/game at 5 playouts and it prints to stdou
 confirmed the value-net player wins from every seat colour (it had only ever been evaluated at Blue).
 
 Results: see the table below (filled in from `docs/benchmark/paper_protocol.json` when the run finishes) and the
-site's Results page. The Fig. 3b analogue is the existing headline: **v40 552/1000 = 55.2% [52.1, 58.3] vs 3x
+site's Results page. The Fig. 3b analogue is the former headline (2026-09-03; the current one is the last section): **v40 552/1000 = 55.2% [52.1, 58.3] vs 3x
 `AlphaBetaPlayer`** (docs/FINDINGS.md 2026-09-03).
 
 | agent | games | wins | win ratio | 95% CI | mean VP | T0 (no vnet(v40)) | T1 (no ab) | T2 (no mcts100) | T3 (no vf) | T4 (no wr) |
@@ -456,3 +456,20 @@ way, by about 8 points over UCT, the next-best agent, in both the real-jSettlers
 
 That's the final comparison: v40 is the strongest agent this project has built, by every measure taken, in
 every pool it's been run against.
+
+## Headline (2026-09-23): the pool incumbent v57 vs real jSettlers, 1,000 games
+
+`vnet:checkpoints_value/v57.pt` (the pool incumbent `vnetx:v57`: depth-2 expectimax over v57, its own side of a
+trade judged by the net, partners predicted with `base_fn`) against three stock JSettlers 2.6.10 robots, same
+protocol as Phase F (default `MIX`, `full` mode, `fast_pause_percent=1`), ten 100-game servers at once
+(`scripts/headline_jsettlers.sh vnet:checkpoints_value/v57.pt v57`, ~37 min). Results:
+`docs/benchmark/headline_jsettlers_v57.txt`.
+
+| token | games | wins | win ratio | 95% CI | mean VP |
+|---|---|---|---|---|---|
+| `vnet:v57` | 1000 | 492 | 49.2% | [46.1, 52.3] | 8.42 |
+
+An equal share is 25%; v40 took 45.0% [35.6, 54.8] of 100 in Phase F.
+Five turns were force-ended by the server: four on our seat (all in `PLAY1`) and one on a robot. That's above the
+~1 per 1,000 FINDINGS 2026-09-07 recorded at 2% pauses and five servers (this run: 1%, ten servers, the box ~90%
+idle). At most four games were affected, all against v57.
