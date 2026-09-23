@@ -10,7 +10,9 @@ Python: a fresh catanatron Game is built per seed and handed over once.
 """
 
 import os
+import queue
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -20,7 +22,7 @@ from catanatron import Color, Game, RandomPlayer
 
 import catan_engine
 import rust_bridge as rb
-from value_net import load_value_net
+from value_net import load_value_net, rust_value_net
 
 COLORS = (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)
 DEVICE = os.environ.get("VNET_DEVICE", "xpu" if torch.xpu.is_available() else "cpu")
@@ -28,12 +30,20 @@ ROW_BUCKET = 16384  # forwards are padded to a multiple of this many rows so the
 MAX_LEAVES = int(os.environ.get("VNET_MAX_LEAVES", 20000))  # depth>2 decisions over this many leaves fall back one ply (search.rs); depth 2 is never capped
 
 
-VNET = re.compile(r"^vnet(\d?)(o?):(.+)$")  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (3 own actions, opponents never min'ed: search.rs own_turn)
+VNET = re.compile(r"^vnet(?P<depth>\d?)(?P<own>o?)(?:t(?P<tau>[0-9.]+))?(?:k(?P<k>\d+))?(?:m(?P<sims>\d+)(?:c(?P<c>[0-9.]+))?(?P<mb>b?)(?:r(?P<rr>\d+)(?P<rd1>h?)(?:l(?P<lam>[0-9.]+))?)?)?(?P<x>x{0,2}):(?P<path>.+)$")
+# vnet:<path> depth 2; vnet3: depth 3; vnet3o: 3 own actions, opponents never min'ed (search.rs own_turn); t0.1: soft-min
+# temperature at opponent nodes (search.rs backup); k3: 3 replies per opponent node, ordered on the CPU by $PRUNE_NET,
+# default the spec's last member (search.rs expand_into); m500c0.1: the post-roll main phase by net-valued UCT, 500
+# simulations, exploration 0.1, net = the spec's last member (mcts.rs search_net), m500b: max backup, m500r1l0.5: leaves mix 0.5 net + 0.5 a 1-round rollout-policy playout scored by the net, m500r1hl0.5: playouts by the depth-1 heuristic; x: the seat trades with the spec's
+# last member, partners predicted with base_fn; xx: partners by the net too (trade.rs). Paths: a.pt or a.pt+b.pt.
+
+
+POOL = re.compile(r"^(?:jsrobot|jsdroid|rab(\d)|uct(\d*)(?:c([0-9.]+))?(r?)|cvnet:(.+))$")  # arena pool seats (arena.rs Seat): the jSettler port (SMART / FAST), AlphaBeta at depth d, thesis UCT at N playouts (default 5000, the thesis') with exploration c (default 2.0) and r = dev-card buys re-drawn per visit, a CPU depth-2 net
 
 
 def supports(lineup):
     nets = {t for t in lineup if VNET.match(t)}
-    return all(VNET.match(t) or t == "rab" for t in lineup) and len(nets) <= 1
+    return all(VNET.match(t) or t == "rab" or POOL.match(t) for t in lineup) and len(nets) <= 1
 
 
 def targets(colors, turns, winner_seat, vps, num_turns):
@@ -46,7 +56,7 @@ def targets(colors, turns, winner_seat, vps, num_turns):
     return y, vp, turns_left
 
 
-def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p=0.0, roll_m=4, roll_depth=2, batch=64, depth=2, keep_log=False):
+def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p=0.0, roll_m=4, roll_depth=2, roll_net="", batch=64, depth=2, keep_log=False):
     """Yields (seed, winner_color or None, part, extra) per game as they finish.
     `part` is the gen_games shard dict (float16) or None for a game without a
     winner; `extra` is (game, log, snapshot) when keep_log, else None.
@@ -56,16 +66,30 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
     torch releases the GIL inside ops and the Rust step releases it in
     allow_threads, so the two overlap on the host. Device-side overlap via
     streams/events does not work here -- measured: waiting on an event recorded
-    after forward A blocks until a later-queued oneDNN matmul B also finishes."""
-    assert supports(lineup), lineup
-    nets = [VNET.match(t) for t in lineup if VNET.match(t)]
-    net = load_value_net(nets[0].group(3)).to(DEVICE) if nets else None
-    if nets and nets[0].group(1):
-        depth = int(nets[0].group(1))
-    own_turn = bool(nets and nets[0].group(2))
+    after forward A blocks until a later-queued oneDNN matmul B also finishes.
+
+    `lineup` is 4 tokens, or a function seed -> 4 tokens (gate.py's pool); every lineup shares one vnet spec."""
+    seeds = list(seeds)
+    lineup_of = lineup if callable(lineup) else (lambda seed: lineup)
+    tokens = {t for seed in seeds for t in lineup_of(seed)}
+    assert supports(sorted(tokens)), tokens
+    nets = [VNET.match(t) for t in tokens if VNET.match(t)]
+    cvnets = sorted({POOL.match(t).group(5) for t in tokens if POOL.match(t) and POOL.match(t).group(5)})
+    g = nets[0].groupdict() if nets else {}
+    net = load_value_net(g["path"]).to(DEVICE) if nets else None
+    if g.get("depth"):
+        depth = int(g["depth"])
+    own_turn = bool(g.get("own"))
+    tau = float(g.get("tau") or 0.0)
+    prune_k = int(g.get("k") or 0)
+    trade_net = rust_value_net(g["path"]) if g.get("x") else None
+    prune_net = rust_value_net(os.environ.get("PRUNE_NET", g["path"])) if prune_k else None
+    mcts_net = rust_value_net(g["path"]) if g.get("sims") else None
     layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in COLORS], seed=0)))
-    n_arenas = 2 if net is not None else 1
-    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn, roll_p=roll_p, roll_m=roll_m, roll_depth=roll_depth) for _ in range(n_arenas)]  # vnetN: deepens the net only
+    cpu_seats = g.get("sims") or any(POOL.match(t) for t in tokens)  # searches that run inside the Rust step (MCTS, pool seats)
+    n_arenas = int(os.environ.get("ARENAS", 16 if cpu_seats else 2)) if net is not None else 1  # > 2: each arena steps in its own thread (below)
+    rnet = rust_value_net(g["path"]) if roll_net else None  # rollouts play the lineup's net at one ply on the CPU (valuenet.rs): "all" seats or the decider's "own" moves
+    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn, roll_p=roll_p, roll_m=roll_m, roll_depth=roll_depth, roll_net=rnet, roll_net_own=roll_net == "own", tau=tau, prune_net=prune_net, prune_k=prune_k, trade_net=trade_net, trade_net_partners=g.get("x") == "xx", mcts_net=mcts_net, mcts_sims=int(g.get("sims") or 0), mcts_c=float(g.get("c") or 0.1), mcts_max=bool(g.get("mb")), mcts_roll=int(g.get("rr") or 0), mcts_lambda=float(g.get("lam") or 0.5), mcts_roll_depth1=bool(g.get("rd1")), pool_nets=[rust_value_net(c) for c in cvnets]) for _ in range(n_arenas)]  # vnetN: deepens the net only
     pool = ThreadPoolExecutor(max_workers=1)
     seeds = iter(seeds)
     games = [{} for _ in arenas]  # per arena: seed -> (game, colors) while in flight
@@ -77,14 +101,33 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
     bufs = [new_buf(0) for _ in arenas]
     prof = {"step": 0.0, "fwd": 0.0, "drain": 0.0, "rows": 0, "steps": 0, "par": 0.0, "fill": 0.0, "t0": time.perf_counter()}  # ARENA_PROF=1
 
+    seed_lock = threading.Lock()
+
+    def seat_code(t):  # arena.rs PyArena.add
+        m = POOL.match(t)
+        if VNET.match(t):
+            return 0
+        if t == "rab":
+            return 1
+        if t in ("jsrobot", "jsdroid"):
+            return 2 if t == "jsrobot" else 3
+        if m.group(1):
+            return 100 + int(m.group(1))
+        if t.startswith("uct"):
+            c100 = round(float(m.group(3)) * 100) if m.group(3) else 0
+            return 1000 + int(m.group(2) or 5000) + 1_000_000 * c100 + (1 << 31 if m.group(4) else 0)
+        return 10 + cvnets.index(m.group(5))
+
     def add(i):
-        seed = next(seeds, None)
+        with seed_lock:
+            seed = next(seeds, None)
         if seed is None:
             return False
         game = Game([RandomPlayer(c) for c in COLORS], seed=seed)
         rs, _ = rb.rust_state(game)
         colors = list(game.state.colors)
-        seats = [0 if VNET.match(lineup[COLORS.index(c)]) else 1 for c in colors]
+        lu = lineup_of(seed)
+        seats = [seat_code(lu[COLORS.index(c)]) for c in colors]
         arenas[i].add(rs, seats, seed, seed)
         games[i][seed] = (game, colors)
         return True
@@ -135,16 +178,51 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
     for i in range(n_arenas):
         while len(games[i]) < per and add(i):
             pass
-    outs = [None] * n_arenas
-    for i in range(n_arenas):
-        outs[i], finished = run(i, None)
-        yield from finished
-    while any(games):
+    if n_arenas <= 2:  # ping-pong in this thread: finishing order is deterministic, which gen_games' shards rely on
+        outs = [None] * n_arenas
         for i in range(n_arenas):
-            if not games[i]:
-                continue
-            outs[i], finished = run(i, sync(outs[i]))
+            outs[i], finished = run(i, None)
             yield from finished
+        while any(games):
+            for i in range(n_arenas):
+                if not games[i]:
+                    continue
+                outs[i], finished = run(i, sync(outs[i]))
+                yield from finished
+        running = 0
+    else:
+        # One driver thread per arena. A step runs every game until it needs a forward, so it waits for its slowest
+        # game -- with MCTS a whole turn of searches, seconds -- and 2 arenas left the cores ~half idle (158-420% of
+        # 800); 16 arenas: 1.45x, game logs identical (docs/FINDINGS.md 2026-09-22). Finishing order is not
+        # deterministic here, so gen_games' default lineups keep the ping-pong above.
+        running = n_arenas
+    done = queue.Queue()  # finished games from every driver; None = a driver ran out, an exception = it died
+
+    def drive(i):
+        """One arena's loop in its own thread: the step releases the GIL, the forwards share the one XPU worker.
+        Game results depend only on the seed (each game has its own RNG), not on which arena plays it."""
+        try:
+            out, finished = run(i, None)
+            while True:
+                for f in finished:
+                    done.put(f)
+                if not games[i]:
+                    break
+                out, finished = run(i, sync(out))
+        except BaseException as e:  # noqa: BLE001 -- re-raised in the consumer
+            done.put(e)
+        done.put(None)
+
+    for i in range(running):
+        threading.Thread(target=drive, args=(i,), daemon=True).start()
+    while running:
+        item = done.get()
+        if item is None:
+            running -= 1
+        elif isinstance(item, BaseException):
+            raise item
+        else:
+            yield item
     pool.shutdown()
     if DEVICE == "xpu":
         torch.xpu.empty_cache()
@@ -154,3 +232,10 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
         print(f"  arena: {prof['steps']} steps, {prof['rows'] / n:.0f} rows/step; rust step {prof['step'] / el:.0%} waiting on forward {prof['fwd'] / el:.0%} "
               f"drain+new games {prof['drain'] / el:.0%}; per step: rust {prof['step'] / n * 1e3:.0f} ms (parallel {prof['par'] / n:.0f}, fill {prof['fill'] / n:.1f}) "
               f"forward wait {prof['fwd'] / n * 1e3:.1f} ms; wall/step {el / n * 1e3:.0f} ms", flush=True)
+
+
+if __name__ == "__main__":  # reply pruning with k above any reply count is plain depth 3, game for game
+    net = "vnet3{}:checkpoints_value/v55.pt"
+    run = lambda k: [(s, w) for s, w, _, _ in play([net.format(k), "rab", "rab", "rab"], range(8), batch=8)]  # noqa: E731
+    assert sorted(run("")) == sorted(run("k999")), "k999 differs from unpruned depth 3"
+    print("arena: k999 == depth 3 on 8 games")

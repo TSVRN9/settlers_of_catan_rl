@@ -59,6 +59,36 @@ def greedy(paths, games, seed, out, base=None):
     return mean([sds[q] for q in kept])
 
 
+def step(paths, games, seed, out, base, alphas):
+    """base + alpha * (mean(draws) - base), the best alpha by the same proxy (2026-09-22, docs/FINDINGS.md): a full
+    training pass lands 5-20 points below its warm start whatever the labels, but a step of 0.15-0.3 toward the
+    mean draw scores at or above it on three rounds' draws where the greedy soup -- whose smallest step is 0.5 --
+    kept nothing. Candidates are base and each alpha, so the selection is over len(alphas) + 1 nets."""
+    from catanatron import Color
+    import arena
+
+    tmp = out + ".trial.pt"
+
+    def score(sd):
+        torch.save(sd, tmp)
+        arena.load_value_net.__globals__["_NET_CACHE"].pop(tmp, None)
+        return sum(w == Color.BLUE for _, w, _, _ in arena.play([f"vnet:{tmp}", "rab", "rab", "rab"], range(seed, seed + games), batch=128))
+
+    b = torch.load(base, map_location="cpu")
+    d = mean([torch.load(p, map_location="cpu") for p in paths])
+    best, best_sd = score(b), b
+    print(f"  base {base}: {best}/{games}")
+    for alpha in alphas:
+        sd = {k: (b[k].float() + alpha * (d[k].float() - b[k].float())).to(b[k].dtype) for k in b}
+        s = score(sd)
+        print(f"  alpha {alpha:.2f} -> {s}/{games} ({'best' if s > best else 'no'})")
+        if s > best:
+            best, best_sd = s, sd
+    os.remove(tmp)
+    print(f"  step soup: {best}/{games} on seeds {seed}..{seed + games - 1}")
+    return best_sd
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
@@ -66,8 +96,12 @@ if __name__ == "__main__":
     ap.add_argument("--games", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--base", default=None, help="greedy: start the soup from this checkpoint (the incumbent) instead of the best single draw")
+    ap.add_argument("--alphas", default=None, help="step soup (needs --base): comma-separated steps from base toward the mean draw, e.g. 0.15,0.3")
     ap.add_argument("paths", nargs="+")
     a = ap.parse_args()
-    sd = greedy(a.paths, a.games, a.seed, a.out, a.base) if a.greedy else mean([torch.load(p, map_location="cpu") for p in a.paths])
+    if a.alphas:
+        sd = step(a.paths, a.games, a.seed, a.out, a.base, [float(x) for x in a.alphas.split(",")])
+    else:
+        sd = greedy(a.paths, a.games, a.seed, a.out, a.base) if a.greedy else mean([torch.load(p, map_location="cpu") for p in a.paths])
     torch.save(sd, a.out)
     print(f"soup of {len(a.paths)} -> {a.out}")

@@ -47,34 +47,59 @@ impl State {
     /// are re-added as start nodes -- catanatron issue #378, fixed identically
     /// in the pinned catanatron fork (docs/AUDIT-rules.md).
     pub fn longest_acyclic_path(&self, nodes: u64, p: usize) -> i32 {
-        let mut starts = nodes;
-        for n in 0..54u8 {
-            if nodes & (1u64 << n) == 0 {
-                continue;
-            }
+        // Starts: enemy endpoints adjacent through p's roads, plus component nodes of odd degree in
+        // p's road graph. A longest trail starting at an even-degree, non-enemy node leaves an unused
+        // edge there and could be extended, so some longest trail starts in this set; when it is
+        // empty the graph is Eulerian and any node with a road reaches every edge. The maximum is
+        // the one the full-start DFS returns; this DFS ran on every BuildRoad child of every search
+        // node, 26% of generation (perf 2026-09-22).
+        let mut starts = 0u64;
+        let mut any_road = 0u64;
+        let mut bits = nodes;
+        while bits != 0 {
+            let n = bits.trailing_zeros() as u8;
+            bits &= bits - 1;
+            let mut degree = 0;
             for &v in &self.map.neighbors[n as usize] {
-                if self.road_owner[self.map.edge(n, v) as usize] == p as i8 && self.is_enemy_node(v, p) {
-                    starts |= 1u64 << v;
+                if self.road_owner[self.map.edge(n, v) as usize] == p as i8 {
+                    degree += 1;
+                    if self.is_enemy_node(v, p) {
+                        starts |= 1u64 << v;
+                    }
                 }
             }
+            if degree % 2 == 1 {
+                starts |= 1u64 << n;
+            }
+            if degree > 0 {
+                any_road |= 1u64 << n;
+            }
+        }
+        if starts == 0 {
+            if any_road == 0 {
+                return 0;
+            }
+            starts = 1u64 << any_road.trailing_zeros();
         }
         let mut best = 0;
-        for start in 0..54u8 {
-            if starts & (1u64 << start) == 0 {
-                continue;
-            }
+        while starts != 0 {
+            let start = starts.trailing_zeros() as u8;
+            starts &= starts - 1;
             best = best.max(self.trail_from(start, p, 0u128, 0));
         }
         best
     }
 
+    // ponytail: a branch-and-bound on "p's roads left" was tried 2026-09-22 and measured -6% on
+    // generation (docs/PLAN-gen-speed.md): the only safe cap is all of p's roads, which prunes
+    // nothing on the tree-shaped road graphs that dominate. The cost is the number of calls
+    // (one per BuildRoad child at every search node), not the DFS depth.
     fn trail_from(&self, node: u8, p: usize, used: u128, len: i32) -> i32 {
         let mut best = len;
         if len > 0 && self.is_enemy_node(node, p) {
             return best; // endpoint only
         }
-        for &v in &self.map.neighbors[node as usize] {
-            let e = self.map.edge(node, v);
+        for &(v, e) in self.map.adj(node) {
             if self.road_owner[e as usize] != p as i8 {
                 continue;
             }
@@ -88,6 +113,7 @@ impl State {
 
     /// Board.build_settlement. Returns (previous_road_color, road_color).
     pub fn board_build_settlement(&mut self, p: usize, node: u8, initial: bool) -> (i8, i8) {
+        self.reach = Default::default();
         self.owner[node as usize] = p as i8;
         self.is_city[node as usize] = false;
         let previous_road_color = self.road_color;
@@ -110,9 +136,14 @@ impl State {
                 }
                 let ec = edge_color as usize;
                 if vs.len() == 2 {
+                    // Not in any component: ec's roads here were already dropped by an earlier cut whose
+                    // dfs_walk stopped at an enemy settlement that the initial phase never cut out of the
+                    // component (catanatron skips the cut there, then lets the road continue through it).
+                    // Nothing to split; catanatron itself raises (`del list[None]`) in this state, which
+                    // the net rollout policy reaches and rab never did (2026-09-22, round 51).
+                    let Some(b_index) = self.component_index(node, ec) else { continue };
                     let a_set = self.dfs_walk(vs[0], ec);
                     let c_set = self.dfs_walk(vs[1], ec);
-                    let b_index = self.component_index(node, ec).expect("cut node not in a component");
                     self.components[ec].remove(b_index);
                     self.components[ec].push(a_set);
                     self.components[ec].push(c_set);
@@ -148,6 +179,7 @@ impl State {
 
     /// Board.build_road. Returns (previous_road_color, road_color).
     pub fn board_build_road(&mut self, p: usize, edge: u8) -> (i8, i8) {
+        self.reach = Default::default();
         self.road_owner[edge as usize] = p as i8;
         let (a, b) = self.map.edges[edge as usize];
         let a_index = self.component_index(a, p);
@@ -206,25 +238,28 @@ impl State {
     }
 
     pub fn buildable_edges(&self, p: usize) -> Vec<u8> {
+        let mut out = Vec::new();
+        self.for_each_buildable_edge(p, |e| out.push(e));
+        out
+    }
+
+    /// `buildable_edges` in the same order without the Vec (move generation runs at every playout step).
+    pub fn for_each_buildable_edge(&self, p: usize, mut f: impl FnMut(u8)) {
         let mut nodes = 0u64;
         for &c in &self.components[p] {
             nodes |= c;
         }
         let mut seen = 0u128;
-        let mut out = Vec::new();
-        for n in 0..54u8 {
-            if nodes & (1u64 << n) == 0 {
-                continue;
-            }
-            for &v in &self.map.neighbors[n as usize] {
-                let e = self.map.edge(n, v);
+        while nodes != 0 {
+            let n = nodes.trailing_zeros() as u8; // ascending, as the 0..54 scan was
+            nodes &= nodes - 1;
+            for &(_, e) in self.map.adj(n) {
                 if self.road_owner[e as usize] < 0 && seen & (1u128 << e) == 0 {
                     seen |= 1u128 << e;
-                    out.push(e);
+                    f(e);
                 }
             }
         }
-        out
     }
 
     /// Port resources owned by p: bit 0..4 = 2:1 resource ports, bit 5 = 3:1.

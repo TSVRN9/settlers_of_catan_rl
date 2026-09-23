@@ -22,6 +22,8 @@ pub struct Map {
     pub edges: Vec<(u8, u8)>,                    // edge idx -> (a, b), a < b, sorted
     pub edge_of: [[i8; NUM_NODES]; NUM_NODES],
     pub neighbors: Vec<Vec<u8>>,
+    pub adj: [[(u8, u8); 3]; NUM_NODES], // node -> (neighbor, edge) in `neighbors` order, inline for the road loops
+    pub deg: [u8; NUM_NODES],
     pub node_tiles: Vec<Vec<u8>>,                // node -> tile ids (tile-id order)
     pub number_prob: [f64; 13],
     pub node_prod: Vec<[f64; 5]>,  // node -> production per resource, robber ignored (sum of number_prob over touching tiles)
@@ -82,7 +84,21 @@ impl Map {
             }
         }
         let node_prod_sum: Vec<f64> = node_prod.iter().map(|v| v.iter().sum()).collect();
-        Map { tiles, ports, edges: edge_set, edge_of, neighbors, node_tiles, number_prob, node_prod, node_prod_sum, tile_prob, static_template }
+        let mut adj = [[(0u8, 0u8); 3]; NUM_NODES];
+        let mut deg = [0u8; NUM_NODES];
+        for (n, nb) in neighbors.iter().enumerate() {
+            for (i, &v) in nb.iter().enumerate() {
+                adj[n][i] = (v, edge_of[n][v as usize] as u8);
+            }
+            deg[n] = nb.len() as u8;
+        }
+        Map { tiles, ports, edges: edge_set, edge_of, neighbors, adj, deg, node_tiles, number_prob, node_prod, node_prod_sum, tile_prob, static_template }
+    }
+
+    /// (neighbor, edge) pairs of `n`, in `neighbors` order.
+    #[inline]
+    pub fn adj(&self, n: u8) -> &[(u8, u8)] {
+        &self.adj[n as usize][..self.deg[n as usize] as usize]
     }
 
     #[inline]

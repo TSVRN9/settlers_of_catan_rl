@@ -22,5 +22,11 @@ pub mod valuenet;
 #[cfg(feature = "python")]
 mod python;
 
+// Search and rollouts clone small Vec-heavy states at every tree node under 8 rayon threads; glibc
+// malloc/free was ~40% of generation (perf, docs/PLAN-gen-speed.md 2026-09-22). Not for wasm.
+#[cfg(feature = "python")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[cfg(feature = "wasm")]
 pub mod wasm;

@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use numpy::ndarray::Array2;
-use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadwriteArray2};
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
 use numpy::ndarray::Array3;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -196,9 +196,9 @@ impl PyState {
                 has_rolled: has_rolled[i],
                 has_played_dev: has_played_dev[i],
                 longest_road_length: lrl[i],
-                settlements: settlements[i].clone(),
-                cities: cities[i].clone(),
-                roads: roads[i].clone(),
+                settlements: settlements[i].iter().copied().collect(),
+                cities: cities[i].iter().copied().collect(),
+                roads: roads[i].iter().copied().collect(),
             })
             .collect();
         let owner_v: Vec<i8> = d_get(spec, "owner")?;
@@ -238,11 +238,12 @@ impl PyState {
                 n,
                 players,
                 bank,
-                dev_deck: d_get(spec, "dev_deck")?,
+                dev_deck: d_get::<Vec<u8>>(spec, "dev_deck")?.into_iter().collect(),
                 owner,
                 is_city,
                 road_owner,
                 components,
+                reach: Default::default(),
                 buildable: mask(&buildable_v),
                 road_lengths,
                 road_color: d_get(spec, "road_color")?,
@@ -374,10 +375,11 @@ impl PyState {
         Ok((arr, fixed))
     }
 
-    fn backup(&self, values: PyReadonlyArray1<f64>) -> PyResult<(Option<Canon>, f64)> {
+    #[pyo3(signature = (values, tau=0.0))]
+    fn backup(&self, values: PyReadonlyArray1<f64>, tau: f64) -> PyResult<(Option<Canon>, f64)> {
         let search = self.search.as_ref().ok_or_else(|| PyValueError::new_err("call expand() first"))?;
         let v = values.as_slice()?;
-        let (a, val) = search.backup(v);
+        let (a, val) = search.backup(v, tau);
         Ok((a.map(to_canon), val))
     }
 
@@ -433,6 +435,11 @@ impl PyState {
         self.inner.decide_rollout().map(to_canon)
     }
 
+    /// The `--roll-net` rollout policy: one ply over the pruned action list, leaves scored by `net` here.
+    fn decide_net_rollout(&self, net: &PyValueNet, layout: &PyLayout) -> Option<Canon> {
+        self.inner.decide_net_rollout(&net.inner, &layout.inner, &mut Vec::new()).map(to_canon)
+    }
+
     fn smooth_base_fn(&self, p0: usize) -> f64 {
         self.inner.smooth_base_fn(p0)
     }
@@ -447,11 +454,13 @@ impl PyState {
     }
 
     /// The 1-ply trade policy (trade.rs): a reply / confirmation / worthwhile offer, or None when the
-    /// search should decide. `net` = a ValueNet for the value-net player, None for base_fn.
+    /// search should decide. `net` = a ValueNet for the value-net player's own trades, partners predicted with
+    /// base_fn (`Eval::NetVsHeuristic`: +11.5 points over base_fn trades in the arena, docs/FINDINGS.md 2026-09-22;
+    /// judging partners by the net too, the pre-09-22 behaviour, was worse); None for base_fn.
     #[pyo3(signature = (layout, net=None))]
     fn trade_action(&self, layout: &PyLayout, net: Option<&PyValueNet>) -> Option<Canon> {
         let eval = match net {
-            Some(n) => Eval::Net(&n.inner, &layout.inner),
+            Some(n) => Eval::NetVsHeuristic(&n.inner, &layout.inner),
             None => Eval::Heuristic,
         };
         self.inner.trade_action(&eval).map(to_canon)
@@ -466,18 +475,27 @@ impl PyState {
 /// value_net.ValueNet weights in Rust (tools/export_valuenet.py layout), for the trade policy.
 #[pyclass(name = "ValueNet")]
 struct PyValueNet {
-    inner: ValueNet,
+    inner: Arc<ValueNet>, // shared with the Arena's rollout policy
 }
 
 #[pymethods]
 impl PyValueNet {
     #[new]
     fn new(bytes: Vec<u8>, n_features: usize, hidden: usize) -> PyResult<PyValueNet> {
-        Ok(PyValueNet { inner: ValueNet::from_bytes(&bytes, n_features, hidden, N_HEADS).map_err(PyValueError::new_err)? })
+        Ok(PyValueNet { inner: Arc::new(ValueNet::from_bytes(&bytes, n_features, hidden, N_HEADS).map_err(PyValueError::new_err)?) })
     }
 
     fn win_prob(&self, state: &PyState, layout: &PyLayout, p0: usize) -> f64 {
         self.inner.win_prob(&state.inner.encoded(p0, &layout.inner))
+    }
+
+    /// All heads for n encoded rows (n x n_features) -> n x N_HEADS, on this thread (parity / timing checks).
+    fn forward<'py>(&self, py: Python<'py>, xs: PyReadonlyArray2<f32>) -> PyResult<Bound<'py, PyArray2<f32>>> {
+        let xs = xs.as_array();
+        let n = xs.nrows();
+        let flat: Vec<f32> = xs.iter().copied().collect();
+        let out = self.inner.forward_batch(&flat, n);
+        Ok(Array2::from_shape_vec((n, N_HEADS), out).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))
     }
 }
 
@@ -494,6 +512,13 @@ struct PyArena {
     roll_p: f64,
     roll_m: u32,
     roll_depth: u32,
+    roll_net: Option<Arc<ValueNet>>, // rollout policy = this net at one ply (valuenet.rs decide_net_rollout)
+    roll_net_own: bool,              // ... for the decider's moves only (arena.rs Recorder)
+    tau: f64,                        // soft-min temperature at opponent nodes (search.rs backup), 0 = exact min
+    prune: Option<(Arc<ValueNet>, usize)>, // top-k replies at opponent nodes by this net (search.rs expand_into)
+    mcts: Option<(Arc<ValueNet>, u32, f64, bool, u32, f64, bool)>, // net-valued UCT for the value-net seat's main phase: (net, sims, c, max backup, playout rounds, lambda, depth-1 playouts), mcts.rs
+    pool_nets: Arc<Vec<Arc<ValueNet>>>, // CPU depth-2 opponent seats (seat code 10 + k), arena.rs Seat::CpuNet
+    trade_net: Option<(Arc<ValueNet>, bool)>, // the value-net seat's trade evaluator (arena.rs), true = partners judged by the net too
     sample_p: f64,
     rank_p: f64,
     sib_p: f64,
@@ -505,16 +530,31 @@ struct PyArena {
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32) -> PyArena {
-        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![]))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>) -> PyArena {
+        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
-    fn add(&mut self, state: &PyState, seats: [u8; 4], seed: u64, game_id: i32) {
+    fn add(&mut self, state: &PyState, seats: [u32; 4], seed: u64, game_id: i32) {
         let mut st = state.inner.clone();
         st.rng = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x5851_F42D_4C95_7F2D;
-        let seats = seats.map(|s| if s == 0 { Seat::Vnet } else { Seat::Rab });
+        // 0 value net (XPU), 1 rab, 2 / 3 jSettler port SMART / FAST, 10 + k CPU pool net k, 100 + d AlphaBeta at
+        // depth d, 1000 + n thesis UCT at n playouts (< 10^6), plus 10^6 x (c x 100) (0 = the thesis' 2.0), plus 2^31 for
+        // the dev-card resample (arena.rs Seat)
+        let seats = seats.map(|s| match s {
+            0 => Seat::Vnet,
+            1 => Seat::Rab,
+            2 => Seat::Jsettler(true),
+            3 => Seat::Jsettler(false),
+            10..=99 => Seat::CpuNet((s - 10) as u8),
+            100..=199 => Seat::RabDepth((s - 100) as u8),
+            n => {
+                let (resample, m) = (n & (1 << 31) != 0, n & !(1 << 31));
+                let c100 = (m / 1_000_000) as u16;
+                Seat::Uct(m % 1_000_000 - 1000, if c100 == 0 { 200 } else { c100 }, resample)
+            }
+        });
         self.games.push(ArenaGame {
             id: game_id,
             state: st,
@@ -523,10 +563,25 @@ impl PyArena {
             rab_depth: self.rab_depth,
             max_leaves: self.max_leaves,
             own_turn: self.own_turn,
+            tau: self.tau,
+            prune: self.prune.clone(),
+            trade_net: self.trade_net.clone(),
+            pool_nets: self.pool_nets.clone(),
+            jsettlers: Default::default(),
+            uct: Box::new(Mcts::new(Policy::Uct, 1000, 10, seed ^ 0x5EED_0F0C_7C7A_B1E5)),
+            mcts: self.mcts.as_ref().map(|(n, sims, c, max_backup, roll, lambda, depth1)| {
+                let mut m = Mcts::new(Policy::Uct, *sims, 10, seed);
+                m.c = *c;
+                m.max_backup = *max_backup;
+                m.roll_rounds = *roll;
+                m.lambda = *lambda;
+                m.roll_depth1 = *depth1;
+                Box::new((m, n.clone()))
+            }),
             pending: None,
             leaf_buf: Vec::new(),
             offset: 0,
-            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p, self.roll_p, self.roll_m, self.roll_depth),
+            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p, self.roll_p, self.roll_m, self.roll_depth, self.roll_net.clone(), self.roll_net_own),
             log: if self.keep_log { Some(vec![]) } else { None },
             done: false,
         });

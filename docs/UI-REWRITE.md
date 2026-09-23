@@ -610,3 +610,102 @@ plays still downloads it — that becomes a lazy import. Its headline prose hard
 against three AlphaBeta" while the table renders live from the JSON; the newer 58.3% is a
 different condition (trading AlphaBeta, 300 games), so check `docs/FINDINGS.md` before
 touching it.
+
+## Phones (2026-09-09)
+
+M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
+guessed layout. This section settles that layout in prose rather than in the canvas, because
+there is no phone artboard for prose to drift from: the "artboard is the spec" rule (recorded
+throughout M1–M4 above) guards against prose overriding an *existing* artboard, not against
+prose settling undesigned territory. Whether this becomes canvas artboards later is still
+open — see the note at the end of this section.
+
+**The goal is no page scroll, not no scroll.** A phone screen is one fixed composition, top to
+bottom, that never moves once laid out — the spine, the board and the tab strip stay put. What
+that composition holds can still scroll *within itself*: M1 already learned this the hard way
+(“Some positions could not be played” — the actions panel used to truncate at twelve, and one
+Year of Plenty alone emits fifteen combinations; the fix was “it scrolls now, and nothing is
+cut”, not a shorter list). The phone layout keeps that fix. Truncating any of Actions, the
+swing list or the Move ladder to fit a fixed height would reopen exactly that bug.
+
+**Composition, as a formula against the safe area, not fixed pixels:**
+
+```
+spine       ~40px, fixed
+tab strip   ~56px, fixed, bottom safe-area inset
+panel band  fixed minimum (enough for one row of hand cards, or a few action rows,
+            or the coach line) — scrolls internally past that minimum, never truncates
+board       the remainder: (viewport height − safe-area top/bottom − spine − tab strip
+            − panel band), sized into that box by the same min(cqw, cqh) anchor
+            arithmetic the desktop views already use — no separate breakpoint math
+```
+
+The board is the flexible term, exactly as it already is on desktop; the panel band is the
+fixed one, sized to its shortest useful content rather than stretched to fill leftover space.
+
+**The Table's four tabs** — Hand, Actions, Coach, Seats — replace desktop's four corner-docked
+panels; the bottom tab strip switches which one is showing under the pinned board.
+
+- **Hand** — the existing fanned resource/dev-card row, unchanged, full width.
+- **Actions** — the existing "legal action the board doesn't cover" list (trades, discards,
+  whom to rob), vertical, scrolling internally per the rule above. Board taps and this list are
+  two paths to the same staged move (`store.staged`, ghost + "Play it"/"Cancel"), not two
+  separate mechanisms.
+- **Coach** — the same templated sentence from `coach.ts`; "Why" expands in place in this tab.
+- **Seats** — the seat rail restacked as a vertical list (shield, VP/hidden marker, pip bar).
+  Desktop's ring-around-the-board readings don't survive a phone-width board legibly, so they
+  fold into this list instead of drawing on the board.
+
+The spine's waiting pill jumps to whichever tab holds the actionable thing (a seven → Actions,
+already showing Discard) rather than only back to Table — a navigation change, not new copy.
+
+**Board taps.** A node/edge/tile's legal hit area gets an invisible ~22px radius around its true
+point; a tap resolves to the nearest legal target within that radius and stages it exactly as a
+desktop click does. No separate "tap the list instead" mode — one input path, forgiving of
+imprecise touch.
+
+**The other three views**, board still pinned at the top:
+
+- **Futures** — the desktop 3×2 grid doesn't fit sideways; becomes a horizontal swipe carousel
+  of the six candidates in the board's own region (dot indicator, top-ranked first). Swipe, not
+  vertical scroll — it's a lateral gesture on the board's own space, not the page.
+- **Game analysis** — the win-probability curve takes over the board's region, scrub by tap; the
+  swing list fills the panel band, scrolling internally rather than paginating (unbounded
+  content, same rule as Actions).
+- **Move analysis** — board shows the position with the ringed target as on desktop; the ranked
+  ladder fills the panel band, scrolling internally.
+
+**Interrupts** (`Discard`, `Handoff`, trade) keep rendering at the `App.tsx` level, after the
+board, per the existing render-order law — that doesn't change on a phone.
+
+**Built.** `web/design/mobile.mjs` (alongside `views.mjs`/`board.mjs`) generates seven
+artboards on the canvas's `page-11` ("Phones") — `MobileTable`, its three tab states
+(`MobileTableHand`/`Coach`/`Seats`, one artboard per state, the same pattern desktop uses for
+separate views rather than a runtime toggle a static mockup can't demonstrate), `MobileFutures`,
+`MobileGame`, `MobileMove`. Unlike the hand-authored `View*.dc.html` files, this generator
+composes entirely through `board.mjs`'s own `board()`/`spine()`/`doc()`/CSS, so it inherits the
+desktop's corner-cuts, hex cost-pips and type scale for free rather than needing to re-derive
+them.
+
+**Publishing to the live canvas.** There's still no bundler in this repo from `canvas/` +
+`canvas.json` to the published artifact — the mechanism in practice is: `Artifact` (`read`) the
+current published copy, parse the embedded `<script id="appifact-doc">` JSON, overwrite
+`data.content.files["<name>.dc.html"]` for each changed/new file plus `files["canvas.json"]`,
+re-serialize and escape every literal `<` to `<` (so nothing inside a `.dc.html`'s own
+markup can prematurely close the wrapping `<script>` tag), then `Artifact` (`publish`) back to
+the same URL. A `JSON.parse` round-trip and a per-file tag-balance check (div/svg/span open vs.
+close counts) catch a bad splice before it ships.
+
+**Verifying a draft before publishing.** Serve `web/design/canvas/` locally
+(`python3 -m http.server`) and open a `.dc.html` file directly in a browser — the
+`<script src="./support.js">` tag 404s harmlessly (that only wires up the *editor's* own
+interactivity), and the artboard's markup/CSS still renders. Much faster than round-tripping
+through the full published canvas editor for every check.
+
+**Implementation notes live as sticky annotations, not on the artboard.** `canvas.json`'s
+top-level `annotations` array (the same mechanism the earlier rounds' notes already use) carries
+one note per phone screen, positioned above its artboard, naming what's deliberately deferred —
+a live event-log feed, the multi-turn coach chat transcript, the dice-outcome distribution strip,
+hover-driven tooltips (touch has no hover), the move-analysis filmstrip and turn scrubber. Each
+needs either real interactivity a static mockup can't show, or genuinely doesn't fit a fixed
+phone panel without breaking the no-page-scroll rule.

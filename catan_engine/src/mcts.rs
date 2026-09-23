@@ -23,8 +23,10 @@
 //! by JSettlers' strategies and their value comes from the playout, not the thesis' knight estimate.
 
 use crate::actions::Action;
+use crate::encode::Layout;
 use crate::state::{Prompt, State};
 use crate::trade::Eval;
+use crate::valuenet::ValueNet;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Policy {
@@ -63,6 +65,10 @@ struct Node {
     n: u32,
     sum: f64,
     alpha: [f64; K],
+    fixed: Option<f64>, // search_net: a stochastic action's exact expectation, a leaf that is never expanded
+    v: f64,             // max backup: own evaluation until expanded, then the max over its children
+    net_v: f64,         // search_net: the leaf's net value, computed on the first visit (deterministic)
+    redraw: bool,       // playout search with `resample`: a dev-card buy, never expanded, re-drawn at every visit
 }
 
 pub struct Mcts {
@@ -72,6 +78,12 @@ pub struct Mcts {
     rng: u64,
     pub playouts: u64,
     pub steps: u64, // actions applied inside playouts, for budget checks
+    pub c: f64,     // UCT exploration: mean + c sqrt(ln N / n); the thesis' 2 C_p sqrt 2 = 2.0 on VP/10 rewards
+    pub max_backup: bool, // select and move on the max-backed value instead of the mean (the tree is p0's alone)
+    pub roll_rounds: u32, // search_net: > 0 mixes each leaf's net value with a playout of this many rounds by the
+    pub lambda: f64,      // rollout policy (heuristic.rs decide_rollout) scored by the net: lambda net + (1 - lambda) playout
+    pub roll_depth1: bool, // playouts by decide_heuristic(1) instead of decide_rollout's pruned depth 2 (~30x cheaper per decision)
+    pub resample: bool,    // thesis agents: a dev-card buy is a leaf re-drawn at every visit instead of one draw kept forever
 }
 
 fn splitmix(x: &mut u64) -> u64 {
@@ -105,6 +117,10 @@ fn gamma(shape: f64, rng: &mut u64) -> f64 {
 }
 
 impl Node {
+    fn value(&self, max_backup: bool) -> f64 {
+        if max_backup { self.v } else { self.mean() }
+    }
+
     fn mean(&self) -> f64 {
         if self.n == 0 { 0.0 } else { self.sum / self.n as f64 }
     }
@@ -135,11 +151,11 @@ impl Node {
 
 impl Mcts {
     pub fn new(policy: Policy, sims: u32, cutoff: u32, seed: u64) -> Mcts {
-        Mcts { policy, sims, cutoff, rng: seed ^ 0x3C75_2016_0DEA_D0CE, playouts: 0, steps: 0 }
+        Mcts { policy, sims, cutoff, rng: seed ^ 0x3C75_2016_0DEA_D0CE, playouts: 0, steps: 0, c: 2.0, max_backup: false, roll_rounds: 0, lambda: 1.0, roll_depth1: false, resample: false }
     }
 
     /// The search owns a decision when it is the agent's post-roll main phase.
-    fn owns(s: &State, p0: usize) -> bool {
+    pub fn owns(s: &State, p0: usize) -> bool {
         s.current_player == p0 && s.prompt == Prompt::PlayTurn && s.players[p0].has_rolled && !s.is_resolving_trade && s.winner() < 0
     }
 
@@ -150,7 +166,7 @@ impl Mcts {
             let j = (splitmix(rng) % (i as u64 + 1)) as usize;
             untried.swap(i, j);
         }
-        Node { state: s, action, untried, children: vec![], n: 0, sum: 0.0, alpha: [1.0; K] }
+        Node { state: s, action, untried, children: vec![], n: 0, sum: 0.0, alpha: [1.0; K], fixed: None, v: f64::NAN, net_v: f64::NAN, redraw: false }
     }
 
     fn rounds(&self, s: &State) -> u32 {
@@ -183,7 +199,10 @@ impl Mcts {
         let kids = &nodes[parent].children;
         let ln_n = (nodes[parent].n.max(1) as f64).ln();
         match self.policy {
-            Policy::Uct => best_by(kids, |c| nodes[c].mean() + 2.0 * (ln_n / nodes[c].n.max(1) as f64).sqrt(), &mut self.rng),
+            Policy::Uct => {
+                let (mb, k) = (self.max_backup, self.c);
+                best_by(kids, |c| nodes[c].value(mb) + k * (ln_n / nodes[c].n.max(1) as f64).sqrt(), &mut self.rng)
+            }
             Policy::Buct => best_by(
                 kids,
                 |c| {
@@ -216,12 +235,40 @@ impl Mcts {
 
     /// The agent's action for its post-roll main phase, or None when the search does not own the prompt.
     pub fn search(&mut self, s: &State) -> Option<Action> {
+        self.search_with(s, None)
+    }
+
+    /// `search` with the value net in place of the playout (the steelman of the thesis agents,
+    /// docs/AUDIT-killed-levers.md "MCTS with net values"): a leaf is scored by `net`'s P(win) for p0 one
+    /// ply on -- the exact expectation over the next roll after END_TURN, max over p0's own replies,
+    /// min over an opponent's (valuenet.rs `net_one_ply`, CPU). Every leaf is deterministic, so the tree's
+    /// only noise is the dev-card / robber outcome sampled at expansion.
+    pub fn search_net(&mut self, s: &State, net: &ValueNet, layout: &Layout) -> Option<Action> {
+        self.search_with(s, Some((net, layout)))
+    }
+
+    fn net_leaf(s: &State, p0: usize, net: &ValueNet, layout: &Layout, buf: &mut Vec<f32>) -> f64 {
+        let w = s.winner();
+        if w >= 0 {
+            return (w as usize == p0) as u8 as f64;
+        }
+        for p in 0..s.n {
+            s.reachable_production(p);
+        }
+        let acts = s.search_actions();
+        let ev = s.net_one_ply(&acts, p0, net, layout, buf);
+        let pick = if s.current_player == p0 { f64::max } else { f64::min };
+        ev.into_iter().reduce(pick).unwrap_or(0.0)
+    }
+
+    fn search_with(&mut self, s: &State, net: Option<(&ValueNet, &Layout)>) -> Option<Action> {
+        let mut buf = Vec::new();
         let p0 = s.current_player;
         if !Mcts::owns(s, p0) {
             return None;
         }
         let rounds = self.rounds(s);
-        let mut nodes = vec![Mcts::make_node(s.clone(), None, p0, &mut self.rng)];
+        let mut nodes = vec![Mcts::make_node(s.clone_light(), None, p0, &mut self.rng)]; // the search never reads the history
         if nodes[0].untried.len() == 1 {
             return nodes[0].untried.pop();
         }
@@ -230,12 +277,32 @@ impl Mcts {
             let mut cur = 0usize;
             loop {
                 if let Some(a) = nodes[cur].untried.pop() {
-                    let mut t = nodes[cur].state.clone();
+                    // With the net, a stochastic action (dev card, a steal) is scored as the exact expectation over
+                    // its outcomes and never expanded: one sampled draw kept forever lets the argmax pick lucky ones.
+                    if let Some((net, layout)) = net {
+                        let mut outs = nodes[cur].state.outcomes(a);
+                        if outs.len() > 1 {
+                            let v = outs.iter().map(|(t, p)| p * Mcts::net_leaf(t, p0, net, layout, &mut buf)).sum();
+                            let mut child = Mcts::make_node(outs.swap_remove(0).0, Some(a), p0, &mut self.rng);
+                            child.untried.clear();
+                            child.fixed = Some(v);
+                            nodes.push(child);
+                            let id = nodes.len() - 1;
+                            nodes[cur].children.push(id);
+                            path.push(id);
+                            break;
+                        }
+                    }
+                    let mut t = nodes[cur].state.clone_light();
                     t.rng = splitmix(&mut self.rng);
                     if t.apply(a, None).is_err() {
                         continue;
                     }
-                    let child = Mcts::make_node(t, Some(a), p0, &mut self.rng);
+                    let mut child = Mcts::make_node(t, Some(a), p0, &mut self.rng);
+                    if self.resample && net.is_none() && a == Action::BuyDev {
+                        child.untried.clear();
+                        child.redraw = true;
+                    }
                     nodes.push(child);
                     let id = nodes.len() - 1;
                     nodes[cur].children.push(id);
@@ -249,7 +316,46 @@ impl Mcts {
                 path.push(cur);
             }
             let leaf = *path.last().unwrap();
-            let reward = self.playout(nodes[leaf].state.clone(), p0, rounds);
+            let reward = match net {
+                _ if nodes[leaf].fixed.is_some() => nodes[leaf].fixed.unwrap(),
+                Some((net, layout)) => {
+                    self.playouts += 1;
+                    if nodes[leaf].net_v.is_nan() {
+                        nodes[leaf].net_v = Mcts::net_leaf(&nodes[leaf].state, p0, net, layout, &mut buf);
+                    }
+                    let v = nodes[leaf].net_v;
+                    if self.roll_rounds == 0 {
+                        v
+                    } else {
+                        let mut t = nodes[leaf].state.clone_light();
+                        t.rng = splitmix(&mut self.rng);
+                        let end = t.num_turns + (self.roll_rounds * t.n as u32) as i32;
+                        while t.winner() < 0 && t.num_turns < end {
+                            let acts = t.search_actions();
+                            let a = if acts.len() == 1 {
+                                acts[0]
+                            } else if self.roll_depth1 {
+                                t.decide_heuristic(1).unwrap_or(acts[0])
+                            } else {
+                                t.decide_rollout().unwrap_or(acts[0])
+                            };
+                            if t.apply(a, None).is_err() {
+                                break;
+                            }
+                        }
+                        self.lambda * v + (1.0 - self.lambda) * Mcts::net_leaf(&t, p0, net, layout, &mut buf)
+                    }
+                }
+                None if nodes[leaf].redraw && nodes[leaf].n > 0 => {
+                    let mut t = nodes[path[path.len() - 2]].state.clone_light(); // a fresh draw from the parent
+                    t.rng = splitmix(&mut self.rng);
+                    match t.apply(Action::BuyDev, None) {
+                        Ok(_) => self.playout(t, p0, rounds),
+                        Err(_) => self.playout(nodes[leaf].state.clone_light(), p0, rounds),
+                    }
+                }
+                None => self.playout(nodes[leaf].state.clone_light(), p0, rounds),
+            };
             let cat = ((reward * 10.0).round() as usize).min(K - 1);
             for &id in &path {
                 let node = &mut nodes[id];
@@ -257,13 +363,20 @@ impl Mcts {
                 node.sum += reward;
                 node.alpha[cat] += 1.0;
             }
+            nodes[leaf].v = reward;
+            for &id in path.iter().rev().skip(1) {
+                nodes[id].v = nodes[id].children.iter().map(|&c| nodes[c].v).fold(f64::NEG_INFINITY, f64::max);
+            }
         }
         let root = &nodes[0];
         if root.children.is_empty() {
             return None;
         }
         let best = match self.policy {
-            Policy::Uct => best_by(&root.children, |c| nodes[c].mean(), &mut self.rng),
+            Policy::Uct => {
+                let mb = self.max_backup;
+                best_by(&root.children, |c| nodes[c].value(mb), &mut self.rng)
+            }
             _ => best_by(&root.children, |c| nodes[c].dirichlet().0, &mut self.rng),
         };
         nodes[best].action
@@ -330,7 +443,7 @@ mod tests {
             assert!(s.search_actions().contains(&a), "{policy:?} chose {a:?}");
             assert!(m.playouts >= policy.default_sims() as u64);
         }
-        let mut node = Node { state: s.clone(), action: None, untried: vec![], children: vec![], n: 0, sum: 0.0, alpha: [1.0; K] };
+        let mut node = Node { state: s.clone(), action: None, untried: vec![], children: vec![], n: 0, sum: 0.0, alpha: [1.0; K], fixed: None, v: f64::NAN, net_v: f64::NAN, redraw: false };
         node.alpha[10] += 9.0;
         let (mu, var) = node.dirichlet();
         assert!(mu > 0.7 && var > 0.0 && var < 0.05, "{mu} {var}");

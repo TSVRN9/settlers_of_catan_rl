@@ -18,6 +18,7 @@ fn now_ns() -> u64 {
 use crate::actions::Action;
 use crate::encode::Layout;
 use crate::state::*;
+use crate::valuenet::ValueNet;
 
 thread_local! {
     /// Per-thread expansion profile: (leaves, ns encoding leaves, ns generating children (clone+apply), ns total).
@@ -60,15 +61,23 @@ impl State {
     /// card / stolen resource. Impossible imagined outcomes leave the copy
     /// unexecuted, like catanatron's execute_spectrum.
     pub fn outcomes(&self, action: Action) -> Vec<(State, f64)> {
+        let mut out = Vec::new();
+        self.for_each_outcome(action, |s, p| out.push((s, p)));
+        out
+    }
+
+    /// `outcomes` without the Vec: the expectimax over base_fn evaluates each child once where it is
+    /// built (copying a State was a third of generation, docs/PLAN-gen-speed.md 2026-09-22).
+    pub fn for_each_outcome(&self, action: Action, mut f: impl FnMut(State, f64)) {
         match action {
-            Action::Roll => (2..=12)
-                .map(|roll: i32| {
+            Action::Roll => {
+                for roll in 2..=12i32 {
                     let dice = (roll / 2, (roll + 1) / 2);
-                    let mut s = self.clone();
+                    let mut s = self.clone_light();
                     let _ = s.apply(action, Some(dice));
-                    (s, self.map.number_prob[roll as usize])
-                })
-                .collect(),
+                    f(s, self.map.number_prob[roll as usize]);
+                }
+            }
             Action::BuyDev => {
                 let mut counts = [0i32; 5];
                 for &c in &self.dev_deck {
@@ -82,32 +91,31 @@ impl State {
                     }
                 }
                 let total: i32 = counts.iter().sum();
-                (0..5)
-                    .filter(|&c| counts[c] > 0)
-                    .map(|c| {
-                        let mut s = self.clone();
+                for c in 0..5 {
+                    if counts[c] > 0 {
+                        let mut s = self.clone_light();
                         let _ = s.apply(action, Some((c as i32, -1)));
-                        (s, counts[c] as f64 / total as f64)
-                    })
-                    .collect()
+                        f(s, counts[c] as f64 / total as f64);
+                    }
+                }
             }
-            Action::MoveRobber { victim, .. } if victim >= 0 && self.num_resources(victim as usize) > 0 => (0..5)
-                .map(|r| {
-                    let mut s = self.clone();
+            Action::MoveRobber { victim, .. } if victim >= 0 && self.num_resources(victim as usize) > 0 => {
+                for r in 0..5 {
+                    let mut s = self.clone_light();
                     let _ = s.apply(action, Some((r, -1)));
-                    (s, 0.2)
-                })
-                .collect(),
+                    f(s, 0.2);
+                }
+            }
             _ => {
-                let mut s = self.clone();
+                let mut s = self.clone_light();
                 let _ = s.apply(action, None);
-                vec![(s, 1.0)]
+                f(s, 1.0);
             }
         }
     }
 
     pub fn expand(&self, depth: u32, p0: usize, layout: &Layout, max_leaves: usize, own_turn: bool) -> Search {
-        self.expand_into(depth, p0, layout, Vec::new(), max_leaves, own_turn)
+        self.expand_into(depth, p0, layout, Vec::new(), max_leaves, own_turn, None)
     }
 
     /// `expand` writing leaves into a reused buffer (the arena expands every
@@ -125,14 +133,22 @@ impl State {
     /// 10-15 replies biases every end-turn branch low), and an end-turn branch
     /// always finishes with the opponent's ROLL chance node so the leaf is the
     /// post-roll state whatever depth remains.
-    pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>, max_leaves: usize, own_turn: bool) -> Search {
+    ///
+    /// `prune` = (net, k): an opponent decision node keeps only the k replies worst for p0 by `net`'s
+    /// one-ply expectation (CPU, valuenet.rs). The min over all 10-15 replies scored by a noisy net is
+    /// biased low by a different amount per branch -- the named reason depth 3 lost 6 points
+    /// (docs/AUDIT-killed-levers.md #6, docs/RESEARCH-PLAYTIME.md §2) -- and it shrinks the tree.
+    pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>, max_leaves: usize, own_turn: bool, prune: Option<(&ValueNet, usize)>) -> Search {
         buf.clear();
         let t0 = now_ns();
         let cap = if max_leaves == 0 || depth <= 2 { usize::MAX } else { max_leaves };
+        for p in 0..self.n {
+            self.reachable_production(p); // prime the memo; leaves that did not build inherit it
+        }
         let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, cap, overflow: false, own_turn, t_enc: 0, t_child: 0 };
-        let root = self.expand_node(depth, p0, layout, &mut search);
+        let root = self.expand_node(depth, p0, layout, &mut search, prune, &mut Vec::new());
         if search.overflow {
-            return self.expand_into(depth - 1, p0, layout, search.leaves, max_leaves, own_turn);
+            return self.expand_into(depth - 1, p0, layout, search.leaves, max_leaves, own_turn, prune);
         }
         prof_add(search.n_leaves as u64, search.t_enc, search.t_child, now_ns() - t0);
         match root {
@@ -142,14 +158,14 @@ impl State {
         search
     }
 
-    fn expand_node(&self, depth: u32, p0: usize, layout: &Layout, search: &mut Search) -> Child {
+    fn expand_node(&self, depth: u32, p0: usize, layout: &Layout, search: &mut Search, prune: Option<(&ValueNet, usize)>, pbuf: &mut Vec<f32>) -> Child {
         if search.overflow || search.n_leaves >= search.cap {
             search.overflow = true;
             return Child::Leaf(0);
         }
         let winner = self.winner();
         let maximizing = self.current_player == p0;
-        let actions = self.search_actions();
+        let mut actions = self.search_actions();
         let roll_only = actions.len() == 1 && actions[0] == Action::Roll;
         let stop = if search.own_turn {
             winner >= 0 || (maximizing && depth == 0) || (!maximizing && !roll_only)
@@ -171,13 +187,21 @@ impl State {
             return Child::Leaf(idx);
         }
         let next = if search.own_turn && !maximizing { depth } else { depth - 1 }; // an opponent's roll costs no own-action depth
+        if let Some((net, k)) = prune.filter(|&(_, k)| !maximizing && actions.len() > k) {
+            let ev = self.net_one_ply(&actions, p0, net, layout, pbuf);
+            let mut order: Vec<usize> = (0..actions.len()).collect();
+            order.sort_by(|&a, &b| ev[a].total_cmp(&ev[b]));
+            order.truncate(k);
+            order.sort_unstable(); // keep action order: backups break ties by it
+            actions = order.into_iter().map(|i| actions[i]).collect();
+        }
         let children = actions
             .into_iter()
             .map(|a| {
                 let t = now_ns();
                 let outcomes = self.outcomes(a);
                 search.t_child += now_ns() - t;
-                let outs = outcomes.into_iter().map(|(s, p)| (p, s.expand_node(next, p0, layout, search))).collect();
+                let outs = outcomes.into_iter().map(|(s, p)| (p, s.expand_node(next, p0, layout, search, prune, pbuf))).collect();
                 (a, outs)
             })
             .collect();
@@ -186,36 +210,51 @@ impl State {
 }
 
 impl Search {
-    pub fn backup(&self, values: &[f64]) -> (Option<Action>, f64) {
-        backup_node(&self.root, values)
+    /// `tau` > 0: opponent nodes back up a soft-min (Boltzmann-weighted mean of the replies' values,
+    /// weights exp(-v / tau)) instead of the exact min. The min over b noisy net estimates is biased low by
+    /// ~1.7 sigma at b = 15, applied only to end-turn branches -- why depth 3 lost to depth 2
+    /// (docs/RESEARCH-PLAYTIME.md §2, 2026-09-22); tau = 0 is the exact min (depth 2 never takes one).
+    pub fn backup(&self, values: &[f64], tau: f64) -> (Option<Action>, f64) {
+        backup_node(&self.root, values, tau)
     }
 
     /// backup() plus every root child's expectation: (action, E[value]) --
     /// the search-value distillation targets (arena.rs Recorder::record_tree).
-    pub fn backup_full(&self, values: &[f64]) -> (Option<Action>, f64, Vec<(Action, f64)>) {
-        let evs: Vec<(Action, f64)> = self.root.children.iter().map(|(a, outs)| (*a, outs.iter().map(|(p, c)| p * backup_child(c, values)).sum())).collect();
-        let (best, best_v) = backup_node(&self.root, values);
+    pub fn backup_full(&self, values: &[f64], tau: f64) -> (Option<Action>, f64, Vec<(Action, f64)>) {
+        let evs: Vec<(Action, f64)> = self.root.children.iter().map(|(a, outs)| (*a, outs.iter().map(|(p, c)| p * backup_child(c, values, tau)).sum())).collect();
+        let (best, best_v) = backup_node(&self.root, values, tau);
         (best, best_v, evs)
     }
 }
 
-fn backup_child(child: &Child, values: &[f64]) -> f64 {
+fn backup_child(child: &Child, values: &[f64], tau: f64) -> f64 {
     match child {
         Child::Leaf(i) => values[*i],
-        Child::Node(n) => backup_node(n, values).1,
+        Child::Node(n) => backup_node(n, values, tau).1,
     }
 }
 
-fn backup_node(node: &Node, values: &[f64]) -> (Option<Action>, f64) {
+fn backup_node(node: &Node, values: &[f64], tau: f64) -> (Option<Action>, f64) {
     let mut best: Option<Action> = None;
     let mut best_v = if node.maximizing { f64::NEG_INFINITY } else { f64::INFINITY };
+    let mut evs = Vec::new();
     for (a, outs) in &node.children {
-        let ev: f64 = outs.iter().map(|(p, c)| p * backup_child(c, values)).sum();
+        let ev: f64 = outs.iter().map(|(p, c)| p * backup_child(c, values, tau)).sum();
         let better = if node.maximizing { ev > best_v } else { ev < best_v };
         if better {
             best = Some(*a);
             best_v = ev;
         }
+        evs.push(ev);
+    }
+    if !node.maximizing && tau > 0.0 && !evs.is_empty() {
+        let (mut num, mut den) = (0.0, 0.0);
+        for &ev in &evs {
+            let w = (-(ev - best_v) / tau).exp(); // relative to the min: no underflow, the min has weight 1
+            num += w * ev;
+            den += w;
+        }
+        best_v = num / den;
     }
     (best, best_v)
 }

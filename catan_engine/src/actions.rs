@@ -131,9 +131,9 @@ impl State {
     /// playable_actions minus domestic trade offers: what the searches branch over (offers are decided
     /// by the 1-ply policy in trade.rs, never inside a tree).
     pub fn search_actions(&self) -> Vec<Action> {
-        let acts = self.playable_actions();
-        let kept: Vec<Action> = acts.iter().copied().filter(|a| !matches!(a, Action::OfferTrade { .. })).collect();
-        if kept.is_empty() { acts } else { kept }
+        // Every prompt that can offer also has a non-offer action (Roll / EndTurn / RejectTrade), so
+        // skipping the ~300 offers at generation is the same list as filtering them out afterwards.
+        self.actions(false)
     }
 
     pub fn can_accept_offer(&self, p: usize) -> bool {
@@ -165,6 +165,10 @@ impl State {
     }
 
     pub fn playable_actions(&self) -> Vec<Action> {
+        self.actions(true)
+    }
+
+    fn actions(&self, with_offers: bool) -> Vec<Action> {
         let p = self.current_player;
         match self.prompt {
             Prompt::InitialSettlement => self.buildable_node_ids(p, true).into_iter().map(Action::BuildSettlement).collect(),
@@ -187,7 +191,7 @@ impl State {
                 }
                 // a responder may counter while nobody has accepted; the turn player answering a
                 // counter may only accept or reject (JSettlers: a counter is a new offer to the offerer)
-                if p != self.current_turn && !self.acceptees.iter().any(|&a| a) {
+                if with_offers && p != self.current_turn && !self.acceptees.iter().any(|&a| a) {
                     actions.extend(self.domestic_trade_possibilities(p));
                 }
                 actions
@@ -205,7 +209,7 @@ impl State {
                 if self.is_road_building {
                     return self.road_building_possibilities(p, false);
                 }
-                let mut actions = Vec::new();
+                let mut actions = Vec::with_capacity(64); // no regrowth; the list is rebuilt at every playout step
                 if self.can_play_dev(p, YEAR_OF_PLENTY) {
                     actions.extend(self.year_of_plenty_possibilities());
                 }
@@ -217,21 +221,27 @@ impl State {
                 if self.can_play_dev(p, KNIGHT) {
                     actions.push(Action::PlayKnight);
                 }
-                if self.can_play_dev(p, ROAD_BUILDING) && !self.road_building_possibilities(p, false).is_empty() {
+                if self.can_play_dev(p, ROAD_BUILDING) && self.players[p].roads_available > 0 && {
+                    let mut any = false;
+                    self.for_each_buildable_edge(p, |_| any = true);
+                    any
+                } {
                     actions.push(Action::PlayRoadBuilding);
                 }
                 if !self.players[p].has_rolled {
                     actions.push(Action::Roll);
                 } else {
                     actions.push(Action::EndTurn);
-                    actions.extend(self.road_building_possibilities(p, true));
-                    actions.extend(self.settlement_possibilities(p));
-                    actions.extend(self.city_possibilities(p));
+                    self.push_road_building(p, true, &mut actions);
+                    self.push_settlements(p, &mut actions);
+                    self.push_cities(p, &mut actions);
                     if self.can_afford_dev(p) && !self.dev_deck.is_empty() {
                         actions.push(Action::BuyDev);
                     }
-                    actions.extend(self.maritime_trade_possibilities(p));
-                    actions.extend(self.domestic_trade_possibilities(p));
+                    self.push_maritime_trades(p, &mut actions);
+                    if with_offers {
+                        actions.extend(self.domestic_trade_possibilities(p));
+                    }
                 }
                 actions
             }
@@ -273,28 +283,37 @@ impl State {
     }
 
     pub fn road_building_possibilities(&self, p: usize, check_money: bool) -> Vec<Action> {
-        if self.players[p].roads_available <= 0 {
-            return vec![];
-        }
-        if check_money && !self.hand_contains(p, &ROAD_COST) {
-            return vec![];
-        }
-        self.buildable_edges(p).into_iter().map(Action::BuildRoad).collect()
+        let mut out = Vec::new();
+        self.push_road_building(p, check_money, &mut out);
+        out
     }
 
-    fn settlement_possibilities(&self, p: usize) -> Vec<Action> {
+    // The push_* generators append to the caller's list (one allocation per move list instead of one per kind).
+    fn push_road_building(&self, p: usize, check_money: bool, out: &mut Vec<Action>) {
+        if self.players[p].roads_available <= 0 || (check_money && !self.hand_contains(p, &ROAD_COST)) {
+            return;
+        }
+        self.for_each_buildable_edge(p, |e| out.push(Action::BuildRoad(e)));
+    }
+
+    fn push_settlements(&self, p: usize, out: &mut Vec<Action>) {
         if self.hand_contains(p, &SETTLEMENT_COST) && self.players[p].settlements_available > 0 {
-            self.buildable_node_ids(p, false).into_iter().map(Action::BuildSettlement).collect()
-        } else {
-            vec![]
+            let mut nodes = 0u64;
+            for &c in &self.components[p] {
+                nodes |= c;
+            }
+            let mut mask = nodes & self.buildable; // buildable_node_ids(p, false), ascending
+            while mask != 0 {
+                out.push(Action::BuildSettlement(mask.trailing_zeros() as u8));
+                mask &= mask - 1;
+            }
         }
     }
 
-    fn city_possibilities(&self, p: usize) -> Vec<Action> {
-        if !self.hand_contains(p, &CITY_COST) || self.players[p].cities_available <= 0 {
-            return vec![];
+    fn push_cities(&self, p: usize, out: &mut Vec<Action>) {
+        if self.hand_contains(p, &CITY_COST) && self.players[p].cities_available > 0 {
+            out.extend(self.players[p].settlements.iter().map(|&n| Action::BuildCity(n)));
         }
-        self.players[p].settlements.iter().map(|&n| Action::BuildCity(n)).collect()
     }
 
     fn robber_possibilities(&self, p: usize) -> Vec<Action> {
@@ -345,11 +364,10 @@ impl State {
         false
     }
 
-    fn maritime_trade_possibilities(&self, p: usize) -> Vec<Action> {
+    fn push_maritime_trades(&self, p: usize, out: &mut Vec<Action>) {
         let hand = &self.players[p].hand;
         let ports = self.port_resources(p);
         let base_rate: u8 = if ports & (1 << 5) != 0 { 3 } else { 4 };
-        let mut out = Vec::new();
         for r in 0..5usize {
             let rate = if ports & (1 << r) != 0 { 2 } else { base_rate };
             if hand[r] >= rate as i32 {
@@ -360,6 +378,5 @@ impl State {
                 }
             }
         }
-        out
     }
 }

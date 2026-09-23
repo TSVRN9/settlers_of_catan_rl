@@ -7,7 +7,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Console"
+   "title": "Play · Console"
   },
   {
    "file": "ViewCoach.dc.html",
@@ -16,7 +16,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Coach"
+   "title": "Play · Coach"
   },
   {
    "file": "ViewFutures.dc.html",
@@ -25,7 +25,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Futures"
+   "title": "Play · Futures"
   },
   {
    "file": "ViewMove.dc.html",
@@ -34,7 +34,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Review \u00b7 one decision"
+   "title": "Review · one decision"
   },
   {
    "file": "ViewGame.dc.html",
@@ -43,7 +43,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "Review \u00b7 the whole game"
+   "title": "Review · the whole game"
   },
   {
    "file": "ViewTable.dc.html",
@@ -52,7 +52,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Table"
+   "title": "Play · Table"
   },
   {
    "file": "Main.dc.html",
@@ -287,7 +287,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Lenses"
+   "title": "Play · Lenses"
   },
   {
    "file": "TryIt.dc.html",
@@ -296,7 +296,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Try it"
+   "title": "Play · Try it"
   },
   {
    "file": "RigTheDice.dc.html",
@@ -305,7 +305,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Lab \u00b7 Rig the dice"
+   "title": "Lab · Rig the dice"
   },
   {
    "file": "Branch.dc.html",
@@ -314,7 +314,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Branch"
+   "title": "Play · Branch"
   },
   {
    "file": "Table.dc.html",
@@ -323,7 +323,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Table"
+   "title": "Play · Table"
   },
   {
    "file": "PlayCoach.dc.html",
@@ -332,7 +332,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Coach"
+   "title": "Play · Coach"
   },
   {
    "file": "PlayFutures.dc.html",
@@ -341,7 +341,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Futures"
+   "title": "Play · Futures"
   },
   {
    "file": "Race.dc.html",
@@ -350,7 +350,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Race"
+   "title": "Play · Race"
   },
   {
    "file": "Console.dc.html",
@@ -359,7 +359,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Console"
+   "title": "Play · Console"
   },
   {
    "file": "Broadcast.dc.html",
@@ -368,7 +368,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "Play \u00b7 Broadcast"
+   "title": "Play · Broadcast"
   },
   {
    "file": "AnalyzerTimeline.dc.html",
@@ -377,7 +377,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "Review \u00b7 the whole game"
+   "title": "Review · the whole game"
   },
   {
    "file": "AnalyzerInspector.dc.html",
@@ -386,7 +386,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "Review \u00b7 one decision"
+   "title": "Review · one decision"
   },
   {
    "file": "BoardColumns.dc.html",
@@ -395,7 +395,7 @@
    "y": 2800,
    "w": 1440,
    "h": 900,
-   "title": "Board \u00b7 Columns"
+   "title": "Board · Columns"
   },
   {
    "file": "BoardFloat.dc.html",
@@ -404,7 +404,7 @@
    "y": 2800,
    "w": 1440,
    "h": 900,
-   "title": "Board \u00b7 Floating"
+   "title": "Board · Floating"
   },
   {
    "file": "BoardReveal.dc.html",
@@ -413,7 +413,7 @@
    "y": 2800,
    "w": 1440,
    "h": 900,
-   "title": "Board \u00b7 Reveal"
+   "title": "Board · Reveal"
   },
   {
    "file": "Surface.dc.html",
@@ -468,7 +468,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Skin \u00b7 Chart"
+   "title": "Skin · Chart"
   },
   {
    "file": "PlayRiso.dc.html",
@@ -477,7 +477,7 @@
    "y": 0,
    "w": 1440,
    "h": 900,
-   "title": "Skin \u00b7 Riso"
+   "title": "Skin · Riso"
   },
   {
    "file": "Routes.dc.html",
@@ -521,7 +521,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "A1 \u00b7 the door, pressed",
+   "title": "A1 · the door, pressed",
    "page": "page-10"
   },
   {
@@ -530,7 +530,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "A2 \u00b7 the board divides",
+   "title": "A2 · the board divides",
    "page": "page-10"
   },
   {
@@ -539,7 +539,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "A3 \u00b7 the six land",
+   "title": "A3 · the six land",
    "page": "page-10"
   },
   {
@@ -548,7 +548,7 @@
    "y": 1400,
    "w": 1440,
    "h": 900,
-   "title": "A4 \u00b7 one comes back",
+   "title": "A4 · one comes back",
    "page": "page-10"
   },
   {
@@ -557,7 +557,7 @@
    "y": 2800,
    "w": 1440,
    "h": 900,
-   "title": "B1 \u00b7 out to the whole game",
+   "title": "B1 · out to the whole game",
    "page": "page-10"
   },
   {
@@ -566,7 +566,7 @@
    "y": 2800,
    "w": 1440,
    "h": 900,
-   "title": "B2 \u00b7 in to one decision",
+   "title": "B2 · in to one decision",
    "page": "page-10"
   },
   {
@@ -575,7 +575,7 @@
    "y": 2800,
    "w": 1440,
    "h": 900,
-   "title": "B3 \u00b7 Esc, twice",
+   "title": "B3 · Esc, twice",
    "page": "page-10"
   },
   {
@@ -584,7 +584,7 @@
    "y": 4200,
    "w": 1440,
    "h": 900,
-   "title": "C1 \u00b7 the game reaches you",
+   "title": "C1 · the game reaches you",
    "page": "page-10"
   },
   {
@@ -593,7 +593,7 @@
    "y": 4200,
    "w": 1440,
    "h": 900,
-   "title": "C2 \u00b7 and you go to it",
+   "title": "C2 · and you go to it",
    "page": "page-10"
   },
   {
@@ -604,6 +604,69 @@
    "h": 900,
    "title": "Changing hands",
    "page": "page-9"
+  },
+  {
+   "file": "MobileTable.dc.html",
+   "page": "page-11",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Play · Table (phone)"
+  },
+  {
+   "file": "MobileFutures.dc.html",
+   "page": "page-11",
+   "x": 430,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Play · Futures (phone)"
+  },
+  {
+   "file": "MobileGame.dc.html",
+   "page": "page-11",
+   "x": 860,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Review · the whole game (phone)"
+  },
+  {
+   "file": "MobileMove.dc.html",
+   "page": "page-11",
+   "x": 1290,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Review · one decision (phone)"
+  },
+  {
+   "file": "MobileTableHand.dc.html",
+   "page": "page-11",
+   "x": 0,
+   "y": 884,
+   "w": 390,
+   "h": 844,
+   "title": "Play · Table · Hand (phone)"
+  },
+  {
+   "file": "MobileTableCoach.dc.html",
+   "page": "page-11",
+   "x": 430,
+   "y": 884,
+   "w": 390,
+   "h": 844,
+   "title": "Play · Table · Coach (phone)"
+  },
+  {
+   "file": "MobileTableSeats.dc.html",
+   "page": "page-11",
+   "x": 860,
+   "y": 884,
+   "w": 390,
+   "h": 844,
+   "title": "Play · Table · Seats (phone)"
   }
  ],
  "annotations": [
@@ -613,7 +676,7 @@
    "x": 0,
    "y": -300,
    "w": 620,
-   "text": "THE WHOLE FLOW\nEvery state on this map already exists in the engine \u2014 what is missing is the experience around four of them. Solid boxes are screens the app has today; outlined ones are what this round proposes.\n\nThe four arguments: nobody should configure a game they have not seen; the opening should be taught, since it is the one decision the net can explain without a hand to reason about; interrupts should take the screen instead of stacking dialogs; and a finished game should be the way into the analysis."
+   "text": "THE WHOLE FLOW\nEvery state on this map already exists in the engine — what is missing is the experience around four of them. Solid boxes are screens the app has today; outlined ones are what this round proposes.\n\nThe four arguments: nobody should configure a game they have not seen; the opening should be taught, since it is the one decision the net can explain without a hand to reason about; interrupts should take the screen instead of stacking dialogs; and a finished game should be the way into the analysis."
   },
   {
    "id": "note-placement",
@@ -621,7 +684,7 @@
    "x": 1560,
    "y": -300,
    "w": 620,
-   "text": "OPENING PLACEMENT\nThe board is empty, so every corner can be scored honestly: the circle on each free corner is the ways a roll pays it, out of thirty-six. The top three are named by what they produce, and the second is recommended over a higher-scoring one because it is the only cheap ore on this board.\n\nThese numbers are real \u2014 computed from this seed's layout, not invented. It is the cheapest coaching the site could add and the highest-leverage."
+   "text": "OPENING PLACEMENT\nThe board is empty, so every corner can be scored honestly: the circle on each free corner is the ways a roll pays it, out of thirty-six. The top three are named by what they produce, and the second is recommended over a higher-scoring one because it is the only cheap ore on this board.\n\nThese numbers are real — computed from this seed's layout, not invented. It is the cheapest coaching the site could add and the highest-leverage."
   },
   {
    "id": "note-seven",
@@ -629,7 +692,7 @@
    "x": 3120,
    "y": -300,
    "w": 620,
-   "text": "A SEVEN\nToday this is two dialogs in a row. Here it is one screen with both steps visible: choose four to lose, with the net's four already marked and its reasoning stated, then watch where the robber goes. Who else is discarding is on the right, because that is half of what a seven means.\n\nThe queued second step is deliberately dimmed rather than hidden \u2014 you can see what is coming and what it will cost you."
+   "text": "A SEVEN\nToday this is two dialogs in a row. Here it is one screen with both steps visible: choose four to lose, with the net's four already marked and its reasoning stated, then watch where the robber goes. Who else is discarding is on the right, because that is half of what a seven means.\n\nThe queued second step is deliberately dimmed rather than hidden — you can see what is coming and what it will cost you."
   },
   {
    "id": "note-trade",
@@ -637,7 +700,7 @@
    "x": 0,
    "y": 1020,
    "w": 620,
-   "text": "A NEGOTIATION\nThree dialogs collapsed into one surface. Your offer stays editable on the left; each opponent's answer lands in place as it arrives, with the net's read on why; you close with whoever you want or cancel.\n\nThe honest note matters here: the bots judge trades one move deep with their own evaluator and can see your hand. Their answers are prices, not opinions \u2014 the screen says so."
+   "text": "A NEGOTIATION\nThree dialogs collapsed into one surface. Your offer stays editable on the left; each opponent's answer lands in place as it arrives, with the net's read on why; you close with whoever you want or cancel.\n\nThe honest note matters here: the bots judge trades one move deep with their own evaluator and can see your hand. Their answers are prices, not opinions — the screen says so."
   },
   {
    "id": "note-result",
@@ -645,7 +708,7 @@
    "x": 1560,
    "y": 1020,
    "w": 620,
-   "text": "THE END OF A GAME\nStandings, the whole game as one curve, and the three moments that decided it \u2014 each opening the analyser at that step. Then the numbers that make you want another game: how often you matched the net, what your mistakes cost in total, and the last turn you were ahead.\n\nThis is the screen that makes Watch worth opening. Today the two halves of the site never speak to each other."
+   "text": "THE END OF A GAME\nStandings, the whole game as one curve, and the three moments that decided it — each opening the analyser at that step. Then the numbers that make you want another game: how often you matched the net, what your mistakes cost in total, and the last turn you were ahead.\n\nThis is the screen that makes Watch worth opening. Today the two halves of the site never speak to each other."
   },
   {
    "id": "note-ideas",
@@ -653,7 +716,7 @@
    "x": 3120,
    "y": 1020,
    "w": 620,
-   "text": "IDEAS NOT BUILT YET\n\n1 \u00b7 LEDGER \u2014 the game as a book of accounts: a matrix of seat against dice number showing who collects what on every roll. The sharpest possible answer to \u201cwhy am I starving\u201d.\n\n2 \u00b7 MARKET \u2014 a standing want board where all four seats post what they need, and trades happen as matches rather than one-off offers.\n\n3 \u00b7 GRADED REPLAY \u2014 every move labelled best, fine, slip or blunder with its cost, like a chess post-mortem. The 61% on the result screen is the seed of it.\n\n4 \u00b7 TWO BRAINS \u2014 the value net and the heuristic playing the same position side by side for a whole game, so you can watch exactly where they diverge.\n\n5 \u00b7 ONE THUMB \u2014 the board full-bleed on a phone with a bottom sheet that changes with the prompt. Everything here is desktop.\n\n6 \u00b7 OPENINGS \u2014 the boards are seeded, so openings can be collected and compared: your first placement against the net's on the same board.\n\nSay which of these to draw next."
+   "text": "IDEAS NOT BUILT YET\n\n1 · LEDGER — the game as a book of accounts: a matrix of seat against dice number showing who collects what on every roll. The sharpest possible answer to “why am I starving”.\n\n2 · MARKET — a standing want board where all four seats post what they need, and trades happen as matches rather than one-off offers.\n\n3 · GRADED REPLAY — every move labelled best, fine, slip or blunder with its cost, like a chess post-mortem. The 61% on the result screen is the seed of it.\n\n4 · TWO BRAINS — the value net and the heuristic playing the same position side by side for a whole game, so you can watch exactly where they diverge.\n\n5 · ONE THUMB — the board full-bleed on a phone with a bottom sheet that changes with the prompt. Everything here is desktop.\n\n6 · OPENINGS — the boards are seeded, so openings can be collected and compared: your first placement against the net's on the same board.\n\nSay which of these to draw next."
   },
   {
    "id": "note-pieces",
@@ -661,7 +724,7 @@
    "x": 0,
    "y": -300,
    "w": 620,
-   "text": "PIECES\nThe rhombus and cube from last round fought a board seen from above, so they are gone. A settlement is now walls and a gable; a city is the same footprint fortified, with battlements and a tower \u2014 the same building grown, which is what an upgrade is.\n\nThe deciding constraint was four seat colours, one of them white, over five tile colours plus desert. Everything is drawn at the same scale the boards use, so what you see here is exactly what lands on the map."
+   "text": "PIECES\nThe rhombus and cube from last round fought a board seen from above, so they are gone. A settlement is now walls and a gable; a city is the same footprint fortified, with battlements and a tower — the same building grown, which is what an upgrade is.\n\nThe deciding constraint was four seat colours, one of them white, over five tile colours plus desert. Everything is drawn at the same scale the boards use, so what you see here is exactly what lands on the map."
   },
   {
    "id": "note-pieces2",
@@ -669,7 +732,7 @@
    "x": 1560,
    "y": -300,
    "w": 620,
-   "text": "BOARD \u00b7 PIECES\nFive rows, one per treatment, on all six tile colours and all four seats. Row one is today. Rows two to four are a hard shadow, a soft shadow and a plinth. Row five is the soft shadow in motion: the shadows breathe on a twelve-second cycle, which is the separation doing its work by movement rather than by line.\n\nRecommended: the soft shadow, and the hover-and-settle when a piece is picked up and placed.\n\nWhen it is seen: everywhere the board is, which is every screen in the app."
+   "text": "BOARD · PIECES\nFive rows, one per treatment, on all six tile colours and all four seats. Row one is today. Rows two to four are a hard shadow, a soft shadow and a plinth. Row five is the soft shadow in motion: the shadows breathe on a twelve-second cycle, which is the separation doing its work by movement rather than by line.\n\nRecommended: the soft shadow, and the hover-and-settle when a piece is picked up and placed.\n\nWhen it is seen: everywhere the board is, which is every screen in the app."
   },
   {
    "id": "read-me-play",
@@ -685,7 +748,7 @@
    "x": 0,
    "y": -380,
    "w": 600,
-   "text": "PLAY \u00b7 LENSES\nA rail of ways to look at the board, one key each. Yield lifts tiles by how often they pay. Threat shows what a seven costs each seat. Attention shows which tiles the net weighed for the move it recommends. Reach shows where you can build this turn. A lens changes nothing; it is held while you look.\n\nWhy: most of what the engine knows about a position is spatial, and today it is all in tables.\n\nWhen it is seen: on any play or watch screen, on demand, off by default. The Attention lens is also the default state of the analyser's board.\n\nWhere it lives now: the surface. Yield and Reach are surface lenses; Threat and Attention open on the deep screen, where the model's reading already is."
+   "text": "PLAY · LENSES\nA rail of ways to look at the board, one key each. Yield lifts tiles by how often they pay. Threat shows what a seven costs each seat. Attention shows which tiles the net weighed for the move it recommends. Reach shows where you can build this turn. A lens changes nothing; it is held while you look.\n\nWhy: most of what the engine knows about a position is spatial, and today it is all in tables.\n\nWhen it is seen: on any play or watch screen, on demand, off by default. The Attention lens is also the default state of the analyser's board.\n\nWhere it lives now: the surface. Yield and Reach are surface lenses; Threat and Attention open on the deep screen, where the model's reading already is."
   },
   {
    "id": "note-tryit",
@@ -693,7 +756,7 @@
    "x": 1560,
    "y": -380,
    "w": 600,
-   "text": "PLAY \u00b7 TRY IT\nPick a piece up from your tray and the legal corners appear as chalk dots. Hold it over one and the ring around the island shows the net's win chance with the piece there, as a before-and-after with the delta. Let go to build; Esc puts it back. The held piece hovers with its shadow left behind on the tile, which is the placing animation from the pieces sheet.\n\nWhy: it turns the value net from a readout into something you feel through the cursor, and it teaches faster than any explanation.\n\nWhen it is seen: on your turn, whenever a piece is picked up. In the analyser it is the same gesture at any step, labelled what-if.\n\nWhere it lives now: the surface, on your turn. The number it shows is the one concession to probability up there, and only while you are holding a piece."
+   "text": "PLAY · TRY IT\nPick a piece up from your tray and the legal corners appear as chalk dots. Hold it over one and the ring around the island shows the net's win chance with the piece there, as a before-and-after with the delta. Let go to build; Esc puts it back. The held piece hovers with its shadow left behind on the tile, which is the placing animation from the pieces sheet.\n\nWhy: it turns the value net from a readout into something you feel through the cursor, and it teaches faster than any explanation.\n\nWhen it is seen: on your turn, whenever a piece is picked up. In the analyser it is the same gesture at any step, labelled what-if.\n\nWhere it lives now: the surface, on your turn. The number it shows is the one concession to probability up there, and only while you are holding a piece."
   },
   {
    "id": "note-rig",
@@ -701,7 +764,7 @@
    "x": 3120,
    "y": -380,
    "w": 600,
-   "text": "LAB \u00b7 RIG THE DICE\nIn lab mode the dice are yours. Pick a number on the strip and the board dims everything it does not pay; the four seats show what they collect. Run 200 games forward from here with fair dice and see the win rates. The bots play these out exactly as they do in a real game.\n\nWhy: the sharpest answer to why am I starving and what happens if I get one more eight.\n\nWhen it is seen: only in a game started as a lab game, or after a real game is forked into one. A rigged roll marks the game and it never enters your results. The dice strip is hidden in a scored game.\n\nWhere it lives now: the deep screen, in lab mode. It is an experiment on the model, not a way to play, so it belongs with the analysis rather than over the board."
+   "text": "LAB · RIG THE DICE\nIn lab mode the dice are yours. Pick a number on the strip and the board dims everything it does not pay; the four seats show what they collect. Run 200 games forward from here with fair dice and see the win rates. The bots play these out exactly as they do in a real game.\n\nWhy: the sharpest answer to why am I starving and what happens if I get one more eight.\n\nWhen it is seen: only in a game started as a lab game, or after a real game is forked into one. A rigged roll marks the game and it never enters your results. The dice strip is hidden in a scored game.\n\nWhere it lives now: the deep screen, in lab mode. It is an experiment on the model, not a way to play, so it belongs with the analysis rather than over the board."
   },
   {
    "id": "note-branch",
@@ -709,7 +772,7 @@
    "x": 4680,
    "y": -380,
    "w": 600,
-   "text": "PLAY \u00b7 BRANCH\nThe left arrow steps a solo game backwards. A move made from a past step starts a branch: the bots play on fresh, the dice re-roll, and the curve along the bottom draws the branch in ink beside the real game in grey. Keep the branch and it becomes the game; leave it and it stays on the curve as a faint line.\n\nWhy: the question after every loss is what if I had kept the ore, and today the only way to ask it is to start over.\n\nWhen it is seen: in solo games against the bots, any time, from the arrow keys or from the curve on the result screen. Branching a game marks it, and only the branch you keep is scored.\n\nWhere it lives now: both. The arrow keys step back on the surface; the branch draws itself on the deep screen's curve, beside the real game."
+   "text": "PLAY · BRANCH\nThe left arrow steps a solo game backwards. A move made from a past step starts a branch: the bots play on fresh, the dice re-roll, and the curve along the bottom draws the branch in ink beside the real game in grey. Keep the branch and it becomes the game; leave it and it stays on the curve as a faint line.\n\nWhy: the question after every loss is what if I had kept the ore, and today the only way to ask it is to start over.\n\nWhen it is seen: in solo games against the bots, any time, from the arrow keys or from the curve on the result screen. Branching a game marks it, and only the branch you keep is scored.\n\nWhere it lives now: both. The arrow keys step back on the surface; the branch draws itself on the deep screen's curve, beside the real game."
   },
   {
    "id": "note-table",
@@ -717,7 +780,7 @@
    "x": 0,
    "y": -380,
    "w": 600,
-   "text": "PLAY \u00b7 TABLE\nNo panels. The island fills the screen, the four win probabilities are an arc around its rim with you at the bottom, and the net's opinion is a ringed corner on the board. Only the moves with nowhere on the board to live get buttons.\n\nWhy: the game is the interface; the analysis is spatial rather than tabular.\n\nTradeoff: least information per screen. Ranked alternatives, the log and the trade builder all open over the board."
+   "text": "PLAY · TABLE\nNo panels. The island fills the screen, the four win probabilities are an arc around its rim with you at the bottom, and the net's opinion is a ringed corner on the board. Only the moves with nowhere on the board to live get buttons.\n\nWhy: the game is the interface; the analysis is spatial rather than tabular.\n\nTradeoff: least information per screen. Ranked alternatives, the log and the trade builder all open over the board."
   },
   {
    "id": "note-coach",
@@ -725,7 +788,7 @@
    "x": 1560,
    "y": -380,
    "w": 600,
-   "text": "PLAY \u00b7 COACH\nThe bot proposes, you accept, override, or ask why. A conversation thread is the primary column; the board illustrates whatever is being discussed. Questions like \u201cwhat if I keep the ore?\u201d are buttons because the engine can answer them.\n\nWhy: the only version that treats the value net as a character rather than a readout, and the strongest teaching tool.\n\nTradeoff: slowest to act through, and every line has to stay a number in words or it overclaims."
+   "text": "PLAY · COACH\nThe bot proposes, you accept, override, or ask why. A conversation thread is the primary column; the board illustrates whatever is being discussed. Questions like “what if I keep the ore?” are buttons because the engine can answer them.\n\nWhy: the only version that treats the value net as a character rather than a readout, and the strongest teaching tool.\n\nTradeoff: slowest to act through, and every line has to stay a number in words or it overclaims."
   },
   {
    "id": "note-futures",
@@ -733,7 +796,7 @@
    "x": 3120,
    "y": -380,
    "w": 600,
-   "text": "PLAY \u00b7 FUTURES\nYou choose a resulting position, not an action. Six candidate boards ringed where they differ from now, and under the one you are weighing, the eleven dice outcomes its number is the average of.\n\nWhy: it shows the expectimax layer nothing else exposes.\n\nTradeoff: busiest of the four, and the difference between two futures is often a single piece."
+   "text": "PLAY · FUTURES\nYou choose a resulting position, not an action. Six candidate boards ringed where they differ from now, and under the one you are weighing, the eleven dice outcomes its number is the average of.\n\nWhy: it shows the expectimax layer nothing else exposes.\n\nTradeoff: busiest of the four, and the difference between two futures is often a single piece."
   },
   {
    "id": "note-race",
@@ -741,7 +804,7 @@
    "x": 4680,
    "y": -380,
    "w": 600,
-   "text": "PLAY \u00b7 RACE  (new this round)\nThe game read as four races to ten: where each seat's points come from, what they still need, and how many turns the net thinks it will take. A percentage says who is ahead; this says how they get there and what would stop them.\n\nWhy: \u201cwho is about to win\u201d is the question people actually ask, and four percentages answer it badly.\n\nTradeoff: it is a reading, not a way to move \u2014 it wants to be a panel inside one of the other three rather than a screen of its own."
+   "text": "PLAY · RACE  (new this round)\nThe game read as four races to ten: where each seat's points come from, what they still need, and how many turns the net thinks it will take. A percentage says who is ahead; this says how they get there and what would stop them.\n\nWhy: “who is about to win” is the question people actually ask, and four percentages answer it badly.\n\nTradeoff: it is a reading, not a way to move — it wants to be a panel inside one of the other three rather than a screen of its own."
   },
   {
    "id": "note-console",
@@ -749,7 +812,7 @@
    "x": 0,
    "y": 1020,
    "w": 600,
-   "text": "PLAY \u00b7 CONSOLE  (revived from round one)\nEverything at once: seats and the running log on the left, the board and your hand in the middle, the coach open on the right. Nothing is behind a click.\n\nWhy: it is the densest option and the least surprising \u2014 closest to what the site already does, and the one that suits someone who wants to watch all four seats while they play.\n\nTradeoff: also the busiest, and the board is the smallest of the six. This is the layout the first round was criticised for; it earns its place as one option among several, not as the default."
+   "text": "PLAY · CONSOLE  (revived from round one)\nEverything at once: seats and the running log on the left, the board and your hand in the middle, the coach open on the right. Nothing is behind a click.\n\nWhy: it is the densest option and the least surprising — closest to what the site already does, and the one that suits someone who wants to watch all four seats while they play.\n\nTradeoff: also the busiest, and the board is the smallest of the six. This is the layout the first round was criticised for; it earns its place as one option among several, not as the default."
   },
   {
    "id": "note-broadcast",
@@ -757,7 +820,7 @@
    "x": 1560,
    "y": 1020,
    "w": 600,
-   "text": "PLAY \u00b7 BROADCAST  (revived from round one)\nA live match feed: an odds bar across the top of the screen, four seat tiles with win probability and the delta since your roll, the board lit by the search, and a dock of hand and moves along the bottom.\n\nWhy: the bots are the reason to be here. This is the version that reads well over someone's shoulder and the only one that makes the game feel like it is being commentated.\n\nTradeoff: dark only, and the numbers crowd the board \u2014 at its worst it is a dashboard with a Catan board in it. The night board is the same drawing, inverted: chalk tokens, ink gaps."
+   "text": "PLAY · BROADCAST  (revived from round one)\nA live match feed: an odds bar across the top of the screen, four seat tiles with win probability and the delta since your roll, the board lit by the search, and a dock of hand and moves along the bottom.\n\nWhy: the bots are the reason to be here. This is the version that reads well over someone's shoulder and the only one that makes the game feel like it is being commentated.\n\nTradeoff: dark only, and the numbers crowd the board — at its worst it is a dashboard with a Catan board in it. The night board is the same drawing, inverted: chalk tokens, ink gaps."
   },
   {
    "id": "note-timeline",
@@ -765,7 +828,7 @@
    "x": 3120,
    "y": 1020,
    "w": 600,
-   "text": "REVIEW \u00b7 THE WHOLE GAME\nOne curve is the spine: every seat's chance across all 380 steps with the sevens, awards and monopoly marked. Scrub anywhere and the board and the reading follow. The attribution rows light the tiles they refer to.\n\nTradeoff: the curve takes a quarter of the screen, so a single decision gets less room than it does next door."
+   "text": "REVIEW · THE WHOLE GAME\nOne curve is the spine: every seat's chance across all 380 steps with the sevens, awards and monopoly marked. Scrub anywhere and the board and the reading follow. The attribution rows light the tiles they refer to.\n\nTradeoff: the curve takes a quarter of the screen, so a single decision gets less room than it does next door."
   },
   {
    "id": "note-inspector",
@@ -773,7 +836,7 @@
    "x": 4680,
    "y": 1020,
    "w": 600,
-   "text": "REVIEW \u00b7 ONE DECISION\nOne position, both bots: the full ranked ladder, the board carrying the same ranks, and an outline on the row where the heuristic would have played something else.\n\nWhy: the disagreement between the two evaluators is the most interesting thing this project has and nothing in the site shows it.\n\nTradeoff: you lose the shape of the game."
+   "text": "REVIEW · ONE DECISION\nOne position, both bots: the full ranked ladder, the board carrying the same ranks, and an outline on the row where the heuristic would have played something else.\n\nWhy: the disagreement between the two evaluators is the most interesting thing this project has and nothing in the site shows it.\n\nTradeoff: you lose the shape of the game."
   },
   {
    "id": "note-columns",
@@ -781,7 +844,7 @@
    "x": 0,
    "y": 2420,
    "w": 600,
-   "text": "BOARD \u00b7 COLUMNS\nThe island as nineteen hexagonal columns standing in dark space. One fixed tilt; pieces stand upright on the top faces; the gaps between tiles become depth.\n\nWhy: the most monumental version of the board, and the one that makes the laboratory feel like it has a specimen on the bench.\n\nTradeoff: the depth is decoration. Corners are shared by three tiles, so column height can never carry data without leaving the pieces in mid-air. Also 15 percent shorter on screen.\n\nWhen it is seen: as the resting look of the board on every play screen, if chosen. It would also be the board on the About page, at rest, with the reveal playing over it."
+   "text": "BOARD · COLUMNS\nThe island as nineteen hexagonal columns standing in dark space. One fixed tilt; pieces stand upright on the top faces; the gaps between tiles become depth.\n\nWhy: the most monumental version of the board, and the one that makes the laboratory feel like it has a specimen on the bench.\n\nTradeoff: the depth is decoration. Corners are shared by three tiles, so column height can never carry data without leaving the pieces in mid-air. Also 15 percent shorter on screen.\n\nWhen it is seen: as the resting look of the board on every play screen, if chosen. It would also be the board on the About page, at rest, with the reveal playing over it."
   },
   {
    "id": "note-float",
@@ -789,7 +852,7 @@
    "x": 1560,
    "y": 2420,
    "w": 600,
-   "text": "BOARD \u00b7 FLOATING\nEvery tile hovers a few pixels above the ground on a soft shadow, and tiles rise when they mean something: the two eights after a roll of 8, the tiles that differ under a hovered future, the tiles the net weighed in the analyser. Corner pieces ride the tallest tile they touch.\n\nWhy: it is the flat board with one new verb, and that verb can carry data. It is also what makes the yield lens next door possible.\n\nTradeoff: at rest it is quieter than the columns. It has to move to earn its keep.\n\nWhen it is seen: the lift plays for about a second after every roll, on your turn and on the bots' turns, and holds while you hover something."
+   "text": "BOARD · FLOATING\nEvery tile hovers a few pixels above the ground on a soft shadow, and tiles rise when they mean something: the two eights after a roll of 8, the tiles that differ under a hovered future, the tiles the net weighed in the analyser. Corner pieces ride the tallest tile they touch.\n\nWhy: it is the flat board with one new verb, and that verb can carry data. It is also what makes the yield lens next door possible.\n\nTradeoff: at rest it is quieter than the columns. It has to move to earn its keep.\n\nWhen it is seen: the lift plays for about a second after every roll, on your turn and on the bots' turns, and holds while you hover something."
   },
   {
    "id": "note-reveal",
@@ -797,7 +860,7 @@
    "x": 3120,
    "y": 2420,
    "w": 600,
-   "text": "BOARD \u00b7 REVEAL\nA new island is dealt, not loaded. Tiles draw in as chalk outlines from the centre outward in the order the engine deals them, then fill; each number token cycles through wrong glyphs for a third of a second and locks; the headline types with a caret; the pieces land last. The whole thing is two and a half seconds.\n\nThe animation is live on this artboard: it plays every time the artboard mounts, so leave and come back to see it again.\n\nWhen it is seen: once, when a new game's seed arrives; when Reseed is pressed on the setup screen; and when the analyser opens a recorded game. Never mid-game, and skipped entirely under reduced motion."
+   "text": "BOARD · REVEAL\nA new island is dealt, not loaded. Tiles draw in as chalk outlines from the centre outward in the order the engine deals them, then fill; each number token cycles through wrong glyphs for a third of a second and locks; the headline types with a caret; the pieces land last. The whole thing is two and a half seconds.\n\nThe animation is live on this artboard: it plays every time the artboard mounts, so leave and come back to see it again.\n\nWhen it is seen: once, when a new game's seed arrives; when Reseed is pressed on the setup screen; and when the analyser opens a recorded game. Never mid-game, and skipped entirely under reduced motion."
   },
   {
    "id": "read-me",
@@ -805,7 +868,7 @@
    "x": -800,
    "y": 0,
    "w": 620,
-   "text": "Earlier rounds \u2014 kept for the arguments, not as options.\n\nEvery screen here was a different answer to the same question, and the two-screen direction on the first page is built out of them. The notes above each one still say what it was for and what it cost, which is why they are worth keeping: the reasoning is the useful part now, not the layout.\n\nThe first eight are the six ways to play and the two ways to review. The last three are the board studies that led to the columns: the first attempt at columns, the floating-tiles alternative, and the first reveal.\n\nNothing here is live. The pieces on these screens still carry the old ink casing in places, and the roads are still the shortened kind."
+   "text": "Earlier rounds — kept for the arguments, not as options.\n\nEvery screen here was a different answer to the same question, and the two-screen direction on the first page is built out of them. The notes above each one still say what it was for and what it cost, which is why they are worth keeping: the reasoning is the useful part now, not the layout.\n\nThe first eight are the six ways to play and the two ways to review. The last three are the board studies that led to the columns: the first attempt at columns, the floating-tiles alternative, and the first reveal.\n\nNothing here is live. The pieces on these screens still carry the old ink casing in places, and the roads are still the shortened kind."
   },
   {
    "id": "read-me-board",
@@ -869,7 +932,7 @@
    "x": 0,
    "y": -300,
    "w": 620,
-   "text": "TWO OTHER SKINS\nSkin and structure are separate choices, so here is an earlier panel layout wearing two other visual languages \u2014 a sea chart of the island, and a risograph print of the game as a physical object.\n\nEither could dress any of the interfaces on the first page. Note these two still carry the old panel structure; they are here for the paint, not the plan."
+   "text": "TWO OTHER SKINS\nSkin and structure are separate choices, so here is an earlier panel layout wearing two other visual languages — a sea chart of the island, and a risograph print of the game as a physical object.\n\nEither could dress any of the interfaces on the first page. Note these two still carry the old panel structure; they are here for the paint, not the plan."
   },
   {
    "id": "n-flownew",
@@ -893,7 +956,7 @@
    "x": 3120,
    "y": -380,
    "w": 600,
-   "text": "TIER 1 \u00b7 PANELS\n\nFour panels that answer a question without taking the game away. Same width, same dock, one at a time, Esc closes.\n\nHand and Race dock on the left beside the rail they came from. Log and Coach dock right, because they are a running column rather than a snapshot. The board takes one shift on the first open and holds still until the last one closes, so opening a second panel never moves it again.\n\nThe coach thread is Console's and Coach's best half, kept: a conversation with question chips rather than a wall of ranked bars."
+   "text": "TIER 1 · PANELS\n\nFour panels that answer a question without taking the game away. Same width, same dock, one at a time, Esc closes.\n\nHand and Race dock on the left beside the rail they came from. Log and Coach dock right, because they are a running column rather than a snapshot. The board takes one shift on the first open and holds still until the last one closes, so opening a second panel never moves it again.\n\nThe coach thread is Console's and Coach's best half, kept: a conversation with question chips rather than a wall of ranked bars."
   },
   {
    "id": "n-boardspec",
@@ -909,7 +972,7 @@
    "x": -820,
    "y": 0,
    "w": 660,
-   "text": "The five views, replicated, with the new board.\n\nThese are the earlier-round screens themselves, not redrawings of them. Everything outside the board is byte for byte what it was: the layout, the panels, the copy, the numbers, the spacing. I checked that mechanically rather than by eye.\n\nExactly two things changed.\n\nTHE BOARD, swapped for the current one wherever it appeared \u2014 once on each of these, seven times on Futures. It brings the pieces with no strokes and a plinth instead, number tokens large enough for their digits and pips, the resource glyphs, the nine ports back in their old drawing, the fourth seat as a warm grey rather than white, no outline around the island, and a lattice that tapers instead of stopping at an edge.\n\nTHE LEFT BAR, removed, as asked. Its sibling was already flex, so the content simply reflows into the space.\n\nThe annotations on each board were lifted out and put back on top: the ring on the recommended corner, the rings marking what changed in each candidate future, and the six outlined tiles a seat draws from. The copy refers to those, so losing them would have been a real regression \u2014 I did lose them on the first pass and put them back.\n\nSix are here rather than five: Table is included in case it counts as its own view alongside Console. Race and Broadcast are not, since they were not in your list.\n\nMy own screens and concept boards moved to the next two pages, out of the way."
+   "text": "The five views, replicated, with the new board.\n\nThese are the earlier-round screens themselves, not redrawings of them. Everything outside the board is byte for byte what it was: the layout, the panels, the copy, the numbers, the spacing. I checked that mechanically rather than by eye.\n\nExactly two things changed.\n\nTHE BOARD, swapped for the current one wherever it appeared — once on each of these, seven times on Futures. It brings the pieces with no strokes and a plinth instead, number tokens large enough for their digits and pips, the resource glyphs, the nine ports back in their old drawing, the fourth seat as a warm grey rather than white, no outline around the island, and a lattice that tapers instead of stopping at an edge.\n\nTHE LEFT BAR, removed, as asked. Its sibling was already flex, so the content simply reflows into the space.\n\nThe annotations on each board were lifted out and put back on top: the ring on the recommended corner, the rings marking what changed in each candidate future, and the six outlined tiles a seat draws from. The copy refers to those, so losing them would have been a real regression — I did lose them on the first pass and put them back.\n\nSix are here rather than five: Table is included in case it counts as its own view alongside Console. Race and Broadcast are not, since they were not in your list.\n\nMy own screens and concept boards moved to the next two pages, out of the way."
   },
   {
    "id": "note-getting-around",
@@ -917,7 +980,39 @@
    "x": 0,
    "y": -330,
    "w": 640,
-   "text": "GETTING AROUND\nThe six views had a nav bar; it came off, and this is what replaces it. Nothing here is a new place \u2014 every door was already written into the screens' own copy, and the only permanent chrome is one 28px line.\n\nRow one states the model. Rows two to four are moments of three transitions, each one a real view file with its spine rewritten and a few override rules appended, so the frames are the screens rather than drawings of them. The resting states are not repeated here: they are the six views on the next page.\n\nRow five is the cold start and the ending \u2014 where a game begins, and the one place a new one is offered."
+   "text": "GETTING AROUND\nThe six views had a nav bar; it came off, and this is what replaces it. Nothing here is a new place — every door was already written into the screens' own copy, and the only permanent chrome is one 28px line.\n\nRow one states the model. Rows two to four are moments of three transitions, each one a real view file with its spine rewritten and a few override rules appended, so the frames are the screens rather than drawings of them. The resting states are not repeated here: they are the six views on the next page.\n\nRow five is the cold start and the ending — where a game begins, and the one place a new one is offered."
+  },
+  {
+   "id": "note-mobile-table",
+   "page": "page-11",
+   "x": 0,
+   "y": -260,
+   "w": 390,
+   "text": "THE TABLE, ON A PHONE\n\nThe board stays pinned near the top on every screen; a bottom strip switches which one of four things sits below it — Hand, Actions, Coach, Seats — the same four corner-docked panels desktop keeps open at once, time-shared instead. Each tab is its own artboard here, the same way desktop uses a separate view per state, since a static mockup can’t show a tap. Board taps snap to the nearest legal target within about 22px, staged the same way a desktop click stages. The panel band scrolls internally rather than truncating — a Year of Plenty alone already emits fifteen combinations on desktop, and the Coach tab’s full ranked list plus \"why it’s not close\" box plus search-stats line, and the Seats tab’s \"this turn\" event log, both lean on that scroll to carry everything desktop shows.\n\nDeferred, and why: the dedicated Coach view’s multi-turn chat transcript says the same thing the Coach tab’s ranked list now does, in a different register — a duplicate, not a gap. Hover-driven board-lighting stays out because touch has no hover."
+  },
+  {
+   "id": "note-mobile-futures",
+   "page": "page-11",
+   "x": 430,
+   "y": -260,
+   "w": 390,
+   "text": "FUTURES, ON A PHONE\n\nDesktop’s 3×2 grid of six candidates restacks as a horizontal swipe carousel over the board’s own region — the top-ranked candidate first, same as the grid’s top-left cell. Position in the sequence lives in the spine’s own \"candidate N of 6\" slot rather than a dot-pagination row invented for this screen, and there’s no translucent peek of the next candidate either — a first pass tried that and it read as clutter, not affordance. The panel below carries the rest of desktop’s aside: the \"you, right now\" baseline, and the eleven-column dice-outcome strip compressed to fit the panel width without its own scroll.\n\nDeferred: nothing left on purpose here — what didn’t fit the carousel model itself (a second board thumbnail for \"right now\") became a one-line reading instead, not a cut."
+  },
+  {
+   "id": "note-mobile-game",
+   "page": "page-11",
+   "x": 860,
+   "y": -260,
+   "w": 390,
+   "text": "GAME ANALYSIS, ON A PHONE\n\nThe curve takes over the board’s own pinned region — the same fictional 31-turn game running across every phone screen, ending with a winner rather than a schematic zigzag. Swing markers on the curve tie directly to the list below; a \"where the game turned\" reasoning callout and the full attribution-bar set (\"what the net is leaning on\") follow in the same scrollable panel, matching desktop’s row count rather than a token sample of it.\n\nDeferred: the scrub tooltip that follows a cursor position, and hover-driven board-lighting — both need real pointer interaction a static mockup can’t fake."
+  },
+  {
+   "id": "note-mobile-move",
+   "page": "page-11",
+   "x": 1290,
+   "y": -260,
+   "w": 390,
+   "text": "MOVE ANALYSIS, ON A PHONE\n\nThe board shows the position as played, target ringed — identical to desktop’s highlight prop. The ranked ladder is production’s actual design (web/src/views/Move.tsx), not a three-way \"Value net / Heuristic / Both at once\" tab — that control was never built. One ladder always shows both readings: the net’s own rank and bar, and beside it the heuristic’s ordinal for the same move, with a ring on whichever row the heuristic itself ranked first. The \"two bots disagree\" callout, the turn-scrubber (shared with the Table’s own seek bar — wheat fill, lettered seat-coloured event markers, a pine handle) and the \"steps either side\" filmstrip all mirror production directly.\n\nDeferred: nothing left on purpose — this screen now tracks the shipped app rather than an earlier design-canvas draft of it."
   }
  ],
  "launch": {
@@ -964,6 +1059,10 @@
   {
    "id": "page-4",
    "name": "Other skins"
+  },
+  {
+   "id": "page-11",
+   "name": "Phones"
   }
  ]
 }

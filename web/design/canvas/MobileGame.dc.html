@@ -1,0 +1,171 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Chivo:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <style>
+    body { margin: 0; }
+    .L { --chalk:#eef0e9; --paper:#f7f8f4; --pine:#12211f; --moss:#4a6659; --dust:#c9d0c2;
+         --ui:"Chivo","Helvetica Neue",Arial,sans-serif; --dis:"Syne","Trebuchet MS",sans-serif;
+         --ease: cubic-bezier(.2,.8,.2,1); --t-feel:120ms; --t-panel:260ms; --t-board:420ms; }
+    .L, .L * { box-sizing: border-box; }
+    .L a { color:#2f6a57; } .L a:hover { color:#12211f; }
+    .L .num { font-variant-numeric: tabular-nums; }
+    .L .d { font-family: var(--dis); font-weight: 700; letter-spacing: -.02em; }
+    .L .row { display:flex; align-items:center; gap:9px; }
+    .L .cap { font-size:13px; color:var(--moss); line-height:1.5; }
+    /* The corner cut is the board's signature. Every panel and every control carries it. */
+    .L .cut  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+    .L .cut8 { clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .bar { height:10px; background:var(--dust); }
+    .L .bar > i { display:block; height:100%; }
+    .L .pill { display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+               background:var(--pine); color:var(--chalk); font:700 12.5px var(--ui);
+               clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+    .L .act { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; padding:0 14px;
+              background:var(--paper); color:var(--pine); font:600 13.5px var(--ui); white-space:nowrap;
+              border:0; cursor:pointer; transition: background var(--t-feel) var(--ease);
+              clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+    .L .act:hover { background:#e6e9df; }
+    .L .act.go { background:var(--pine); color:var(--chalk); }
+    .L .act.go:hover { background:#1d322c; }
+    .L .key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px;
+              background:var(--paper); color:var(--pine); font:600 12px var(--ui); box-shadow: inset 0 -2px 0 var(--dust); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path: inset(50%); white-space:nowrap; }
+    .L .dec { position: relative; display: inline-block; }
+    .L .dec > .scr { position:absolute; left:0; top:0; right:0; bottom:0; opacity:0; pointer-events:none;
+                     overflow:hidden; white-space:nowrap; color:var(--moss); }
+    @keyframes wipe { from { opacity:1; clip-path: inset(0 0 0 0); }
+                      99%  { opacity:1; clip-path: inset(0 0 0 100%); }
+                      to   { opacity:0; clip-path: inset(0 0 0 100%); } }
+    .L .spine { flex:0 0 28px; display:flex; align-items:center; gap:0; padding:0 26px;
+                background:var(--chalk); border-bottom:1px solid var(--dust);
+                font:500 12.5px var(--ui); }
+    .L .spine .crumb { color:var(--moss); cursor:pointer; }
+    .L .spine .crumb:hover { color:var(--pine); }
+    .L .spine .crumb.now { color:var(--pine); font-weight:600; cursor:default; }
+    .L .spine .sep { color:var(--dust); padding:0 9px; }
+    .L .spine .step { margin-left:20px; padding-left:20px; border-left:1px solid var(--dust);
+                      color:var(--moss); cursor:pointer; }
+    .L .spine .step:hover { color:var(--pine); }
+    .L .spine .warn { margin-left:auto; display:inline-flex; align-items:center; gap:7px;
+                      color:var(--pine); }
+    .L .spine .warn > i { width:7px; height:7px; border-radius:50%; }
+    .L .spine .warn.loud { background:var(--pine); color:var(--chalk); height:20px;
+                           padding:0 9px; cursor:pointer;
+                           clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+  .L .stage { position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .L .panel { flex:0 0 360px; padding:16px 20px 14px;
+              display:flex; flex-direction:column; gap:9px; overflow-y:auto; overflow-x:hidden; }
+  .L .panel > * { flex-shrink:0; }
+  .L .tabstrip { flex:0 0 56px; display:flex; align-items:center; gap:8px; padding:0 20px;
+                 border-top:1px solid var(--dust); background:var(--chalk); }
+  .L .dim { opacity:0.42; }
+  .L .arow { display:flex; align-items:center; justify-content:space-between; gap:10px;
+             height:44px; flex:0 0 44px; padding:0 13px; background:var(--paper); }
+  .L .arow.go { background:var(--pine); color:var(--chalk); justify-content:center; font:600 13.5px var(--ui); }
+  .L .aname { font:500 13px var(--ui); }
+  .L .costs { display:flex; gap:2px; flex:0 0 auto; }
+  .L .lrow { display:flex; align-items:center; gap:10px; background:var(--paper); padding:6px 10px; }
+  .L .lname { width:150px; flex:0 0 150px; font-size:12.5px; }
+  .L .ltrack { flex:1; height:7px; background:var(--dust); }
+  .L .ltrack > i { display:block; height:100%; }
+  .L .lval { width:38px; flex:0 0 38px; text-align:right; font-size:11.5px; }
+    @media (prefers-reduced-motion: reduce) {
+      .L .scr { animation: none !important; }
+      .L .board, .L .panel, .L .curtain, .L .tl, .L .tk, .L .pc { transition: none !important; animation: none !important; }
+    }
+  </style>
+</helmet>
+<div class="L" style="width:390px; height:844px;
+     background:var(--chalk); color:var(--pine); font:400 14px var(--ui); display:flex; flex-direction:column; overflow:hidden;">
+  <div class="spine"><span class="crumb">Table</span><span class="sep">›</span><span class="crumb now">Game</span></div>
+  <div class="stage" style="flex:0 0 456px;"><div style="display:flex; flex-direction:column; align-items:center;"><div class="row" style="gap:16px; justify-content:center; margin-bottom:8px;">
+    <span class="row" style="gap:5px;">
+      <span style="width:9px; height:9px; flex:0 0 9px; background:#2f6fd0;"></span>
+      <span class="cap" style="font-size:11.5px;">Blue</span></span><span class="row" style="gap:5px;">
+      <span style="width:9px; height:9px; flex:0 0 9px; background:#c0392b;"></span>
+      <span class="cap" style="font-size:11.5px;">Red</span></span><span class="row" style="gap:5px;">
+      <span style="width:9px; height:9px; flex:0 0 9px; background:#e07b2a;"></span>
+      <span class="cap" style="font-size:11.5px;">Orange</span></span><span class="row" style="gap:5px;">
+      <span style="width:9px; height:9px; flex:0 0 9px; background:#b9bfb2;"></span>
+      <span class="cap" style="font-size:11.5px;">White</span></span></div><svg viewBox="0 0 350 240" width="350" height="240"
+      style="display:block" aria-hidden="true">
+    <polyline points="0.0,166.6 11.7,154.6 23.3,155.0 35.0,154.2 46.7,154.6 58.3,142.7 70.0,141.3 81.7,142.9 93.3,139.9 105.0,137.3 116.7,143.1 128.3,130.9 140.0,127.9 151.7,130.0 163.3,120.9 175.0,128.0 186.7,125.1 198.3,126.7 210.0,112.6 221.7,115.8 233.3,106.9 245.0,100.8 256.7,108.1 268.3,91.9 280.0,80.5 291.7,80.1 303.3,58.8 315.0,56.8 326.7,31.9 338.3,32.0 350.0,16.9"
+      fill="none" stroke="#2f6fd0" stroke-width="2.2"/><polyline points="0.0,171.3 11.7,170.9 23.3,166.4 35.0,167.2 46.7,157.4 58.3,164.5 70.0,164.3 81.7,164.7 93.3,164.9 105.0,165.4 116.7,169.0 128.3,160.3 140.0,162.4 151.7,176.3 163.3,170.6 175.0,175.6 186.7,174.3 198.3,186.3 210.0,182.0 221.7,192.8 233.3,191.1 245.0,190.3 256.7,195.7 268.3,194.7 280.0,188.0 291.7,184.7 303.3,194.3 315.0,206.1 326.7,203.9 338.3,204.7 350.0,215.9"
+      fill="none" stroke="#c0392b" stroke-width="2.2"/><polyline points="0.0,170.5 11.7,169.1 23.3,171.2 35.0,164.1 46.7,168.2 58.3,165.1 70.0,168.4 81.7,176.1 93.3,167.5 105.0,177.9 116.7,175.5 128.3,170.3 140.0,172.2 151.7,177.3 163.3,177.0 175.0,174.0 186.7,169.2 198.3,168.6 210.0,171.0 221.7,171.5 233.3,174.7 245.0,173.2 256.7,175.7 268.3,187.8 280.0,192.7 291.7,198.2 303.3,191.5 315.0,207.6 326.7,203.0 338.3,212.8 350.0,212.7"
+      fill="none" stroke="#e07b2a" stroke-width="2.2"/><polyline points="0.0,173.3 11.7,167.3 23.3,172.7 35.0,180.8 46.7,181.7 58.3,181.4 70.0,174.2 81.7,182.9 93.3,190.0 105.0,185.5 116.7,186.2 128.3,186.0 140.0,189.0 151.7,195.8 163.3,189.9 175.0,189.9 186.7,190.3 198.3,186.6 210.0,187.4 221.7,179.4 233.3,183.4 245.0,191.2 256.7,187.5 268.3,197.1 280.0,195.4 291.7,202.9 303.3,199.4 315.0,209.7 326.7,211.1 338.3,214.1 350.0,215.9"
+      fill="none" stroke="#b9bfb2" stroke-width="2.2"/>
+    <circle cx="128.3" cy="130.9" r="3.6" fill="#2f6fd0"/><circle cx="210.0" cy="182.0" r="3.6" fill="#c0392b"/><circle cx="268.3" cy="91.9" r="3.6" fill="#2f6fd0"/>
+    <text x="0.0" y="234"
+      text-anchor="start"
+      font-size="10" font-family="Chivo,Helvetica Neue,Arial,sans-serif" fill="#4a6659">turn 1</text><text x="128.3" y="234"
+      text-anchor="middle"
+      font-size="10" font-family="Chivo,Helvetica Neue,Arial,sans-serif" fill="#4a6659">turn 12</text><text x="210.0" y="234"
+      text-anchor="middle"
+      font-size="10" font-family="Chivo,Helvetica Neue,Arial,sans-serif" fill="#4a6659">turn 19</text><text x="268.3" y="234"
+      text-anchor="middle"
+      font-size="10" font-family="Chivo,Helvetica Neue,Arial,sans-serif" fill="#4a6659">turn 24</text><text x="350.0" y="234"
+      text-anchor="end"
+      font-size="10" font-family="Chivo,Helvetica Neue,Arial,sans-serif" fill="#4a6659">turn 31</text></svg></div></div>
+  <div class="panel"><div style="display:flex; flex-direction:column; gap:8px;"><div class="lrow">
+      <span style="width:9px; height:9px; flex:0 0 9px; background:#2f6fd0;"></span>
+      <span class="cap" style="width:50px; flex:0 0 50px;">turn 12</span>
+      <span style="flex:1; font-size:12.5px;">Blue’s second city</span><span class="num" style="font-size:12.5px;">+18</span></div><div class="lrow">
+      <span style="width:9px; height:9px; flex:0 0 9px; background:#c0392b;"></span>
+      <span class="cap" style="width:50px; flex:0 0 50px;">turn 19</span>
+      <span style="flex:1; font-size:12.5px;">a seven on Red’s 8</span><span class="num" style="font-size:12.5px;">−11</span></div><div class="lrow">
+      <span style="width:9px; height:9px; flex:0 0 9px; background:#2f6fd0;"></span>
+      <span class="cap" style="width:50px; flex:0 0 50px;">turn 24</span>
+      <span style="flex:1; font-size:12.5px;">longest road changes hands</span><span class="num" style="font-size:12.5px;">+9</span></div><div class="cut8" style="background:var(--paper); padding:9px 11px;">
+    <div style="font:600 12px var(--ui);">Where the game turned</div>
+    <div style="font-size:12px; line-height:1.5; margin-top:3px;">At turn 24, Blue built the coast road and
+      reclaimed longest road — worth nine points, and it's the swing that put the game out of reach.</div></div><div class="cap" style="margin-top:4px;">What the net is leaning on</div>
+    <div style="display:flex; flex-direction:column; gap:6px; margin-top:4px;"><div class="row" style="background:var(--paper); padding:3px 6px; margin:0 -6px;">
+      <span class="cap" style="width:110px; flex:0 0 110px; font-size:11px;">Blue’s production</span>
+      <div style="position:relative; width:84px; height:7px; flex:0 0 84px; background:var(--dust);">
+        <span style="position:absolute; left:42px; top:-2px; width:1px; height:11px; background:var(--pine);"></span>
+        <span style="position:absolute; left:42px; top:0; width:21.8px; height:100%;
+          background:#5f8a54;"></span></div>
+      <span class="num" style="width:36px; flex:0 0 36px; text-align:right; font-size:11px;">+5.2</span></div><div class="row">
+      <span class="cap" style="width:110px; flex:0 0 110px; font-size:11px;">Red’s hand</span>
+      <div style="position:relative; width:84px; height:7px; flex:0 0 84px; background:var(--dust);">
+        <span style="position:absolute; left:42px; top:-2px; width:1px; height:11px; background:var(--pine);"></span>
+        <span style="position:absolute; right:42px; top:0; width:18.5px; height:100%;
+          background:#bc6242;"></span></div>
+      <span class="num" style="width:36px; flex:0 0 36px; text-align:right; font-size:11px;">-4.4</span></div><div class="row">
+      <span class="cap" style="width:110px; flex:0 0 110px; font-size:11px;">Blue’s cities</span>
+      <div style="position:relative; width:84px; height:7px; flex:0 0 84px; background:var(--dust);">
+        <span style="position:absolute; left:42px; top:-2px; width:1px; height:11px; background:var(--pine);"></span>
+        <span style="position:absolute; left:42px; top:0; width:13.4px; height:100%;
+          background:#5f8a54;"></span></div>
+      <span class="num" style="width:36px; flex:0 0 36px; text-align:right; font-size:11px;">+3.2</span></div><div class="row">
+      <span class="cap" style="width:110px; flex:0 0 110px; font-size:11px;">Orange’s roads</span>
+      <div style="position:relative; width:84px; height:7px; flex:0 0 84px; background:var(--dust);">
+        <span style="position:absolute; left:42px; top:-2px; width:1px; height:11px; background:var(--pine);"></span>
+        <span style="position:absolute; right:42px; top:0; width:10.1px; height:100%;
+          background:#bc6242;"></span></div>
+      <span class="num" style="width:36px; flex:0 0 36px; text-align:right; font-size:11px;">-2.4</span></div><div class="row">
+      <span class="cap" style="width:110px; flex:0 0 110px; font-size:11px;">Red’s roads</span>
+      <div style="position:relative; width:84px; height:7px; flex:0 0 84px; background:var(--dust);">
+        <span style="position:absolute; left:42px; top:-2px; width:1px; height:11px; background:var(--pine);"></span>
+        <span style="position:absolute; right:42px; top:0; width:8.8px; height:100%;
+          background:#bc6242;"></span></div>
+      <span class="num" style="width:36px; flex:0 0 36px; text-align:right; font-size:11px;">-2.1</span></div><div class="row">
+      <span class="cap" style="width:110px; flex:0 0 110px; font-size:11px;">Blue’s devs</span>
+      <div style="position:relative; width:84px; height:7px; flex:0 0 84px; background:var(--dust);">
+        <span style="position:absolute; left:42px; top:-2px; width:1px; height:11px; background:var(--pine);"></span>
+        <span style="position:absolute; left:42px; top:0; width:6.7px; height:100%;
+          background:#5f8a54;"></span></div>
+      <span class="num" style="width:36px; flex:0 0 36px; text-align:right; font-size:11px;">+1.6</span></div></div></div></div>
+  
+</div>
+</x-dc>
+
+</body>
+</html>

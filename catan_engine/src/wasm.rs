@@ -146,7 +146,7 @@ impl Engine {
                     "hand": p.hand, "devs": p.devs, "played": p.played, "vp": p.vp, "actual_vp": p.actual_vp,
                     "roads_available": p.roads_available, "settlements_available": p.settlements_available, "cities_available": p.cities_available,
                     "has_road": p.has_road, "has_army": p.has_army, "has_rolled": p.has_rolled, "has_played_dev": p.has_played_dev,
-                    "longest_road_length": p.longest_road_length, "settlements": p.settlements, "cities": p.cities, "roads": p.roads,
+                    "longest_road_length": p.longest_road_length, "settlements": p.settlements.as_slice(), "cities": p.cities.as_slice(), "roads": p.roads.as_slice(),
                 })
             })
             .collect();

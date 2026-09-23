@@ -9,13 +9,15 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["python"]
-python = ["dep:pyo3", "dep:numpy", "dep:rayon"]
+python = ["dep:pyo3", "dep:numpy", "dep:rayon", "dep:mimalloc"]
 wasm = ["dep:wasm-bindgen", "dep:serde", "dep:serde_json"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module"], optional = true }
+arrayvec = "0.7"
+pyo3 ={ version = "0.23", features = ["extension-module"], optional = true }
 numpy = { version = "0.23", optional = true }
 rayon = { version = "1", optional = true }
+mimalloc = { version = "0.1", default-features = false, optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }

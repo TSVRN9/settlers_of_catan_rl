@@ -2659,3 +2659,575 @@ Remaining deviations, recorded in BENCHMARK.md: the turn player cannot counter a
 before any seat accepted, replies in seat order; `recordResourcesFromNoResponse` never fires. The fork commit
 carrying the counter rule (`vendor/catanatron` 71ab0f3) is not yet pushed or pinned; the venv runs it as an
 editable install.
+
+## 2026-09-22 — loop restart, part 1: generation 2.7x (2.44 → 6.68 games/s), labels bitwise unchanged
+
+Two research passes (`docs/RESEARCH-DATA.md`, `docs/RESEARCH-EXPERT.md`) reframed the loop before restarting it:
+every training label is a `rab`-vs-`rab` playout, so the rollout policy is a permanent AlphaBeta oracle, not a
+bootstrap — DAgger, not expert iteration — which is the plateau at 56-60% vs `rab` named at the M4 gate. The
+fix they both rank first (a net-in-the-loop rollout policy) makes generation several times slower, so speed
+came first. `docs/PLAN-gen-speed.md`'s profile predates domestic trading (09-03) and the `pieces`/`events`
+history on `State` (09-07); nothing in search reads that history, but `#[derive(Clone)]` copied it at every
+tree node of every rollout decision, every value-net expansion and every trade what-if, and it grows all game.
+
+`State::clone_light()` (history left empty) at the twelve throwaway-copy sites — `search.rs` `outcomes()`,
+`trade.rs` `with_hand`/`confirm_offer`, the `arena.rs` Recorder — and `Clone` itself untouched for replay and
+the jSettler mirror. Quiet machine, v40 x2 + rab x2, `--roll-p 0.3 --roll-m 1`, 256 games, seed 424242:
+**2.44 → 3.00 games/s**, Rust step 219 → 178 ms (98% of wall either way; forward wait 1.3 ms). The same seed
+wrote bitwise-identical shards (all 16 arrays, 52,143 samples, 66,803 rollout rows) and `test_env.py` passes,
+so the change is label-preserving by measurement, not argument. Micro: a playout from turn 60 4.5 → 3.9 ms.
+Also dropped from `run_exit.sh`: `--rank-p 0.5 --sib-p 0.3`, rows generated and written every round and
+trained at weight 0 since v27d.
+
+Then `perf` (installed for this) instead of guessing, one change per build, every one checked the same way
+(256-game seed → bitwise-identical shards, then `test_env.py`); the full log with per-step numbers is in
+`docs/PLAN-gen-speed.md`. Ablation first: rollouts are 79% of the Rust step. The steps that paid, in order:
+`search_actions()` no longer generates the ~300 domestic offers it then filtered (3.00 → 3.28);
+**mimalloc** as the allocator, glibc malloc/free was ~40% of samples under 8 rayon threads (→ 4.83); inline
+`arrayvec` lists for the small per-player Vecs and the dev deck (→ 5.35); the longest-road DFS started only
+from odd-degree or enemy nodes, which is the same maximum by an extension argument (→ 6.00); a memo of
+`reachable_production` on `State`, cleared by the two board mutations and primed at the search root
+(20% → 10% of samples; unprimed it was a loss); the expectimax evaluating each child where it is built
+instead of through a Vec (→ **6.68**). Reverted: branch-and-bound in the DFS (−6%) and an inline `players`
+list (+600 B per State copy, −10%). A round's generation is ~10 min instead of ~27; the five trainings
+(~8 min) are now the equal largest stage. Copying a State is still ~30% of generation; the next cut there
+is apply/undo instead of clone-per-child, a rewrite of the search.
+
+## 2026-09-22 — loop restart, part 2: rounds 46-49 from v40, two accepts (`exit46.log`)
+
+`data/it*` had been cleared, so the first four rounds rebuilt the 4-directory training window from v40 with
+the fast engine. Generation held 6.3-6.6 games/s at 4,000 games (604-633 s, ~1.04-1.05 M rollout rows per
+round); train + soup 8 min; the two 4,000-game gates 3.5 min. **A round is ~22 min, was ~60 before
+2026-09-02 and ~27 at the M4 gate.** Proxy (4,000 fresh games vs 3x `rab`, incumbent then candidate, same seed):
+
+| round | incumbent | candidate | |
+|---|---|---|---|
+| 46 | v40 2697 (67.4%) | **v46 2818 (70.5%)** | accepted, +3.1 |
+| 47 | v46 2720 | v47 2720 | rejected — the soup dropped all five draws (600-651 vs 705 on its 1,000), `v47.pt == v46.pt` |
+| 48 | v46 2785 (69.6%) | v48 2724 (68.1%) | rejected; v48 178/300 = 59.3% [53.7, 64.7] vs 3x Python AlphaBeta |
+| 49 | v46 2726 (68.2%) | **v49 2753 (68.8%)** | accepted, +0.7 (inside the gate's noise; the gate is strict) |
+
+Two things the log showed. The incumbent's proxy is 67-70% vs `rab` now, not the 56-60% recorded at the
+M4 gate — the engine's play changed between (domestic trading 09-03, counter-offers 09-07); today's
+generation changes are bitwise-identical, so it is not them. And single draws from the incumbent land
+*below* it more often than above (round 46: one of five above; round 47: none; the soup's monotone gate is
+what turns them into progress), which is the "loss optimum is not the best player" result again.
+`run_exit.sh` now skips both gates when the soup returns the incumbent untouched (an exact tie, 5 min), and
+the every-third-round AlphaBeta gate runs on the incumbent rather than on the candidate. Incumbent: `v49`:
+**573/1000 = 57.3% [54.2%, 60.3%] vs 3x Python `AlphaBetaPlayer`** (`headline_v49.log`; v40 was 55.2%
+[52.1%, 58.3%] on the same protocol — +2.1 points, intervals overlapping).
+
+**Net-in-the-loop rollouts, killed by one number.** The lever both research passes ranked first (label each
+child with a playout by the *current net* instead of `rab`) needs a net forward per rollout leaf on the CPU,
+inside the rayon step. `catan_engine.ValueNet.win_prob` (the Rust forward `trade.rs` already uses, scalar
+loops over 1051 → 128 x3 → 6) measures **174 µs per leaf**; a rollout decision is 35 µs today. Even the
+cheapest version, a 1-ply net policy at ~15-30 leaves, is ~100x per decision, so generation would land at
+~0.05-0.1 games/s against a kill line of ~2; a 10x SIMD/BLAS forward would not close it. The batched-on-XPU
+version is "fork the game at the child and play it out with the arena's vnet seats", which costs about half
+a vnet game per label — ~50x today's rollout cost per row. Not built. What is left of the idea is cheaper
+labels from a *stronger heuristic* rollout policy, or fewer, better labels; the plateau's cause stands.
+
+## 2026-09-22 — label-scaling sweep: the loop is not data-starved; the training step is destructive
+
+`scripts/sweep_maxts.sh 100000 300000 900000` (`sweep_maxts.log`): from the incumbent v49 on `it46-49`, three
+draws per `--max-ts` budget, greedy soup, one shared fresh proxy seed. Every arm's soup kept **no** draw, so
+every arm's 4,000-game proxy was v49's own 2735 (68.4%). The per-draw scores on the soup's 1,000 games,
+against v49's 731:
+
+| `--max-ts` | draws | mean |
+|---|---|---|
+| 100k | 706, 681, 645 | 677 |
+| 300k | 694, 676, 637 | 669 |
+| 900k | 664, 661, 658 | 661 |
+
+More labels do not help and may hurt a little (the slope is inside the ±1.5-pt draw noise); what is not
+noise is that **every draw lands 5-9 points below the net it was warm-started from**, at every budget, with
+the held-out loss improving (0.430 at 900k). Rounds 46-49 showed the same: one draw in ten above the
+incumbent, the soup's monotone gate salvaging +0.7 to +3 per round. The bottleneck is not how many labels a
+round produces but what a full training pass on them does to a net that already plays better than its
+labels' policy — the DAgger-with-a-fixed-oracle diagnosis, now with the scaling curve that was missing.
+Consequences: `--max-ts` can drop to 300k (training ~3x cheaper per round) at no cost; the next lever is
+the size of the update, not the data (`scripts/sweep_train.sh`: epochs, learning rate), then the labels.
+
+**Update size, same protocol (`sweep_train.log`, seed 51000007, incumbent v49 2769/4000 = 69.2%; soup seed
+base 695/1000):** `--epochs 1` draws 675/674/646, soup kept all three → 704, proxy 2744; `--epochs 2`
+664/654/635, kept one → 703, proxy 2716; `--lr 3e-4` 676/662/634, kept one → 716, proxy 2776; `--lr 1e-4`
+677/672/637, kept two → 701, proxy 2756. Every arm ties the incumbent inside the gate's noise, and at a
+tenth of the learning rate a draw still lands 2-6 points under its warm start. So neither the volume of
+labels nor the size of the step is the lever: **any pass over `rab`-continuation labels moves a net that
+already out-plays `rab` off its play optimum, and the soup's averaging is what recovers it.** The loop's
+per-round gain is the soup finding a better average of "incumbent + slightly-worse perturbations", which is
+hill climbing with the gradient as the perturbation. Progress from here needs labels whose policy is at
+least as strong as the student — which the 174 µs/leaf number above says cannot be a net playout on the
+CPU — or a different use of the labels (a regression on *differences* between siblings rather than on
+absolute values was measured dead as hard pairwise targets; soft/listwise variants remain untested).
+`run_exit.sh` default `MAX_TS` is now 300000.
+
+Retired on reading: "label the trade policy" (`docs/RESEARCH-DATA.md` #4). The vnet's trades are decided by
+`trade.rs`, which scores *hand-modified states* with the net and never searches `OfferTrade` children, so
+rollout labels on offer-pending states would train something no decision consumes; the states it does score
+are ordinary hand states the existing rows already cover.
+
+## 2026-09-22 — net-in-the-loop rollouts un-killed: the Rust forward was the bottleneck, not the idea
+
+The "killed by one number" verdict above stood on `catan_engine.ValueNet`'s forward at **174 µs/leaf** — a scalar
+dot-product loop over the dense 1051 → 256 x3 → 6 net. The input is ~90% zeros (one-hot buildings/roads, masked
+tiles) and the incumbent's hidden layers are 4% / 18% / 71% nonzero, so a sparse transposed axpy over nonzero inputs
+with an explicit AVX2/FMA kernel (`valuenet.rs`, details and every step in `docs/PLAN-gen-speed.md`) does ~43k MACs
+instead of 402k and runs at **~3 µs/leaf** (parity with torch 2e-7). With it, `--roll-net all|own` (`gen_games.py`,
+`ROLL_NET` in `run_exit.sh`) replaces the `rab` rollout policy with the incumbent net at one ply
+(`decide_net_rollout`): 24-38 µs per playout decision vs `decide_rollout`'s 35. A net playout is still ~4x a `rab`
+playout because the net makes 1.4x more non-trivial decisions (it buys dev cards, so knight-or-roll and end-turn
+become real choices; `rab` never buys one), and its one-ply trees are a little wider.
+
+Generation, 256 games, same seed as every entry above (`rab` rollouts at 0.3 = 6.73 games/s, shard bitwise
+unchanged): net for all four seats **2.99 games/s at `--roll-p 0.3`, 6.32 at 0.1**; net for the labeled decider only
+with `rab` opponents (`own`) **4.88 at 0.3, 9.59 at 0.1**. The kill line was 2. Since the label-scaling sweep showed
+100k rollout rows train as well as 900k, `all` at 0.1 costs nothing in round time (~10.5 min of generation, ~350k
+rows, `MAX_TS` 300k) and `own` at 0.3 costs +4 min.
+
+What the two label semantics mean. `all`: P(win) under self-play of the net's one-ply policy — the textbook
+policy-iteration target, and the first label in this project whose policy is not AlphaBeta's. `own`: P(win) when
+the decider plays the net policy against three `rab` seats — the value of the arena's own game condition, cheaper,
+and closer to what the gate measures. Both are "labels from a policy at least as strong as the student" (depth-1
+net ≈ depth-2 `rab` as a player, 2026-09-02), which the update-size sweep said was the missing ingredient. Whether
+either moves a training draw *above* its warm start is the round-50/51 question; `DATA_LAST=1` trains those rounds
+on their own labels only (the window otherwise mixes in three rounds of `rab` labels). At the same `--roll-p`
+the `--roll-net` run records the same games and the same sampled rows as the `rab` run (one Recorder RNG draw per
+rollout either way); a different `--roll-p` shifts the Recorder's stream, so its sampled X rows differ while the
+games stay identical.
+
+**Engine edge case surfaced by the net rollout policy (round 51, fixed).** `board.rs` panicked with "cut node not in a
+component" 2,000 games into the `own` run: a settlement was built on an unoccupied node carrying two roads of one
+opponent that no longer belonged to any of that opponent's components. Mechanism, shared with catanatron: an
+initial-phase settlement next to an existing road is never cut out of the road owner's component (both engines skip
+the cut logic in the initial phase), so the owner may later build a road *through* it; a later cut elsewhere rebuilds
+that owner's components with `dfs_walk`, which stops at enemy nodes, so the far-side roads drop out of every
+component; settling on one of those far-side nodes then finds nothing to split. catanatron itself raises
+(`del list[None]`) in that state, which is why no replayed Python game ever contained it; `rab` never reached it in
+~250k games, the one-ply net reached it within 2,000. The fix is "nothing to split, continue" — no state a
+non-panicking game could reach changes, `test_env.py` passes.
+
+## 2026-09-22 — rounds 50-53 read correctly, and the step-size test: the soup's 1,000-game gains do not transfer
+
+Reading the soup blocks properly (the `+ vK_sN -> S` lines are the *running soup* after averaging that draw in; the
+single draws are the lines above `base`), the single draws of a full training pass from the incumbent, on the soup's
+1,000 games:
+
+| round | labels (`ROLL_NET` / `ROLL_P` / `ROLL_M`) | gen games/s | single draws | base | greedy soup | 4,000-game gate |
+|---|---|---|---|---|---|---|
+| 50 | net, all seats / 0.1 / 1 | 6.07 | 612 587 574 551 488 | 727 | kept none | skipped |
+| 51 | net, decider only / 0.3 / 1 | 4.5 | 625 621 605 602 557 | 694 | 713 (1 kept) | **v51 2775 > v49 2769, accepted**; 169/300 = 56.3% [50.7, 61.8] vs Python AB |
+| 52 | net, decider only / 0.3 / 1 | — | 599 590 579 502 498 | 676 | kept none | skipped |
+| 53 | net, decider only / 0.1 / 4 | 3.56 | 651 642 639 590 528 | 672 | 695 (3 kept) | v53 2671 < v51 2712, rejected |
+
+Every draw lands **5-24 points below its warm start**; the all-seats net labels are the worst (the self-play net-vs-net
+continuation is the furthest from the arena's and the gate's `vnet + 3 rab` condition), decider-only ≈ `rab` labels,
+and four rollouts per label (round 53) gives the three best single draws of the campaign (−21 to −33 games) — label
+noise matters at the margin, but no label recipe makes a draw land above the net it started from.
+
+**Step-size test** (`scratchpad/alpha_search.py`, now `soup.py --alphas`): `base + α (mean of the 5 draws − base)`,
+scored on each round's own soup seeds. Round 53 (base 672): α 0.15 → 690, **0.30 → 700**, 0.5 → 654, 0.7 → 654,
+1.0 → 642. Round 52 (676): 679 / 666 / 633 at 0.15 / 0.3 / 0.5. Round 50 (727): 743 / 722 / 672. Same shape three
+times: small steps at or above base, ≥ 0.5 clearly below, and the greedy soup's smallest possible step *is* 0.5. But
+the round-53 α = 0.3 net (`v53a.pt`) on 4,000 fresh gate games: **2712 vs the incumbent's 2710 — an exact tie.** Its
++28 on the soup seeds was the 1,000-game noise (σ ≈ 15) plus a best-of-six pick. Consequences: (1) the soup's
+per-round "gain" is mostly its own selection noise, and the gate's accepted rounds since v40 (+3.1, +0.7, +0.15
+points on 4,000 games, each a strict-> on one seed) are consistent with a flat line — v40 55.2% → v49 57.3% → v51
+56.3% vs Python AB, all inside one interval; (2) what is *not* noise is the 5-24-point drop of every single draw,
+which the averaging then undoes — the training step is a perturbation, and neither its size, its data volume, nor
+its label policy has produced a direction the 4,000-game gate can see. The loop's remaining rounds (54-57: `rab`
+labels at three rollouts each, then the best of the three recipes) run for completeness; a real gain needs a
+different training signal, not more of this one.
+
+**The training step alone is what destroys play (self-target diagnostic, `train_value.py --self-target`).** One draw
+from v51 on round 54's rows with every label replaced by *v51's own prediction* on that row — a fixed point of the
+loss — trained with the loop's exact recipe (Adam lr 1e-3, dropout 0.3, 6 epochs, best-held-out checkpoint): its
+BCE sat at the floor throughout (0.526 → 0.5255) and it scored **636/1000 vs v51's 692 on the same games (−5.6
+points)**. So every "draw lands 5-24 points below its warm start" result above, across all label policies, is the
+optimiser and regulariser moving a converged net to a different function that fits the noised objective equally
+well and plays worse — not the labels. Suspects, in order: dropout 0.3 on a converged regressor (the minimiser
+under dropout noise is not the eval-mode net that plays), Adam restarted with fresh moments at lr 1e-3 (steps are
+lr-sized regardless of gradient size, so at a fixed point they are noise), weight decay. Next: the same
+diagnostic with dropout 0 and lr 1e-4 / 1e-5; whichever step keeps 692 is the first non-destructive update this
+loop has had, and real labels go through it next.
+
+**Which step keeps play (self-target sweep, same rows and games, v51 = 692):** dropout 0.3 + lr 1e-3 (the loop's
+recipe — `train_value.py`'s default lr, never overridden) → **636**; dropout 0 + lr 1e-3 → 676; dropout 0.3 + lr 1e-4
+→ 681; dropout 0 + lr 1e-4 → 673; dropout 0 + lr 1e-5 → 684. The −5.6-point drop needs both the high learning
+rate and dropout; every gentler step is within one σ (15 games) of the base. So the loop has spent ~15 rounds
+taking a step that costs ~5 points per draw before any label information enters, then averaging the damage away.
+`run_exit.sh` takes `TRAIN_EXTRA` (e.g. `--lr 1e-4 --dropout 0`); rounds 56+ run with it as the 4,000-game test of
+whether real labels through a gentle step finally land a draw above its warm start.
+
+**Real labels through a gentle step, and round 55.** `rab` labels (three rollouts each, `data/it54`) from v51 through
+dropout 0 + lr 1e-4: draws 646, 642; through dropout 0 + lr 3e-5: 664, 666 — against v51's 692 on the same 1,000
+games, i.e. 30-50 games below where the self-target draw at the same step sat at 673-684. So the `rab` labels
+themselves cost another 3-5 points once the optimiser's damage is removed: regressing a net that beats `rab` toward
+`rab`'s continuation values is a step toward `rab`. Round 55 (decider-only net labels, four rollouts each, `data/it55`,
+the loop's old destructive step): single draws **672**, 647, 643, 616, 611 vs base 673, greedy soup 703 (2 kept),
+**accepted 2766 > 2737** (+0.7 pt, inside the gate's noise) — the first single draw of the campaign to land at its
+warm start, at the step that alone costs ~5 points. The two research passes (`docs/RESEARCH-SIGNAL.md`,
+`docs/RESEARCH-PLAYTIME.md`) converge: fix the step (decay off — coupled L2 inside Adam is the only systematic force
+at a fixed point — dropout off, lr ≤ 1e-4, selection not on the outcome BCE), then rebuild the gate (per-game
+logging, paired differences, SPRT to ~16k games; the 4,000-game gate has 30-40% power at 1.5 points), then the
+play-time levers (reply pruning / soft-min at depth 3, a checkpoint ensemble at the leaves, offers inside the search,
+net values inside `mcts.rs`, truncated CRN rollouts at the root). Simulation balancing (Gelly & Silver) explains
+round 50: a stronger but unbalanced rollout policy (all four seats the net) made the worst draws; the balanced
+`own` policy scored like `rab` at the old step and at base with four rollouts. Next: net labels (`it55`) through
+dropout 0, lr 1e-4 / 3e-5, weight decay 0; the loop's rounds 56-57 run `TRAIN_EXTRA="--lr 1e-4 --dropout 0"`.
+
+**The non-destructive step exists, and the labels still point down (sweep on v51, 1,000 games, base 692).**
+Self-target through dropout 0.3 + lr 1e-3 + weight decay 0: 648 (decay was ~12 games of the 56); self-target through
+**dropout 0 + lr 1e-4 + decay 0: 692, exactly the base** — the training step is fixed. Real decider-only net labels
+(four rollouts each, `data/it55`) through that same step: 673, 652 (two seeds); through lr 3e-5: 640; through the
+old step: 643. So with the optimiser's damage removed, every affordable label policy still moves the net 2-5 points
+*down*: the depth-2 student is stronger than `rab` and than its own one-ply self, and regressing toward a weaker
+policy's continuation values is a step toward that policy. This is the cap on Monte-Carlo value labels here, and it
+is economic (labels from the depth-2 student itself are ~160x per row), not a bug. The way past it is a
+policy-improvement operator at play time (rollouts, reply-pruned/soft-min depth 3, MCTS with net values, offers in
+the search — `docs/RESEARCH-PLAYTIME.md`) whose decisions are then the training target, plus a gate that can see
+1-2 points (`docs/RESEARCH-SIGNAL.md` §gate). Rounds 56-57 (`TRAIN_EXTRA="--lr 1e-4 --dropout 0"`) close the loop
+on the gentle step at 4,000 games.
+
+## 2026-09-22 — a prediction ensemble at the leaves: +2 points on 4,000 games, replicated
+
+`vnet:a.pt+b.pt+...` (`value_net.Ensemble`) averages several checkpoints' heads at every leaf of the same depth-2
+search; nothing is trained. Four lineage checkpoints (v46, v49, v51, v55) vs the incumbent v55 alone, 4,000 paired
+games vs 3x `rab`: **2842 vs 2762 (seed 56000011) and 2840 vs 2762 (seed 56000013), +2.0 points both times** —
+outside the gate's ±1.4-point noise and the first play-time change to clear it. This is the variance hypothesis
+confirmed at the point of use: the search suffers from the leaf value's noise more than its bias, and averaging
+four *different* fits of the same objective (a prediction ensemble, not a weight soup — these checkpoints are
+already soups and lie in different basins) removes some of it. Cost: four forwards per leaf on the XPU, invisible
+at generation (the forward is ~1% of a step) and ~1.3x on the gate. Open: more members, older/more diverse members,
+whether an ensemble incumbent should also generate the loop's data (its rollout policy and `--init` need a single
+net: use the newest member), and whether the gain survives vs Python AlphaBeta (a headline run when a milestone
+warrants it, not per round).
+
+**Round 56, the gentle step in the loop** (`TRAIN_EXTRA="--lr 1e-4 --dropout 0"`, decider-only net labels with four
+rollouts, window `it55`+`it56`, from v55): single draws **690, 683, 680, 676, 664 vs base 687** — every draw within
+noise of its warm start, where every earlier round's draws sat 20-140 games below; greedy soup 690; gate **v56 2764
+vs v55 2763**, accepted on the strict rule, an exact tie. The loop is now non-destructive and flat: the training step
+no longer costs anything and the labels no longer buy anything, which is the Monte-Carlo-label cap stated above,
+now measured cleanly at 4,000 games. Progress from here is play-time (the +2-point leaf ensemble, reply-pruned /
+soft-min depth 3, net values in MCTS, offers in the search) and, for training, targets from a player stronger than
+the student (search values or the ensemble's values through the gentle step) — see `docs/AUDIT-killed-levers.md`
+for the re-tests of the levers that were killed through the destructive step or an underpowered gate.
+
+**Ensemble size (seed 56000011, v55 alone 2762):** two members v51+v55 (near-identical lineage) **2759**, no gain;
+four (v46, v49, v51, v55) 2842; eight (adding v40, v48, v53, v53a) **2826**. The gain needs members that differ
+(different rounds' soups), saturates by four, and older or weaker members do not add. Player of record from here:
+`vnet:v46.pt+v49.pt+v51.pt+v55.pt` (+2.0 points, replicated on two seeds).
+
+## 2026-09-22 — rounds 50+: net-labelled rollouts vs rab labels (subagent log)
+
+`run_exit.sh` schedule, rounds 50-57. "Draws" = the five per-seed standalone soup-candidate scores
+(the `  checkpoints_value/vNN_sS.pt: N/1000` lines, printed before `base`), each /1000 vs the incumbent
+on the same 1000 held-out seeds; "running soup" = the `+ vNN_sS.pt -> N/1000 (kept|dropped)` lines, the
+greedy soup's score after each draw is tried in turn; "final soup" = the `greedy soup of a/b: S/1000` line.
+Round 51 crashed once (`board.rs:142` "cut node not in a component" panic mid-generation at 2000/4000
+games) and was restarted from scratch with the same recipe and seed; the numbers below are the restart.
+
+| round | recipe (ROLL_NET/ROLL_P/ROLL_M/DATA_LAST) | gen games/s | draws vs base | running soup (+lines) | final soup | proxy: incumbent vs candidate | verdict | AB gate |
+|---|---|---|---|---|---|---|---|---|
+| 50 | all / 0.1 / 1 / 1 | 6.07 | 612, 587, 574, 551, 488 vs 727 | 715, 678, 649, 669, 677 (all dropped) | 727/1000 (soup 1/5, no draw kept) | skipped | **rejected** | — |
+| 51 | own / 0.3 / 1 / 1 | 4.28 | 625, 621, 605, 602, 557 vs 694 | 680, 713(kept), 654, 694, 662 | 713/1000 (soup 2/5) | 2769/4000 (v49) vs 2775/4000 (v51) | **accepted** | 169/300 = 56.3% vs AlphaBeta [50.7,61.8] |
+| 52 | own / 0.3 / 1 / 2 | 4.91 | 599, 590, 579, 502, 498 vs 676 | 662, 660, 649, 591, 639 (all dropped) | 676/1000 (soup 1/5, no draw kept) | skipped | **rejected** | — |
+| 53 | own / 0.1 / 4 / 1 | 3.56 | 651, 642, 639, 590, 528 vs 672 | 667, 649, 676(kept), 695(kept), 687 | 695/1000 (soup 3/5) | 2712/4000 (v51) vs 2671/4000 (v53) | **rejected** | — |
+| 54 | rab (no ROLL_NET) / 0.1 / 3 / 1 | 3.35 | 652, 647, 609, 565, 552 vs 692 | 647, 656, 671, 656, 649 (all dropped) | 692/1000 (soup 1/5, no draw kept) | skipped | **rejected** | — |
+| 55 | own / 0.1 / 4 / 1 | 3.44 | 672, 647, 643, 616, 611 vs 673 | 703(kept), 691, 692, 669, 683 | 703/1000 (soup 2/5) | 2737/4000 (v51) vs 2766/4000 (v55) | **accepted** | — |
+| 56 | own / 0.1 / 4 / 2, `TRAIN_EXTRA="--lr 1e-4 --dropout 0"` | 2.55 | 690, 683, 680, 676, 664 vs 687 | 679, 683, 690(kept), 685, 674 | 690/1000 (soup 2/5) | 2763/4000 (v55) vs 2764/4000 (v56) | **accepted** | — |
+| 57 | own / 0.1 / 4 / 3, `TRAIN_EXTRA="--lr 1e-4 --dropout 0"` | 2.68 | 689, 687, 669, 659, 638 vs 689 | 687, 699(kept), 676, 675, 667 | 699/1000 (soup 2/5) | 2743/4000 (v56) vs 2770/4000 (v57) | **accepted** | — |
+
+Recipe means (draws minus base, single-draw reading): `all` P=0.1 (round 50 only) -164.6; `own` M=1
+(rounds 51-52, pooled) -107.2 (accepted once, round 51); `own` M=4 (round 53 alone) -62.0; `rab` M=3
+(round 54 alone) -87.0. `own` M=4 had the best (least negative) mean of the three after round 54 and was
+carried through rounds 55-57, where it was accepted three rounds running (55, 56, 57) and moved the
+incumbent from v51.pt to v57.pt. Every recipe's draws stayed below base by this reading; "accepted" tracks
+the coarser 4000-game proxy-gate win count, which the soup's own /1000 numbers did not always predict
+(round 56's soup kept only one draw at 690 vs base 687, yet the candidate still edged the proxy by one win,
+2764 vs 2763). `TRAIN_EXTRA="--lr 1e-4 --dropout 0"` (rounds 56-57) did not visibly change draw quality
+relative to round 55's default-hyperparameter run. Round 53's ROLL_M=4 and round 54's ROLL_M=3 each ran
+generation at roughly half round 50's 6.07 games/s (3.56, 3.35); rounds 55-57 ran slower still (3.44, 2.55,
+2.68) with the coordinator's own concurrent evaluate/gen jobs sharing the box from round 56 on. Final
+incumbent: `checkpoints_value/v57.pt`.
+
+**Round 57** (same recipe as 56, window `it56`+`it57`, from v56): draws 689, 687, 669, 659, 638 vs base 689; soup 699;
+gate **v57 2770 vs v56 2743**, accepted (+27 games, inside the gate's ~±40 noise). Rounds 56-57 are the loop at its
+non-destructive step: draws at the warm start, gates that tie. **Round 58** is the distillation test the user asked for
+before capping the line: the four-checkpoint ensemble plays both generation seats (`LINEUP_NET`), every one of its
+decisions records the root and up to five children with their backed-up depth-2 values (`--ts-p 0.3`, ~100 rows per
+game), and five draws from v57 regress on those (`--ts-key ts`) through dropout 0 / lr 1e-4 / decay 0; gate vs v57.
+A tie caps the value-net line at v57 with the ensemble as the shipped player.
+
+**Gate rebuilt (`gate.py`, `docs/RESEARCH-PLAYTIME.md` §3):** candidate and incumbent play the same seeds in blocks of
+1,000, the per-seed win difference feeds a normal-approximation SPRT between H0 "0.5 points worse" and H1 "1 point
+better" with bounds ±log 19 (α = β = 0.05), capped at 12,000 games where the incumbent stays. Validation on the known
++2-point ensemble vs v55: accepted at 3,000 games (llr +4.24, +3.0% on that seed range). `run_exit.sh` now gates
+with it (`GATE_MAX` overrides the cap); the two fixed 4,000-game totals with a strict `>` are gone.
+
+**Round 58, distillation from the ensemble's searches — the value-net line is capped.** 4,000 games with the
+four-checkpoint ensemble in both generation seats, `--ts-p 0.3` (453,873 root/child rows with the ensemble's backed-up
+depth-2 values), five draws from v57 on `--ts-key ts` through dropout 0 / lr 1e-4 / decay 0: single draws **691,
+686, 686, 681, 666 vs base 700**; greedy soup 712 (3 kept). Paired SPRT gate v58 vs v57, blocks of 1,000: the llr
+wandered between −2.2 and +0.6 and hit the 12,000-game cap at **8343 vs 8338 (+0.04%)** — an exact tie measured to
+±0.5 points. Targets from a player 2 points stronger than the student, through a non-destructive step, do not move
+a single net; the depth-2 net at this size/feature set is at its ceiling for value regression. Per the user's rule
+(2026-09-22): **the value-net training line stops at v57**; the shipped player is the ensemble
+`vnet:v46.pt+v49.pt+v51.pt+v55.pt` (+2 points over v55, replicated; v57 could replace v55 in it — untested). The
+first soup/gate attempt of this round crashed because `arena.py` had been edited to pass the new soft-min
+`tau` argument before the engine was rebuilt (the draws survived; the round was resumed from the soup by hand).
+Engine state at the stop: rebuilt with the soft-min temperature plumbing (`vnet3t0.1:<path>`, `search.rs
+backup`, tau = 0 is the exact min, `test_env.py` passes); the depth-3 soft-min gate (`gate.py vnet3t<τ>:<ensemble>
+vnet:<ensemble>`) is the next steelman item, then offers inside the search, then net values in `mcts.rs`
+(`docs/AUDIT-killed-levers.md`, `docs/RESEARCH-PLAYTIME.md`).
+
+## 2026-09-22 (evening): steelman #6, depth 3 on the ensemble
+
+Screen, no training: the shipped ensemble `v46+v49+v51+v55` vs 3x `rab`, every arm on the **same 2,000 seeds**
+(91000000-91001999, per-seed wins in `checkpoints_value/d3/*.json`, `d3/diff.py` prints the paired difference). Cost:
+depth 2 13.3 games/s, depth 3 3.5 games/s (4x per game; decisions over `MAX_LEAVES` = 20k leaves still fall back to
+depth 2, so these arms mean "depth 3 where it fits").
+
+| arm | wins / 2,000 | paired diff vs depth 2 |
+|---|---|---|
+| depth 2 (`vnet:`) | 1415 | — |
+| depth 3, exact min (`vnet3:`) | 1383 | −1.6 ± 1.3 |
+| soft-min τ 0.02 (`vnet3t0.02:`) | 1334 | −4.1 ± 1.2 |
+| τ 0.05 | 1309 | −5.3 ± 1.3 |
+| τ 0.1 | 1291 | −6.2 ± 1.3 |
+| τ 10 (≈ mean over replies) | 1287 | −6.4 ± 1.3 |
+
+- **Plain depth 3 lost 5.8 points with v25 and loses 1.6 ± 1.3 with the ensemble.** Most of the old kill was leaf
+  noise, which is what the ensemble removes.
+- **Soft-min is dead, and monotonically so.** Every step from the exact min toward the mean costs more. The
+  "min over noisy replies is biased low" story (RESEARCH-PLAYTIME §2) predicted the opposite. All the data shows is
+  that a pessimistic backup over the net's own reply values beats a softened one against these AlphaBeta opponents;
+  whatever the remaining depth-3 deficit is, it isn't min bias that a softer backup can fix.
+- **Reply pruning doesn't rescue it either.** The switch is `vnet3k<k>:`, which is `search.rs expand_into` `prune`:
+  each opponent node keeps the k replies worst for p0 by `$PRUNE_NET`'s one-ply CPU value, and `$PRUNE_NET` defaults
+  to the spec's last member. On the same seeds k1 scored 1378 (−1.9 ± 1.3), k2 1376 (−2.0) and k3 1370 (−2.3), which
+  is plain depth 3 within noise. `arena.py`'s `__main__` asserts k999 == plain depth 3.
+
+**Verdict on steelman #6.** Both named repairs have now been tried on the strongest evaluator we have, and depth 3 is
+still at best a tie with depth 2 (−1.6 ± 1.3) at 4x the cost per game. The old kill was mostly leaf noise, but what
+remains is not a backup problem. That is why no arm went to the SPRT confirm: the decision rule needed a gain, and
+every arm is below zero. The one untested reading is co-adaptation: the net was trained only on depth-2 leaf
+distributions. Testing it means generating and training at depth 3, and the training line is capped. Depth 3 is
+closed as a play-time lever.
+
+## 2026-09-22 (evening): steelman #7, first step: the value-net seat trades with its own net (+11.5 points)
+
+"Label the trade policy" was retired because trades never enter the search. Before putting offers into the search,
+the cheap question was which evaluator the existing 1-ply trade policy (`trade.rs`) uses. The answer was
+different on the two gates:
+- **The arena (every rab gate, every generation run)** has always used `base_fn` for *both* seats' trade decisions
+  (`arena.rs`: "the arena scores value-net leaves in Python, batched, and trade decisions are not batched"). The net
+  searched, and AlphaBeta's heuristic chose its trades.
+- **The Python `ValueNetPlayer` (the official Python-AB metric)** has always traded with `Eval::Net`: the net judged
+  its own trades *and* predicted partners' replies, even though AlphaBeta partners answer with `base_fn`.
+
+The Rust CPU forward (3 µs/leaf) made net-judged trades affordable inside the arena. New evaluator
+`Eval::NetVsHeuristic` in `trade.rs`: the net judges the seat's own offers, replies and confirmations, and a partner's
+acceptance is predicted with `base_fn`, which is exact against AlphaBeta. The arena spec is `vnetx:` (the trade net
+is the spec's last member, one Rust net, `min_gain` 0.003 as tuned for one net); `vnetxx:` = the net for partners too.
+
+Trading is not a side channel. At depth 2 against 3x rab there are ~30 domestic trades per game (every offer is
+confirmed, because offers are only made when a partner is predicted to accept) and ~90 accept/reject replies.
+
+| ensemble `v46+v49+v51+v55`, 100 games, seeds 93000000+ | wins | offers/game | replies rejected/game |
+|---|---|---|---|
+| `vnet:` (base_fn trades) | 68 | 30.0 | 57.5 |
+| `vnetx:` (net own, base_fn partners) | 77 | 40.5 | 92.4 |
+| `vnetxx:` (net both, the Python player's old path) | 60 | 39.7 | 92.5 |
+
+**Paired SPRT gate `vnetx:<ens>` vs `vnet:<ens>`, seeds 94000000+: accepted at the first block, 827/1000 vs
+712/1000, +11.5 points, llr +6.39.** This is the largest single gain since the value net replaced `base_fn`, and it
+needed no training. The vnet seat makes more offers, rejects more of the opponents' offers, and the partners'
+`base_fn` accepts what the net judges good for us. Caveat: against rab and Python AB, the partner model is exact,
+so this is an upper bound for opponents that trade differently (jSettlers bridge still to run).
+`PyState.trade_action(net)` now uses `NetVsHeuristic`, so the Python `ValueNetPlayer` takes the split
+evaluator too, and `value_net.rust_value_net` accepts an ensemble spec (last member). Before this, the shipped ensemble
+crashed in the Python player's trade path, so it had never been measured against Python AB.
+
+**Official metric: `vnet:v46+v49+v51+v55` (Python `ValueNetPlayer`, now with `NetVsHeuristic` trades) vs 3x Python
+AlphaBeta, `evaluate.py --opponent alpha_beta --games 1000` (seeds 0-999): 815/1000 = 81.5% [79.0, 83.8].** v49 on the
+same protocol was 57.3% [54.2, 60.3]. The arena says roughly 2 of the 24 points are the ensemble; the rest is the trade
+evaluator. The Python player's old `Eval::Net` path (`vnetxx:` in the arena) looked *worse* than `base_fn` trades
+(60 vs 68 of 100), so every Python-AB number before today was measured with a trade policy that was costing points.
+
+## 2026-09-22 (night): steelman #5, aux heads back on at the non-destructive step: rejected
+
+The test was a paired arm on the audit's terms (`checkpoints_value/aux/run.sh`):
+- **Arms:** 3 draws each from v57, `--aux-weight 0` against `--aux-weight 1`.
+- **Data:** `it55-57`, rollout labels (`--ts-key ro --ts-weight 3 --win-weight 0`).
+- **Step:** the certified non-destructive one (`--lr 1e-4 --dropout 0 --weight-decay 0`, 6 epochs, early stopping).
+- **Soup:** each arm's draws averaged uniformly, with no play-selected soup, so selection noise can't pick a winner.
+- **Gate:** paired SPRT with `vnetx:` (trades on) on seeds 95000000+.
+
+**Result: rejected at 6,000 games, 4859 vs 4901 (−0.7 points, llr −3.78).** The aux losses don't improve the trunk
+for play. On an unseen shard (`it58`) the aux-trained heads fit their scale (MSE 0.54 → 0.03-0.05) but not their
+signal. Own-final-VP correlation is 0.568 against 0.565 untrained, because early stopping picks step 180-450 at
+lr 1e-4. If calibrated VP heads are ever needed (the site's VP display, max^n backups), train the heads alone on a
+frozen trunk. That can't change play, so it doesn't need a gate. The wrapper script died mid-gate for an
+unidentified reason; `gate.py` ran on as an orphan and finished.
+
+## 2026-09-22 (night): steelman "MCTS with net values"
+
+This is the thesis UCT agent (`mcts.rs`) with the net in place of random VP/10 playouts. `Mcts::search_net`:
+- **Tree:** p0's post-roll main phase, as in the thesis.
+- **Leaf value:** the net's P(win) one ply on, computed by `net_one_ply` on the CPU with v55. That is the exact
+  expectation over the next roll after END_TURN, max over p0's replies, min over an opponent's.
+- **Arena spec:** `vnetm<sims>c<c>[b][r<rounds>l<λ>]x:`. The seat's other prompts stay with the depth-2 search, and
+  trades stay with `x`.
+
+Every arm is compared with depth 2 on the same net (`vnetx:v55`) and the same seeds (96000000+), paired per seed
+(`checkpoints_value/mcts*/`, `d3/diff.py`).
+
+| arm | games | diff vs depth 2 (points) |
+|---|---|---|
+| 200 sims, c 0.1 | 2,000 | −10.1 ± 1.1 |
+| 500 sims, c 0.1 / 0.03 / 0.3 | 2,000 | −11.7 / −7.7 / −14.3 |
+| 1500 sims, c 0.1 | 2,000 | −9.4 |
+| **+ stochastic actions scored as exact expectations**, 1000 sims, c 0.03 / 0.01 | 1,000 | −2.2 / −2.5 |
+| + max backup, c 0.03 / c 0 (best-first) / 3000 sims | 1,000 | −2.6 / −6.1 / −1.3 |
+| **+ λ-mix with a truncated playout** (rollout policy `decide_rollout`, scored by the net at the cutoff), 1 round λ 0.8 | 1,000 | −0.7 |
+| 1 round λ 0.5 | 1,000 | +0.8 |
+| 2 rounds λ 0.5 | 1,000 | **+1.8 ± 1.4** |
+
+Findings, in order:
+1. **The first version lost 8-14 points for a structural reason, not because of the idea.** The thesis tree expands a
+   stochastic action (a dev-card buy, a steal) by sampling one outcome and keeping it forever, so the argmax picks
+   lucky draws. Scoring those actions as the exact expectation over their outcomes (`fixed` leaves) recovered 6-9
+   points.
+2. **A net-only tree converges to depth 2 and not past it.** Neither max backup nor 3x the simulations moves it above
+   depth 2. Deeper own-turn lines add nothing that the net doesn't already see two plies in.
+3. **Playouts help a little, then stop.** Net-only −2.2, λ 0.8 −0.7, λ 0.5 +0.8 (1 round) / **+1.8** (2 rounds),
+   then back down: 2 rounds at λ 0.3 −2.8 and λ 0 (pure playout) −6.7; 4 rounds at λ 0.5 −1.6. The single positive
+   arm is the best of six on shared seeds, each ±1.4, so it's most likely selection noise. **Verdict, rab-only: the
+   best net-MCTS ties depth 2 at ~20x the cost** (0.7 against ~10 games/s before the speed work). Its playouts are
+   the rab policy, so even a tie is a rab-flavoured result. Re-testing on the pool gate (2026-09-23 goal) is the only
+   reason to revisit it.
+
+### MCTS speed, behaviour-identical changes (2026-09-23)
+
+The bench is `vnetm1000c0.03r2l0.5x:v55` against 3x rab on fixed seeds, with every game's action log hashed. A change
+is accepted only if all logs are identical, and the scripts live in the session scratchpad. What the profiles showed:
+- **Where the search time goes:** instrumented timers, since `perf` call chains don't unwind through fat LTO. The
+  playouts (the rollout policy `decide_rollout`) take 92% of search time, the playout-end net value 7%, and tree
+  expansion and selection ~1%.
+- **What was wasted:** the machine ran at 158-420% CPU of 800.
+
+| change | result | logs |
+|---|---|---|
+| cache each node's net value (`Node.net_v`): a fully expanded own-turn tree re-scored its leaves on every revisit | 16 games 69.8 → 64.0 s (1.09x); net-only MCTS 3 → 6.9 games/s, ≈ depth 2 | identical |
+| `clone_light` for tree and playout states | no measurable change (kept, harmless) | identical |
+| `OPENBLAS_NUM_THREADS=1` (37% of E-core samples were OpenBLAS threads spinning) | no change: they spin on cores the arena leaves idle | — |
+| forwards on the CPU instead of the XPU (13.7% of samples are the XPU driver busy-waiting) | slower, 161 vs 131 s | identical |
+| **one driver thread per arena, 16 arenas for MCTS specs** (`arena.py`): a step runs every game until its next forward, so it waits for the slowest game's whole turn of searches | 128 games **191.9 → 130.9 s (1.47x)**, 158% → 689% CPU | identical |
+
+The threaded drivers run only when there are more than 2 arenas (`ARENAS`, default 16 with `m`). Their finishing order
+isn't deterministic, and `gen_games.py`'s shards depend on it. Depth 2 through either loop: 16.8 games/s, identical.
+The rollout policy's own internals (longest-road DFS, reach memo, clones) were already mined by the generation work
+(`docs/PLAN-gen-speed.md`). What remains are tradeoffs, which need screens: the simulation budget, a depth-1 playout
+policy (`r<n>h`, ~30x cheaper per decision), and a direct net value at the playout end instead of one ply (≤ 7%).
+
+## 2026-09-23: goal changed, strongest agent across a diverse field, not AlphaBeta
+
+The user retired "beat AlphaBeta" (met: 81.5% vs 3x Python AB) as the target. The goal is now the strongest Catan agent
+overall, without overfitting to one opponent. Consequence for everything above: the recent gains all come from places
+where our opponent model *is* the opponent.
+- **Trades (+11.5):** partners are predicted with `base_fn`, which is exact for rab/AB, and uct/buct/vpi trade with
+  `base_fn` in this engine too.
+- **The λ-mix MCTS (+1.8):** its playouts are the rab policy.
+- **Every value-net label:** a rab-policy continuation from vnet x2 + rab x2 tables.
+
+Each of these is provisional until measured against opponents that trade and play differently (the jSettler port,
+real jSettlers, net seats). The gate moves from 3x rab to a pool with per-opponent-class breakdowns and a
+no-regression rule per class. Every result above that says "vs rab" is a rab-only result.
+
+### Opponent pool in the arena, and the strength ladder (2026-09-23)
+
+New arena seats (`arena.rs Seat`, tokens in `arena.py POOL`), each deciding everything itself, trades included:
+- `rab<d>`: AlphaBeta's exact expectimax at depth d, with `base_fn` trades.
+- `jsrobot` / `jsdroid`: the jSettler port with SMART / FAST params. It has its own negotiator, so it's a non-`base_fn`
+  trader.
+- `uct<N>[c<c>][r]`: thesis UCT at N playouts, default 5000.
+- `cvnet:<path>`: a lineage net at depth 2 on the CPU, trading with `NetVsHeuristic`.
+
+`arena.play` takes a per-seed lineup function, and `gate.py --pool` draws each seed's 3 opponents from the pool with a
+per-opponent breakdown and a veto on any per-opponent regression (z < −2). Seat cost, CPU-seconds per 64 games on
+top of an all-rab table: jsrobot 10, rab3 10, cvnet 12, uct5000 50, uct20000 205.
+
+The ladder: each variant in seat BLUE against a fixed mixed field (jsrobot, uct5000, cvnet:v40), the same 1,000 seeds
+(100000000+), paired (`checkpoints_value/ladder/`).
+
+| family | variant | wins / 1,000 | paired diff vs rab |
+|---|---|---|---|
+| AlphaBeta | rab (depth 2) | 71 | — |
+| | **rab3** | 102 | +3.1 ± 1.2 |
+| jSettler | **jsrobot** (SMART) | 110 | +3.9 ± 1.3 |
+| | jsdroid (FAST) | 66 | −0.5 |
+| UCT | uct1000 | 147 | +7.6 |
+| | **uct5000** | 197 | +12.6 ± 1.4 |
+| | uct20000 | 192 | +12.1: saturated at the thesis budget |
+| net (CPU, depth 2, net trades) | v40 | 349 | +27.8 |
+| | v49 | 341 | +27.0 |
+| | **v57** | 409 | +33.8 ± 1.7 |
+
+- **UCT saturates at 5,000 playouts,** so there's no reason to buy it more budget or a faster high-budget search.
+  Two behaviour-identical speedups are banked anyway: allocation-free move generation, and an inline
+  `(neighbor, edge)` table for the road loops. Together they cut the bench by ~1.15x, with every game log identical.
+- **v57 beats v40/v49 by 6-7 points here, though it tied them against 3x rab.** The rab gate was hiding real
+  differences between nets.
+
+Ladder round 2, same field and seeds, paired against uct5000:
+- **UCT:** the per-visit dev-card redraw hurts (`uct5000r` −3.9 ± 1.5, `uct5000c1r` −5.0). A redrawn buy is a leaf that
+  can't be followed by same-turn builds, which costs more than the sampling bias. The exploration constant is flat
+  (c 0.5 +0.5, c 1.0 −0.9, default 2.0). Heuristic playouts would make it a different, AlphaBeta-flavoured agent at
+  ~100x the cost, so it isn't pursued. **The thesis default `uct5000` is UCT's strongest form here.**
+- **AlphaBeta:** rab4 scores 113 against rab3's 102 (+1.1, noise). rab3 is the cheaper equal.
+- **Lineage nets, relative to uct5000:** v40 +15.2, v49 +14.4, v51 +16.0, v55 +18.4, v57 +21.2. The rounds after v49,
+  including the gentle-step rounds 56-57 the rab gate scored as ties, made the net more generally stronger.
+
+**Gate pool, the strongest form of each family:** `rab3, jsrobot, uct5000, cvnet:v57`. Held out, report-only: real
+jSettlers (bridge), Python AB, buct/vpi/drrl (tournament.py), jsdroid.
+
+### Our own players in the pool field, and the first pool gates (2026-09-23)
+
+Same ladder field (jsrobot, uct5000, cvnet:v40), same 1,000 seeds, paired against `cvnet:v57`:
+- `vnetx:v57`, the same player on the XPU: 405 against 409 (−0.4 ± 0.2, a consistency check).
+- The shipped ensemble `v46+v49+v51+v55` with `x` trades: 373 (−3.6 ± 1.9).
+- The ensemble with v57 swapped in for v55: 393 (−1.6).
+- The shipped ensemble with `base_fn` trades (`vnet:`): 242 (−16.7).
+
+**The ensemble's +2 was a rab-only result.** Averaging in older nets makes the player weaker than v57 alone in a mixed
+field. The pool incumbent is **`vnetx:v57`** (the Python token is `vnet:checkpoints_value/v57.pt`).
+
+**Pool gate 1, net-judged trades vs `base_fn` trades on v57** (`gate.py --pool rab3,jsrobot,uct5000,cvnet:v57`, seeds
+101000000+): **accepted at 1,000 games, 441 vs 299, +14.2 points (llr +6.04).** Per opponent at the table: jsrobot
++13.6 (z 5.6), cvnet:v57 +15.3, rab3 +18.0, uct5000 +13.7. The gain holds against the two traders our `base_fn`
+partner model gets wrong (the jSettler's negotiator, the net seats' net-judged replies). It isn't AlphaBeta
+exploitation: the net judges its own side of a trade far better than `base_fn` does. That settles the 2026-09-22
+caveat.
+
+**Aux-heads retry (the user asked for a harder try before the kill), pool-gated.** The first attempt's heads never
+learned: they were mis-scaled at the start, and early stopping picked step ~450 at lr 1e-4. The retry:
+1. warm the heads alone on the frozen v57 trunk (`train_value.py --heads-only`, lr 1e-3, 3 epochs; trunk and win head
+   bitwise unchanged; turns-left correlation −0.27 → 0.61);
+2. train jointly from there (`--aux-weight 1` / `0.3`, the fixed step, 3 draws each, uniform soup). The heads now learn
+   real signal: on the unseen `it58` shard, own-VP correlation 0.62 (0.56 before), opponents' VP 0.55 (0.21-0.37),
+   turns-left 0.87.
+
+Pool gates against the aux-0 control a0 (same data, seeds, step):
+- w1: **3800 vs 3790 / 8,000 (+0.1 points)**, capped;
+- w0.3: **3766 vs 3741 (+0.3)**, capped;
+- no per-opponent effect in either.
+
+**Verdict: the aux losses don't change playing strength in either direction** (measured to ±0.5 points). They're
+kept as a free byproduct: `checkpoints_value/aux/w1.pt` has calibrated per-seat VP heads at no cost in play, which is
+the prerequisite for max^n backups (RESEARCH-PLAYTIME §2d) and the site's VP display.
+
+**Pool gate, partner model = the net (`vnetxx:v57`) vs `base_fn` (`vnetx:v57`): rejected at 1,000 games, 343 vs 468
+(−12.5 points).** It's worse against every opponent: rab3 −17.3, uct5000 −14.3, jsrobot −9.0, and even the net seats
+(−8.4), whose replies the net should model best. Predicting partners with `base_fn` stays.

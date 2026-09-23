@@ -158,6 +158,21 @@ class ValueNet(nn.Module):
         return self.heads(x)[..., :1]
 
 
+class Ensemble(nn.Module):
+    """Mean of several checkpoints' heads at every leaf (`vnet:a.pt+b.pt`): a play-time variance test
+    (docs/RESEARCH-PLAYTIME.md 2026-09-22), no training."""
+
+    def __init__(self, nets):
+        super().__init__()
+        self.nets = nn.ModuleList(nets)
+
+    def heads(self, x):
+        return torch.stack([n.heads(x) for n in self.nets]).mean(0)
+
+    def forward(self, x):
+        return self.heads(x)[..., :1]
+
+
 def load_value_net(path):
     """Per-process cache; also caps torch to one thread the first time (we run
     7 worker processes on 8 hardware threads doing batch-1 forwards -- same
@@ -166,6 +181,8 @@ def load_value_net(path):
     if not _threads_capped:
         torch.set_num_threads(1)
         _threads_capped = True
+    if "+" in path and path not in _NET_CACHE:
+        _NET_CACHE[path] = Ensemble([load_value_net(p) for p in path.split("+")]).eval()
     if path not in _NET_CACHE:
         sd = torch.load(path, map_location="cpu")
         first = [k for k in sd if k.endswith(".weight")][0]
@@ -223,15 +240,17 @@ _RUST_NETS = {}
 
 def rust_value_net(path):
     """The checkpoint's weights as a catan_engine.ValueNet (tools/export_valuenet.py layout), per process,
-    for the Rust trade policy; the search still scores leaves with torch."""
+    for the Rust trade policy; the search still scores leaves with torch. An ensemble spec (`a.pt+b.pt`) gives its
+    last member: the Rust forward is one net."""
+    path = path.split("+")[-1]
     if path not in _RUST_NETS:
         import catan_engine
 
         net = load_value_net(path)
         linears = [m for m in net.mlp if isinstance(m, nn.Linear)]
-        parts = [net.mask.numpy()]
+        parts = [net.mask.cpu().numpy()]  # arena.py moves the cached module to the XPU in place
         for lin in linears:
-            parts += [lin.weight.detach().numpy(), lin.bias.detach().numpy()]
+            parts += [lin.weight.detach().cpu().numpy(), lin.bias.detach().cpu().numpy()]
         blob = np.concatenate([q.astype("<f4").ravel() for q in parts]).tobytes()
         _RUST_NETS[path] = catan_engine.ValueNet(list(blob), N_FEATURES, linears[0].out_features)
     return _RUST_NETS[path]

@@ -88,7 +88,8 @@ impl State {
         let mut best: Option<Action> = None;
         let mut best_v = if maximizing { f64::NEG_INFINITY } else { f64::INFINITY };
         for a in self.search_actions() {
-            let ev: f64 = self.outcomes(a).iter().map(|(s, p)| p * s.expectimax(depth - 1, p0).1).sum();
+            let mut ev = 0.0;
+            self.for_each_outcome(a, |s, p| ev += p * s.expectimax(depth - 1, p0).1);
             if (maximizing && ev > best_v) || (!maximizing && ev < best_v) {
                 best = Some(a);
                 best_v = ev;
@@ -108,7 +109,7 @@ impl State {
     ///   within the horizon cannot pay off; the generator already emits each
     ///   trade at its best port rate, so catanatron's 3:1-vs-4:1 prune is moot).
     /// Only the rollout policy uses this; `rab` seats and gates stay exact.
-    fn rollout_actions(&self, second_ply: bool) -> Vec<Action> {
+    pub(crate) fn rollout_actions(&self, second_ply: bool) -> Vec<Action> {
         let p = self.current_player;
         let acts = self.search_actions();
         let mut enemy_tiles = 0u32;
@@ -142,7 +143,8 @@ impl State {
         let mut best: Option<Action> = None;
         let mut best_v = if maximizing { f64::NEG_INFINITY } else { f64::INFINITY };
         for a in self.rollout_actions(depth == 1) {
-            let ev: f64 = self.outcomes(a).iter().map(|(s, p)| p * s.expectimax_rollout(depth - 1, p0).1).sum();
+            let mut ev = 0.0;
+            self.for_each_outcome(a, |s, p| ev += p * s.expectimax_rollout(depth - 1, p0).1);
             if (maximizing && ev > best_v) || (!maximizing && ev < best_v) {
                 best = Some(a);
                 best_v = ev;
@@ -164,6 +166,7 @@ impl State {
             Prompt::MoveRobber => 1,
             _ => 2,
         };
+        self.reachable_production(self.current_player); // prime the memo every non-building child inherits
         self.expectimax_rollout(depth, self.current_player).0
     }
 
@@ -174,6 +177,7 @@ impl State {
             return (Some(actions[0]), f64::NAN, vec![]);
         }
         let p0 = self.current_player;
+        self.reachable_production(p0);
         let root: Vec<(Action, f64)> = actions
             .into_iter()
             .map(|a| (a, self.outcomes(a).iter().map(|(s, p)| p * s.expectimax(depth.saturating_sub(1), p0).1).sum()))
@@ -191,6 +195,7 @@ impl State {
         if actions.len() == 1 {
             return Some(actions[0]);
         }
+        self.reachable_production(self.current_player);
         self.expectimax(depth, self.current_player).0
     }
 }
@@ -198,6 +203,15 @@ impl State {
 impl State {
     /// reachability_features levels 0..=2 for p, each summed over resources.
     pub fn reachable_production(&self, p: usize) -> [f64; 3] {
+        if let Some(out) = self.reach.get(p) {
+            return out;
+        }
+        let out = self.reachable_production_uncached(p);
+        self.reach.set(p, out);
+        out
+    }
+
+    fn reachable_production_uncached(&self, p: usize) -> [f64; 3] {
         let pl = &self.players[p];
         let mut owned_or_buildable = self.buildable;
         for &n in pl.settlements.iter().chain(pl.cities.iter()) {

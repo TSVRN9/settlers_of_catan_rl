@@ -6,9 +6,15 @@
 use crate::actions::Action;
 use crate::apply::Outcome;
 use crate::encode::Layout;
+use crate::jsettler::brain::Jsettler;
+use crate::jsettler::dm::Params as JsParams;
+use crate::jsettler::geom::NODE_JS_ROT0;
+use crate::mcts::Mcts;
 use crate::trade::Eval;
 use crate::search::Search;
 use crate::state::State;
+use crate::valuenet::ValueNet;
+use std::sync::Arc;
 
 pub const K_SIB: usize = 6;
 pub const K_TS: usize = 5; // children per recorded search tree (plus the root)
@@ -18,6 +24,10 @@ pub const TURNS_LIMIT: i32 = 1000;
 pub enum Seat {
     Vnet,
     Rab,
+    RabDepth(u8),  // AlphaBeta's exact expectimax at this depth (rab3 measured +7.6 pts over rab, FINDINGS)
+    Jsettler(bool), // the jSettlers robot port (jsettler/brain.rs), SMART params if true else FAST: a non-base_fn trader
+    Uct(u32, u16, bool), // the thesis UCT agent (mcts.rs, random playouts, base_fn trades): playouts, exploration c x 100, dev-card resample
+    CpuNet(u8),    // depth-2 expectimax over pool net k on the CPU (decide_vnet), net-judged trades: lineage / self-play seats
 }
 
 /// Actions whose child state is fully determined (gen_games.DETERMINISTIC +
@@ -44,6 +54,9 @@ pub struct Recorder {
     roll_p: f64,
     roll_m: u32,
     roll_depth: u32, // 2 = pruned depth-2 policy (decide_rollout); 1 = decide_heuristic(1) (experiment)
+    net: Option<Arc<ValueNet>>, // rollout policy = this net at one ply (decide_net_rollout) instead of base_fn
+    net_own: bool,              // ... for the labeled decider's own moves only; the other seats stay rab (label = P(win) vs rab, 4x fewer net decisions)
+    net_buf: Vec<f32>,          // its leaf buffer, recycled across playout decisions
     pub xs: Vec<f32>,
     pub colors: Vec<u8>,
     pub turns: Vec<i32>,
@@ -61,17 +74,26 @@ pub struct Recorder {
 }
 
 impl Recorder {
-    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32, roll_depth: u32) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
+    pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32, roll_depth: u32, net: Option<Arc<ValueNet>>, net_own: bool) -> Recorder {
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, net, net_own, net_buf: vec![], xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
     }
 
-    /// One rab-vs-rab playout from `s` (own RNG stream; the game's chance
-    /// outcomes are untouched). 1 if `p0` won, 0 otherwise (incl. turn limit).
-    fn rollout(&mut self, mut s: State, p0: usize) -> f64 {
+    /// One playout from `s` by the rollout policy (rab-vs-rab, or the net at one ply when `net` is
+    /// set; own RNG stream, the game's chance outcomes are untouched). 1 if `p0` won, 0 otherwise
+    /// (incl. turn limit).
+    fn rollout(&mut self, mut s: State, p0: usize, layout: &Layout) -> f64 {
         s.rng = splitmix(&mut self.rng);
         while s.winner() < 0 && s.num_turns < TURNS_LIMIT {
             let acts = s.search_actions();
-            let a = if acts.len() == 1 { acts[0] } else if self.roll_depth == 1 { s.decide_heuristic(1).unwrap_or(acts[0]) } else { s.decide_rollout().unwrap_or(acts[0]) };
+            let a = if acts.len() == 1 {
+                acts[0]
+            } else if let Some(net) = self.net.as_ref().filter(|_| !self.net_own || s.current_player == p0) {
+                s.decide_net_rollout(net, layout, &mut self.net_buf).unwrap_or(acts[0])
+            } else if self.roll_depth == 1 {
+                s.decide_heuristic(1).unwrap_or(acts[0])
+            } else {
+                s.decide_rollout().unwrap_or(acts[0])
+            };
             if s.apply(a, None).is_err() {
                 return 0.0;
             }
@@ -95,14 +117,14 @@ impl Recorder {
         let mut row = Vec::with_capacity(layout.n_features);
         let mut kept = 0i8;
         for a in acts {
-            let mut c = s.clone();
+            let mut c = s.clone_light();
             if c.apply(a, None).is_err() {
                 continue;
             }
             kept += 1;
             let mut wins = 0.0;
             for _ in 0..self.roll_m {
-                wins += self.rollout(c.clone(), p0);
+                wins += self.rollout(c.clone_light(), p0, layout);
             }
             row.clear();
             self.encode(&c, p0, layout, &mut row);
@@ -129,7 +151,7 @@ impl Recorder {
         let det: Vec<(Action, f64)> = evs.iter().copied().filter(|(a, _)| deterministic(*a)).collect();
         let k = det.len().min(K_TS);
         for (a, v) in self.sample(det, k) {
-            let mut c = s.clone();
+            let mut c = s.clone_light();
             if c.apply(a, None).is_err() {
                 continue;
             }
@@ -195,8 +217,8 @@ impl Recorder {
         }
         let other = others[self.below(others.len())];
         let p0 = s.current_player;
-        let mut sc = s.clone();
-        let mut so = s.clone();
+        let mut sc = s.clone_light();
+        let mut so = s.clone_light();
         if sc.apply(action, None).is_err() || so.apply(other, None).is_err() {
             return;
         }
@@ -228,7 +250,7 @@ impl Recorder {
         let mut vals: Vec<f64> = Vec::new();
         let mut kept: Vec<Action> = Vec::new();
         for &a in &acts {
-            let mut c = s.clone();
+            let mut c = s.clone_light();
             if c.apply(a, None).is_err() {
                 continue;
             }
@@ -261,6 +283,13 @@ pub struct ArenaGame {
     pub rab_depth: u32, // opponents stay at AlphaBeta's depth 2 while the net searches deeper
     pub max_leaves: usize, // per-decision leaf cap for depth > 2 (search.rs), 0 = unlimited
     pub own_turn: bool,    // search.rs expand_into: depth counts own actions only
+    pub tau: f64,          // search.rs backup: soft-min temperature at opponent nodes (0 = exact min)
+    pub prune: Option<(Arc<ValueNet>, usize)>, // search.rs expand_into: top-k replies at opponent nodes by this net
+    pub mcts: Option<Box<(Mcts, Arc<ValueNet>)>>, // the value-net seat's post-roll main phase goes to net-valued UCT (mcts.rs search_net)
+    pub pool_nets: Arc<Vec<Arc<ValueNet>>>, // Seat::CpuNet(k) plays pool_nets[k]
+    pub jsettlers: [Option<Box<Jsettler>>; 4], // Seat::Jsettler brains, created on the seat's first decision (boxed: games are moved every step)
+    pub uct: Box<Mcts>,                          // Seat::Uct (thesis UCT, one per game)
+    pub trade_net: Option<(Arc<ValueNet>, bool)>, // the value-net seat trades with this net (trade.rs), partners predicted with base_fn unless .1
     pub pending: Option<Search>,
     pub leaf_buf: Vec<f32>, // recycled between decisions
     pub offset: usize,
@@ -287,7 +316,7 @@ impl ArenaGame {
             for &(i, x) in &search.fixed {
                 v[i] = x;
             }
-            let (best, root_v, evs) = search.backup_full(&v);
+            let (best, root_v, evs) = search.backup_full(&v, self.tau);
             self.rec.record_tree(&self.state, root_v, &evs, layout);
             let action = best.unwrap_or_else(|| self.state.playable_actions()[0]);
             self.tick(action, layout);
@@ -297,12 +326,45 @@ impl ArenaGame {
                 self.done = true;
                 return;
             }
-            let acts = self.state.search_actions();
             let p = self.state.current_player;
+            // Pool seats decide everything themselves, trades included.
+            let pool_action = match self.seats[p] {
+                Seat::Jsettler(smart) => {
+                    let (map, n, seed) = (self.state.map.clone(), self.state.n, self.id as u64 ^ (p as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+                    let params = if smart { JsParams::SMART } else { JsParams::FAST };
+                    self.jsettlers[p].get_or_insert_with(|| Box::new(Jsettler::new(map, n, p, params, seed, NODE_JS_ROT0))).decide(&self.state)
+                }
+                Seat::Uct(sims, c100, resample) => {
+                    self.uct.sims = sims;
+                    self.uct.c = c100 as f64 / 100.0;
+                    self.uct.resample = resample;
+                    self.uct.decide(&self.state)
+                }
+                Seat::RabDepth(d) => {
+                    let acts = self.state.search_actions();
+                    self.state.trade_action(&Eval::Heuristic).or_else(|| if acts.len() == 1 { Some(acts[0]) } else { self.state.decide_heuristic(d as u32) })
+                }
+                Seat::CpuNet(k) => {
+                    let net = &self.pool_nets[k as usize];
+                    self.state.trade_action(&Eval::NetVsHeuristic(net, layout)).or_else(|| self.state.decide_vnet(net, layout, 2, 0, false).action)
+                }
+                Seat::Vnet | Seat::Rab => None,
+            };
+            if !matches!(self.seats[p], Seat::Vnet | Seat::Rab) {
+                let a = pool_action.unwrap_or_else(|| self.state.playable_actions()[0]);
+                self.tick(a, layout);
+                continue;
+            }
+            let acts = self.state.search_actions();
             // Trade prompts and offers go through the 1-ply policy; both seats use the heuristic
             // evaluator here (the arena scores value-net leaves in Python, batched, and trade
             // decisions are not batched -- ponytail: park trade candidates like leaves if it matters).
-            if let Some(a) = self.state.trade_action(&Eval::Heuristic) {
+            let eval = match (&self.trade_net, self.seats[p]) {
+                (Some((net, true)), Seat::Vnet) => Eval::Net(net, layout),
+                (Some((net, false)), Seat::Vnet) => Eval::NetVsHeuristic(net, layout),
+                _ => Eval::Heuristic,
+            };
+            if let Some(a) = self.state.trade_action(&eval) {
                 self.tick(a, layout);
                 continue;
             }
@@ -311,12 +373,18 @@ impl ArenaGame {
                 continue;
             }
             match self.seats[p] {
+                Seat::RabDepth(_) | Seat::Jsettler(_) | Seat::Uct(..) | Seat::CpuNet(_) => unreachable!("pool seats decided above"),
                 Seat::Rab => {
                     let a = self.state.decide_heuristic(self.rab_depth).unwrap_or(acts[0]);
                     self.tick(a, layout);
                 }
+                Seat::Vnet if self.mcts.is_some() && Mcts::owns(&self.state, p) => {
+                    let (m, net) = &mut **self.mcts.as_mut().unwrap();
+                    let a = m.search_net(&self.state, net, layout).unwrap_or(acts[0]);
+                    self.tick(a, layout);
+                }
                 Seat::Vnet => {
-                    self.pending = Some(self.state.expand_into(self.vnet_depth, p, layout, std::mem::take(&mut self.leaf_buf), self.max_leaves, self.own_turn));
+                    self.pending = Some(self.state.expand_into(self.vnet_depth, p, layout, std::mem::take(&mut self.leaf_buf), self.max_leaves, self.own_turn, self.prune.as_ref().map(|(n, k)| (&**n, *k))));
                     return;
                 }
             }

@@ -173,6 +173,7 @@ def main():
     parser.add_argument("--max-sibs", type=int, default=120_000, help="... sibling sets (each is K x F)")
     parser.add_argument("--max-ts", type=int, default=300_000, help="... search-value rows (ts_x / ts_v)")
     parser.add_argument("--hidden", type=int, default=256, help="MLP width; 256 is 3x cheaper per leaf than 512 at equal held-out loss (FINDINGS)")
+    parser.add_argument("--dropout", type=float, default=0.3, help="MLP dropout while training (the net plays in eval mode; 2026-09-22 diagnostic: 0.3 on a converged net moves it off its play optimum)")
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
@@ -184,6 +185,8 @@ def main():
     parser.add_argument("--ts-key", default="ts", help="ts = search-value distillation rows, ro = rollout-labeled children")
     parser.add_argument("--ro-rank-weight", type=float, default=0.0, help="pairwise ranking loss between rollout-labeled siblings of one decision (needs ro_n in the shards; 0 disables)")
     parser.add_argument("--self-sibs", type=int, default=1, help="0 drops the sibling sets labeled by the value net's own search (gen_games self-play), keeping base_fn-labeled ones")
+    parser.add_argument("--heads-only", action="store_true", help="train only the VP / turns-left heads (rows 1-5 of the last layer) on a frozen trunk and win head, keep the final state (no early stopping); play is unchanged. Pair with --weight-decay 0 --win-weight 0 --ts-weight 0")
+    parser.add_argument("--self-target", action="store_true", help="diagnostic: replace the <ts-key>_v labels by the --init net's own predictions on those rows, so a draw measures what the training step alone does to play")
     parser.add_argument("--eval-every", type=int, default=90, help="optimizer steps between held-out checks (early stopping keeps the best)")
     parser.add_argument("--device", default="xpu" if torch.xpu.is_available() else "cpu")
     parser.add_argument("--seed", type=int, default=0)
@@ -238,9 +241,16 @@ def main():
     tr_idx = torch.from_numpy(np.flatnonzero(~is_held))
     ho_idx = torch.from_numpy(np.flatnonzero(is_held))
 
-    net = ValueNet(hidden=args.hidden, prior_scale=args.prior_scale).to(dev)
+    net = ValueNet(hidden=args.hidden, dropout=args.dropout, prior_scale=args.prior_scale).to(dev)
     if args.init:
         net.load_state_dict(torch.load(args.init, map_location=dev))
+    if args.self_target:
+        assert args.init and n_ts, "--self-target needs --init and <ts-key> rows"
+        net.eval()
+        with torch.no_grad():
+            tvd = torch.cat([torch.sigmoid(net(D(txd[i:i + 8192]).float())[:, 0]).cpu() for i in range(0, n_ts, 8192)])
+        print(f"self-target: {n_ts} labels replaced by the warm start's predictions (mean {tvd.mean():.3f})")
+        net.train()
     opt = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay, foreach=False)  # foreach=True kills the XPU, see CLAUDE.md
 
     def heldout():
@@ -300,7 +310,7 @@ def main():
     def consider():
         nonlocal best, best_state, best_buckets, best_ho, best_rank, best_step, best_top1, best_ts
         ho_loss, buckets, rank_acc, top1, ts_bce, ro_rank_acc = heldout()
-        score = ho_loss  # nan-safe: only add the terms that exist
+        score = ho_loss if args.win_weight > 0 else 0.0  # nan-safe: only the terms being trained (the outcome BCE was selecting checkpoints the loop refuses to train on, RESEARCH-SIGNAL 2026-09-22)
         if ro_rank_acc == ro_rank_acc:
             score -= args.ro_rank_weight * ro_rank_acc
         if rank_acc == rank_acc:
@@ -333,7 +343,14 @@ def main():
             if use_ro_rank:
                 k = torch.randint(0, len(pi_trd), (min(args.batch_size, len(pi_trd)),))
                 loss = loss + args.ro_rank_weight * rank_loss(net, D(txd[pi_trd[k]]).float(), D(txd[pj_trd[k]]).float())
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad(); loss.backward()
+            if args.heads_only:
+                last = net.mlp[-1]
+                for prm in net.parameters():
+                    if prm is not last.weight and prm is not last.bias:
+                        prm.grad = None
+                last.weight.grad[0] = 0; last.bias.grad[0] = 0
+            opt.step()
             total += loss.item() * len(idx)
             step += 1
             if step % args.eval_every == 0:
@@ -344,7 +361,7 @@ def main():
         print("  calib", b)
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    torch.save(best_state, args.out)
+    torch.save({k: v.detach().cpu().clone() for k, v in net.state_dict().items()} if args.heads_only else best_state, args.out)
     print(f"saved: {args.out} (best held-out {best_ho:.4f}, rank_acc {best_rank:.3f}, sib_top1 {best_top1:.3f} at step {best_step})")
 
 

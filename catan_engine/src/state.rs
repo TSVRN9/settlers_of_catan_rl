@@ -1,6 +1,41 @@
 //! Mirror of catanatron.state.State + models.board.Board, compact.
 
+use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 use std::sync::Arc;
+
+pub use arrayvec::ArrayVec;
+
+/// Per-player memo of `reachable_production` (three f64 each, `u64::MAX` = empty). Atomics only
+/// because the PyO3 class needs `Sync`; a State is used by one thread at a time.
+pub struct ReachCache([AtomicU64; 12]);
+
+impl ReachCache {
+    pub fn get(&self, p: usize) -> Option<[f64; 3]> {
+        let a = self.0[3 * p].load(Relaxed);
+        if a == u64::MAX {
+            return None;
+        }
+        Some([f64::from_bits(a), f64::from_bits(self.0[3 * p + 1].load(Relaxed)), f64::from_bits(self.0[3 * p + 2].load(Relaxed))])
+    }
+
+    pub fn set(&self, p: usize, v: [f64; 3]) {
+        for i in 0..3 {
+            self.0[3 * p + i].store(v[i].to_bits(), Relaxed);
+        }
+    }
+}
+
+impl Default for ReachCache {
+    fn default() -> Self {
+        ReachCache(std::array::from_fn(|_| AtomicU64::new(u64::MAX)))
+    }
+}
+
+impl Clone for ReachCache {
+    fn clone(&self) -> Self {
+        ReachCache(std::array::from_fn(|i| AtomicU64::new(self.0[i].load(Relaxed))))
+    }
+}
 
 use crate::map::{Map, NUM_EDGES, NUM_NODES};
 
@@ -68,24 +103,32 @@ pub struct Player {
     pub has_rolled: bool,
     pub has_played_dev: bool,
     pub longest_road_length: i32,
-    // buildings_by_color, order-preserving like the Python lists
-    pub settlements: Vec<u8>,
-    pub cities: Vec<u8>,
-    pub roads: Vec<u8>, // edge idx
+    // buildings_by_color, order-preserving like the Python lists. Inline (arrayvec) so a State copy
+    // is one memcpy: search and rollouts clone a State at every tree node (docs/PLAN-gen-speed.md).
+    pub settlements: ArrayVec<u8, 5>,
+    pub cities: ArrayVec<u8, 4>,
+    pub roads: ArrayVec<u8, 15>, // edge idx
 }
 
 #[derive(Clone)]
 pub struct State {
     pub map: Arc<Map>,
     pub n: usize,
-    pub players: Vec<Player>,
+    pub players: Vec<Player>, // heap on purpose: inline it made State ~600 B bigger and every child move slower
     pub bank: [i32; 5],
-    pub dev_deck: Vec<u8>, // pop() takes the last, like the Python list
+    pub dev_deck: ArrayVec<u8, 25>, // pop() takes the last, like the Python list
     // board
     pub owner: [i8; NUM_NODES],
     pub is_city: [bool; NUM_NODES],
     pub road_owner: [i8; NUM_EDGES],
-    pub components: Vec<Vec<u64>>, // per player, list of node bitsets (order matters)
+    // per player, list of node bitsets (order matters). At most 2 initial components plus one per
+    // enemy settlement cutting p's roads: cut nodes are pairwise non-adjacent (distance rule) and
+    // each owns two of p's <= 15 roads, so <= 7 cuts, <= 9 components.
+    pub components: ArrayVec<ArrayVec<u64, 10>, 4>,
+    /// `reachable_production(p)` memo: it depends only on the board, which most search children
+    /// leave alone (rolls, trades, dev cards, the robber), and it was 20% of generation as a fresh
+    /// BFS at every leaf. Cleared by `board_build_settlement` / `board_build_road`.
+    pub reach: ReachCache,
     pub buildable: u64,             // board_buildable_ids
     pub road_lengths: [i32; 4],
     pub road_color: i8,
@@ -121,11 +164,55 @@ pub struct State {
 }
 
 impl State {
+    /// A copy without the `pieces` / `events` history, for search branches, rollouts and
+    /// trade what-ifs that are evaluated and dropped. The history is read only off the live
+    /// game (jsettler/brain.rs) and grows all game long, so `clone()` would memcpy it at every
+    /// tree node of every rollout decision. Keep `Clone` itself exact for replay and the mirror.
+    pub fn clone_light(&self) -> State {
+        State {
+            map: Arc::clone(&self.map),
+            n: self.n,
+            players: self.players.clone(),
+            bank: self.bank,
+            dev_deck: self.dev_deck.clone(),
+            owner: self.owner,
+            is_city: self.is_city,
+            road_owner: self.road_owner,
+            components: self.components.clone(),
+            reach: self.reach.clone(),
+            buildable: self.buildable,
+            road_lengths: self.road_lengths,
+            road_color: self.road_color,
+            road_length: self.road_length,
+            robber: self.robber,
+            current_player: self.current_player,
+            current_turn: self.current_turn,
+            prompt: self.prompt,
+            initial_phase: self.initial_phase,
+            is_discarding: self.is_discarding,
+            discard_counts: self.discard_counts,
+            is_moving_knight: self.is_moving_knight,
+            is_road_building: self.is_road_building,
+            free_roads: self.free_roads,
+            num_turns: self.num_turns,
+            discard_limit: self.discard_limit,
+            vps_to_win: self.vps_to_win,
+            friendly_robber: self.friendly_robber,
+            is_resolving_trade: self.is_resolving_trade,
+            current_trade: self.current_trade,
+            acceptees: self.acceptees,
+            spent_offers: self.spent_offers.clone(),
+            rng: self.rng,
+            pieces: Vec::new(),
+            events: Vec::new(),
+        }
+    }
+
     /// catanatron's initial state (State.__init__ + Board): empty board, bank 19 x 5, the 25-card dev deck
     /// shuffled with the state's own RNG, robber on the desert, seat 0 to place first.
     pub fn new(map: Arc<Map>, n: usize, seed: u64, vps_to_win: i32) -> State {
         let players = (0..n).map(|_| Player { roads_available: 15, settlements_available: 5, cities_available: 4, ..Default::default() }).collect();
-        let mut dev_deck: Vec<u8> = Vec::with_capacity(25);
+        let mut dev_deck = ArrayVec::new();
         for (card, count) in [(KNIGHT, 14), (YEAR_OF_PLENTY, 2), (ROAD_BUILDING, 2), (MONOPOLY, 2), (VICTORY_POINT, 5)] {
             dev_deck.extend(std::iter::repeat(card as u8).take(count));
         }
@@ -139,7 +226,8 @@ impl State {
             owner: [-1; NUM_NODES],
             is_city: [false; NUM_NODES],
             road_owner: [-1; NUM_EDGES],
-            components: vec![vec![]; n],
+            components: (0..n).map(|_| ArrayVec::new()).collect(),
+            reach: Default::default(),
             buildable: (1u64 << NUM_NODES) - 1,
             road_lengths: [0; 4],
             road_color: -1,

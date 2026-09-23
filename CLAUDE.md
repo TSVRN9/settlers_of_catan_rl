@@ -1,6 +1,7 @@
 # Catan RL
 
-RL agent for 4-player Settlers of Catan. Target: beat Catanatron's `AlphaBetaPlayer`.
+RL agent for 4-player Settlers of Catan. Target (2026-09-23): the strongest Catan agent across a diverse field of
+opponents, not a specialist against any one (the old target, beat Catanatron's `AlphaBetaPlayer`, is met).
 Reuses the [Catanatron](https://github.com/bcollazo/catanatron) rules engine; the gym
 layer, observation encoder, and training loop are ours.
 
@@ -50,12 +51,15 @@ The site builds the same crate for the browser (`wasm` feature, no pyo3): `cd we
 that replay oracle is the port's correctness argument — never edit the engine without it.
 `rust_bridge.py` is the Python side of the boundary.
 
-## Current direction (M4, 2026-09-01)
+## Current direction (2026-09-23: general strength, not AlphaBeta)
 
-Beat AlphaBeta by keeping its depth-2 expectimax search and replacing its hand
-heuristic with a learned win-probability net (`value_net.py`, `gen_games.py`,
-`train_value.py`), iterated expert-iteration style. PPO/self-play code is dormant, not
-deleted. See `docs/FINDINGS.md` "M4 reframed" before touching training.
+The player is AlphaBeta's depth-2 expectimax search with a learned win-probability net in place of its hand
+heuristic (`value_net.py`, `gen_games.py`, `train_value.py`), plus a net-judged trade policy. The old target (beat
+AlphaBeta) is met, at 81.5% against 3x Python AB. The goal now is strength against a *diverse* field. Anything that
+models the opponent as `base_fn` (trade-acceptance prediction, `rab` rollout labels, `rab` playouts) is suspect until
+it's re-measured against opponents that don't use `base_fn` (the jSettler port and bridge, net seats). Gate against a
+pool, not 3x rab. PPO/self-play code is dormant, not deleted. See `docs/FINDINGS.md` "M4 reframed" and the
+2026-09-23 goal note before touching training.
 
 ## Docs
 

@@ -17,16 +17,28 @@ use crate::valuenet::ValueNet;
 
 pub const TOP_K: usize = 8;
 
+#[derive(Clone, Copy)]
 pub enum Eval<'a> {
     Heuristic,
     Net(&'a ValueNet, &'a Layout),
+    /// The net for the bot's own trades, `base_fn` for predicting partners' replies: exact against
+    /// AlphaBeta partners, which answer with `base_fn` (the arena's `vnetx:` seat).
+    NetVsHeuristic(&'a ValueNet, &'a Layout),
 }
 
 impl Eval<'_> {
     pub fn value(&self, s: &State, p: usize) -> f64 {
         match self {
             Eval::Heuristic => s.base_fn(p),
-            Eval::Net(net, layout) => net.win_prob(&s.encoded(p, layout)),
+            Eval::Net(net, layout) | Eval::NetVsHeuristic(net, layout) => net.win_prob(&s.encoded(p, layout)),
+        }
+    }
+
+    /// The evaluator a partner is predicted to answer an offer with.
+    pub fn partner(&self) -> Eval<'_> {
+        match self {
+            Eval::NetVsHeuristic(..) => Eval::Heuristic,
+            e => *e,
         }
     }
 
@@ -34,13 +46,13 @@ impl Eval<'_> {
     pub fn min_gain(&self) -> f64 {
         match self {
             Eval::Heuristic => 1e-9,
-            Eval::Net(..) => 0.003,
+            Eval::Net(..) | Eval::NetVsHeuristic(..) => 0.003,
         }
     }
 }
 
 fn with_hand(s: &State, p: usize, minus: &[u8; 5], plus: &[u8; 5]) -> State {
-    let mut t = s.clone();
+    let mut t = s.clone_light();
     for r in 0..5 {
         t.players[p].hand[r] += plus[r] as i32 - minus[r] as i32;
     }
@@ -90,7 +102,7 @@ impl State {
             if exact <= eval.min_gain() || best.as_ref().is_some_and(|b| b.1 >= exact) {
                 continue;
             }
-            if (0..self.n).any(|q| q != p && self.would_accept(q, g, r, eval)) {
+            if (0..self.n).any(|q| q != p && self.would_accept(q, g, r, &eval.partner())) {
                 best = Some((Action::OfferTrade { give: *g, get: *r }, exact));
             }
         }
@@ -118,7 +130,7 @@ impl State {
             if !self.acceptees[q] {
                 continue;
             }
-            let mut t = self.clone();
+            let mut t = self.clone_light();
             if t.apply(Action::ConfirmTrade { partner: q as u8 }, None).is_err() {
                 continue;
             }

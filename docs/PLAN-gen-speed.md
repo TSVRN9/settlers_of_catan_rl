@@ -81,3 +81,79 @@ rollouts to a separate pool (imbalance loss measured ≤30%), GPU anything (forw
   imbalance, not by expand.
 - Next: the approved depth-1 rollout experiment and the denser-labels (`ROLL_P` 0.3) variant, each one gated round
   vs v30 on the same fresh seeds, then restart the loop with the winner.
+- **2026-09-22, `State::clone_light()`:** the table above predates two hot-path additions — domestic trading
+  (09-03) and the `pieces`/`events` history on `State` (09-07, for the jSettler mirror and the site) — and
+  `ROLL_P` is now 0.3, not 0.1. The history is appended on nearly every action and read only off the live game,
+  but `#[derive(Clone)]` copied it at every tree node of every rollout decision, every value-net expansion and
+  every trade what-if. `clone_light()` (history empty) at those 12 sites (`search.rs` `outcomes()`, `trade.rs`
+  `with_hand`/`confirm_offer`, the `arena.rs` Recorder): playout from turn 60 4.5 → 3.9 ms, `decide_rollout`
+  −10-15%/decision; **generation (v40 x2 + rab x2, `--roll-p 0.3`, 256 games, quiet) 2.44 → 3.00 games/s
+  (+23%)**, Rust step 219 → 178 ms. Same seed produced bitwise-identical shards (all 16 arrays) and
+  `test_env.py` passes, so labels are provably unchanged. `Clone` itself stays exact for replay and the mirror.
+- **2026-09-22, where the 178 ms step goes** (same run, ablated): rollouts off → 37 ms/step (13.5 games/s), so
+  **rollouts are 141 ms = 79%** of the step; `rab x4` alone 138 games/s. `perf` (self time, 96 games): `trail_from`
+  16%, `reachable_production` 16%, **malloc/free/memmove/`Vec::clone` ~40%**, `base_fn` 5%, `longest_acyclic_path` 2%.
+- **`search_actions()` no longer generates the ~300 domestic offers it then filtered out** (`actions.rs`, an
+  `actions(with_offers)` split; every offering prompt also has Roll/EndTurn/RejectTrade so the list is the same):
+  3.00 → **3.28 games/s**, bitwise-identical shards.
+- **mimalloc as the global allocator** (`lib.rs`, `python` feature only; the wasm build keeps the default):
+  3.28 → **4.83 games/s**, Rust step 162 → 109 ms, playout from turn 60 3.4 → 2.4 ms, bitwise-identical
+  shards. Bundle over build: a dependency and five lines against converting `State`'s small Vecs to arrays
+  across every module; the remaining allocation share decides whether the refactor is ever worth it.
+- **Tried and reverted:** branch-and-bound in `trail_from` on "p's roads left" — 4.83 → 4.53 games/s. The only
+  cap that is safe (a trail may leave the component through an enemy endpoint) is all of p's roads, which
+  prunes nothing on the tree-shaped road graphs that dominate; the cost is calls, not depth.
+- **Inline lists in `State`** (`arrayvec`): `Player.settlements/cities/roads`, `dev_deck` and each player's
+  component list are fixed-capacity inline arrays (5/4/15/25/16), so a copy is a memcpy plus two Vec headers
+  instead of ~20 heap allocations. Call sites unchanged (`Deref<[T]>`). 4.83 → **5.35 games/s**, Rust step
+  109 → 98 ms, playout from turn 60 2.4 → 2.2 ms, bitwise-identical shards; wasm build type-checks.
+- **Longest-road DFS from odd-degree starts only** (`board.rs` `longest_acyclic_path`): a longest trail that
+  starts at an even-degree, non-enemy node leaves an unused edge at its start and could be extended, so some
+  longest trail starts at an odd-degree component node or an enemy endpoint; none of those means the graph
+  is Eulerian and one start with a road reaches every edge. Same maximum, a third of the starts: `trail_from`
+  was 26% of generation. 5.35 → **6.00 games/s**, Rust step 98 → 87 ms, playout from turn 60 2.2 → 1.8 ms,
+  bitwise-identical shards. (The earlier branch-and-bound attempt pruned branches, which are cheap; the
+  starts were the waste.)
+- **`reachable_production` memo on `State`** (`ReachCache`, relaxed atomics because the PyO3 class must be
+  `Sync`): it depends only on the board, so `board_build_settlement` / `board_build_road` clear it and every
+  other child inherits the parent's. It only pays if the root is primed (`decide_rollout`, `decide_heuristic`,
+  `expand_into`): `base_fn` runs at leaves, so without priming each leaf computed into a copy that was dropped
+  (5.35 games/s, a loss). Primed: `reachable_production` 20% → 10% of samples.
+- **Tried and reverted:** `players` inline too. It halved nothing and grew `State` by ~600 B; `outcomes()`
+  builds each child then moves it into a Vec, so memmove went 10% → 22% and generation fell to 5.35-5.99.
+  Heap `players` + inline small lists + memo: **6.18 games/s**, Rust step 84 ms, playout from turn 60 1.8 ms.
+- **`for_each_outcome`** (`search.rs`): the expectimax over `base_fn` evaluates each child where it is built
+  instead of `outcomes()` moving every child into a Vec it reads once; `outcomes()` is now a wrapper for the
+  tree path. Components capacity 16 → 10 (bound in `state.rs`). 6.18 → **6.68 games/s**, Rust step 78 ms,
+  playout from turn 60 1.7 ms.
+- Cumulative today: **2.44 → 6.68 games/s (2.7x)** at `--roll-p 0.3`, zero label change (bitwise-identical
+  shards on the 256-game seed after every step; `test_env.py` passes). A round's generation (4,000 games)
+  is ~10 min instead of ~27, now about equal to the five trainings. Left on the table, per the last perf:
+  copying a State is still ~30% (memmove + `clone_light` + the `players` Vec), `trail_from` 14%,
+  `reachable_production` 11%, `base_fn` 8%; the next real cut is apply/undo instead of clone-per-child,
+  which is a rewrite of the search, not a patch.
+- **2026-09-22 (later), the net as the rollout policy — `valuenet.rs` forward 174 → ~3 µs/leaf.** FINDINGS had killed
+  net-in-the-loop rollouts on the scalar Rust forward (174 µs/leaf, `zip().map().sum()` dots that never vectorise).
+  Rewritten as a sparse axpy: weights stored transposed (`n_in x n_out`), one `out += x_j * W[j, :]` per **nonzero**
+  input — the masked encoding has ~108 nonzeros of 1051 and the incumbent's ReLU layers are 4% / 18% / 71% nonzero
+  (v49, 20k real rows), so ~43k MACs instead of 402k; the mask is folded into layer 0's rows; the AVX2+FMA path is
+  explicit intrinsics (8 ymm accumulators per 64 outputs, weight rows read once, `is_x86_feature_detected!`
+  dispatch, the portable loop for wasm; a `[f32; 64]` accumulator in plain Rust was *not* register-allocated and
+  measured slower); layer 1 of a decision's leaves is computed as a correction to the root's pre-activation
+  (`forward_from`, ~30 changed features per leaf instead of ~110). Parity with torch 2e-7 on P(win), 4e-6 on the
+  heads. `decide_net_rollout`: one ply over the pruned rollout action list, leaves batched through the forward on
+  the rayon thread; 24-38 µs per decision vs `decide_rollout`'s 35, but the net makes ~1.4x more non-trivial
+  decisions per playout (it buys dev cards; `rab` never does), so a playout from turn 60 is 6.4 ms vs 1.7 (was
+  9.1 before the incremental layer 1 and the intrinsics). Generation (v40 x2 + rab x2, 256 games, `ARENA_PROF`):
+
+  | rollout policy | `--roll-p` | games/s | Rust step |
+  |---|---|---|---|
+  | `rab` (unchanged, bitwise-identical shard) | 0.3 | 6.73 | 77 ms |
+  | net, all four seats (`--roll-net all`) | 0.3 | 2.99 | 178 ms |
+  | net, all four seats | 0.1 | 6.32 | 83 ms |
+  | net for the labeled decider only, `rab` for the rest (`--roll-net own`) | 0.3 | 4.88 | 108 ms |
+  | net for the decider only | 0.1 | 9.59 | 53 ms |
+
+  The kill line was 2 games/s. `perf` on the all-seats run: 77% in the forward kernel, 7% memmove, 4% encode —
+  the net rollout is the forward now, nothing else is left to shave there but the net itself (the 6-wide head
+  layer is a scalar tail; int8/VNNI would be the next step if it ever matters).
