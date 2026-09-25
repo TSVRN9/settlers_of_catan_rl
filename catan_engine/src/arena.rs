@@ -13,7 +13,7 @@ use crate::mcts::Mcts;
 use crate::trade::Eval;
 use crate::search::Search;
 use crate::state::State;
-use crate::valuenet::ValueNet;
+use crate::valuenet::{argmax_first, one_ply_ev, ValueNet, N_HEADS};
 use std::sync::Arc;
 
 pub const K_SIB: usize = 6;
@@ -44,6 +44,16 @@ fn splitmix(x: &mut u64) -> u64 {
     z ^ (z >> 31)
 }
 
+/// One net rollout (`Recorder::rollout`) as a resumable task: it parks at each net decision so the decisions of
+/// every playout in flight can be scored in one batched forward (the dense layers on another device). Its seed is
+/// drawn at spawn in the order the inline rollouts drew theirs, so the labels are the same.
+pub struct RollTask {
+    s: State,
+    p0: usize,
+    child: usize,                                                 // the ro_v slot its win is added to
+    parked: Option<(Vec<Action>, Vec<(usize, f64, f64)>, Action)>, // pruned actions, their leaves, the fallback
+}
+
 /// gen_games.StateSampler: samples, AlphaBeta chosen-vs-other pairs, sibling sets.
 pub struct Recorder {
     rng: u64, // own stream, so recording never perturbs the game's chance outcomes
@@ -57,6 +67,9 @@ pub struct Recorder {
     net: Option<Arc<ValueNet>>, // rollout policy = this net at one ply (decide_net_rollout) instead of base_fn
     net_own: bool,              // ... for the labeled decider's own moves only; the other seats stay rab (label = P(win) vs rab, 4x fewer net decisions)
     net_buf: Vec<f32>,          // its leaf buffer, recycled across playout decisions
+    pub park: bool,             // net rollouts become tasks parked at every net decision, stepped once per arena step
+    pub tasks: Vec<RollTask>,   // ... live, in spawn order
+    pub h0: Vec<half::f16>,     // ... the parked decisions' first-layer rows (ValueNet::layer0_from) in fp16, in task order
     pub xs: Vec<f32>,
     pub colors: Vec<u8>,
     pub turns: Vec<i32>,
@@ -75,7 +88,7 @@ pub struct Recorder {
 
 impl Recorder {
     pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32, roll_depth: u32, net: Option<Arc<ValueNet>>, net_own: bool) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, net, net_own, net_buf: vec![], xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, net, net_own, net_buf: vec![], park: false, tasks: vec![], h0: vec![], xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
     }
 
     /// One playout from `s` by the rollout policy (rab-vs-rab, or the net at one ply when `net` is
@@ -101,6 +114,87 @@ impl Recorder {
         (s.winner() == p0 as i8) as u8 as f64
     }
 
+    /// Resumes every parked task from its leaves' win logits (`logits`, rows in park order), then plays every task
+    /// to its next net decision (parked again, rows appended to `h0`) or to its end (win added to its ro_v slot).
+    pub fn advance_rollouts(&mut self, layout: &Layout, logits: &[f32]) {
+        let Some(net) = self.net.clone() else { return };
+        self.h0.clear();
+        let mut k = 0;
+        for mut t in std::mem::take(&mut self.tasks) {
+            let next = t.parked.take().map(|(acts, leaves, fallback)| {
+                let ev = one_ply_ev(acts.len(), &leaves, |j| logits[k + j]);
+                k += leaves.len();
+                argmax_first(&ev).map_or(fallback, |i| acts[i])
+            });
+            match self.play_task(&mut t, next, &net, layout) {
+                Some(win) => self.ro_v[t.child] += win,
+                None => self.tasks.push(t),
+            }
+        }
+        debug_assert_eq!(k, logits.len());
+        if self.h0.capacity() > 4 * self.h0.len().max(1 << 18) {
+            self.h0.shrink_to(2 * self.h0.len()); // a step's burst of spawned playouts must not pin its size for the game
+        }
+    }
+
+    /// `rollout`'s loop from `next` (the resumed decision, if any): Some(1 or 0) at the end, None once parked.
+    fn play_task(&mut self, t: &mut RollTask, mut next: Option<Action>, net: &ValueNet, layout: &Layout) -> Option<f64> {
+        loop {
+            let a = match next.take() {
+                Some(a) => a,
+                None => {
+                    if t.s.winner() >= 0 || t.s.num_turns >= TURNS_LIMIT {
+                        return Some((t.s.winner() == t.p0 as i8) as u8 as f64);
+                    }
+                    let acts = t.s.search_actions();
+                    if acts.len() == 1 {
+                        acts[0]
+                    } else if !self.net_own || t.s.current_player == t.p0 {
+                        let (pacts, leaves) = t.s.net_rollout_park(net, layout, &mut self.net_buf, &mut self.h0);
+                        if pacts.is_empty() {
+                            acts[0]
+                        } else {
+                            t.parked = Some((pacts, leaves, acts[0]));
+                            return None;
+                        }
+                    } else if self.roll_depth == 1 {
+                        t.s.decide_heuristic(1).unwrap_or(acts[0])
+                    } else {
+                        t.s.decide_rollout().unwrap_or(acts[0])
+                    }
+                }
+            };
+            if t.s.apply(a, None).is_err() {
+                return Some(0.0);
+            }
+        }
+    }
+
+    pub fn hidden_width(&self) -> Option<usize> {
+        self.net.as_ref().map(|n| n.hidden_width())
+    }
+
+    pub fn h0_rows(&self) -> usize {
+        self.net.as_ref().map_or(0, |n| self.h0.len() / n.hidden_width())
+    }
+
+    /// The parked rows' win logits on this thread (the CPU backend, ROLL_PARK=1), from the fp16 rows. With f32 rows
+    /// this was bitwise the inline rollouts' forward (verified 2026-09-24, docs/RESEARCH-HARDWARE.md).
+    pub fn cpu_logits(&self) -> Vec<f32> {
+        let Some(net) = &self.net else { return vec![] };
+        let h0: Vec<f32> = self.h0.iter().map(|x| x.to_f32()).collect();
+        net.hidden_heads(&h0, h0.len() / net.hidden_width()).chunks(N_HEADS).map(|h| h[0]).collect()
+    }
+
+    /// Parked rollouts: every task is done, turn the win counts into fractions.
+    pub fn finish(&mut self) {
+        if self.park && self.net.is_some() {
+            for v in &mut self.ro_v {
+                *v /= self.roll_m as f64;
+            }
+        }
+    }
+
     /// With probability roll_p at a decision with >= 2 deterministic children:
     /// up to K_SIB random children, each labeled with the decider's win
     /// fraction over roll_m rollouts (docs/FINDINGS.md 2026-09-02 evening:
@@ -123,13 +217,22 @@ impl Recorder {
             }
             kept += 1;
             let mut wins = 0.0;
-            for _ in 0..self.roll_m {
-                wins += self.rollout(c.clone_light(), p0, layout);
+            if self.park && self.net.is_some() {
+                for _ in 0..self.roll_m {
+                    let mut t = c.clone_light();
+                    t.rng = splitmix(&mut self.rng); // rollout()'s draw, in its order
+                    self.tasks.push(RollTask { s: t, p0, child: self.ro_v.len(), parked: None });
+                }
+            } else {
+                for _ in 0..self.roll_m {
+                    wins += self.rollout(c.clone_light(), p0, layout);
+                }
+                wins /= self.roll_m as f64;
             }
             row.clear();
             self.encode(&c, p0, layout, &mut row);
             self.ro_x.extend_from_slice(&row);
-            self.ro_v.push(wins / self.roll_m as f64);
+            self.ro_v.push(wins); // parked: the win count so far, divided by roll_m in finish()
         }
         if kept > 0 {
             self.ro_n.push(kept);
@@ -291,6 +394,8 @@ pub struct ArenaGame {
     pub uct: Box<Mcts>,                          // Seat::Uct (thesis UCT, one per game)
     pub trade_net: Option<(Arc<ValueNet>, bool)>, // the value-net seat trades with this net (trade.rs), partners predicted with base_fn unless .1
     pub pending: Option<Search>,
+    pub pool_park: bool,                 // Seat::CpuNet searches park for the arena's NPU pass (PyArena pool_npu) instead of the CPU forward
+    pub pool_pending: Option<(u8, Search)>, // ... a parked one: the pool net and its expanded tree
     pub leaf_buf: Vec<f32>, // recycled between decisions
     pub offset: usize,
     pub rec: Recorder,
@@ -299,6 +404,21 @@ pub struct ArenaGame {
 }
 
 impl ArenaGame {
+    /// A parked pool-net search from its leaves' win logits: decide_vnet's backup, then the move.
+    pub fn resume_pool(&mut self, logits: &[f32], layout: &Layout) {
+        let (_, search) = self.pool_pending.take().expect("no parked pool search");
+        let mut values: Vec<f64> = logits.iter().map(|&z| crate::valuenet::sigmoid(z as f64)).collect();
+        for &(i, v) in &search.fixed {
+            values[i] = v;
+        }
+        let action = search.backup_full(&values, 0.0).0.unwrap_or_else(|| self.state.playable_actions()[0]);
+        self.tick(action, layout);
+    }
+
+    pub fn over(&self) -> bool {
+        self.state.winner() >= 0 || self.state.num_turns >= TURNS_LIMIT
+    }
+
     fn tick(&mut self, action: Action, layout: &Layout) {
         let seat = self.seats[self.state.current_player];
         self.rec.step(&self.state, action, seat, layout);
@@ -322,9 +442,8 @@ impl ArenaGame {
             self.tick(action, layout);
         }
         loop {
-            if self.state.winner() >= 0 || self.state.num_turns >= TURNS_LIMIT {
-                self.done = true;
-                return;
+            if self.over() {
+                return; // done once its parked rollouts finish too (PyArena::step)
             }
             let p = self.state.current_player;
             // Pool seats decide everything themselves, trades included.
@@ -343,6 +462,22 @@ impl ArenaGame {
                 Seat::RabDepth(d) => {
                     let acts = self.state.search_actions();
                     self.state.trade_action(&Eval::Heuristic).or_else(|| if acts.len() == 1 { Some(acts[0]) } else { self.state.decide_heuristic(d as u32) })
+                }
+                Seat::CpuNet(k) if self.pool_park => {
+                    let net = &self.pool_nets[k as usize];
+                    match self.state.trade_action(&Eval::NetVsHeuristic(net, layout)) {
+                        Some(a) => Some(a),
+                        None => {
+                            let acts = self.state.playable_actions();
+                            if acts.len() == 1 {
+                                Some(acts[0])
+                            } else {
+                                // decide_vnet's tree, scored by the NPU in PyArena::step, resumed by resume_pool
+                                self.pool_pending = Some((k, self.state.expand(2, p, layout, 0, false)));
+                                return;
+                            }
+                        }
+                    }
                 }
                 Seat::CpuNet(k) => {
                     let net = &self.pool_nets[k as usize];

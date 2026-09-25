@@ -47,6 +47,61 @@ impl State {
     /// are re-added as start nodes -- catanatron issue #378, fixed identically
     /// in the pinned catanatron fork (docs/AUDIT-rules.md).
     pub fn longest_acyclic_path(&self, nodes: u64, p: usize) -> i32 {
+        self.forest_diameter(nodes, p).unwrap_or_else(|| self.longest_trail_dfs(nodes, p))
+    }
+
+    /// The longest trail when p's roads around `nodes` form a forest, enemy nodes being dead-end leaves (a trail may
+    /// end there, not pass): the forest's diameter in one pass. None on a cycle, an enemy node inside `nodes` or with
+    /// another road of p's, or a road leading outside `nodes`; the caller then runs the DFS, which the diameter equals
+    /// everywhere else (checked against it on every call over UCT and gate-mix games, 2026-09-24).
+    fn forest_diameter(&self, nodes: u64, p: usize) -> Option<i32> {
+        let (mut seen, mut best) = (0u64, 0);
+        let mut bits = nodes;
+        while bits != 0 {
+            let n = bits.trailing_zeros() as u8;
+            bits &= bits - 1;
+            if self.is_enemy_node(n, p) {
+                return None;
+            }
+            if seen & (1u64 << n) == 0 {
+                self.tree_depth(n, u8::MAX, nodes, p, &mut seen, &mut best)?;
+            }
+        }
+        Some(best)
+    }
+
+    /// Longest downward path from `v` (arrived by edge `from`), folding the best path through `v` into `best`.
+    fn tree_depth(&self, v: u8, from: u8, nodes: u64, p: usize, seen: &mut u64, best: &mut i32) -> Option<i32> {
+        *seen |= 1u64 << v;
+        let (mut d1, mut d2) = (0, 0);
+        for &(w, e) in self.map.adj(v) {
+            if e == from || self.road_owner[e as usize] != p as i8 {
+                continue;
+            }
+            let d = if self.is_enemy_node(w, p) {
+                // the DFS may start a trail at an enemy node and leave through any road of p's there, into the
+                // neighbouring component too (catanatron's quirk): only a dead end is a plain leaf
+                if self.map.adj(w).iter().any(|&(_, f)| f != e && self.road_owner[f as usize] == p as i8) {
+                    return None;
+                }
+                1
+            } else if nodes & (1u64 << w) == 0 || *seen & (1u64 << w) != 0 {
+                return None;
+            } else {
+                1 + self.tree_depth(w, e, nodes, p, seen, best)?
+            };
+            if d > d1 {
+                d2 = d1;
+                d1 = d;
+            } else if d > d2 {
+                d2 = d;
+            }
+        }
+        *best = (*best).max(d1 + d2);
+        Some(d1)
+    }
+
+    fn longest_trail_dfs(&self, nodes: u64, p: usize) -> i32 {
         // Starts: enemy endpoints adjacent through p's roads, plus component nodes of odd degree in
         // p's road graph. A longest trail starting at an even-degree, non-enemy node leaves an unused
         // edge there and could be extended, so some longest trail starts in this set; when it is
@@ -264,12 +319,7 @@ impl State {
 
     /// Port resources owned by p: bit 0..4 = 2:1 resource ports, bit 5 = 3:1.
     pub fn port_resources(&self, p: usize) -> u8 {
-        let mut mask = 0u8;
-        for port in &self.map.ports {
-            if port.nodes.iter().any(|&n| self.owner[n as usize] == p as i8) {
-                mask |= if port.resource < 0 { 1 << 5 } else { 1 << port.resource };
-            }
-        }
-        mask
+        let pl = &self.players[p]; // p's buildings are exactly the nodes it owns
+        pl.settlements.iter().chain(&pl.cities).fold(0, |m, &n| m | self.map.node_port[n as usize])
     }
 }

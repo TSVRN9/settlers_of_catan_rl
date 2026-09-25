@@ -12,6 +12,11 @@ dependencies = [
     "numpy",
 ]
 
+[project.optional-dependencies]
+npu = [
+    "openvino>=2026.4.0",
+]
+
 [[tool.uv.index]]
 name = "pytorch-xpu"
 url = "https://download.pytorch.org/whl/xpu"

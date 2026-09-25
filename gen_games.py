@@ -203,6 +203,7 @@ def main():
     parser.add_argument("--roll-m", type=int, default=4, help="rollouts per labeled child")
     parser.add_argument("--roll-depth", type=int, default=2, help="rollout policy: 2 = pruned depth-2 expectimax over base_fn (decide_rollout), 1 = depth-1 (experiment)")
     parser.add_argument("--roll-net", default="", choices=["", "all", "own"], help="rollout policy = the lineup's value net at one ply on the CPU (valuenet.rs decide_net_rollout) instead of base_fn: for all seats, or for the labeled decider only (others stay rab)")
+    parser.add_argument("--pool", default="", help="arena only: comma-separated seat tokens; each 'pool' seat in --lineup is drawn from them per seed (2026-09-23, generation against a diverse field)")
     parser.add_argument("--shard", type=int, default=500, help="games per output file")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
@@ -217,12 +218,19 @@ def main():
 
     import arena
 
-    if arena.supports(lineup):
+    pool_toks = args.pool.split(",") if args.pool else []
+    assert pool_toks or "pool" not in lineup, "a 'pool' seat needs --pool"
+    import random
+
+    def lineup_of(seed):  # the same draw for a seed in every run
+        return [random.Random(seed * 2654435761 + i).choice(pool_toks) if t == "pool" else t for i, t in enumerate(lineup)]
+
+    if arena.supports([t for t in lineup if t != "pool"] + pool_toks):
         # Rust game loop, cross-game batched XPU inference (arena.py); ~2x the 7-process loop for
         # value-net lineups, ~3x for rab-only ones (docs/FINDINGS.md).
         os.environ.setdefault("RAYON_NUM_THREADS", str(args.jobs + 1))
         pool = contextlib.nullcontext()
-        results = ((seed, part) for seed, _, part, _ in arena.play(lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, ts_p=args.ts_p, roll_p=args.roll_p, roll_m=args.roll_m, roll_depth=args.roll_depth, roll_net=args.roll_net, batch=args.batch))
+        results = ((seed, part) for seed, _, part, _ in arena.play(lineup_of if pool_toks else lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, ts_p=args.ts_p, roll_p=args.roll_p, roll_m=args.roll_m, roll_depth=args.roll_depth, roll_net=args.roll_net, batch=args.batch))
     else:
         assert args.ts_p == 0 and args.roll_p == 0, "--ts-p / --roll-p are recorded by the arena only"
         pool = mp.get_context("spawn").Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p, args.sib_p))

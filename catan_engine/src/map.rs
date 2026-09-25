@@ -24,6 +24,7 @@ pub struct Map {
     pub neighbors: Vec<Vec<u8>>,
     pub adj: [[(u8, u8); 3]; NUM_NODES], // node -> (neighbor, edge) in `neighbors` order, inline for the road loops
     pub deg: [u8; NUM_NODES],
+    pub node_port: [u8; NUM_NODES], // node -> the port_resources bits a building there grants
     pub node_tiles: Vec<Vec<u8>>,                // node -> tile ids (tile-id order)
     pub number_prob: [f64; 13],
     pub node_prod: Vec<[f64; 5]>,  // node -> production per resource, robber ignored (sum of number_prob over touching tiles)
@@ -92,7 +93,13 @@ impl Map {
             }
             deg[n] = nb.len() as u8;
         }
-        Map { tiles, ports, edges: edge_set, edge_of, neighbors, adj, deg, node_tiles, number_prob, node_prod, node_prod_sum, tile_prob, static_template }
+        let mut node_port = [0u8; NUM_NODES];
+        for port in &ports {
+            for &n in &port.nodes {
+                node_port[n as usize] |= if port.resource < 0 { 1 << 5 } else { 1 << port.resource };
+            }
+        }
+        Map { tiles, ports, edges: edge_set, edge_of, neighbors, adj, deg, node_port, node_tiles, number_prob, node_prod, node_prod_sum, tile_prob, static_template }
     }
 
     /// (neighbor, edge) pairs of `n`, in `neighbors` order.

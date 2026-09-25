@@ -9,18 +9,22 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["python"]
-python = ["dep:pyo3", "dep:numpy", "dep:rayon", "dep:mimalloc"]
+python = ["dep:pyo3", "dep:numpy", "dep:rayon", "dep:mimalloc", "dep:openvino", "dep:openvino-sys"]
 wasm = ["dep:wasm-bindgen", "dep:serde", "dep:serde_json"]
 
 [dependencies]
 arrayvec = "0.7"
+half = "2"  # parked rollout rows are stored and sent to the NPU as fp16, the precision it computes in
 pyo3 ={ version = "0.23", features = ["extension-module"], optional = true }
-numpy = { version = "0.23", optional = true }
+numpy = { version = "0.23", optional = true, features = ["half"] }
 rayon = { version = "1", optional = true }
 mimalloc = { version = "0.1", default-features = false, optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+# the NPU from the engine (npu.rs); runtime-linked: the library comes from the Python wheel (`uv sync --extra npu`)
+openvino = { version = "0.11", features = ["runtime-linking"], optional = true }
+openvino-sys = { version = "0.11", features = ["runtime-linking"], optional = true }
 
 [profile.release]
 opt-level = 3

@@ -9,6 +9,7 @@ the worker landed on). Map generation, deck shuffle and seating stay in
 Python: a fresh catanatron Game is built per seed and handed over once.
 """
 
+import importlib.util
 import os
 import queue
 import re
@@ -25,8 +26,11 @@ import rust_bridge as rb
 from value_net import load_value_net, rust_value_net
 
 COLORS = (Color.BLUE, Color.RED, Color.WHITE, Color.ORANGE)
-DEVICE = os.environ.get("VNET_DEVICE", "xpu" if torch.xpu.is_available() else "cpu")
-ROW_BUCKET = 16384  # forwards are padded to a multiple of this many rows so the allocator sees a handful of sizes
+# The leaf forward runs on the NPU when there is one (2026-09-24: gate mix -8% wall, generation -2.7%, 0.08% of v-net
+# decisions flip vs the XPU's fp32, deterministic; docs/RESEARCH-HARDWARE.md). `uv sync --extra npu` installs OpenVINO.
+_NPU_OK = os.path.exists("/dev/accel/accel0") and importlib.util.find_spec("openvino") is not None
+DEVICE = os.environ.get("VNET_DEVICE") or ("npu" if _NPU_OK else "xpu" if torch.xpu.is_available() else "cpu")
+ROW_BUCKET = int(os.environ.get("ROW_BUCKET", 4096))  # forwards are padded to a multiple of this many rows so the allocator sees a handful of sizes (16384 until 2026-09-23: 64% of the rows the iGPU computed were padding; 4096 is bitwise the same, ~7 shapes, docs/RESEARCH-HARDWARE.md)
 MAX_LEAVES = int(os.environ.get("VNET_MAX_LEAVES", 20000))  # depth>2 decisions over this many leaves fall back one ply (search.rs); depth 2 is never capped
 
 
@@ -39,6 +43,94 @@ VNET = re.compile(r"^vnet(?P<depth>\d?)(?P<own>o?)(?:t(?P<tau>[0-9.]+))?(?:k(?P<
 
 
 POOL = re.compile(r"^(?:jsrobot|jsdroid|rab(\d)|uct(\d*)(?:c([0-9.]+))?(r?)|cvnet:(.+))$")  # arena pool seats (arena.rs Seat): the jSettler port (SMART / FAST), AlphaBeta at depth d, thesis UCT at N playouts (default 5000, the thesis') with exploration c (default 2.0) and r = dev-card buys re-drawn per visit, a CPU depth-2 net
+
+
+def ov_model(net, rows, hidden=False, f16_in=None):
+    """The value net as an OpenVINO graph for `rows` x features f32 (mask folded into W0, head row 0 only: win logits;
+    an Ensemble averages its members' logits). hidden=True: only the layers after the first, on 256-wide rows. f16_in
+    (default: hidden): the input is fp16, as the engine sends it (npu.rs), the precision the NPU computes in."""
+    import openvino as ov
+    from openvino import opset13 as op
+
+    nets = net.nets if hasattr(net, "nets") else [net]
+    lin = [[m for m in n.mlp if isinstance(m, torch.nn.Linear)] for n in nets]
+    f16_in = hidden if f16_in is None else f16_in
+    x = op.parameter([rows, lin[0][0].out_features if hidden else rb.N_FEATURES], np.float16 if f16_in else np.float32, name="x")
+    x0 = op.convert(x, np.float32) if f16_in else x
+    outs = []
+    for n, ls in zip(nets, lin):
+        h = x0
+        for i, l in enumerate(ls):
+            if hidden and i == 0:
+                continue
+            w, b = l.weight.detach().cpu().numpy(), l.bias.detach().cpu().numpy()  # the cached module may sit on the XPU
+            if i == 0:
+                w = w * n.mask.cpu().numpy()[None, :]
+            if i == len(ls) - 1:
+                w, b = w[:1], b[:1]
+            h = op.add(op.matmul(h, op.constant(w), False, True), op.constant(b[None, :]))
+            if i < len(ls) - 1:
+                h = op.relu(h)
+        outs.append(h)
+    y = outs[0]
+    for h in outs[1:]:  # Ensemble: mean of the members' logits
+        y = op.add(y, h)
+    return ov.Model([op.divide(y, op.constant(np.float32(len(outs))))], [x])
+
+
+def ov_ir(path, hidden):
+    """(libopenvino_c, IR .xml, rows, width) for the engine's own NPU calls (npu.rs), fp16 input, saved once per
+    checkpoint under OV_CACHE_DIR: hidden=True the rollout net's layers after the first (ROLL_PARK=rust), False the
+    whole net (pool seats' searches, PyArena pool_npu)."""
+    import glob
+    import hashlib
+    import openvino as ov
+
+    net = load_value_net(path)
+    d = os.environ.get("OV_CACHE_DIR", "/tmp/ovcache")
+    os.makedirs(d, exist_ok=True)
+    kind = "roll" if hidden else "full"
+    xml = os.path.join(d, f"{kind}_{hashlib.sha1(open(path, 'rb').read()).hexdigest()[:16]}_{ROW_BUCKET}_f16.xml")
+    if not os.path.exists(xml):
+        ov.save_model(ov_model(net, ROW_BUCKET, hidden=hidden, f16_in=True), xml, compress_to_fp16=False)
+    lib = sorted(glob.glob(os.path.join(os.path.dirname(ov.__file__), "libs", "libopenvino_c.so*")))[0]
+    return lib, xml, ROW_BUCKET, net.mlp[0].out_features if hidden else rb.N_FEATURES
+
+
+_NPU = {}
+NPU_PROF = [[0, 0, 0, 0.0]]  # leaf forwards: calls, rows, padded rows, seconds (ARENA_PROF prints them)
+
+
+def npu_forward(net):
+    """The leaf forward on the Lunar Lake NPU via OpenVINO (fp16 on the device, logits to the host). One static shape
+    per ROW_BUCKET multiple, compiled on first use and kept per process (OV_CACHE_DIR caches the blobs). Returns
+    f(x, n) -> P(win) (float64) of the first n rows. Not bitwise the CPU/XPU."""
+    if id(net) in _NPU:
+        return _NPU[id(net)]
+    import openvino as ov
+
+    core = ov.Core()
+    core.set_property({"CACHE_DIR": os.environ.get("OV_CACHE_DIR", "/tmp/ovcache")})
+    model = lambda rows: ov_model(net, rows)  # noqa: E731
+    compiled, reqs, lock = {}, {}, threading.Lock()
+
+    def infer(x):  # any thread: one infer request per (thread, shape), the compiled model shared
+        key = (threading.get_ident(), len(x))
+        if key not in reqs:
+            with lock:
+                if len(x) not in compiled:
+                    compiled[len(x)] = core.compile_model(model(len(x)), "NPU")
+                reqs[key] = compiled[len(x)].create_infer_request()
+        return reqs[key].infer({0: x})[0][:, 0]
+
+    def f(x, n):
+        t = time.perf_counter()
+        z = infer(x)[:n]
+        NPU_PROF[0] = [a + b for a, b in zip(NPU_PROF[0], (1, n, len(x), time.perf_counter() - t))]
+        return 1.0 / (1.0 + np.exp(-z.astype(np.float64)))
+
+    _NPU[id(net)] = f
+    return f
 
 
 def supports(lineup):
@@ -76,7 +168,8 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
     nets = [VNET.match(t) for t in tokens if VNET.match(t)]
     cvnets = sorted({POOL.match(t).group(5) for t in tokens if POOL.match(t) and POOL.match(t).group(5)})
     g = nets[0].groupdict() if nets else {}
-    net = load_value_net(g["path"]).to(DEVICE) if nets else None
+    net = load_value_net(g["path"]).to("cpu" if DEVICE == "npu" else DEVICE) if nets else None
+    npu = npu_forward(net) if net is not None and DEVICE == "npu" else None
     if g.get("depth"):
         depth = int(g["depth"])
     own_turn = bool(g.get("own"))
@@ -87,9 +180,14 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
     mcts_net = rust_value_net(g["path"]) if g.get("sims") else None
     layout = rb.layout(rb.ctx_for(Game([RandomPlayer(c) for c in COLORS], seed=0)))
     cpu_seats = g.get("sims") or any(POOL.match(t) for t in tokens)  # searches that run inside the Rust step (MCTS, pool seats)
-    n_arenas = int(os.environ.get("ARENAS", 16 if cpu_seats else 2)) if net is not None else 1  # > 2: each arena steps in its own thread (below)
+    roll_park = os.environ.get("ROLL_PARK", "") if roll_net else ""
+    # > 2: each arena steps in its own thread (below); a step waits for its slowest game. 32 arenas of ~4 games: NPU
+    # rollouts kept 7.7 of 8 cores busy where 16 left 1.6 idle (-11% wall), the gate mix -9% (2026-09-24)
+    n_arenas = int(os.environ.get("ARENAS", 32 if roll_park == "rust" or cpu_seats else 2)) if net is not None else 1
+    # ROLL_PARK=rust: net rollouts become tasks parked at each net decision; the engine runs their dense layers on the
+    # NPU inside each arena step (npu.rs). =1: the same on the CPU, the exactness check (docs/RESEARCH-HARDWARE.md)
     rnet = rust_value_net(g["path"]) if roll_net else None  # rollouts play the lineup's net at one ply on the CPU (valuenet.rs): "all" seats or the decider's "own" moves
-    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn, roll_p=roll_p, roll_m=roll_m, roll_depth=roll_depth, roll_net=rnet, roll_net_own=roll_net == "own", tau=tau, prune_net=prune_net, prune_k=prune_k, trade_net=trade_net, trade_net_partners=g.get("x") == "xx", mcts_net=mcts_net, mcts_sims=int(g.get("sims") or 0), mcts_c=float(g.get("c") or 0.1), mcts_max=bool(g.get("mb")), mcts_roll=int(g.get("rr") or 0), mcts_lambda=float(g.get("lam") or 0.5), mcts_roll_depth1=bool(g.get("rd1")), pool_nets=[rust_value_net(c) for c in cvnets]) for _ in range(n_arenas)]  # vnetN: deepens the net only
+    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn, roll_p=roll_p, roll_m=roll_m, roll_depth=roll_depth, roll_net=rnet, roll_net_own=roll_net == "own", tau=tau, prune_net=prune_net, prune_k=prune_k, trade_net=trade_net, trade_net_partners=g.get("x") == "xx", mcts_net=mcts_net, mcts_sims=int(g.get("sims") or 0), mcts_c=float(g.get("c") or 0.1), mcts_max=bool(g.get("mb")), mcts_roll=int(g.get("rr") or 0), mcts_lambda=float(g.get("lam") or 0.5), mcts_roll_depth1=bool(g.get("rd1")), pool_nets=[rust_value_net(c) for c in cvnets], **({"roll_npu": ov_ir(g["path"].split("+")[-1], True)} if roll_park == "rust" else {"roll_park": True} if roll_park else {}), **({"pool_npu": [ov_ir(c, False) for c in cvnets]} if cvnets and DEVICE == "npu" and os.environ.get("POOL_NPU") else {})) for _ in range(n_arenas)]  # vnetN: deepens the net only
     pool = ThreadPoolExecutor(max_workers=1)
     seeds = iter(seeds)
     games = [{} for _ in arenas]  # per arena: seed -> (game, colors) while in flight
@@ -142,7 +240,8 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
             bufs[i] = new_buf(rows)
         arena.fill(bufs[i].numpy())
         prof["step"] += time.perf_counter() - t; prof["rows"] += n_rows; prof["steps"] += 1
-        prof["par"] += arena.last_ms()[0]; prof["fill"] += arena.last_ms()[1]
+        ms = arena.last_ms()
+        prof["par"] += ms[0]; prof["fill"] += ms[1]; prof["npu"] = prof.get("npu", 0.0) + (ms[2] if len(ms) > 2 else 0.0)
         t = time.perf_counter()
         finished = []
         for seed, w, num_turns, vps, d, log, snap in arena.finished():
@@ -151,11 +250,11 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
             if w >= 0:
                 y, vp, turns_left = targets(d["color"], d["turn"], w, vps, num_turns)
                 part = dict(
-                    X=d["X"].astype(np.float16), y=y, vp=vp, turns_left=turns_left,
-                    rank_c=d["rank_c"].astype(np.float16), rank_o=d["rank_o"].astype(np.float16),
-                    sib_x=d["sib_x"].astype(np.float16), sib_v=d["sib_v"], sib_n=np.asarray(d["sib_n"], dtype=np.int8), sib_isp0=np.asarray(d["sib_isp0"], dtype=bool),
-                    ts_x=d["ts_x"].astype(np.float16), ts_v=np.asarray(d["ts_v"], dtype=np.float32),
-                    ro_x=d["ro_x"].astype(np.float16), ro_v=np.asarray(d["ro_v"], dtype=np.float32), ro_n=np.asarray(d["ro_n"], dtype=np.int8),
+                    X=d["X"].astype(np.float16, copy=False), y=y, vp=vp, turns_left=turns_left,
+                    rank_c=d["rank_c"].astype(np.float16, copy=False), rank_o=d["rank_o"].astype(np.float16, copy=False),
+                    sib_x=d["sib_x"].astype(np.float16, copy=False), sib_v=d["sib_v"], sib_n=np.asarray(d["sib_n"], dtype=np.int8), sib_isp0=np.asarray(d["sib_isp0"], dtype=bool),
+                    ts_x=d["ts_x"].astype(np.float16, copy=False), ts_v=np.asarray(d["ts_v"], dtype=np.float32),
+                    ro_x=d["ro_x"].astype(np.float16, copy=False), ro_v=np.asarray(d["ro_v"], dtype=np.float32), ro_n=np.asarray(d["ro_n"], dtype=np.int8),
                 )
             finished.append((seed, (None if w < 0 else colors[w]), part, ((game, log, snap) if keep_log else None)))
             add(i)
@@ -163,6 +262,8 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
         return (pool.submit(forward, bufs[i][:rows], n_rows) if n_pending else None), finished
 
     def forward(x, n):  # helper thread; rows beyond n are padding (stale data), dropped
+        if npu:
+            return npu(x.numpy(), n)
         with torch.no_grad():
             return torch.sigmoid(net(x.to(DEVICE, non_blocking=True))).squeeze(1).double()[:n].cpu().numpy()
 
@@ -231,7 +332,10 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
         n = max(prof["steps"], 1)
         print(f"  arena: {prof['steps']} steps, {prof['rows'] / n:.0f} rows/step; rust step {prof['step'] / el:.0%} waiting on forward {prof['fwd'] / el:.0%} "
               f"drain+new games {prof['drain'] / el:.0%}; per step: rust {prof['step'] / n * 1e3:.0f} ms (parallel {prof['par'] / n:.0f}, fill {prof['fill'] / n:.1f}) "
-              f"forward wait {prof['fwd'] / n * 1e3:.1f} ms; wall/step {el / n * 1e3:.0f} ms", flush=True)
+              f"forward wait {prof['fwd'] / n * 1e3:.1f} ms; wall/step {el / n * 1e3:.0f} ms; rollout NPU calls {prof.get('npu', 0) / 1e3 / el:.0%} (arena-threads blocked, summed)", flush=True)
+        c, r, pr, sec = NPU_PROF[0]
+        if c:
+            print(f"  npu leaf forwards: {c} calls, {r / c:.0f} rows ({pr / c:.0f} padded) and {sec / c * 1e3:.1f} ms per call, {sec / el:.0%} of wall", flush=True)
 
 
 if __name__ == "__main__":  # reply pruning with k above any reply count is plain depth 3, game for game

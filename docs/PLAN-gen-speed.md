@@ -157,3 +157,128 @@ rollouts to a separate pool (imbalance loss measured ≤30%), GPU anything (forw
   The kill line was 2 games/s. `perf` on the all-seats run: 77% in the forward kernel, 7% memmove, 4% encode —
   the net rollout is the forward now, nothing else is left to shave there but the net itself (the 6-wide head
   layer is a scalar tail; int8/VNNI would be the next step if it ever matters).
+
+## 2026-09-23: pooled generation (round 59's config), profiled live
+
+The config is `vnetx:v57` x2 plus two opponents drawn from {rab3, uct5000, cvnet:v55}, `--roll-p 0.3 --roll-m 4
+--roll-net own`: 1.06 games/s. `perf record -p` on the running generator, then forward-consumer timers in a scratch
+build (a scratch package ahead on PYTHONPATH, so the running loop is never touched). The bench is 32 fixed-seed games
+with every shard array hashed; runs are interleaved A/B because the loop shares the machine.
+
+- CPU split: **the net rollout policy is 77%** (2.56M `decide_net_rollout` calls, 135 µs each, ~40 leaves), the CPU
+  v55 seat 4%, the trade evaluator 1%. `layer_fma` is 37% of all samples, and inside it ~15-20% was the scalar tail
+  loop for the 6-wide head and ~25% the nonzero scan.
+- **Head layer in one ymm** (`Layer.wt8`, rows padded to 8, unfused mul then add = the scalar tail's two roundings in
+  the same order): **212/211 → 199/195 CPU-s, shards identical.** Kept.
+- Fusing layer 1's diff pass with its nonzero scan: 224/233, slower. A scalar fused loop loses the vectorized
+  subtraction. Reverted.
+- Thread-local scratch in place of `forward_from`'s per-call buffers: 224 vs 228, no change. Reverted.
+- Not attempted: dropping the per-leaf template copy. `encode_into` assumes zeroed one-hot slots, so the copy is
+  required. The per-outcome `clone_light` (~15% with its Vec clones) is the next exact target, but it needs
+  `components: Vec<Vec<u64>>` flattened, an engine-wide refactor.
+
+## 2026-09-23 (later): two exact wins from the hardware investigation (`docs/RESEARCH-HARDWARE.md`)
+
+- **History pushes skipped on light copies** (`State.light`, set by `clone_light`). `apply` no longer grows
+  `pieces`/`events` on search, rollout and what-if copies; only a live game's history is ever read (the jSettler
+  brain). The allocator was 10.9% of E-core cycles, ~60% of it from those pushes. **204 → 192.5 CPU-s** on the pooled
+  bench, shards identical; jSettler tables' logs identical; `test_env.py` and the 14 unit tests pass.
+- **`ROW_BUCKET` 16384 → 4096** (`arena.py`, env-overridable). 64% of the rows the iGPU computed were padding (31% real
+  in the gate lineup). The agent measured the values bitwise identical at 2048-16384, and the pooled bench is
+  identical at ~2% less CPU (198/193 → 185/192 CPU-s) with the same peak RSS. The main point is that it halves the
+  iGPU's work and its driver busy-wait. The package is power-limited (PL1 33 W; the iGPU sits at its 800 MHz floor),
+  so GPU power not spent is CPU clock.
+
+## 2026-09-24: the gate, profiled by seat; five exact wins
+
+Where the gate's CPU goes (`perf` with frame pointers, `CARGO_PROFILE_RELEASE_DEBUG=line-tables-only RUSTFLAGS="-C
+force-frame-pointers=yes"`, on a gate-mix bench: `vnetx:v60` vs 3 opponents drawn per seed exactly as `gate.py` draws
+them from the loop's GATE_POOL). Inclusive: **UCT search 45%** (random playouts 42%), heuristic search 16% (rab3 seats,
+UCT's non-search prompts), jSettler 13%, the v-net tree 11%, CPU net forwards 10% (cvnet seat, trade net), longest-road
+DFS 10% (mostly inside UCT playouts). Per opponent, `vnetx` + 3x it, CPU s/game: rab3 0.89, jsrobot 0.77, cvnet 1.02,
+uct5000 2.59.
+
+The yardstick is the gate-mix bench's summed user instructions (P + E counters; `perf stat -e instructions:u`): CPU
+seconds swing ±5% with the loop's phases, instruction counts don't for identical games. Behaviour gate: every game
+log hashed per seed; for generation, every shard array compared (`vnetx` x2 + rab x2, 48 games, seed 424242).
+
+| change | gate-mix instructions (128 games) | notes |
+|---|---|---|
+| installed engine | 3,042 G | |
+| playouts reuse one move-list buffer (`search_actions_into`) | 3,008 G (-1.1%) | UCT bench -8-10% CPU |
+| jSettler `rolls_and_rsrc_fast` jumps to the next roll where a resource arrives | 2,834 G (-5.8%) | exact: `our` is unchanged on empty rolls and `trade_toward` is idempotent; jsrobot lineup -15.5% instructions |
+| longest road: forest diameter in one pass, the DFS only as fallback | 2,728 G (-3.9%) | UCT bench -14% CPU; 96.6% of calls take the fast path |
+| `port_resources` from the player's buildings (`Map.node_port`) | (UCT bench -2.9% instructions) | the earlier "no change" was the short bench's noise |
+
+All games identical (UCT bench hash, gate-mix logs, jsrobot logs), generation shards identical. The longest-road fast
+path was checked against the DFS on every call in a scratch build: 103M calls over 256 gate-mix games, 0.9M over the
+UCT bench, 48 generation games, no mismatch. The first version did mismatch, which found a catanatron quirk the fast
+path must respect. The DFS may start a trail at an enemy node and leave through any road of p's there, so a
+component's "longest road" can count a trail that lies wholly in the neighbouring component across an enemy
+settlement. The fast path now falls back when an enemy leaf has another road of p's.
+
+Measured and skipped: `Arc<Map>` refcount traffic (<1% of the gate), a streaming gate (candidate and incumbent
+interleaved, no per-block tail: the tail of a 512-game `play()` is 3 s of 165 s), robber-victim `Vec`s (~1%).
+
+Live effect (round 63, the first on a quiet machine with this engine and the NPU leaf forward): generation **1.32
+games/s** (3,037 s for 4,000 games) against 1.06-1.10 for rounds 59-60; the gate **~210 games/min** (12,000 in 57
+min) against ~180 for round 60. The generation gain is larger than the gate-mix numbers suggest: its pool seats are
+rab3, uct5000 and cvnet, and the rollouts build roads (longest road).
+
+## Next (approved 2026-09-24): device calls in Rust
+
+After round 68, on a quiet machine. The NPU calls move from Python (`arena.py` + the OpenVINO Python API) into the
+engine through Intel's `openvino` crate (0.11, runtime-linked against the `libopenvino_c.so` + NPU plugin the venv's
+wheel already ships), behind a Cargo feature so the wasm build is untouched.
+
+1. **Rollout forwards first.** A rollout service inside the Rust step batches every parked decision across the
+   arena's games, calls the NPU and continues, so a playout takes many net decisions per arena step instead of one
+   (today 5,085 steps against ~1,000 inline, games held alive until their last playout, ~1 core idle). Rows go over in
+   fp16 without a Python copy (fill_roll + numpy buffers are ~2 GB of the 9.1 GB peak and ~9% of each step).
+2. **Then the search-leaf forward** the same way; Python keeps orchestration, shards and training.
+3. **Measure Python's share** with a per-DSO `perf` breakdown on the first benchmark (Rust, libpython, numpy,
+   OpenVINO, idle). The ~13% headroom seen so far is idle cores, not Python time, but if orchestration is more than a
+   few percent it moves to Rust too.
+
+Gates, as always: `test_env.py`, the unit tests, and label identity against the CPU backend (`ROLL_PARK=1`, order-free
+shard compare); fp16 vs CPU labels compared with `label_diff.py` (today: 97.3% identical).
+
+## 2026-09-24 (evening): self-play rollouts, and their CPU side
+
+`--roll-net all` (every seat plays the net in the playouts, user-approved as the next recipe change) with the NPU
+path: 256 games 240 s against 158 s for `own` (+54%), NPU 47% busy at 950/1,900 MHz. A net decision's CPU side costs
+more than a `rab` decision. Profile (frame pointers): the first layer's sparse path was 48% of all CPU: the scalar
+nonzero scan over 1,051-wide diff rows 19%, the FMAs 14%, element-by-element f32→fp16 10.7%; the leaf-minus-root diff
+9%, template copies per leaf 7% of the memmove, `encode_into` 14%.
+
+- **AVX2 nonzero scan** (`nonzero_avx2`: compare 8, movemask, emit set bits; same indices, same order) and **batched
+  fp16 conversion** (`half`'s slice converter, F16C 8-wide, same rounding): self-play **240 → 196 s (-18.5%)**, CPU
+  -20%, NPU 57% busy. Exact: the 48-game shard from the morning's baseline is bitwise identical; `test_env.py` and the
+  unit tests pass. The scan speeds every sparse CPU forward in the engine.
+- Remaining, measured (self-play): FMAs 18% (14.5 of it layer 1 of the rollout rows), memmove 18% (37% of it the
+  template copy per leaf row, 23.5% numpy in the Python drain and shard building), `encode_into` 11%, the diff loop
+  7.5%, the scan 5.3%. Next exact candidates: a fused diff + scan pass; fp16 and shard arrays produced in Rust instead
+  of `astype` in Python. Encoding writes interleave with the static template's indices, so the template copy can't be
+  shrunk to a dynamic region without a sparse encoder.
+
+Round 69 (2026-09-24 18:39) is the first self-play-rollout round: `ROLL_NET=all ROLL_M=4 ROLL_PARK=rust`, rounds 69-71.
+- **AVX2 fused diff + nonzero** in `layer0_from` (one pass for the leaf-minus-root difference and its nonzero indices):
+  exact (parked self-play shards identical); instructions -0.3% and -3.6% in two NPU-leaf runs (the counts carry ~±2%
+  of driver noise; with XPU leaves the busy-wait makes them useless). In `forward_from` it measured +1.1% and was left
+  out.
+- **The gate on 32 arenas**: gate mix 256 games 77.0 / 77.8 s against 87.9 / 82.8 s on 16, interleaved under the loop's
+  load (-9%). `arena.py` now defaults to 32 arenas whenever a lineup has CPU-searching seats.
+- **fp16 rows straight from Rust**: `PyArena.finished` converts X, rank, sib, ts and ro rows with F16C (`to_f16`); the
+  Python drain's `astype(np.float16)` (numpy's scalar software conversion plus a copy) became a no-op. Shards bitwise
+  identical to the morning's baseline; `test_env.py` passes. The drain's numpy memmove was ~4% of self-play CPU.
+- **Pool seats' searches on the NPU** (`POOL_NPU=1`: a `cvnet` seat parks its depth-2 tree, the arena scores all
+  parked trees through the pool net's full fp16 IR inside the step, then resumes): gate mix 256 games **82.3 / 77.9 s
+  against 77.1 / 75.3 s on the CPU**, with 6% less CPU. A pool search is ~1,000 leaves, so a synchronous NPU round
+  trip costs more latency than the CPU forward it saves. Kept opt-in, off. In self-play generation the CPU net seats are
+  ~2% of CPU (rollouts 78%), so they were never the target there; in the gate they are ~10%.
+- **Sparse layer-1 differences (reverted).** `encode_into` only assigns over the static template, so a leaf's row can
+  differ from the root's only where either encoding wrote. A version tracked those positions in 1,051-bit masks per
+  decision, rebuilt each leaf in a scratch copy of the root row, and walked the set bits in ascending order: no template
+  copy, no 1,051-wide subtraction or scan. Exact (shards identical), but **+25% instructions and +15-30% CPU** in the
+  production mode (744 / 726 → 852 / 966 CPU s on 128 self-play games). The scalar bit walk and scattered stores cost
+  more than the dense SIMD passes and 4 KB copies they replaced. The dense path stays.

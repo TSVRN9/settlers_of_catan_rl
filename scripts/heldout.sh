@@ -11,7 +11,8 @@ run() { systemd-run --user --scope -q -p MemoryMax=14G -p MemorySwapMax=0 "$@"; 
 echo "=== $name: real jSettlers, 100 games $(date)"
 PORT=${PORT:-8882} MIX=default run jsettlers/run.sh play 100 full "$tok" "${out}_jsettlers.txt"
 echo "=== $name: Python AlphaBeta, 300 games $(date)"
-run uv run python evaluate.py --player "$tok" --opponent alpha_beta --games 300 | tee "${out}_ab.txt"
+# ./evaluate.py, not evaluate.py: run_exit.sh's busy() guard matches "python evaluate.py" and would stop a running loop
+run uv run python ./evaluate.py --player "$tok" --opponent alpha_beta --games 300 | tee "${out}_ab.txt"
 echo "=== $name: pool buct / vpi / drrl / jsdroid $(date)"
 run uv run python tournament.py --pool "$tok,buct,vpi,drrl,jsdroid" --games 40 --out "${out}_pool.json"
 echo "=== $name done $(date)"

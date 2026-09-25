@@ -179,8 +179,9 @@ impl Mcts {
         s.rng = splitmix(&mut self.rng);
         let end = s.num_turns + (rounds * s.n as u32) as i32;
         let mut steps = 0;
+        let mut acts = Vec::with_capacity(64);
         while s.winner() < 0 && s.num_turns < end && steps < 5000 {
-            let acts = s.search_actions();
+            s.search_actions_into(&mut acts);
             if acts.is_empty() {
                 break;
             }

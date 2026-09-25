@@ -268,6 +268,7 @@ impl PyState {
                 spent_offers,
                 pieces: Vec::new(),
                 events: Vec::new(),
+                light: false,
                 rng: seed,
             },
             search: None,
@@ -514,6 +515,9 @@ struct PyArena {
     roll_depth: u32,
     roll_net: Option<Arc<ValueNet>>, // rollout policy = this net at one ply (valuenet.rs decide_net_rollout)
     roll_net_own: bool,              // ... for the decider's moves only (arena.rs Recorder)
+    roll_park: bool,                 // ... as tasks parked at each net decision (arena.rs RollTask), stepped with the arena
+    roll_npu: Option<crate::npu::NpuNet>, // ... their dense layers on the NPU inside step(), every decision within the step
+    pool_npu: Vec<crate::npu::NpuNet>,    // pool_nets[k] on the NPU (full net, fp16 rows): Seat::CpuNet searches park and are scored in step()
     tau: f64,                        // soft-min temperature at opponent nodes (search.rs backup), 0 = exact min
     prune: Option<(Arc<ValueNet>, usize)>, // top-k replies at opponent nodes by this net (search.rs expand_into)
     mcts: Option<(Arc<ValueNet>, u32, f64, bool, u32, f64, bool)>, // net-valued UCT for the value-net seat's main phase: (net, sims, c, max backup, playout rounds, lambda, depth-1 playouts), mcts.rs
@@ -524,15 +528,22 @@ struct PyArena {
     sib_p: f64,
     keep_log: bool,
     games: Vec<ArenaGame>,
-    last_ms: (f64, f64), // (parallel advance, parallel fill) of the last step
+    last_ms: (f64, f64, f64), // (parallel advance, parallel fill, NPU calls within the advance) of the last step
 }
 
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![]))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>) -> PyArena {
-        PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0) }
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![], roll_park=false, roll_npu=None, pool_npu=vec![]))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>, roll_park: bool, roll_npu: Option<(String, String, usize, usize)>, pool_npu: Vec<(String, String, usize, usize)>) -> PyResult<PyArena> {
+        let pool_npu = pool_npu.iter().map(|(lib, xml, rows, width)| crate::npu::NpuNet::new(lib, xml, *rows, *width).map_err(PyValueError::new_err)).collect::<PyResult<Vec<_>>>()?;
+        // roll_npu = (libopenvino_c path, hidden-layers IR .xml, its static rows, its input width)
+        let roll_npu = match roll_npu {
+            Some((lib, xml, rows, width)) => Some(crate::npu::NpuNet::new(&lib, &xml, rows, width).map_err(PyValueError::new_err)?),
+            None => None,
+        };
+        let roll_park = roll_park || roll_npu.is_some();
+        Ok(PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, roll_park, roll_npu, pool_npu, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0, 0.0) })
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
@@ -579,9 +590,15 @@ impl PyArena {
                 Box::new((m, n.clone()))
             }),
             pending: None,
+            pool_park: !self.pool_npu.is_empty(),
+            pool_pending: None,
             leaf_buf: Vec::new(),
             offset: 0,
-            rec: Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p, self.roll_p, self.roll_m, self.roll_depth, self.roll_net.clone(), self.roll_net_own),
+            rec: {
+                let mut r = Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p, self.roll_p, self.roll_m, self.roll_depth, self.roll_net.clone(), self.roll_net_own);
+                r.park = self.roll_park;
+                r
+            },
             log: if self.keep_log { Some(vec![]) } else { None },
             done: false,
         });
@@ -591,7 +608,7 @@ impl PyArena {
         self.games.len()
     }
 
-    fn last_ms(&self) -> (f64, f64) {
+    fn last_ms(&self) -> (f64, f64, f64) {
         self.last_ms
     }
 
@@ -606,14 +623,95 @@ impl PyArena {
         };
         let layout = self.layout.clone();
         let games = &mut self.games;
-        let (rows, n_pending, ms) = py.allow_threads(move || {
+        let npu = &mut self.roll_npu;
+        let pool_npu = &mut self.pool_npu;
+        let (rows, n_pending, ms, npu_ms) = py.allow_threads(move || -> PyResult<(usize, usize, f64, f64)> {
             let t0 = std::time::Instant::now();
-            games.par_iter_mut().for_each(|g| g.advance(&layout, &vals));
+            let mut npu_ms = 0.0;
+            let in_step = npu.is_some();
+            games.par_iter_mut().for_each(|g| {
+                g.advance(&layout, &vals);
+                if g.rec.park && !in_step {
+                    let logits = g.rec.cpu_logits();
+                    g.rec.advance_rollouts(&layout, &logits);
+                }
+            });
+            // Pool-net seats: every parked search of the arena through its net's NPU model, then those games play on,
+            // until none is parked (they stop at value-net leaves for Python, or at the end).
+            loop {
+                let mut any = false;
+                for (k, npu_k) in pool_npu.iter_mut().enumerate() {
+                    let mine = |g: &ArenaGame| g.pool_pending.as_ref().is_some_and(|(kk, _)| *kk as usize == k);
+                    let n: usize = games.iter().filter(|g| mine(g)).map(|g| g.pool_pending.as_ref().unwrap().1.n_leaves).sum();
+                    if n == 0 {
+                        continue;
+                    }
+                    any = true;
+                    let nf = layout.n_features;
+                    let rows = games.iter().filter(|g| mine(g)).flat_map(|g| {
+                        let s = &g.pool_pending.as_ref().unwrap().1;
+                        s.leaves[..s.n_leaves * nf].chunks_exact(nf)
+                    });
+                    let t = std::time::Instant::now();
+                    let logits = npu_k.logits_f32(rows, n).map_err(PyValueError::new_err)?;
+                    npu_ms += t.elapsed().as_secs_f64() * 1e3;
+                    let mut off = 0;
+                    let jobs: Vec<(&mut ArenaGame, &[f32])> = games
+                        .iter_mut()
+                        .filter(|g| mine(g))
+                        .map(|g| {
+                            let m = g.pool_pending.as_ref().unwrap().1.n_leaves;
+                            off += m;
+                            (g, &logits[off - m..off])
+                        })
+                        .collect();
+                    jobs.into_par_iter().for_each(|(g, l)| {
+                        g.resume_pool(l, &layout);
+                        g.advance(&layout, &[]);
+                    });
+                }
+                if !any {
+                    break;
+                }
+            }
+            if let Some(npu) = npu {
+                // Every parked decision of every game in one batch, again and again within the step while a full chunk
+                // is parked; a remainder waits for the next step's first batch (a playout's last few decisions alone
+                // would cost an NPU call each). The first pass also plays the step's new rollouts to their first
+                // decision.
+                let min_rows = npu.chunk_rows();
+                let mut first = true;
+                loop {
+                    let n: usize = games.iter().map(|g| g.rec.h0_rows()).sum();
+                    if games.iter().all(|g| g.rec.tasks.is_empty()) || (!first && n < min_rows) {
+                        break;
+                    }
+                    first = false;
+                    let w = n_hidden(games);
+                    let t = std::time::Instant::now();
+                    let logits = if n == 0 { vec![] } else { npu.logits(games.iter().flat_map(|g| g.rec.h0.chunks_exact(w)), n).map_err(PyValueError::new_err)? };
+                    npu_ms += t.elapsed().as_secs_f64() * 1e3;
+                    let mut off = 0;
+                    let jobs: Vec<(&mut ArenaGame, &[f32])> = games
+                        .iter_mut()
+                        .map(|g| {
+                            let k = g.rec.h0_rows();
+                            off += k;
+                            (g, &logits[off - k..off])
+                        })
+                        .collect();
+                    jobs.into_par_iter().for_each(|(g, l)| g.rec.advance_rollouts(&layout, l));
+                }
+            }
+            for g in games.iter_mut() {
+                g.done = g.over() && g.rec.tasks.is_empty();
+            }
             let ms = t0.elapsed().as_secs_f64() * 1e3;
             let rows: usize = games.iter().filter_map(|g| g.pending.as_ref()).map(|s| s.n_leaves).sum();
             let n_pending = games.iter().filter(|g| g.pending.is_some()).count();
-            (rows, n_pending, ms)
-        });
+            Ok((rows, n_pending, ms, npu_ms))
+        })?;
+        self.last_ms.2 = npu_ms;
         self.last_ms.0 = ms;
         Ok((rows, n_pending))
     }
@@ -668,25 +766,26 @@ impl PyArena {
         self.games = live;
         let mut out = Vec::with_capacity(done.len());
         for g in done {
-            let r = g.rec;
+            let mut r = g.rec;
+            r.finish();
             let d = PyDict::new(py);
             let n = r.colors.len();
-            d.set_item("X", Array2::from_shape_vec((n, nf), r.xs).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("X", Array2::from_shape_vec((n, nf), to_f16(&r.xs)).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("color", r.colors)?;
             d.set_item("turn", r.turns)?;
             let m = r.rank_c.len() / nf;
-            d.set_item("rank_c", Array2::from_shape_vec((m, nf), r.rank_c).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
-            d.set_item("rank_o", Array2::from_shape_vec((m, nf), r.rank_o).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("rank_c", Array2::from_shape_vec((m, nf), to_f16(&r.rank_c)).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("rank_o", Array2::from_shape_vec((m, nf), to_f16(&r.rank_o)).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             let k = r.sib_n.len();
-            d.set_item("sib_x", Array3::from_shape_vec((k, K_SIB, nf), r.sib_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("sib_x", Array3::from_shape_vec((k, K_SIB, nf), to_f16(&r.sib_x)).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("sib_v", Array2::from_shape_vec((k, K_SIB), r.sib_v).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("sib_n", r.sib_n)?;
             d.set_item("sib_isp0", r.sib_isp0)?;
             let t = r.ts_v.len();
-            d.set_item("ts_x", Array2::from_shape_vec((t, nf), r.ts_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("ts_x", Array2::from_shape_vec((t, nf), to_f16(&r.ts_x)).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("ts_v", r.ts_v)?;
             let q = r.ro_v.len();
-            d.set_item("ro_x", Array2::from_shape_vec((q, nf), r.ro_x).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
+            d.set_item("ro_x", Array2::from_shape_vec((q, nf), to_f16(&r.ro_x)).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("ro_v", r.ro_v)?;
             d.set_item("ro_n", r.ro_n)?;
             let log = g.log.map(|l| l.into_iter().map(|(a, o)| (to_canon(a), o)).collect());
@@ -1088,6 +1187,19 @@ impl PyMcts {
     fn playouts(&self) -> u64 {
         self.inner.playouts
     }
+}
+
+/// Recorded rows as fp16, the dtype the shards store (F16C 8 wide, round to nearest even like numpy's astype, which
+/// did this conversion one element at a time in Python).
+fn to_f16(v: &[f32]) -> Vec<half::f16> {
+    let mut h = vec![half::f16::ZERO; v.len()];
+    half::slice::HalfFloatSliceExt::convert_from_f32_slice(&mut h[..], v);
+    h
+}
+
+/// The rollout net's first-layer width (the rows `Recorder::h0` holds).
+fn n_hidden(games: &[ArenaGame]) -> usize {
+    games.iter().find_map(|g| g.rec.hidden_width()).unwrap_or(1)
 }
 
 #[pymodule]

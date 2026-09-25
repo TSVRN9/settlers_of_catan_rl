@@ -175,7 +175,15 @@ impl Bse {
             self.trade_toward(&mut our, target, ports);
         }
         while !contains(&our, target) {
-            rolls += 1;
+            // A roll where nothing arrives leaves `our` as it was, and trade_toward is idempotent (one pass leaves
+            // every surplus below its ratio), so skip straight to the next arrival: same result, same cutoff.
+            rolls = (0..5)
+                .map(|r| match self.rolls_per_resource[r] {
+                    0 => rolls + 1,
+                    per => (rolls / per + 1) * per,
+                })
+                .min()
+                .unwrap();
             if rolls > cutoff {
                 return Err(CutoffExceeded);
             }

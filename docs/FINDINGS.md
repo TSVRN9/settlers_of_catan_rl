@@ -3231,3 +3231,46 @@ the prerequisite for max^n backups (RESEARCH-PLAYTIME §2d) and the site's VP di
 **Pool gate, partner model = the net (`vnetxx:v57`) vs `base_fn` (`vnetx:v57`): rejected at 1,000 games, 343 vs 468
 (−12.5 points).** It's worse against every opponent: rab3 −17.3, uct5000 −14.3, jsrobot −9.0, and even the net seats
 (−8.4), whose replies the net should model best. Predicting partners with `base_fn` stays.
+
+### Held-out baseline for the pool incumbent v57 (`scripts/heldout.sh vnet:checkpoints_value/v57.pt v57`, 2026-09-23)
+
+Report-only; no gate or training run sees these opponents.
+- **Real jSettlers through the Java bridge:** 46/100 wins, mean 8.6 VP. v40 scored 45/100 in Phase F. The lineage's +6
+  points in the arena pool field doesn't show against the real Java bots, at 100 games (±10). The results file also
+  holds 100 earlier games of unknown provenance (41 wins); only this run's 100 are counted.
+- **Python AlphaBeta:** 241/300 = 80.3% [75.5, 84.4].
+- **Tournament pool with buct, vpi, drrl, jsdroid** (`tournament.py`, 200 games): v57 118/160 = 73.8% [66.4, 80.0],
+  9.17 mean VP. Next best is buct at 23.8%.
+
+**The loop, reconfigured for the pool goal** (`scripts/run_exit.sh`, env vars):
+- `VSPEC=vnetx`: generation and gate play the shipped trade policy.
+- `OPP=pool,pool GEN_POOL=...`: `gen_games.py --pool` draws the two opponent seats per seed. Never jSettler; that's
+  held out of training.
+- `GATE_POOL=...`: `gate.py --pool`.
+- `SOUP_UNIFORM=1`: the draws are averaged unselected, instead of the greedy soup's 1,000-game selection against 3x rab.
+
+### The pooled loop, rounds 59-71 (2026-09-23/25; per-round detail in `checkpoints_value/exit*.log`)
+
+The recipe: `vnetx` x2 plus 2 seats drawn per seed from {rab3, uct5000, cvnet:v55}; decider-only net rollouts
+(`--roll-net own --roll-m 4`); 5 draws at the fixed step on the last 4 rounds' data, averaged uniformly; pool gate
+`rab3, jsrobot, uct5000, cvnet:v57` (paired SPRT, H0 -0.5, H1 +1.0 point).
+
+- **The pooled recipe gained about +6.7 points over v57 in five accepted rounds, then plateaued.** Rounds 59-62 and
+  64 were accepted (+1.8, +1.3, +1.4, +0.85, +1.37). Every opponent class moved up, including jsrobot, which never
+  appears in generation, so the gains weren't specialization to the generation pool. From round 63 on, candidates
+  sit within about ±1 point of the incumbent (v64).
+- **Held-out batteries don't resolve gains this size.** v57 → v59 → v60: real jSettlers 46 → 44 → 52/100, Python AB
+  80.3 → 81.7 → 80.0%, buct/vpi/drrl/jsdroid pool 73.8 → 70.0 → 76.2%. All within their ±5-10 points; v60's 52/100 is
+  the best bridge result on record, consistent with the pool gains but not proof of them.
+- **An SPRT reject is not a regression.** The gate stops as soon as the mean sits nearer H0 (-0.5) than H1 (+1.0).
+  Rejected candidates near -1 point had overall z around -1.3; ties cap at 12,000 games. The gate can't accept gains
+  under about +1 point, and rounds 63-70 clustered between -1 and +0.15.
+- **More playouts per label (`ROLL_M` 8) didn't break the plateau.** Three rounds, 1-3 of 4 training directories at 8:
+  +0.15 (cap), -1.06, -0.42. The labels changed as expected (SD 0.370 → 0.347, fewer 0/1 extremes) at unchanged mean.
+- **Self-play rollouts (`--roll-net all`, every seat plays the net) didn't help.** Three rounds, 1-3 of 4 training
+  directories: -0.84, -0.60, and -0.29 at 9,000 games when round 71 was stopped. Like `own` rollouts, they play the
+  net at 1-ply: a policy weaker than the depth-2 player they label for, which is the plateau's diagnosed cause.
+- **Moving rollouts to the NPU didn't change the labels' statistics** (mean 0.374-0.379 across the switch), as the
+  row-level comparison predicted (97% identical labels, no bias; docs/RESEARCH-HARDWARE.md).
+- **Old rounds' data is not worth training on.** The 2026-09-22 label-scaling sweep (above) found more labels don't
+  help, and older rounds carry weaker incumbents' play and other label definitions; `data/it46-62` were deleted.

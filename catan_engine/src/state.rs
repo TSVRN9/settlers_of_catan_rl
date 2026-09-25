@@ -161,6 +161,10 @@ pub struct State {
     pub pieces: Vec<(u8, u8, u8, bool)>,
     /// Every card movement and trade message, in order (see `Event`).
     pub events: Vec<Event>,
+    /// A `clone_light` copy (search / rollout / trade what-if): `pieces` and `events` stay empty instead of
+    /// growing, since only a live game's history is ever read (2026-09-23: the pushes were ~60% of the
+    /// allocator's time on the E-cores, docs/RESEARCH-HARDWARE.md).
+    pub light: bool,
 }
 
 impl State {
@@ -205,6 +209,7 @@ impl State {
             rng: self.rng,
             pieces: Vec::new(),
             events: Vec::new(),
+            light: true,
         }
     }
 
@@ -252,6 +257,7 @@ impl State {
             spent_offers: vec![],
             pieces: Vec::new(),
             events: Vec::new(),
+            light: false,
             rng: seed,
         };
         for i in (1..s.dev_deck.len()).rev() {

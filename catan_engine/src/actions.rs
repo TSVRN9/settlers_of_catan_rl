@@ -169,87 +169,96 @@ impl State {
     }
 
     fn actions(&self, with_offers: bool) -> Vec<Action> {
+        let mut out = Vec::new();
+        self.actions_into(with_offers, &mut out);
+        out
+    }
+
+    /// `search_actions` into a caller-owned list (cleared first): playouts reuse one buffer for every step.
+    pub fn search_actions_into(&self, out: &mut Vec<Action>) {
+        out.clear();
+        self.actions_into(false, out);
+    }
+
+    fn actions_into(&self, with_offers: bool, out: &mut Vec<Action>) {
         let p = self.current_player;
         match self.prompt {
-            Prompt::InitialSettlement => self.buildable_node_ids(p, true).into_iter().map(Action::BuildSettlement).collect(),
+            Prompt::InitialSettlement => out.extend(self.buildable_node_ids(p, true).into_iter().map(Action::BuildSettlement)),
             Prompt::InitialRoad => {
                 let last = *self.players[p].settlements.last().expect("initial road without settlement");
-                self.buildable_edges(p)
-                    .into_iter()
-                    .filter(|&e| {
-                        let (a, b) = self.map.edges[e as usize];
-                        a == last || b == last
-                    })
-                    .map(Action::BuildRoad)
-                    .collect()
+                out.extend(
+                    self.buildable_edges(p)
+                        .into_iter()
+                        .filter(|&e| {
+                            let (a, b) = self.map.edges[e as usize];
+                            a == last || b == last
+                        })
+                        .map(Action::BuildRoad),
+                )
             }
-            Prompt::MoveRobber => self.robber_possibilities(p),
+            Prompt::MoveRobber => out.extend(self.robber_possibilities(p)),
             Prompt::DecideTrade => {
-                let mut actions = vec![Action::RejectTrade];
+                out.push(Action::RejectTrade);
                 if self.can_accept_offer(p) {
-                    actions.push(Action::AcceptTrade);
+                    out.push(Action::AcceptTrade);
                 }
                 // a responder may counter while nobody has accepted; the turn player answering a
                 // counter may only accept or reject (JSettlers: a counter is a new offer to the offerer)
                 if with_offers && p != self.current_turn && !self.acceptees.iter().any(|&a| a) {
-                    actions.extend(self.domestic_trade_possibilities(p));
+                    out.extend(self.domestic_trade_possibilities(p));
                 }
-                actions
             }
             Prompt::DecideAcceptees => {
-                let mut actions = vec![Action::CancelTrade];
+                out.push(Action::CancelTrade);
                 for (i, &ok) in self.acceptees.iter().enumerate().take(self.n) {
                     if ok {
-                        actions.push(Action::ConfirmTrade { partner: i as u8 });
+                        out.push(Action::ConfirmTrade { partner: i as u8 });
                     }
                 }
-                actions
             }
             Prompt::PlayTurn => {
                 if self.is_road_building {
-                    return self.road_building_possibilities(p, false);
+                    return self.push_road_building(p, false, out);
                 }
-                let mut actions = Vec::with_capacity(64); // no regrowth; the list is rebuilt at every playout step
+                out.reserve(64); // no regrowth
                 if self.can_play_dev(p, YEAR_OF_PLENTY) {
-                    actions.extend(self.year_of_plenty_possibilities());
+                    out.extend(self.year_of_plenty_possibilities());
                 }
                 if self.can_play_dev(p, MONOPOLY) {
                     for r in 0..5u8 {
-                        actions.push(Action::PlayMonopoly(r));
+                        out.push(Action::PlayMonopoly(r));
                     }
                 }
                 if self.can_play_dev(p, KNIGHT) {
-                    actions.push(Action::PlayKnight);
+                    out.push(Action::PlayKnight);
                 }
                 if self.can_play_dev(p, ROAD_BUILDING) && self.players[p].roads_available > 0 && {
                     let mut any = false;
                     self.for_each_buildable_edge(p, |_| any = true);
                     any
                 } {
-                    actions.push(Action::PlayRoadBuilding);
+                    out.push(Action::PlayRoadBuilding);
                 }
                 if !self.players[p].has_rolled {
-                    actions.push(Action::Roll);
+                    out.push(Action::Roll);
                 } else {
-                    actions.push(Action::EndTurn);
-                    self.push_road_building(p, true, &mut actions);
-                    self.push_settlements(p, &mut actions);
-                    self.push_cities(p, &mut actions);
+                    out.push(Action::EndTurn);
+                    self.push_road_building(p, true, out);
+                    self.push_settlements(p, out);
+                    self.push_cities(p, out);
                     if self.can_afford_dev(p) && !self.dev_deck.is_empty() {
-                        actions.push(Action::BuyDev);
+                        out.push(Action::BuyDev);
                     }
-                    self.push_maritime_trades(p, &mut actions);
+                    self.push_maritime_trades(p, out);
                     if with_offers {
-                        actions.extend(self.domestic_trade_possibilities(p));
+                        out.extend(self.domestic_trade_possibilities(p));
                     }
                 }
-                actions
             }
             Prompt::Discard => {
-                if self.discard_counts[p] <= 0 {
-                    return vec![];
+                if self.discard_counts[p] > 0 {
+                    out.extend((0..5u8).filter(|&r| self.players[p].hand[r as usize] > 0).map(Action::Discard));
                 }
-                (0..5u8).filter(|&r| self.players[p].hand[r as usize] > 0).map(Action::Discard).collect()
             }
         }
     }

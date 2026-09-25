@@ -42,21 +42,25 @@ last_shard=$(printf "shard_%04d.npz" $((games / 500 - 1)))  # gen_games --shard 
 same_net() { uv run python -c "import sys,torch; a,b=[torch.load(p,map_location='cpu') for p in sys.argv[1:]]; sys.exit(0 if a.keys()==b.keys() and all(torch.equal(a[k],b[k]) for k in a) else 1)" "$1" "$2"; }
 for k in $(seq "$first" "$last"); do
   read -r prev _ < checkpoints_value/best.txt
-  V="vnet:${LINEUP_NET:-$prev}"  # LINEUP_NET: another net (or an a.pt+b.pt ensemble) plays the generation seats; training and gating stay on the incumbent
+  V="${VSPEC:-vnet}:${LINEUP_NET:-$prev}"  # LINEUP_NET: another net (or an a.pt+b.pt ensemble) plays the generation seats; training and gating stay on the incumbent
   echo "=== it$k incumbent $prev"
-  echo "=== it$k gen: $V x2 + rab x2, $games games, roll_p $ROLL_P roll_m $ROLL_M $roll_net  $(date)"
+  echo "=== it$k gen: $V x2 + ${OPP:-rab,rab} (${GEN_POOL:-}), $games games, roll_p $ROLL_P roll_m $ROLL_M $roll_net  $(date)"
   if [ -f "data/it$k/$last_shard" ]; then echo "  data/it$k complete, skipping generation"; else
   if busy >/dev/null; then echo "refusing to generate: stale processes: $(busy | tr '\n' ' ')"; exit 1; fi
-  run uv run python gen_games.py --lineup "$V,$V,rab,rab" --games "$games" --seed $((k * 100000)) --rank-p 0 --sib-p 0 --roll-p "$ROLL_P" --roll-m "$ROLL_M" $roll_net --ts-p "$TS_P" --out "data/it$k" || exit 1; fi
+  run uv run python gen_games.py --lineup "$V,$V,${OPP:-rab,rab}" ${GEN_POOL:+--pool $GEN_POOL} --games "$games" --seed $((k * 100000)) --rank-p 0 --sib-p 0 --roll-p "$ROLL_P" --roll-m "$ROLL_M" $roll_net --ts-p "$TS_P" --out "data/it$k" || exit 1; fi
   echo "=== it$k train  $(date)"
   for s in $(seq 0 $((N_SEEDS - 1))); do
     run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -"$DATA_LAST") --init "$prev" --out "checkpoints_value/v${k}_s$s.pt" --seed "$s" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key "$TS_KEY" --ts-weight "$TS_WEIGHT" --max-ts "$MAX_TS" --win-weight "$WIN_WEIGHT" --aux-weight "$AUX_WEIGHT" $TRAIN_EXTRA || exit 1
   done
-  run uv run python soup.py --greedy --base "$prev" --games 1000 --seed $((k * 1000000 + 500000)) --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
+  if [ -n "${SOUP_UNIFORM:-}" ]; then  # 2026-09-23: the greedy soup selects on 1,000 games vs 3x rab; the pool goal averages the draws unselected
+    run uv run python soup.py --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
+  else
+    run uv run python soup.py --greedy --base "$prev" --games 1000 --seed $((k * 1000000 + 500000)) --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
+  fi
   seedk=$((k * 1000000 + 7))
   if same_net "$prev" "checkpoints_value/v$k.pt"; then echo "=== it$k rejected: the soup kept no draw, v$k == $prev, gate skipped"; else
   echo "=== it$k gate: v$k vs $prev, paired SPRT vs 3x rab, blocks of 1000 to ${GATE_MAX:-12000} games (seed $seedk)  $(date)"
-  if run uv run python gate.py "vnet:checkpoints_value/v$k.pt" "vnet:$prev" --seed "$seedk" --max "${GATE_MAX:-12000}"; then
+  if run uv run python gate.py "${VSPEC:-vnet}:checkpoints_value/v$k.pt" "${VSPEC:-vnet}:$prev" --seed "$seedk" --max "${GATE_MAX:-12000}" ${GATE_POOL:+--pool $GATE_POOL}; then
     echo "checkpoints_value/v$k.pt" > checkpoints_value/best.txt; echo "=== it$k accepted: v$k is the new incumbent"
   else echo "=== it$k rejected: incumbent stays $prev"; fi; fi
   if [ $((k % every)) -eq 0 ]; then

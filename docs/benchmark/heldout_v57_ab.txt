@@ -1,0 +1,1 @@
+vnet:checkpoints_value/v57.pt: 241/300 wins = 80.3%  Wilson 95% CI [75.5%, 84.4%]  vs alpha_beta

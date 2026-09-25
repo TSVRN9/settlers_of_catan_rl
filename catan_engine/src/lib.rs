@@ -20,6 +20,9 @@ pub mod trade;
 pub mod valuenet;
 
 #[cfg(feature = "python")]
+pub mod npu;
+
+#[cfg(feature = "python")]
 mod python;
 
 // Search and rollouts clone small Vec-heavy states at every tree node under 8 rayon threads; glibc

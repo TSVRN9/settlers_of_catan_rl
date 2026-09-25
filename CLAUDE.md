@@ -63,6 +63,7 @@ pool, not 3x rab. PPO/self-play code is dormant, not deleted. See `docs/FINDINGS
 
 ## Docs
 
+- `docs/LEVERS.md` — every strength/speed lever: planned, open, dead (with the one-line reason). Check before proposing one.
 - `docs/FINDINGS.md` — measured performance baseline + Catanatron API notes. Read first.
 - `docs/BENCHMARK.md` — the EUMAS 2018 tournament protocol (`tournament.py`), its results, and the jSettlers / thesis-MCTS roadmap.
 - `docs/HANDOFF.md` — milestone-by-milestone implementation instructions.
