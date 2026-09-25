@@ -324,6 +324,18 @@ impl ValueNet {
         }
     }
 
+    /// A leaf sink for `root`: search.rs pushes each encoded leaf as it is built and only its first hidden layer is
+    /// kept (fp16), so a depth-2 tree never materializes its 4 KB rows (memory traffic was the arena's bottleneck,
+    /// 2026-09-25). Bitwise `layer0_from` row for row.
+    pub fn leaf_sink(self: &std::sync::Arc<Self>, root: &[f32], template: &[f32], out: Vec<half::f16>) -> LeafSink {
+        let l0 = &self.layers[0];
+        let mut idx = Vec::new();
+        let mut pre_root = l0.b.clone();
+        layer(root, l0, &l0.b, &mut pre_root, false, &mut idx);
+        let root_dyn = (0..self.n_in as u32).filter(|&i| root[i as usize] != template[i as usize]).collect();
+        LeafSink { net: self.clone(), root: root.to_vec(), pre_root, diff: vec![0f32; self.n_in], idx, h: vec![0f32; l0.n_out], row: template.to_vec(), template: template.to_vec(), root_dyn, brow: vec![], base: vec![], base_dyn: vec![], board: vec![], rest: vec![], out }
+    }
+
     pub fn hidden_width(&self) -> usize {
         self.layers[0].n_out
     }
@@ -392,6 +404,26 @@ impl State {
 
     /// ValueNetPlayer.decide: depth-d exact expectimax for the current player with the net's
     /// P(win) at the leaves (terminal leaves exact). Same tree as value_net.py's Rust path.
+    /// `decide_vnet` for the `vnets<k>x` player: at PlayTurn the best `k` acceptable offers are root children of the
+    /// search (trade.rs `offer_children`, partners predicted with base_fn). Replies and confirmations are the caller's
+    /// (trade_action with `Eval::NetVsHeuristic`).
+    pub fn decide_vnet_trades(&self, net: &ValueNet, layout: &Layout, depth: u32, max_leaves: usize, k: usize) -> Decision {
+        let actions = self.playable_actions();
+        if actions.len() == 1 {
+            return Decision { action: Some(actions[0]), value: f64::NAN, root: vec![], leaves: 0 };
+        }
+        let p0 = self.current_player;
+        let extra = if k > 0 && self.prompt == crate::state::Prompt::PlayTurn { self.offer_children(&crate::trade::Eval::NetVsHeuristic(net, layout), k) } else { vec![] };
+        let search = self.expand_with(depth, p0, layout, max_leaves, false, extra);
+        let heads = net.forward_batch(&search.leaves, search.n_leaves);
+        let mut values: Vec<f64> = (0..search.n_leaves).map(|i| sigmoid(heads[i * N_HEADS] as f64)).collect();
+        for &(i, v) in &search.fixed {
+            values[i] = v;
+        }
+        let (action, value, root) = search.backup_full(&values, 0.0);
+        Decision { action, value, root, leaves: search.n_leaves }
+    }
+
     pub fn decide_vnet(&self, net: &ValueNet, layout: &Layout, depth: u32, max_leaves: usize, own_turn: bool) -> Decision {
         let actions = self.playable_actions();
         if actions.len() == 1 {
@@ -438,7 +470,7 @@ impl State {
         net.layer0_from(&buf[..nf], &buf[nf..], leaves.len(), |h| {
             let start = h0.len();
             h0.resize(start + h.len(), half::f16::ZERO);
-            half::slice::HalfFloatSliceExt::convert_from_f32_slice(&mut h0[start..], h); // F16C, 8 wide: the same rounding as one at a time
+            to_f16_into(&mut h0[start..], h); // F16C, 8 wide: the same rounding as one at a time
         });
         (acts, leaves)
     }
@@ -557,5 +589,138 @@ mod tests {
             }
         }
         assert!(worst < 1e-3, "max abs diff vs torch = {worst}");
+    }
+}
+
+/// f32 -> f16 with F16C 8 at a time (round to nearest even, what `half` does), without `half`'s per-call overhead
+/// (its slice converter was 6.5% of depth-2 generation CPU on 256-float rows, 2026-09-25).
+pub fn to_f16_into(dst: &mut [half::f16], src: &[f32]) {
+    debug_assert_eq!(dst.len(), src.len());
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("f16c") && std::arch::is_x86_feature_detected!("avx") {
+        // SAFETY: F16C and AVX were just detected; every load/store stays inside the first 8*(len/8) elements.
+        unsafe { to_f16_f16c(dst, src) };
+        let k = src.len() / 8 * 8;
+        half::slice::HalfFloatSliceExt::convert_from_f32_slice(&mut dst[k..], &src[k..]);
+        return;
+    }
+    half::slice::HalfFloatSliceExt::convert_from_f32_slice(dst, src);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx,f16c")]
+unsafe fn to_f16_f16c(dst: &mut [half::f16], src: &[f32]) {
+    use std::arch::x86_64::*;
+    let mut i = 0;
+    while i + 8 <= src.len() {
+        let v = _mm256_loadu_ps(src.as_ptr().add(i));
+        let h = _mm256_cvtps_ph::<_MM_FROUND_TO_NEAREST_INT>(v);
+        _mm_storeu_si128(dst.as_mut_ptr().add(i) as *mut __m128i, h);
+        i += 8;
+    }
+}
+
+pub struct LeafSink {
+    net: std::sync::Arc<ValueNet>,
+    root: Vec<f32>,
+    pre_root: Vec<f32>,
+    diff: Vec<f32>,
+    idx: Vec<u32>,
+    h: Vec<f32>,
+    pub row: Vec<f32>, // the leaf being encoded: equal to `template` between leaves (push_row restores it)
+    template: Vec<f32>,
+    root_dyn: Vec<u32>, // where the root differs from the template
+    /// Leaves on the root's board (`with_board`): `brow` starts as `base` = template + the root's board features
+    /// (encode.rs encode_board_into) and only encode_rest_into is written, restored the same way against `base`.
+    pub brow: Vec<f32>,
+    base: Vec<f32>,
+    base_dyn: Vec<u32>,
+    pub board: Vec<u8>, // the root's State::board_key (empty: off)
+    rest: Vec<u32>,     // positions a root-board leaf can change (encode.rs rest_indices)
+    pub out: Vec<half::f16>,
+}
+
+impl LeafSink {
+    /// Enables the root-board path: `base` = template + the root's board features, `board` = its board key.
+    pub fn with_board(mut self, base: Vec<f32>, board: Vec<u8>, rest: Vec<u32>) -> LeafSink {
+        if self.idx.len() < rest.len() {
+            self.idx.resize(rest.len(), 0);
+        }
+        self.rest = rest;
+        self.base_dyn = (0..base.len() as u32).filter(|&i| self.root[i as usize] != base[i as usize]).collect();
+        self.brow = base.clone();
+        self.base = base;
+        self.board = board;
+        self
+    }
+
+    /// `push_row` for `brow` (a leaf on the root's board, only its non-board features written). Such a row can
+    /// differ from the root only at `rest` (encode.rs `rest_indices`, ascending), so only those are scanned: the
+    /// same nonzero differences in the same order as the full scan, bitwise.
+    pub fn push_brow(&mut self) {
+        let l0 = &self.net.layers[0];
+        let mut k = 0;
+        for &i in &self.rest {
+            let d = self.brow[i as usize] - self.root[i as usize];
+            if d != 0.0 {
+                self.diff[i as usize] = d;
+                self.idx[k] = i;
+                k += 1;
+            }
+        }
+        layer_nz(&self.diff, &self.idx[..k], l0, &self.pre_root, &mut self.h, true);
+        let start = self.out.len();
+        self.out.resize(start + self.h.len(), half::f16::ZERO);
+        to_f16_into(&mut self.out[start..], &self.h);
+        for &i in self.idx[..k].iter().chain(&self.base_dyn) {
+            self.brow[i as usize] = self.base[i as usize];
+        }
+        debug_assert!(self.brow == self.base);
+    }
+
+    /// Layer 0 of `self.row` (by root diff), appended to `out` as fp16.
+    pub fn push_row(&mut self) {
+        let l0 = &self.net.layers[0];
+        let nz = diff_nonzero(&self.row, &self.root, &mut self.diff, &mut self.idx);
+        layer_nz(&self.diff, nz, l0, &self.pre_root, &mut self.h, true);
+        let k = nz.len();
+        let start = self.out.len();
+        self.out.resize(start + self.h.len(), half::f16::ZERO);
+        to_f16_into(&mut self.out[start..], &self.h);
+        // Back to the template without a 4 KB copy: a position the encoder changed either differs from the root now
+        // (the diff's nonzeros, still in idx) or equals the root where the root differs from the template.
+        for &i in self.idx[..k].iter().chain(&self.root_dyn) {
+            self.row[i as usize] = self.template[i as usize];
+        }
+        debug_assert!(self.row == self.template);
+    }
+
+    /// `push_row` for a row that differs from the root only at `changes` (index, value), without building or
+    /// scanning the row: the same nonzero differences in the same ascending order, so bitwise the same output.
+    pub fn push_delta(&mut self, changes: &mut [(u32, f32)]) {
+        changes.sort_unstable_by_key(|c| c.0);
+        if self.idx.len() < changes.len() {
+            self.idx.resize(changes.len(), 0);
+        }
+        let mut k = 0;
+        for &(i, v) in changes.iter() {
+            let d = v - self.root[i as usize];
+            if d != 0.0 {
+                self.diff[i as usize] = d;
+                self.idx[k] = i;
+                k += 1;
+            }
+        }
+        let l0 = &self.net.layers[0];
+        layer_nz(&self.diff, &self.idx[..k], l0, &self.pre_root, &mut self.h, true);
+        let start = self.out.len();
+        self.out.resize(start + self.h.len(), half::f16::ZERO);
+        to_f16_into(&mut self.out[start..], &self.h);
+    }
+
+    /// A placeholder row for a terminal leaf (its value is exact, `Search::fixed`).
+    pub fn push_zero(&mut self) {
+        let start = self.out.len();
+        self.out.resize(start + self.h.len(), half::f16::ZERO);
     }
 }

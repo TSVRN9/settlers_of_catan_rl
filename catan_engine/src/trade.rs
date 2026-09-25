@@ -34,6 +34,28 @@ impl Eval<'_> {
         }
     }
 
+    /// `(value(root), [value of root with p holding h, for h in hands])`, p the current player. The net scores them in
+    /// one batch as differences from the root's encoding (valuenet.rs `forward_from`): a trade moves only hand features
+    /// (encode.rs `hand_delta`), so layer 1 is a handful of columns, and no state is built or re-encoded (the vnetx
+    /// seats' best_offer was 17% of self-play CPU, 2026-09-25). Not bitwise `value`: summation order differs (~1e-7).
+    pub fn values(&self, root: &State, p: usize, hands: &[[i32; 5]]) -> (f64, Vec<f64>) {
+        match self {
+            Eval::Heuristic => (root.base_fn(p), hands.iter().map(|h| with_hand_exact(root, p, h).base_fn(p)).collect()),
+            Eval::Net(net, layout) | Eval::NetVsHeuristic(net, layout) => {
+                let nf = layout.n_features;
+                let x0 = root.encoded(p, layout);
+                let mut xs = vec![0f32; (hands.len() + 1) * nf];
+                xs[..nf].copy_from_slice(&x0);
+                for (i, h) in hands.iter().enumerate() {
+                    root.encode_hand(p, layout, &x0, h, &mut xs[(i + 1) * nf..(i + 2) * nf]);
+                }
+                let z = net.forward_from(Some(&x0), &xs, hands.len() + 1);
+                let v = |i: usize| crate::valuenet::sigmoid(z[i * crate::valuenet::N_HEADS] as f64);
+                (v(0), (1..=hands.len()).map(v).collect())
+            }
+        }
+    }
+
     /// The evaluator a partner is predicted to answer an offer with.
     pub fn partner(&self) -> Eval<'_> {
         match self {
@@ -49,6 +71,20 @@ impl Eval<'_> {
             Eval::Net(..) | Eval::NetVsHeuristic(..) => 0.003,
         }
     }
+}
+
+fn hand_after(s: &State, p: usize, minus: &[u8; 5], plus: &[u8; 5]) -> [i32; 5] {
+    let mut h = s.players[p].hand;
+    for r in 0..5 {
+        h[r] += plus[r] as i32 - minus[r] as i32;
+    }
+    h
+}
+
+fn with_hand_exact(s: &State, p: usize, hand: &[i32; 5]) -> State {
+    let mut t = s.clone_light();
+    t.players[p].hand = *hand;
+    t
 }
 
 fn with_hand(s: &State, p: usize, minus: &[u8; 5], plus: &[u8; 5]) -> State {
@@ -70,20 +106,39 @@ impl State {
     }
 
     /// The best offer for the current player, or None when nothing beats the current hand or nobody
-    /// would take it. Returns the exact gain with the action.
+    /// would take it. Returns the exact gain with the action. Three stages, shared with the arena's parked version
+    /// (the net's rows scored on the NPU with the search leaves): `offer_candidates` -> values -> `offer_shortlist`
+    /// -> exact values -> `offer_pick`.
     pub fn best_offer(&self, eval: &Eval) -> Option<(Action, f64)> {
+        let p = self.current_player;
+        let (hands, affordable) = self.offer_candidates()?;
+        let (base, vals) = eval.values(self, p, &hands);
+        let short = self.offer_shortlist(base, &vals, &affordable);
+        let exacts = if short.is_empty() { vec![] } else { eval.values(self, p, &self.shortlist_hands(&short)).1 };
+        self.offer_pick(base, &short, &exacts, eval)
+    }
+
+    /// Stage 1: the current player's hands to evaluate -- one per bundle received (all 20), then one per affordable
+    /// bundle given -- and which bundles are affordable; None when no offer can be made now.
+    pub fn offer_candidates(&self) -> Option<(Vec<[i32; 5]>, Vec<bool>)> {
         let p = self.current_player;
         if self.prompt != Prompt::PlayTurn || !self.players[p].has_rolled || self.is_road_building || self.is_resolving_trade {
             return None;
         }
         let hand = self.players[p].hand;
-        let base = eval.value(self, p);
         let zero = [0u8; 5];
-        let gains: Vec<f64> = TRADE_BUNDLES.iter().map(|r| eval.value(&with_hand(self, p, &zero, r), p) - base).collect();
-        let costs: Vec<Option<f64>> = TRADE_BUNDLES
-            .iter()
-            .map(|g| if (0..5).any(|r| hand[r] < g[r] as i32) { None } else { Some(base - eval.value(&with_hand(self, p, g, &zero), p)) })
-            .collect();
+        let affordable: Vec<bool> = TRADE_BUNDLES.iter().map(|g| (0..5).all(|r| hand[r] >= g[r] as i32)).collect();
+        let mut hands: Vec<[i32; 5]> = TRADE_BUNDLES.iter().map(|r| hand_after(self, p, &zero, r)).collect();
+        hands.extend(TRADE_BUNDLES.iter().zip(&affordable).filter(|(_, &a)| a).map(|(g, _)| hand_after(self, p, g, &zero)));
+        Some((hands, affordable))
+    }
+
+    /// Stage 2: the top-k (give, get) bundle pairs by the additive estimate gain(get) - cost(give), from the values of
+    /// `offer_candidates`' states (`vals`, in its order) and the current hand's value `base`.
+    pub fn offer_shortlist(&self, base: f64, vals: &[f64], affordable: &[bool]) -> Vec<(usize, usize)> {
+        let gains: Vec<f64> = vals[..TRADE_BUNDLES.len()].iter().map(|v| v - base).collect();
+        let mut rest = vals[TRADE_BUNDLES.len()..].iter();
+        let costs: Vec<Option<f64>> = affordable.iter().map(|&a| if a { Some(base - rest.next().unwrap()) } else { None }).collect();
         let mut cands: Vec<(usize, usize, f64)> = Vec::new();
         for (gi, g) in TRADE_BUNDLES.iter().enumerate() {
             let Some(cost) = costs[gi] else { continue };
@@ -95,10 +150,21 @@ impl State {
             }
         }
         cands.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        cands.into_iter().take(TOP_K).map(|(gi, ri, _)| (gi, ri)).collect()
+    }
+
+    /// The current player's hands after each shortlisted trade, for their exact values.
+    pub fn shortlist_hands(&self, short: &[(usize, usize)]) -> Vec<[i32; 5]> {
+        short.iter().map(|&(gi, ri)| hand_after(self, self.current_player, &TRADE_BUNDLES[gi], &TRADE_BUNDLES[ri])).collect()
+    }
+
+    /// Stage 3: the best shortlisted offer whose exact gain clears `min_gain` and that a partner would accept.
+    pub fn offer_pick(&self, base: f64, short: &[(usize, usize)], exacts: &[f64], eval: &Eval) -> Option<(Action, f64)> {
+        let p = self.current_player;
         let mut best: Option<(Action, f64)> = None;
-        for &(gi, ri, _) in cands.iter().take(TOP_K) {
+        for (&(gi, ri), &v) in short.iter().zip(exacts) {
             let (g, r) = (&TRADE_BUNDLES[gi], &TRADE_BUNDLES[ri]);
-            let exact = eval.value(&with_hand(self, p, g, r), p) - base;
+            let exact = v - base;
             if exact <= eval.min_gain() || best.as_ref().is_some_and(|b| b.1 >= exact) {
                 continue;
             }
@@ -107,6 +173,44 @@ impl State {
             }
         }
         best
+    }
+
+    /// Trades inside the search (`vnets<k>x`): the best `k` shortlisted offers by exact gain that clear `min_gain` and
+    /// that a partner would accept (the partner model: the first seat that would), each with the state it leads to
+    /// if accepted. They become extra root children of the depth-2 search, so trading competes with building on the
+    /// same depth-2 values (+3.7 points at 1,000 games, docs/FINDINGS.md 2026-09-25).
+    pub fn offer_children_from(&self, base: f64, short: &[(usize, usize)], exacts: &[f64], eval: &Eval, k: usize) -> Vec<(Action, State)> {
+        let p = self.current_player;
+        let mut order: Vec<usize> = (0..short.len()).filter(|&i| exacts[i] - base > eval.min_gain()).collect();
+        order.sort_by(|&a, &b| exacts[b].total_cmp(&exacts[a]));
+        let mut extra = Vec::new();
+        for i in order {
+            if extra.len() == k {
+                break;
+            }
+            let (give, get) = (TRADE_BUNDLES[short[i].0], TRADE_BUNDLES[short[i].1]);
+            let Some(q) = (0..self.n).find(|&q| q != p && self.would_accept(q, &give, &get, &eval.partner())) else { continue };
+            let mut t = self.clone_light();
+            for r in 0..5 {
+                t.players[p].hand[r] += get[r] as i32 - give[r] as i32;
+                t.players[q].hand[r] += give[r] as i32 - get[r] as i32;
+            }
+            extra.push((Action::OfferTrade { give, get }, t));
+        }
+        extra
+    }
+
+    /// `offer_children_from` with the offer stages evaluated here (the site's synchronous path; the arena parks them).
+    pub fn offer_children(&self, eval: &Eval, k: usize) -> Vec<(Action, State)> {
+        let p = self.current_player;
+        let Some((hands, affordable)) = self.offer_candidates() else { return vec![] };
+        let (base, vals) = eval.values(self, p, &hands);
+        let short = self.offer_shortlist(base, &vals, &affordable);
+        if short.is_empty() {
+            return vec![];
+        }
+        let exacts = eval.values(self, p, &self.shortlist_hands(&short)).1;
+        self.offer_children_from(base, &short, &exacts, eval, k)
     }
 
     /// DecideTrade: accept iff the responder's value improves.
@@ -166,6 +270,89 @@ mod tests {
     use super::*;
     use crate::map::Map;
     use std::sync::Arc;
+
+    /// A trade what-if encoded from the hand delta is bitwise the full encoding of the state holding that hand, and
+    /// its layer-1 row through a leaf sink is bitwise the full row's.
+    #[test]
+    fn hand_delta_matches_full_encoding() {
+        let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
+        let mut s = State::new(Arc::new(Map::generate(5, &layout)), 4, 7, 10);
+        while s.initial_phase {
+            let a = s.playable_actions()[0];
+            s.apply(a, None).unwrap();
+        }
+        s.apply(Action::Roll, Some((2, 3))).unwrap();
+        let p = s.current_player;
+        s.players[p].hand = [2, 1, 0, 3, 1];
+        let (hands, _) = s.offer_candidates().expect("PlayTurn after the roll");
+        let nf = layout.n_features;
+        let x0 = s.encoded(p, &layout);
+        let mut w = vec![0f32; nf + nf * 64 + 64 + 2 * (64 * 64 + 64) + 64 * 6 + 6];
+        for (i, v) in w.iter_mut().enumerate() {
+            *v = ((i * 2654435761) % 1000) as f32 / 1000.0 - 0.5;
+        }
+        let net = Arc::new(ValueNet::from_f32(&w, nf, 64, 6).unwrap());
+        let mut a = net.leaf_sink(&x0, &s.map.static_template, vec![]);
+        let mut b = net.leaf_sink(&x0, &s.map.static_template, vec![]);
+        let mut row = vec![0f32; nf];
+        for h in &hands {
+            let mut t = s.clone_light();
+            t.players[p].hand = *h;
+            let full = t.encoded(p, &layout);
+            s.encode_hand(p, &layout, &x0, h, &mut row);
+            assert!(full.iter().zip(&row).all(|(x, y)| x.to_bits() == y.to_bits()), "hand {h:?}");
+            t.encode_into(p, &layout, &mut a.row);
+            a.push_row();
+            b.push_delta(&mut s.hand_delta(p, &layout, h));
+        }
+        assert!(a.out == b.out, "push_delta differs from push_row");
+    }
+
+    /// The root-board leaf path (encode_rest_into onto the root's board features, scanned only at rest_indices) is
+    /// bitwise the full path, and the rest encoder writes nowhere outside rest_indices.
+    #[test]
+    fn root_board_leaves_match_full_encoding() {
+        let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
+        let mut s = State::new(Arc::new(Map::generate(9, &layout)), 4, 3, 10);
+        while s.initial_phase {
+            let a = s.playable_actions()[0];
+            s.apply(a, None).unwrap();
+        }
+        let p = s.current_player;
+        let nf = layout.n_features;
+        let rest = State::rest_indices(&layout, s.n);
+        let mut probe = vec![f32::NAN; nf];
+        s.encode_rest_into(p, &layout, &mut probe);
+        for (i, v) in probe.iter().enumerate() {
+            assert!(v.is_nan() || rest.binary_search(&(i as u32)).is_ok(), "encode_rest_into wrote {i} outside rest_indices");
+        }
+        let mut w = vec![0f32; nf + nf * 64 + 64 + 2 * (64 * 64 + 64) + 64 * 6 + 6];
+        for (i, v) in w.iter_mut().enumerate() {
+            *v = ((i * 2654435761) % 1000) as f32 / 1000.0 - 0.5;
+        }
+        let net = Arc::new(ValueNet::from_f32(&w, nf, 64, 6).unwrap());
+        let x0 = s.encoded(p, &layout);
+        let mut base = s.map.static_template.clone();
+        s.encode_board_into(p, &layout, &mut base);
+        let mut a = net.leaf_sink(&x0, &s.map.static_template, vec![]);
+        let mut b = net.leaf_sink(&x0, &s.map.static_template, vec![]).with_board(base, s.board_key(), rest);
+        let mut kids = 0;
+        for roll in 2..=12i32 {
+            let mut t = s.clone_light();
+            t.apply(Action::Roll, Some((roll / 2, (roll + 1) / 2))).unwrap();
+            for c in 0..4 {
+                t.players[c].hand[c % 5] += roll % 3; // hands move, the board doesn't
+            }
+            assert!(t.board_is(&b.board));
+            t.encode_into(p, &layout, &mut a.row);
+            a.push_row();
+            t.encode_rest_into(p, &layout, &mut b.brow);
+            b.push_brow();
+            kids += 1;
+        }
+        assert_eq!(kids, 11);
+        assert!(a.out == b.out, "push_brow differs from push_row");
+    }
 
     /// A hand of 4 ore and no wheat next to a hand of 4 wheat: both sides should agree to swap,
     /// the offer is made, answered, confirmed, and cards move; a rejected offer is spent for the turn.

@@ -34,7 +34,7 @@ ROW_BUCKET = int(os.environ.get("ROW_BUCKET", 4096))  # forwards are padded to a
 MAX_LEAVES = int(os.environ.get("VNET_MAX_LEAVES", 20000))  # depth>2 decisions over this many leaves fall back one ply (search.rs); depth 2 is never capped
 
 
-VNET = re.compile(r"^vnet(?P<depth>\d?)(?P<own>o?)(?:t(?P<tau>[0-9.]+))?(?:k(?P<k>\d+))?(?:m(?P<sims>\d+)(?:c(?P<c>[0-9.]+))?(?P<mb>b?)(?:r(?P<rr>\d+)(?P<rd1>h?)(?:l(?P<lam>[0-9.]+))?)?)?(?P<x>x{0,2}):(?P<path>.+)$")
+VNET = re.compile(r"^vnet(?P<depth>\d?)(?P<own>o?)(?:t(?P<tau>[0-9.]+))?(?:k(?P<k>\d+))?(?:m(?P<sims>\d+)(?:c(?P<c>[0-9.]+))?(?P<mb>b?)(?:r(?P<rr>\d+)(?P<rd1>h?)(?:l(?P<lam>[0-9.]+))?)?)?(?:s(?P<ts>\d+))?(?P<x>x{0,2}):(?P<path>.+)$")
 # vnet:<path> depth 2; vnet3: depth 3; vnet3o: 3 own actions, opponents never min'ed (search.rs own_turn); t0.1: soft-min
 # temperature at opponent nodes (search.rs backup); k3: 3 replies per opponent node, ordered on the CPU by $PRUNE_NET,
 # default the spec's last member (search.rs expand_into); m500c0.1: the post-roll main phase by net-valued UCT, 500
@@ -148,7 +148,7 @@ def targets(colors, turns, winner_seat, vps, num_turns):
     return y, vp, turns_left
 
 
-def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p=0.0, roll_m=4, roll_depth=2, roll_net="", batch=64, depth=2, keep_log=False):
+def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p=0.0, roll_m=4, roll_depth=2, roll_net="", batch=64, depth=2, keep_log=False, luck=False, sample_all=False, roll_net_depth=1, crn=False):
     """Yields (seed, winner_color or None, part, extra) per game as they finish.
     `part` is the gen_games shard dict (float16) or None for a game without a
     winner; `extra` is (game, log, snapshot) when keep_log, else None.
@@ -183,11 +183,29 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
     roll_park = os.environ.get("ROLL_PARK", "") if roll_net else ""
     # > 2: each arena steps in its own thread (below); a step waits for its slowest game. 32 arenas of ~4 games: NPU
     # rollouts kept 7.7 of 8 cores busy where 16 left 1.6 idle (-11% wall), the gate mix -9% (2026-09-24)
-    n_arenas = int(os.environ.get("ARENAS", 32 if roll_park == "rust" or cpu_seats else 2)) if net is not None else 1
+    # LEAF_NPU=hidden|full (default hidden on the NPU): the engine scores the value-net seats' leaves itself inside step()
+    # (npu.rs), layer 0 on the CPU by root diff for "hidden"; "off" keeps the Python forward below. Arenas step in threads,
+    # so one arena's NPU pass overlaps another's CPU work.
+    leaf_mode = os.environ.get("LEAF_NPU", "hidden") if net is not None and DEVICE == "npu" and "+" not in g["path"] and not g.get("sims") else "off"
+    leaf_kw = {"leaf_npu": ov_ir(g["path"], leaf_mode == "hidden"), "leaf_net": rust_value_net(g["path"])} if leaf_mode != "off" else {}
+    assert not luck or leaf_mode == "hidden", "luck rows ride the engine's hidden-width leaf pass (LEAF_NPU=hidden on the NPU)"
+    if luck:
+        leaf_kw["luck"] = True
+    if sample_all:
+        leaf_kw["sample_all"] = True
+    if leaf_mode == "hidden" and batch >= int(os.environ.get("PARK_TRADES_MIN", 512)):  # offers ride the leaf pass: -10% wall at
+        leaf_kw["park_trades"] = True  # 1,024 games in flight, +25% at ~100 (the round trips), so the gate's 128 keeps the CPU path
+    if g is not None and g.get("ts"):  # vnets<k>x: up to k acceptable offers searched as root children (arena.rs trade_search)
+        assert leaf_mode == "hidden" and g.get("x") == "x", "trade search rides the engine's parked offers (vnets<k>x on the NPU)"
+        leaf_kw["trade_search"] = int(g["ts"])
+    if roll_net_depth != 1 or crn:  # depth-2 rollouts: the labelled seats play the search player itself (arena.rs Parked::Tree)
+        assert roll_park, "depth-2 / CRN rollouts are parked tasks (ROLL_PARK=rust or 1)"
+        leaf_kw.update(roll_net_depth=roll_net_depth, roll_crn=crn)
+    n_arenas = int(os.environ.get("ARENAS", 32 if roll_park == "rust" or cpu_seats else 4 if leaf_kw else 2)) if net is not None else 1
     # ROLL_PARK=rust: net rollouts become tasks parked at each net decision; the engine runs their dense layers on the
     # NPU inside each arena step (npu.rs). =1: the same on the CPU, the exactness check (docs/RESEARCH-HARDWARE.md)
     rnet = rust_value_net(g["path"]) if roll_net else None  # rollouts play the lineup's net at one ply on the CPU (valuenet.rs): "all" seats or the decider's "own" moves
-    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn, roll_p=roll_p, roll_m=roll_m, roll_depth=roll_depth, roll_net=rnet, roll_net_own=roll_net == "own", tau=tau, prune_net=prune_net, prune_k=prune_k, trade_net=trade_net, trade_net_partners=g.get("x") == "xx", mcts_net=mcts_net, mcts_sims=int(g.get("sims") or 0), mcts_c=float(g.get("c") or 0.1), mcts_max=bool(g.get("mb")), mcts_roll=int(g.get("rr") or 0), mcts_lambda=float(g.get("lam") or 0.5), mcts_roll_depth1=bool(g.get("rd1")), pool_nets=[rust_value_net(c) for c in cvnets], **({"roll_npu": ov_ir(g["path"].split("+")[-1], True)} if roll_park == "rust" else {"roll_park": True} if roll_park else {}), **({"pool_npu": [ov_ir(c, False) for c in cvnets]} if cvnets and DEVICE == "npu" and os.environ.get("POOL_NPU") else {})) for _ in range(n_arenas)]  # vnetN: deepens the net only
+    arenas = [catan_engine.Arena(layout, depth, sample_p, rank_p, sib_p, keep_log, rab_depth=2, max_leaves=MAX_LEAVES, ts_p=ts_p, own_turn=own_turn, roll_p=roll_p, roll_m=roll_m, roll_depth=roll_depth, roll_net=rnet, roll_net_own=roll_net == "own", tau=tau, prune_net=prune_net, prune_k=prune_k, trade_net=trade_net, trade_net_partners=g.get("x") == "xx", mcts_net=mcts_net, mcts_sims=int(g.get("sims") or 0), mcts_c=float(g.get("c") or 0.1), mcts_max=bool(g.get("mb")), mcts_roll=int(g.get("rr") or 0), mcts_lambda=float(g.get("lam") or 0.5), mcts_roll_depth1=bool(g.get("rd1")), pool_nets=[rust_value_net(c) for c in cvnets], **({"roll_npu": ov_ir(g["path"].split("+")[-1], True)} if roll_park == "rust" else {"roll_park": True} if roll_park else {}), **({"pool_npu": [ov_ir(c, False) for c in cvnets]} if cvnets and DEVICE == "npu" and os.environ.get("POOL_NPU") else {}), **leaf_kw) for _ in range(n_arenas)]  # vnetN: deepens the net only
     pool = ThreadPoolExecutor(max_workers=1)
     seeds = iter(seeds)
     games = [{} for _ in arenas]  # per arena: seed -> (game, colors) while in flight
@@ -236,9 +254,10 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
         t = time.perf_counter()
         n_rows, n_pending = arena.step(vals)
         rows = -(-max(n_rows, 1) // ROW_BUCKET) * ROW_BUCKET
-        if rows > len(bufs[i]):
-            bufs[i] = new_buf(rows)
-        arena.fill(bufs[i].numpy())
+        if n_pending:
+            if rows > len(bufs[i]):
+                bufs[i] = new_buf(rows)
+            arena.fill(bufs[i].numpy())
         prof["step"] += time.perf_counter() - t; prof["rows"] += n_rows; prof["steps"] += 1
         ms = arena.last_ms()
         prof["par"] += ms[0]; prof["fill"] += ms[1]; prof["npu"] = prof.get("npu", 0.0) + (ms[2] if len(ms) > 2 else 0.0)
@@ -256,6 +275,8 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
                     ts_x=d["ts_x"].astype(np.float16, copy=False), ts_v=np.asarray(d["ts_v"], dtype=np.float32),
                     ro_x=d["ro_x"].astype(np.float16, copy=False), ro_v=np.asarray(d["ro_v"], dtype=np.float32), ro_n=np.asarray(d["ro_n"], dtype=np.int8),
                 )
+                if "luck" in d:  # each X row's dice luck to the end of the game, for its seat (arena.rs luck_per_row)
+                    part["luck"] = d["luck"]
             finished.append((seed, (None if w < 0 else colors[w]), part, ((game, log, snap) if keep_log else None)))
             add(i)
         prof["drain"] += time.perf_counter() - t

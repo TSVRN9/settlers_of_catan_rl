@@ -518,6 +518,15 @@ struct PyArena {
     roll_park: bool,                 // ... as tasks parked at each net decision (arena.rs RollTask), stepped with the arena
     roll_npu: Option<crate::npu::NpuNet>, // ... their dense layers on the NPU inside step(), every decision within the step
     pool_npu: Vec<crate::npu::NpuNet>,    // pool_nets[k] on the NPU (full net, fp16 rows): Seat::CpuNet searches park and are scored in step()
+    leaf_npu: Option<crate::npu::NpuNet>, // the value-net seats' search leaves on the NPU inside step() (no Python forward): full-width
+                                          // fp16 rows, or hidden-only rows with layer 0 on the CPU (leaf_net, root-diff) when narrower
+    leaf_net: Option<Arc<ValueNet>>,
+    roll_net_depth: u32, // net rollouts play the depth-2 search player instead of the one-ply net (Recorder::net_depth)
+    roll_crn: bool,      // sibling rollouts share replicate seeds (Recorder::crn)
+    park_trades: bool, // park the value-net seats' offer decisions with the leaves (ArenaGame::park_trades)
+    trade_search: usize, // the value-net seats search up to this many acceptable offers as root children (ArenaGame::trade_search)
+    sample_all: bool, // outcome rows from every seat at a sampled tick (Recorder::all_seats)
+    luck: bool, // record each outcome row's dice luck (arena.rs luck_per_row); needs the hidden-width leaf_npu
     tau: f64,                        // soft-min temperature at opponent nodes (search.rs backup), 0 = exact min
     prune: Option<(Arc<ValueNet>, usize)>, // top-k replies at opponent nodes by this net (search.rs expand_into)
     mcts: Option<(Arc<ValueNet>, u32, f64, bool, u32, f64, bool)>, // net-valued UCT for the value-net seat's main phase: (net, sims, c, max backup, playout rounds, lambda, depth-1 playouts), mcts.rs
@@ -534,8 +543,8 @@ struct PyArena {
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![], roll_park=false, roll_npu=None, pool_npu=vec![]))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>, roll_park: bool, roll_npu: Option<(String, String, usize, usize)>, pool_npu: Vec<(String, String, usize, usize)>) -> PyResult<PyArena> {
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![], roll_park=false, roll_npu=None, pool_npu=vec![], leaf_npu=None, leaf_net=None, luck=false, sample_all=false, roll_net_depth=1, roll_crn=false, trade_search=0, park_trades=false))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>, roll_park: bool, roll_npu: Option<(String, String, usize, usize)>, pool_npu: Vec<(String, String, usize, usize)>, leaf_npu: Option<(String, String, usize, usize)>, leaf_net: Option<&PyValueNet>, luck: bool, sample_all: bool, roll_net_depth: u32, roll_crn: bool, trade_search: usize, park_trades: bool) -> PyResult<PyArena> {
         let pool_npu = pool_npu.iter().map(|(lib, xml, rows, width)| crate::npu::NpuNet::new(lib, xml, *rows, *width).map_err(PyValueError::new_err)).collect::<PyResult<Vec<_>>>()?;
         // roll_npu = (libopenvino_c path, hidden-layers IR .xml, its static rows, its input width)
         let roll_npu = match roll_npu {
@@ -543,7 +552,18 @@ impl PyArena {
             None => None,
         };
         let roll_park = roll_park || roll_npu.is_some();
-        Ok(PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, roll_park, roll_npu, pool_npu, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0, 0.0) })
+        let leaf_npu = match leaf_npu {
+            Some((lib, xml, rows, width)) => Some(crate::npu::NpuNet::new(&lib, &xml, rows, width).map_err(PyValueError::new_err)?),
+            None => None,
+        };
+        let leaf_net = leaf_net.map(|n| n.inner.clone());
+        if leaf_npu.as_ref().is_some_and(|n| n.width() != layout.inner.n_features) && leaf_net.is_none() {
+            return Err(PyValueError::new_err("hidden-only leaf_npu needs leaf_net for layer 0"));
+        }
+        if luck && !leaf_npu.as_ref().is_some_and(|n| n.width() != layout.inner.n_features) {
+            return Err(PyValueError::new_err("luck needs the hidden-width leaf_npu (its rows ride the leaf pass)"));
+        }
+        Ok(PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, roll_park, roll_npu, pool_npu, leaf_npu, leaf_net, roll_net_depth, roll_crn, trade_search, park_trades, sample_all, luck, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0, 0.0) })
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
@@ -593,10 +613,27 @@ impl PyArena {
             pool_park: !self.pool_npu.is_empty(),
             pool_pending: None,
             leaf_buf: Vec::new(),
+            leaf_vals: Vec::new(),
+            leaf_h: Vec::new(),
+            leaf_ref: Vec::new(),
+            trade_park: None,
+            trade_h: Vec::new(),
+            trade_vals: Vec::new(),
+            trade_skip: false,
+            trade_search: self.trade_search,
+            park_trades: self.park_trades,
+            luck_net: if self.luck && self.leaf_npu.as_ref().is_some_and(|n| n.width() != self.layout.n_features) { self.leaf_net.clone() } else { None },
+            luck_h: Vec::new(),
+            luck_logits: Vec::new(),
+            luck_rolls: Vec::new(),
+            leaf_sink_net: if self.leaf_npu.as_ref().is_some_and(|n| n.width() != self.layout.n_features) && std::env::var_os("LEAF_CHECK").is_none() { self.leaf_net.clone() } else { None },
             offset: 0,
             rec: {
                 let mut r = Recorder::new(seed, self.sample_p, self.rank_p, self.sib_p, self.ts_p, self.roll_p, self.roll_m, self.roll_depth, self.roll_net.clone(), self.roll_net_own);
                 r.park = self.roll_park;
+                r.all_seats = self.sample_all;
+                r.net_depth = self.roll_net_depth;
+                r.crn = self.roll_crn;
                 r
             },
             log: if self.keep_log { Some(vec![]) } else { None },
@@ -625,6 +662,8 @@ impl PyArena {
         let games = &mut self.games;
         let npu = &mut self.roll_npu;
         let pool_npu = &mut self.pool_npu;
+        let leaf_npu = &mut self.leaf_npu;
+        let leaf_net = self.leaf_net.clone();
         let (rows, n_pending, ms, npu_ms) = py.allow_threads(move || -> PyResult<(usize, usize, f64, f64)> {
             let t0 = std::time::Instant::now();
             let mut npu_ms = 0.0;
@@ -703,10 +742,104 @@ impl PyArena {
                     jobs.into_par_iter().for_each(|(g, l)| g.rec.advance_rollouts(&layout, l));
                 }
             }
+            if let Some(npu) = leaf_npu {
+                // Every parked value-net search of the arena in one NPU pass; the games resume from leaf_vals at the
+                // next step's advance. Rows are built per game in parallel (fp16), then leave the search.
+                let (w, nf) = (npu.width(), layout.n_features);
+                let check = std::env::var_os("LEAF_CHECK").is_some();
+                games.par_iter_mut().filter(|g| g.pending.is_some()).for_each(|g| {
+                    let s = g.pending.as_mut().unwrap();
+                    let n = s.n_leaves;
+                    if let Some(sink) = s.sink.take() {
+                        g.leaf_h = sink.out; // streamed by the expansion (search.rs expand_hidden)
+                        return;
+                    }
+                    g.leaf_h.clear();
+                    if w == nf {
+                        g.leaf_h.resize(n * nf, half::f16::ZERO);
+                        half::slice::HalfFloatSliceExt::convert_from_f32_slice(&mut g.leaf_h[..], &s.leaves[..n * nf]);
+                    } else {
+                        let root = g.state.encoded(g.state.current_player, &layout);
+                        let h0 = &mut g.leaf_h;
+                        leaf_net.as_ref().unwrap().layer0_from(&root, &s.leaves, n, |h| {
+                            let start = h0.len();
+                            h0.resize(start + h.len(), half::f16::ZERO);
+                            crate::valuenet::to_f16_into(&mut h0[start..], h);
+                        });
+                    }
+                    if check {
+                        let z = leaf_net.as_ref().expect("LEAF_CHECK needs leaf_net").forward_batch(&s.leaves[..n * nf], n);
+                        g.leaf_ref = (0..n).map(|r| crate::valuenet::sigmoid(z[r * crate::valuenet::N_HEADS] as f64)).collect();
+                    }
+                    let mut v = std::mem::take(&mut s.leaves); // backup only needs the tree + fixed values (as fill())
+                    let used = v.len();
+                    v.clear();
+                    if v.capacity() > 4 * used {
+                        v.shrink_to(2 * used);
+                    }
+                    g.leaf_buf = v;
+                });
+                let n_leaf: usize = games.iter().filter_map(|g| g.pending.as_ref()).map(|s| s.n_leaves).sum();
+                let traded = |g: &ArenaGame| g.trade_park.is_some();
+                let n_trade: usize = games.iter().filter(|g| traded(g)).map(|g| g.trade_h.len() / w).sum();
+                let n = n_leaf + n_trade + games.iter().map(|g| g.luck_h.len() / w).sum::<usize>();
+                if n > 0 {
+                    let t = std::time::Instant::now();
+                    let rows = games
+                        .iter()
+                        .filter(|g| g.pending.is_some())
+                        .flat_map(|g| g.leaf_h.chunks_exact(w))
+                        .chain(games.iter().filter(|g| traded(g)).flat_map(|g| g.trade_h.chunks_exact(w)))
+                        .chain(games.iter().flat_map(|g| g.luck_h.chunks_exact(w)));
+                    let logits = npu.logits(rows, n).map_err(PyValueError::new_err)?;
+                    npu_ms += t.elapsed().as_secs_f64() * 1e3;
+                    let mut off = 0;
+                    for g in games.iter_mut().filter(|g| g.pending.is_some()) {
+                        let m = g.pending.as_ref().unwrap().n_leaves;
+                        g.leaf_vals.clear();
+                        g.leaf_vals.extend(logits[off..off + m].iter().map(|&z| crate::valuenet::sigmoid(z as f64)));
+                        off += m;
+                        if check {
+                            let s = g.pending.as_ref().unwrap();
+                            let (mut a, mut b) = (g.leaf_vals.clone(), std::mem::take(&mut g.leaf_ref));
+                            let mut dmax = 0f64;
+                            for i in 0..m {
+                                dmax = dmax.max((a[i] - b[i]).abs());
+                            }
+                            for &(i, x) in &s.fixed {
+                                a[i] = x;
+                                b[i] = x;
+                            }
+                            let flip = s.backup_full(&a, g.tau).0 != s.backup_full(&b, g.tau).0;
+                            let mut c = LEAF_CHECK.lock().unwrap();
+                            c.0 += 1;
+                            c.1 += flip as u64;
+                            c.2 = c.2.max(dmax);
+                            c.3 += m as u64;
+                        }
+                    }
+                    for g in games.iter_mut().filter(|g| g.trade_park.is_some()) {
+                        let k = g.trade_h.len() / w;
+                        g.trade_vals.clear();
+                        g.trade_vals.extend(logits[off..off + k].iter().map(|&z| crate::valuenet::sigmoid(z as f64)));
+                        off += k;
+                    }
+                    for g in games.iter_mut() {
+                        let k = g.luck_h.len() / w;
+                        g.luck_logits.extend_from_slice(&logits[off..off + k]);
+                        off += k;
+                        g.luck_h.clear();
+                    }
+                    debug_assert_eq!(off, n);
+                }
+            }
             for g in games.iter_mut() {
-                g.done = g.over() && g.rec.tasks.is_empty();
+                g.done = g.over() && g.rec.tasks.is_empty() && g.luck_h.is_empty();
             }
             let ms = t0.elapsed().as_secs_f64() * 1e3;
+            if leaf_npu.is_some() {
+                return Ok((0, 0, ms, npu_ms)); // scored in the engine: nothing for Python to forward
+            }
             let rows: usize = games.iter().filter_map(|g| g.pending.as_ref()).map(|s| s.n_leaves).sum();
             let n_pending = games.iter().filter(|g| g.pending.is_some()).count();
             Ok((rows, n_pending, ms, npu_ms))
@@ -766,9 +899,13 @@ impl PyArena {
         self.games = live;
         let mut out = Vec::with_capacity(done.len());
         for g in done {
+            let luck = g.luck_per_row();
             let mut r = g.rec;
             r.finish();
             let d = PyDict::new(py);
+            if let Some(l) = luck {
+                d.set_item("luck", l.into_pyarray(py))?;
+            }
             let n = r.colors.len();
             d.set_item("X", Array2::from_shape_vec((n, nf), to_f16(&r.xs)).map_err(|e| PyValueError::new_err(e.to_string()))?.into_pyarray(py))?;
             d.set_item("color", r.colors)?;
@@ -1198,12 +1335,21 @@ fn to_f16(v: &[f32]) -> Vec<half::f16> {
 }
 
 /// The rollout net's first-layer width (the rows `Recorder::h0` holds).
+/// LEAF_CHECK counters: (decisions, move flips NPU vs exact CPU, max |P(win) diff| of a leaf, leaves).
+static LEAF_CHECK: std::sync::Mutex<(u64, u64, f64, u64)> = std::sync::Mutex::new((0, 0, 0.0, 0));
+
+#[pyfunction]
+fn leaf_check() -> (u64, u64, f64, u64) {
+    *LEAF_CHECK.lock().unwrap()
+}
+
 fn n_hidden(games: &[ArenaGame]) -> usize {
     games.iter().find_map(|g| g.rec.hidden_width()).unwrap_or(1)
 }
 
 #[pymodule]
 fn catan_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(leaf_check, m)?)?;
     m.add_class::<PyMap>()?;
     m.add_class::<PyLayout>()?;
     m.add_class::<PyState>()?;

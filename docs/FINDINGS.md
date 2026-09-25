@@ -3274,3 +3274,106 @@ The recipe: `vnetx` x2 plus 2 seats drawn per seed from {rab3, uct5000, cvnet:v5
   row-level comparison predicted (97% identical labels, no bias; docs/RESEARCH-HARDWARE.md).
 - **Old rounds' data is not worth training on.** The 2026-09-22 label-scaling sweep (above) found more labels don't
   help, and older rounds carry weaker incumbents' play and other label definitions; `data/it46-62` were deleted.
+
+## 2026-09-25: outcome labels from the depth-2 player's games, decorrelated
+
+The plan (`docs/PLAN-plateau.md`, rewritten 2026-09-25): self-play with outcome labels. It takes few states per game over
+many games, since a self-play game is itself a depth-2 rollout from each of its states.
+
+- **The rollout-trained incumbent is not a calibrated win probability.** On it71's 4,000 games (never trained on),
+  v64 scores outcome BCE 0.465 and Brier 0.154, with mean predicted P(win) 0.353 against an actual 0.250. The search
+  only compares values, so this doesn't hurt play directly. But it means v64's values can't be read as probabilities
+  (luck, resignation).
+- **No per-game memorization at the fixed step.** Outcome-only training from v64 (`--lr 1e-4 --dropout 0
+  --weight-decay 0`) on it63-70, at K rows per game with equal gradient steps, scored on it71: BCE 0.410 (K=40),
+  0.410 (K=16), 0.411 (K=4), 0.415 (K=1). Every arm is calibrated (mean p 0.24-0.25). The train/held-out gap stays small
+  at K=40. The 2026-09-01 memorization result ("peaks within half an epoch") was measured with lr 1e-3 and dropout.
+  So decorrelating states doesn't buy generalization here, while more games still add information.
+- **Dice luck as a control variate is weak with v64 as the control function.** `--luck` (arena.rs `luck_per_row`) was
+  measured on 256 self-play games (v64 x4, 4,939 rows). The label is the sum from the row's tick to the end of V(realized
+  roll) − Σ p(sum)·V(sum), dice only. Mean luck 0.0009, as unbiasedness requires. SD 0.171, corr(y, luck) 0.249.
+  It removes 4.1% of Var(y), ~6% of the residual variance (9% at the best coefficient, 0.63). v64's value swings are too
+  large (the coefficient), and dice are ~14% of win-probability movement (2026-09-06).
+  - **Measured properly**, as residual variance around a calibrated predictor (the pilot net, below) on 384 self-play
+    games:
+    - with the outcome-trained pilot as both the players and the control, luck removes **14.7%** (15.3% at the best
+      coefficient, 0.84);
+    - with v64 as the control, 10.6%.
+  - A calibrated control is worth about 1.17x effective data. That is right at the plan's 15% bar: one gated arm once the
+    self-play nets are calibrated.
+- **Pilot, outcome labels on existing data: rejected, −1.5 points.** 5 draws at K=16 from v64 on it63-70 (vnetx x2 +
+  pool games), uniform soup, pool gate: 2433 vs 2508 of 5,000 (llr −3.30), even across opponents (−0.9 to −2.3 points).
+  One round of outcome-only training lands about where single rollout-label rounds did (−0.3 to −1.1). It is neither the
+  collapse of 2026-09-03 nor a gain.
+- **Self-play outcome rounds: worse the more they fit.** Setup: v64 x4, 36,000 games per round at 27 games/s, 19 rows
+  per game capped at 16, `--win-weight 1` only, the fixed step, 5 draws, uniform soup, pool gate.
+  - Round 72 (one round of data): −2.4 points (1471 vs 1542 of 3,000).
+  - Round 73 (two rounds): −4.6 (959 vs 1050 of 2,000). Early stopping picked twice the steps (1,800-2,600 vs
+    700-1,350), while the held-out BCE on self-play games stayed flat at 0.436-0.444.
+  - More outcome data lets the net move further from v64, and every step of that move costs play. The sign matches
+    2026-09-03, at the fixed step and with decorrelated rows.
+  - A likely reason: outcome rows are states the players actually reached, never the counterfactual siblings the search
+    compares (the iteration-0 diagnosis). Fitting P(win) along trajectories doesn't teach the ranking among a
+    decision's children.
+  - Trade frequency is not the reason: v72 offers 110 per game against v64's 86, and completes 11.2 trades against 13.3.
+- **Outcome arms on sp72-74 (108k self-play games).** Same recipe, 5 draws from v64, uniform soup, pool gate.
+  - **Aux heads** (`--aux-weight 1`: final VPs, turns left): −1.36 against v64 (2437 vs 2505 of 5,000). Its control, the
+    plain recipe on the same data (round 74), scored −1.35, so aux was **neutral, not harmful**: it shared the
+    selection drift that EMA removes.
+    - v64's aux heads were also untrained (the loop runs `AUX_WEIGHT=0`), so the first joint steps push random-head
+      error through the trunk.
+    - Re-test queued: aux + EMA against EMA alone, and heads warmed on a frozen trunk (`--heads-only`) before joint
+      aux + EMA.
+  - **EMA weights** (`--ema 0.999`, saved instead of the best-held-out checkpoint): **a tie, +0.26 at the 12,000 cap**
+    (6087 vs 6056). It is the only outcome-only candidate that doesn't regress. The best-held-out checkpoint is where
+    outcome training does its damage, and averaged weights avoid it. EMA makes outcome labels safe to add; it doesn't
+    make them a gain.
+- **Depth-2 self-play rollout labels: accepted on the first round, +0.95 points (v75).** The first accept since the
+  plateau began at round 63.
+  - Generation: v64 x4, 4,000 games at 1.46 games/s (46 min), `roll_p 0.02`, `roll_m 2`, CRN across siblings. Every
+    labelled playout is played by the depth-2 player itself. 99,238 labels.
+  - Training: `--ts-key ro --ts-weight 3`, no outcome loss, the fixed step, 5 draws, uniform soup.
+  - Gate: pool SPRT against v64, 5711 vs 5607 of 11,000 (llr +3.07).
+  - The draws early-stopped after only 52-78 gradient steps. The epoch length follows the ~64k outcome rows, so a round
+    here is a very small update.
+  - This is the diagnosis head-on: the same loop with labels from the 1-ply net (rounds 63-71) never accepted.
+    Counterfactual siblings labelled by the strongest player did, on one round of data.
+- **Gate pool change from round 76 (user, 2026-09-25): `uct5000` dropped, pool `rab3, jsrobot, cvnet:v57`.** UCT's
+  random playouts were ~45% of gate CPU. In the five gates of 2026-09-25 its per-opponent delta always moved with the
+  others (never the lone outlier). Gates from round 76 on aren't comparable with earlier ones; check UCT periodically
+  in the held-out battery.
+- **Aux heads re-tested properly: aux + EMA ties v64, +0.53 at the 12,000 cap (6077 vs 6013)**, against EMA alone's
+  +0.26 on the same data. The difference is inside the noise. Once the selection drift is gone, aux heads don't hurt;
+  whether they help is still unresolved at this power.
+  - With the heads first trained alone on a frozen v64 (`--heads-only`), then joint aux + EMA: +0.21 at the cap
+    (6151 vs 6126).
+  - All three drift-free outcome variants tie v64 (+0.26, +0.53, +0.21). Under outcome labels, aux heads neither hurt
+    nor measurably help at 12,000 paired games (about ±0.9 points of resolution). Using the heads inside the search
+    (VP-margin tiebreak, max^n) is a different lever and stays open.
+- **Trade offers inside the depth-2 search: accepted, +3.7 points at 1,000 games** (`vnets3x:v75` vs `vnetx:v75`, pool
+  without UCT: 506 vs 469, llr +4.47). The gain is uniform across opponents (cvnet +3.8, jsrobot +3.9, rab3 +3.8, each
+  z ≈ 3), with no retraining.
+  - The best 3 acceptable offers from the parked shortlist become root children: the accepted outcome predicted by the
+    partner model, then one more own ply. The search chooses between trading and building with the same depth-2
+    values, instead of the 1-ply offer policy deciding first.
+  - Offers per game drop from 83.6 to 75.9: the search declines offers whose follow-up is worse than just building.
+  - The loop's player is `vnets3x` from round 76 (`scripts/run_d2.sh`). Open: k (1 / 5 / 8), and opponents' offers
+    at their nodes.
+- **Width 512 by Net2Net (v64 widened, trained on d275 like v75): first block +2.2 (519 vs 497 of 1,000), llr +0.78.
+  Inconclusive.** The gate died at block 2 on an NPU driver error (`ZE_RESULT_ERROR_UNINITIALIZED` in
+  `pfnAppendGraphExecute`).
+  - Reproduced: arena plays alternating a 512-wide and a 256-wide net in one process fail on the 4th play. The same
+    alternation with two 256-wide nets is fine (6 plays), so the loop's gates are safe.
+  - Workaround: gates across different widths run on XPU leaves (`VNET_DEVICE=xpu`), or each player in its own
+    process.
+- **Round 76, depth-2 labels with the trade-search player: accepted, +0.97 (v76).** v75 x4 as `vnets3x`, 4,000
+  games at 1.30 games/s (51 min; slower than round 75's 1.46, partly the diagnostics run beside it), 96,427 labels.
+  The window is d275 + d276. The gate is `vnets3x:v76` vs `vnets3x:v75` on the pool without UCT: 5600 vs 5493 of
+  11,000 (llr +3.14; cvnet +1.7, jsrobot +0.7, rab3 +0.6). Stage times: generation 51 min, training 0.5 min, gate
+  29 min.
+  - Two depth-2 rounds, two accepts (+0.95, +0.97). Rounds 63-71 with one-ply labels had none.
+  - Today's lineage: v64 → v75 (+0.95, labels) → +3.7 (trade search, same net) → v76 (+0.97, labels).
+- **Width 512 re-gated on XPU leaves: +0.77 at the 12,000 cap** (5920 vs 5828, llr +2.57, just short of accepting;
+  cvnet +1.0, jsrobot +0.3, rab3 +0.7). Same data and recipe as v75, only the width differs. It leans positive: the
+  "width is dead" verdict (from scratch, destructive step) doesn't hold at matched lineage. Cost of 512: ~4x the NPU's
+  hidden-layer work, ~2x CPU layer 1. Next: widen the incumbent and re-test over a round or two of depth-2 data.

@@ -14,7 +14,7 @@ label work stops, and the remaining effort goes to play-time strength.
 
 ## Rules for the whole series
 
-- **Gate frozen:** `gate.py --pool rab3,jsrobot,uct5000,cvnet:checkpoints_value/v57.pt`, H0 -0.5, H1 +1.0, 1,000-game
+- **Gate frozen** (from round 76: `uct5000` dropped by the user, ~45% of gate CPU, redundant signal; UCT goes to the held-out battery): `gate.py --pool rab3,jsrobot,uct5000,cvnet:checkpoints_value/v57.pt`, H0 -0.5, H1 +1.0, 1,000-game
   blocks to 12,000. Refreshing the pool's cvnet is a decision for a series boundary, not mid-series; results before
   and after it aren't comparable.
 - **One change per gated experiment,** each with its kill rule stated up front. 1,000-game screens don't transfer
@@ -23,7 +23,30 @@ label work stops, and the remaining effort goes to play-time strength.
 - **A v64 held-out baseline first** (real jSettlers 100 games, Python AB 300, the buct/vpi/drrl/jsdroid pool), on the
   quiet machine. It's three accepts overdue and the reference for everything below.
 
-## The experiments, in order
+## 2026-09-25: the order changed (user): self-play outcome labels first
+
+The user chose pure self-play (`vnetx` x4), outcome labels only (no `ro_*` anchor, steelmanned even through a bad first
+round), and depth-2 rollouts only if outcome labels show signal but stay noise-limited. The full plan is in
+`~/.claude/plans/i-d-like-you-to-federated-beaver.md`. In short:
+
+1. **Speed first, in Rust.** The engine scores the leaves itself (`leaf_npu`), streams them through layer 1 and batches
+   the trade forwards. Self-play went from 4.9 to 32.7 games/s (`docs/PLAN-gen-speed.md` 2026-09-25).
+2. **Pilot on existing data.** Outcome-only from v64 on it63-70 at K rows per game; K barely matters at the fixed step
+   (FINDINGS 2026-09-25). The K=16 soup is gated against v64.
+3. **Self-play rounds.** `SELFPLAY=1 DATA_PREFIX=sp ROLL_P=0 WIN_WEIGHT=1 TS_WEIGHT=0 MAX_TS=0 SAMPLE_P=0.03
+   PER_GAME=16`, ~36k games per round, the frozen gate. Kill: after ≥ 4 rounds with a full window, the best candidate
+   is still ≥ 3 points below v64 with no upward trend.
+4. **Arms, one at a time:**
+   - final-VP aux heads;
+   - all four perspectives per state;
+   - EMA weights (`--ema`);
+   - board rotation;
+   - luck-adjusted labels, which are built but weak with v64 as control (re-measure with a calibrated net).
+5. **Depth-2 rollouts** for counterfactual sibling labels, with CRN, if 3 shows signal.
+
+The sections below are the earlier plan (items 2 and 3 stay open; item 4 became step 2 above).
+
+## The experiments, in order (as planned 2026-09-25 morning)
 
 ### 1. Depth-2 rollout labels (the diagnosis, head-on)
 
@@ -76,7 +99,6 @@ correlated states is memorized). `it63-71` now hold ~36k games played by the dep
 
 ## Decisions for the user
 
-1. **Commit first?** Two days of verified engine, loop and docs work are uncommitted, and item 2 is a large engine
-   edit.
+1. ~~Commit first?~~ Committed by the user 2026-09-25.
 2. **Trade-search scope** (item 2): own offers only, or opponents' too.
 3. **When to refresh the pool** (cvnet v57 → v64): at the end of this series, or not at all.

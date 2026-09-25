@@ -196,6 +196,10 @@ def main():
     parser.add_argument("--jobs", type=int, default=7, help="worker processes (Python loop) / Rust threads minus one (arena)")
     parser.add_argument("--batch", type=int, default=128, help="arena: games in flight (leaves of all of them share one forward)")
     parser.add_argument("--sample-p", type=float, default=0.5)
+    parser.add_argument("--roll-net-depth", type=int, default=1, choices=[1, 2], help="with --roll-net: the rollout policy is the net at one ply (1) or the depth-2 search player (2)")
+    parser.add_argument("--crn", action="store_true", help="sibling rollouts share their replicates' seeds (common random numbers)")
+    parser.add_argument("--sample-all", action="store_true", help="a sampled tick records the state from all four seats (who won, not just whether I did)")
+    parser.add_argument("--luck", action="store_true", help="store each outcome row's dice luck to the end of the game (luck array; arena.rs luck_per_row)")
     parser.add_argument("--rank-p", type=float, default=0.0, help="per AlphaBeta decision: probability of recording a (chosen, other) child pair")
     parser.add_argument("--sib-p", type=float, default=0.0, help="per decision: probability of recording a sibling set with base_fn values")
     parser.add_argument("--ts-p", type=float, default=0.0, help="arena only, per value-net decision: probability of recording the root + up to 5 children with their search values (soft distillation targets ts_x / ts_v)")
@@ -230,7 +234,7 @@ def main():
         # value-net lineups, ~3x for rab-only ones (docs/FINDINGS.md).
         os.environ.setdefault("RAYON_NUM_THREADS", str(args.jobs + 1))
         pool = contextlib.nullcontext()
-        results = ((seed, part) for seed, _, part, _ in arena.play(lineup_of if pool_toks else lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, ts_p=args.ts_p, roll_p=args.roll_p, roll_m=args.roll_m, roll_depth=args.roll_depth, roll_net=args.roll_net, batch=args.batch))
+        results = ((seed, part) for seed, _, part, _ in arena.play(lineup_of if pool_toks else lineup, seeds, sample_p=args.sample_p, rank_p=args.rank_p, sib_p=args.sib_p, ts_p=args.ts_p, roll_p=args.roll_p, roll_m=args.roll_m, roll_depth=args.roll_depth, roll_net=args.roll_net, batch=args.batch, luck=args.luck, sample_all=args.sample_all, roll_net_depth=args.roll_net_depth, crn=args.crn))
     else:
         assert args.ts_p == 0 and args.roll_p == 0, "--ts-p / --roll-p are recorded by the arena only"
         pool = mp.get_context("spawn").Pool(args.jobs, initializer=_init_worker, initargs=(lineup, args.sample_p, args.rank_p, args.sib_p))

@@ -282,3 +282,120 @@ Round 69 (2026-09-24 18:39) is the first self-play-rollout round: `ROLL_NET=all 
   copy, no 1,051-wide subtraction or scan. Exact (shards identical), but **+25% instructions and +15-30% CPU** in the
   production mode (744 / 726 → 852 / 966 CPU s on 128 self-play games). The scalar bit walk and scattered stores cost
   more than the dense SIMD passes and 4 KB copies they replaced. The dense path stays.
+
+## 2026-09-25: pure self-play (`vnetx:v64` x4, no rollouts) — the engine owns the leaf forward
+
+The outcome-label self-play plan (`docs/PLAN-plateau.md`) generates with four net seats and `roll_p 0`. That config had
+never been profiled. `bench_sp` = 256-1,024 games, `sample_p 0.03`, quiet machine, games/s end to end.
+
+- **Baseline 4.90 games/s.** With no rollouts, no seat searches in the Rust step, so `arena.py` fell back to 2 ping-pong
+  arenas and one Python forward thread. 57% of wall went to waiting on the leaf forward: ~36k rows per step sent from
+  Python as fp32 1,051 wide (160 MB per call). NPU 27% busy, CPU 275% of 800.
+- **Leaves scored inside `PyArena::step`** (`leaf_npu`, `npu.rs`). The value-net seats' parked trees go to the NPU from
+  Rust, and the games resume from `leaf_vals` at the next step. Python no longer touches rows (`LEAF_NPU=hidden|full|off`,
+  default hidden on the NPU). Arenas step in threads (4 by default), so one arena's NPU pass overlaps the others' CPU work.
+  - Full-width fp16 rows: **10.9 games/s**.
+  - Hidden-only rows (layer 1 on the CPU by root diff, 256-wide fp16 to the NPU): **14.6 games/s**.
+  - Accuracy (`LEAF_CHECK=1`: the same leaves by the exact CPU forward, backups compared): hidden flips **0.24%** of
+    decisions (max |dP| 0.0007), full 0.28%. The hidden path is at least as faithful as the Python path it replaces.
+- **Streaming leaves** (`search.rs expand_hidden`, `valuenet.rs LeafSink`): each leaf goes through layer 1 as it is
+  encoded, so a depth-2 tree never materializes its 4 KB rows (up to ~80 MB for the robber/trade tail). Bitwise the same
+  rows (ARENAS=1 shards identical). **22.9 games/s**, maxrss 4.5 → 1.8 GB. A leaf differs from its root in only **7.7
+  features on average** (91% under 16).
+- **The sink's row restored sparsely** instead of a 4 KB template copy per leaf (a changed position differs from the
+  root now, or equals it where the root differs from the template). Exact; CPU -3%, wall flat.
+- **Trade offers scored in one batch by root diff** (`trade.rs Eval::values`): `best_offer` ran ~50 dense single-row
+  forwards per `PlayTurn` tick of every net seat (17% of self-play CPU). Candidates now differ from the current hand in a
+  few features. Heuristic seats are bitwise unchanged; net seats differ at ~1e-7 (summation order). CPU -7%, **25.0
+  games/s** (8 arenas); 16 arenas and 512 games in flight: 27.4.
+- **Outcomes expanded where they are built** (`for_each_outcome` in `expand_node` instead of collecting ~1 KB `State`s
+  into a growing Vec): exact (shards identical), CPU for 1,024 games 245 → 200 s, **32.7 games/s**.
+- Gate mix (vnetx:v60 vs the pool, 1,000 games): 131 → 117 s with the engine-side leaves.
+- Knobs measured flat: arenas 4-32, batch 128-1,024, rayon 8-16 threads (within ±1 game/s at a given code state). The
+  NPU copy into its input tensor is 63 ns/row (4% of CPU). Infer averages ~1 µs/row as seen by the callers, with ~4 of
+  16 arenas waiting on it at any moment. NPU 40% busy.
+- Remaining CPU (32.7 games/s): trade forwards' dense hidden layers ~12%, `encode_into` ~9.5%, allocation ~10%
+  (`actions_into`, `apply`), `clone_light` 3.5%, the leaf diff and scan ~9%.
+- **Depth-2 rollouts (built, not yet benchmarked quietly).** `--roll-net all --roll-net-depth 2` makes each labelled
+  playout's net decisions those of the depth-2 search player: `Parked::Tree` holds the tree, its leaves are streamed
+  through layer 1 into the same hidden-row stream as one-ply rollouts, and it is resumed with the search's backup. `--crn`
+  gives sibling rollouts shared replicate seeds. A contended first look (next to a generation run): 952 depth-2
+  playouts cost ~21 s more than one-ply ones on 16 self-play games. That puts 100k labels x 2 playouts under an hour,
+  inside the plan's ≤ 3 h bar. Measure on a quiet machine before a round uses it.
+- Other options added: `--sample-all` (every seat's view of a sampled tick), `--luck` (dice luck per outcome row, the
+  11 post-roll states per seat riding the leaf NPU pass), `train_value.py --per-game K` and `--ema DECAY`.
+- **Trade offers parked on the NPU, with hand deltas (adopted).** Two changes:
+  - The offer's candidate rows are built from the few features a trade moves (`encode.rs hand_delta`; the 5 hand
+    counts, hand size and hand synergy), with no state copy or re-encode.
+  - They go through layer 1 as sparse deltas (`LeafSink::push_delta`, bitwise `push_row`; unit test
+    `hand_delta_matches_full_encoding`).
+  - Result at 1,024 games in flight, next to a gate: 2,048 self-play games **134.9 / 132.7 s against 151.8 / 145.3 s
+    (-10% wall)**, CPU 368 / 367 s against 380 / 418 s. Trade behaviour is identical (83.2 offers, 13.6 trades per
+    game).
+  - The round trips only pay off with many games in flight: generation should run `--batch 1024` with `ARENAS=32`
+    (`arena.py` parks trades from batch 512).
+  - 2,048 in flight (64 arenas) is no faster: 4,096 games in 222 / 207 s against 214 s at 1,024 (next to a training
+    run), at 10 GB RSS against 5.9 GB. It plateaus at 1,024.
+  - The first try, parking without the hand deltas, is recorded below.
+- **Trade offers parked on the NPU, without hand deltas (first try, superseded).** A value-net seat's offer decision parked in two stages (candidates,
+  then the shortlist exactly), its rows riding the leaf NPU pass. Trade behaviour was identical (83.4 vs 83.5 offers
+  and 13.6 vs 13.6 trades per game). But 512 self-play games took 39.1 s against 38.6 s, with 3% less CPU, and with
+  96 games in flight it was 25% slower (two extra round trips per offer decision). After the batched root-diff
+  forward, the offer's CPU cost is encoding the candidate hands, not dense layers. At 1,024 games in flight: -3% wall,
+  -8% CPU (the user's suggestion), which led to the hand-delta version above.
+- **Leaves on the root's board reuse its board features** (`encode.rs encode_board_into` / `encode_rest_into`,
+  `LeafSink::with_board` / `push_brow`): a leaf whose robber and pieces equal the root's writes only the scalar, hand,
+  card and prompt features onto a copy of the root's board features. Exact (ARENAS=1 shards identical). Small: 2,048
+  self-play games at 1,024 in flight, CPU 359 / 360 s against 366 / 363 s, wall 132 / 133 s against 140 / 135 s. The
+  board part of the encoder was already cheap (reachable production is memoized); what remains of encoding is the
+  per-leaf scalar writes and the diff scan.
+- **Net2Net widening** (`widen.py`): hidden layers grown with zero outgoing weights, so the wider net computes the same
+  function (max |diff| 7.6e-6 at 256 → 512) and training keeps the lineage. The width test is `v64w512` trained on d275
+  like v75, gated against v75.
+
+### 2026-09-25: depth-2 rollout generation (the loop's mode since round 75), profiled
+
+96 games, v75 x4, `roll_p 0.02 roll_m 2`, CRN; NPU 43% busy, all CPU-bound. The CPU splits into three parts:
+- **Tree bookkeeping ~30%:** allocation ~12%, memmove ~10% (moving States), move generation 6.7%, `clone_light` 4.3%.
+- **Per-leaf layer 1 ~27%:** the 1,051-wide diff scan 7.7%, sparse FMAs ~8%, **f32 → f16 6.5%**, sink bookkeeping
+  ~5%.
+- **Encoding ~11%.**
+
+Rollout scheduling and the NPU calls are under 1%.
+
+Two exact fixes, together **-7.5% wall, -5.5% CPU** on 64 depth-2 games (54.0 / 53.3 s → 50.3 / 49.0 s):
+- `valuenet.rs to_f16_into`: F16C 8 at a time, the same round-to-nearest-even as `half`, without its per-call
+  overhead.
+- `push_brow` scans only `State::rest_indices` (the ~90 positions `encode_rest_into` writes, ascending) instead of
+  all 1,051. A leaf on its root's board can differ from the root only there, so the nonzeros and their order are the
+  same.
+- Checks: unit test `root_board_leaves_match_full_encoding`, and ARENAS=1 self-play shards identical to the build
+  before both changes.
+
+### 2026-09-25: UCT playouts (subagent, exact CPU route)
+
+**iGPU: not built.**
+- A decision's 5,000 playouts are sequential, since each reward steers the next selection.
+- The only exact batching is across games in lockstep, which gives ~32 lanes per dispatch, and one kernel launch plus
+  sync costs about one CPU playout (~9 µs, ~60 steps).
+- A bit-exact OpenCL port of apply, move generation and longest road is ~1,000 lines of branchy code.
+
+**CPU changes, all exact:**
+- The robber and Year of Plenty generators push into the caller's list (a victim bitmask instead of Vecs). This helps
+  every caller.
+- The playout's random robber move is drawn by counting instead of listing.
+- The 64-bit divide in the playout's pick is replaced by an exact multiply-based remainder.
+
+**Checks:**
+- A unit test compares the generators with copies of the old ones at every step of ~2.3M playout steps.
+- A playout fingerprint test, and full game logs identical on rab + 3x uct2000, rab/uct5000 and the gate mix.
+- `test_env.py` passes.
+
+**Speed:**
+- Playout bench −24% instructions, 28.5k → 22.6k cycles per playout (1.26x); rab + 3x uct5000 1.26x.
+- The old gate mix without net seats: −11% cycles.
+- UCT left the loop's gate at round 76, so the playout part helps the held-out battery; the robber-generator change
+  helps everything.
+
+**Left:** longest road on BuildRoad (~16% of a playout, `board.rs`) and the 19-tile payout scan on Roll (~12%,
+`apply.rs`; index tiles by number).

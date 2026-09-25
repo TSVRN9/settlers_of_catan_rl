@@ -49,6 +49,7 @@ pub struct Search {
     pub fixed: Vec<(usize, f64)>,  // terminal leaves with exact values
     pub n_leaves: usize,
     pub root: Node,
+    pub sink: Option<crate::valuenet::LeafSink>, // expand_hidden: leaves go through layer 0 here instead of into `leaves`
     cap: usize,
     overflow: bool,
     own_turn: bool,
@@ -140,15 +141,65 @@ impl State {
     /// (docs/AUDIT-killed-levers.md #6, docs/RESEARCH-PLAYTIME.md §2) -- and it shrinks the tree.
     pub fn expand_into(&self, depth: u32, p0: usize, layout: &Layout, mut buf: Vec<f32>, max_leaves: usize, own_turn: bool, prune: Option<(&ValueNet, usize)>) -> Search {
         buf.clear();
-        let t0 = now_ns();
         let cap = if max_leaves == 0 || depth <= 2 { usize::MAX } else { max_leaves };
         for p in 0..self.n {
             self.reachable_production(p); // prime the memo; leaves that did not build inherit it
         }
-        let mut search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, cap, overflow: false, own_turn, t_enc: 0, t_child: 0 };
+        let search = Search { n_features: layout.n_features, leaves: buf, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, sink: None, cap, overflow: false, own_turn, t_enc: 0, t_child: 0 };
+        self.expand_search(depth, p0, layout, max_leaves, prune, search)
+    }
+
+    /// `expand` with extra root children (action, the state it leads to), each expanded one ply shallower after the
+    /// ordinary children (the site's trade search; the arena streams them, `expand_hidden_with`).
+    pub fn expand_with(&self, depth: u32, p0: usize, layout: &Layout, max_leaves: usize, own_turn: bool, extra: Vec<(Action, State)>) -> Search {
+        let mut search = self.expand_into(depth, p0, layout, Vec::new(), max_leaves, own_turn, None);
+        search.cap = usize::MAX;
+        for (a, st) in extra {
+            let c = st.expand_node(depth - 1, p0, layout, &mut search, None, &mut Vec::new());
+            search.root.children.push((a, vec![(1.0, c)]));
+        }
+        search
+    }
+
+    /// `expand_into` streaming each leaf through `net`'s first layer (valuenet.rs `LeafSink`): `sink.out` holds the
+    /// fp16 hidden rows (`n_leaves` x hidden), `leaves` stays empty. Rows are bitwise `layer0_from` over expand_into's.
+    pub fn expand_hidden(&self, depth: u32, p0: usize, layout: &Layout, net: &std::sync::Arc<ValueNet>, out: Vec<half::f16>, max_leaves: usize, own_turn: bool, prune: Option<(&ValueNet, usize)>) -> Search {
+        self.expand_hidden_with(depth, p0, layout, net, out, max_leaves, own_turn, prune, vec![])
+    }
+
+    /// `expand_hidden` with extra root children: (action, the state it leads to), each expanded one ply shallower
+    /// after the ordinary children -- the arena's own trade offers, their accepted outcome predicted (trades inside
+    /// the search, docs/PLAN-plateau.md #2). Depth 2 only (no overflow retry).
+    pub fn expand_hidden_with(&self, depth: u32, p0: usize, layout: &Layout, net: &std::sync::Arc<ValueNet>, mut out: Vec<half::f16>, max_leaves: usize, own_turn: bool, prune: Option<(&ValueNet, usize)>, extra: Vec<(Action, State)>) -> Search {
+        out.clear();
+        let cap = if max_leaves == 0 || depth <= 2 { usize::MAX } else { max_leaves };
+        for p in 0..self.n {
+            self.reachable_production(p);
+        }
+        let mut base = self.map.static_template.clone();
+        self.encode_board_into(p0, layout, &mut base);
+        let sink = net.leaf_sink(&self.encoded(p0, layout), &self.map.static_template, out).with_board(base, self.board_key(), State::rest_indices(layout, self.n));
+        let search = Search { n_features: layout.n_features, leaves: Vec::new(), fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, sink: Some(sink), cap, overflow: false, own_turn, t_enc: 0, t_child: 0 };
+        debug_assert!(extra.is_empty() || depth <= 2, "extra root children need an uncapped tree");
+        let mut search = self.expand_search(depth, p0, layout, max_leaves, prune, search);
+        search.cap = usize::MAX;
+        for (a, st) in extra {
+            let c = st.expand_node(depth - 1, p0, layout, &mut search, prune, &mut Vec::new());
+            search.root.children.push((a, vec![(1.0, c)]));
+        }
+        search
+    }
+
+    fn expand_search(&self, depth: u32, p0: usize, layout: &Layout, max_leaves: usize, prune: Option<(&ValueNet, usize)>, mut search: Search) -> Search {
+        let t0 = now_ns();
         let root = self.expand_node(depth, p0, layout, &mut search, prune, &mut Vec::new());
         if search.overflow {
-            return self.expand_into(depth - 1, p0, layout, search.leaves, max_leaves, own_turn, prune);
+            let mut s = Search { n_features: search.n_features, leaves: search.leaves, fixed: Vec::new(), n_leaves: 0, root: Node { maximizing: true, children: vec![] }, sink: search.sink, cap: if max_leaves == 0 || depth - 1 <= 2 { usize::MAX } else { max_leaves }, overflow: false, own_turn: search.own_turn, t_enc: 0, t_child: 0 };
+            s.leaves.clear();
+            if let Some(k) = s.sink.as_mut() {
+                k.out.clear();
+            }
+            return self.expand_search(depth - 1, p0, layout, max_leaves, prune, s);
         }
         prof_add(search.n_leaves as u64, search.t_enc, search.t_child, now_ns() - t0);
         match root {
@@ -176,6 +227,21 @@ impl State {
             let idx = search.n_leaves;
             search.n_leaves += 1;
             let t = now_ns();
+            if let Some(sink) = search.sink.as_mut() {
+                if winner >= 0 {
+                    search.fixed.push((idx, (winner as usize == p0) as u8 as f64));
+                    sink.push_zero();
+                } else if self.board_is(&sink.board) {
+                    // on the root's board (a roll, steal, card, trade, end of turn...): the board features are the root's
+                    self.encode_rest_into(p0, layout, &mut sink.brow);
+                    sink.push_brow();
+                } else {
+                    self.encode_into(p0, layout, &mut sink.row); // row == the static template here (push_row restores it)
+                    sink.push_row();
+                }
+                search.t_enc += now_ns() - t;
+                return Child::Leaf(idx);
+            }
             let start = search.leaves.len();
             search.leaves.extend_from_slice(&self.map.static_template);
             if winner >= 0 {
@@ -198,10 +264,10 @@ impl State {
         let children = actions
             .into_iter()
             .map(|a| {
-                let t = now_ns();
-                let outcomes = self.outcomes(a);
-                search.t_child += now_ns() - t;
-                let outs = outcomes.into_iter().map(|(s, p)| (p, s.expand_node(next, p0, layout, search, prune, pbuf))).collect();
+                // each outcome expanded where it is built: collecting ~1 KB States into a growing Vec first was ~8% of
+                // self-play CPU in memmove (2026-09-25); same order, so the same leaves
+                let mut outs = Vec::new();
+                self.for_each_outcome(a, |s, p| outs.push((p, s.expand_node(next, p0, layout, search, prune, pbuf))));
                 (a, outs)
             })
             .collect();

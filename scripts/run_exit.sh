@@ -20,6 +20,10 @@ ROLL_P=${ROLL_P:-0.3}; ROLL_M=${ROLL_M:-1}; TS_WEIGHT=${TS_WEIGHT:-3}; N_SEEDS=$
 # ROLL_NET=all|own: the rollout policy is the incumbent net at one ply (valuenet.rs decide_net_rollout, 2026-09-22) instead
 # of base_fn, for every seat or for the labeled decider only, so the labels are the value of the *net's* continuation rather
 # than AlphaBeta's -- the plateau's cause (FINDINGS). DATA_LAST: how many iteration directories the training window spans.
+# SELFPLAY=1: the incumbent in all four seats (outcome-label self-play, 2026-09-25); DATA_PREFIX: data/<prefix>k directories,
+# so a series windows only its own rounds; SAMPLE_P: outcome rows per tick (gen_games default 0.5); PER_GAME: at most this
+# many outcome rows per game in training (0 = all).
+DATA_PREFIX=${DATA_PREFIX:-it}; PER_GAME=${PER_GAME:-0}
 roll_net=${ROLL_NET:+--roll-net $ROLL_NET}; DATA_LAST=${DATA_LAST:-4}; TRAIN_EXTRA=${TRAIN_EXTRA:-}; TS_P=${TS_P:-0}; TS_KEY=${TS_KEY:-ro}; LINEUP_NET=${LINEUP_NET:-}  # extra train_value.py flags, e.g. "--lr 1e-4 --dropout 0" (2026-09-22: the default lr 1e-3 + dropout 0.3 step costs ~5 points per draw by itself, FINDINGS)
 # Rollout values only (docs/FINDINGS.md 2026-09-03): with the outcome loss on, a draw from v31 scored 30%; without it 51%;
 # rollout-only 53% -- the 1-bit game outcome shared by ~150 correlated states per game was pulling the net away from play.
@@ -44,13 +48,15 @@ for k in $(seq "$first" "$last"); do
   read -r prev _ < checkpoints_value/best.txt
   V="${VSPEC:-vnet}:${LINEUP_NET:-$prev}"  # LINEUP_NET: another net (or an a.pt+b.pt ensemble) plays the generation seats; training and gating stay on the incumbent
   echo "=== it$k incumbent $prev"
-  echo "=== it$k gen: $V x2 + ${OPP:-rab,rab} (${GEN_POOL:-}), $games games, roll_p $ROLL_P roll_m $ROLL_M $roll_net  $(date)"
-  if [ -f "data/it$k/$last_shard" ]; then echo "  data/it$k complete, skipping generation"; else
+  lineup="$V,$V,${OPP:-rab,rab}"; [ -n "${SELFPLAY:-}" ] && lineup="$V,$V,$V,$V"
+  out="data/$DATA_PREFIX$k"
+  echo "=== it$k gen: $lineup (${GEN_POOL:-}), $games games, roll_p $ROLL_P roll_m $ROLL_M $roll_net sample_p ${SAMPLE_P:-0.5} -> $out  $(date)"
+  if [ -f "$out/$last_shard" ]; then echo "  $out complete, skipping generation"; else
   if busy >/dev/null; then echo "refusing to generate: stale processes: $(busy | tr '\n' ' ')"; exit 1; fi
-  run uv run python gen_games.py --lineup "$V,$V,${OPP:-rab,rab}" ${GEN_POOL:+--pool $GEN_POOL} --games "$games" --seed $((k * 100000)) --rank-p 0 --sib-p 0 --roll-p "$ROLL_P" --roll-m "$ROLL_M" $roll_net --ts-p "$TS_P" --out "data/it$k" || exit 1; fi
+  run uv run python gen_games.py --lineup "$lineup" ${GEN_POOL:+--pool $GEN_POOL} --games "$games" --seed $((k * 100000)) --rank-p 0 --sib-p 0 --roll-p "$ROLL_P" --roll-m "$ROLL_M" $roll_net --ts-p "$TS_P" ${SAMPLE_P:+--sample-p $SAMPLE_P} ${GEN_EXTRA:-} --out "$out" || exit 1; fi
   echo "=== it$k train  $(date)"
   for s in $(seq 0 $((N_SEEDS - 1))); do
-    run uv run python train_value.py --data $(ls -d data/it[0-9]* | sort -V | tail -"$DATA_LAST") --init "$prev" --out "checkpoints_value/v${k}_s$s.pt" --seed "$s" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key "$TS_KEY" --ts-weight "$TS_WEIGHT" --max-ts "$MAX_TS" --win-weight "$WIN_WEIGHT" --aux-weight "$AUX_WEIGHT" $TRAIN_EXTRA || exit 1
+    run uv run python train_value.py --data $(ls -d data/$DATA_PREFIX[0-9]* | sort -V | tail -"$DATA_LAST") --init "$prev" --out "checkpoints_value/v${k}_s$s.pt" --seed "$s" --epochs 6 --rank-weight 0 --sib-weight 0 --self-sibs 0 --ts-key "$TS_KEY" --ts-weight "$TS_WEIGHT" --max-ts "$MAX_TS" --win-weight "$WIN_WEIGHT" --aux-weight "$AUX_WEIGHT" --per-game "$PER_GAME" $TRAIN_EXTRA || exit 1
   done
   if [ -n "${SOUP_UNIFORM:-}" ]; then  # 2026-09-23: the greedy soup selects on 1,000 games vs 3x rab; the pool goal averages the draws unselected
     run uv run python soup.py --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1

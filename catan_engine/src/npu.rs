@@ -38,6 +38,10 @@ impl NpuNet {
         Ok(NpuNet { req, rows, width })
     }
 
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
     pub fn chunk_rows(&self) -> usize {
         self.rows
     }

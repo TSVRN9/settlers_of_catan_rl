@@ -34,7 +34,19 @@ def _count(z, name):
     return _shape(z, name)[0]
 
 
-def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sibs=True, max_ts=None, ts_key="ts"):
+def per_game_cap(games, k, rng):
+    """Indices of at most k random rows per game id (sorted): outcome rows of one game share one outcome bit, and ~270
+    of them per game were memorized (docs/FINDINGS.md "The value net memorizes games"; AlphaGo kept one per game)."""
+    idx = rng.permutation(len(games))
+    gs = games[idx]
+    order = np.argsort(gs, kind="stable")
+    idx, gs = idx[order], gs[order]
+    start = np.r_[0, np.flatnonzero(np.diff(gs)) + 1]
+    rank = np.arange(len(gs)) - np.repeat(start, np.diff(np.r_[start, len(gs)]))
+    return np.sort(idx[rank < k])
+
+
+def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sibs=True, max_ts=None, ts_key="ts", per_game=0):
     kx, kv = ts_key + "_x", ts_key + "_v"
     """Returns X, y, game, aux (n, 5) = [vp0..vp3 / 10, turns_left / 100] and
     has_aux (n,) -- shards written before the auxiliary targets existed load
@@ -49,11 +61,13 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
         if not o:
             print(f"skipping {p}: wrong feature width (encoder has {N_FEATURES})")
     zs = [z for z, o in zip(zs, ok) if o]
-    tot_s = sum(_count(z, "y") for z in zs)
+    # per_game > 0: first cap each game's outcome rows, then the max_samples budget applies to what is left
+    capped = [per_game_cap(z["game"], per_game, rng) for z in zs] if per_game else [np.arange(_count(z, "y")) for z in zs]
+    tot_s = sum(len(c) for c in capped)
     tot_p = sum(_count(z, "rank_c") for z in zs)
     tot_b = sum(_count(z, "sib_n") for z in zs if "sib_isp0" in z)  # same condition as the load below
     tot_t = sum(_count(z, kv) for z in zs)
-    ft = min(1.0, (max_ts or tot_t) / max(tot_t, 1))
+    ft = min(1.0, (tot_t if max_ts is None else max_ts) / max(tot_t, 1))  # max_ts 0: no tree rows at all
     fs = min(1.0, (max_samples or tot_s) / max(tot_s, 1))
     fp = min(1.0, (max_pairs or tot_p) / max(tot_p, 1))
     fb = min(1.0, (max_sibs or tot_b) / max(tot_b, 1))
@@ -65,11 +79,11 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
     rc, ro = [], []
     sx, sv, sn, sp = [], [], [], []
     tx, tv, tn = [], [], []
-    for z in zs:
+    for z, cz in zip(zs, capped):
         if True:
             yy = z["y"]
-            k = pick(len(yy), fs)
-            n = len(yy[k])
+            k = cz[pick(len(cz), fs)]
+            n = len(k)
             X.append(z["X"][k]); y.append(yy[k]); g.append(z["game"][k])
             if "rank_c" in z and _count(z, "rank_c"):
                 kp = pick(_count(z, "rank_c"), fp)
@@ -79,7 +93,7 @@ def load(dirs, max_samples=None, max_pairs=None, max_sibs=None, seed=0, self_sib
                 v = z["sib_v"][kb]
                 keep = slice(None) if self_sibs else ~((np.nanmax(v, 1) == 1.0) & (np.nanmin(v, 1) == 0.0))  # self-play sets are one-hot; base_fn values never are
                 sx.append(z["sib_x"][kb][keep]); sv.append(v[keep]); sn.append(z["sib_n"][kb][keep]); sp.append(z["sib_isp0"][kb][keep])
-            if kv in z and _count(z, kv):
+            if kv in z and _count(z, kv) and ft > 0:
                 gk = kv[:-2] + "_n"  # children per decision, e.g. ro_n: subsample whole decisions so sibling pairs survive
                 if gk in z:
                     gn = z[gk].astype(np.int64)
@@ -171,7 +185,9 @@ def main():
     parser.add_argument("--max-samples", type=int, default=1_500_000, help="random subsample budgets (memory): outcome samples")
     parser.add_argument("--max-pairs", type=int, default=300_000, help="... chosen-vs-other pairs")
     parser.add_argument("--max-sibs", type=int, default=120_000, help="... sibling sets (each is K x F)")
-    parser.add_argument("--max-ts", type=int, default=300_000, help="... search-value rows (ts_x / ts_v)")
+    parser.add_argument("--max-ts", type=int, default=300_000, help="... search-value rows (ts_x / ts_v); 0 loads none")
+    parser.add_argument("--ema", type=float, default=0.0, help="save an exponential moving average of the weights with this per-step decay instead of the best-held-out checkpoint (0 = off; audit #22: held-out selection doesn't track play)")
+    parser.add_argument("--per-game", type=int, default=0, help="at most this many outcome rows per game (0 = all); applied before --max-samples")
     parser.add_argument("--hidden", type=int, default=256, help="MLP width; 256 is 3x cheaper per leaf than 512 at equal held-out loss (FINDINGS)")
     parser.add_argument("--dropout", type=float, default=0.3, help="MLP dropout while training (the net plays in eval mode; 2026-09-22 diagnostic: 0.3 on a converged net moves it off its play optimum)")
     parser.add_argument("--batch-size", type=int, default=2048)
@@ -194,7 +210,7 @@ def main():
     torch.manual_seed(args.seed)
 
     X, y, g, aux, has, (rank_c, rank_o), (sib_x, sib_v, sib_n, sib_isp0), (ts_x, ts_v, ts_n) = load(
-        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs), max_ts=args.max_ts, ts_key=args.ts_key
+        args.data, args.max_samples, args.max_pairs, args.max_sibs, args.seed, self_sibs=bool(args.self_sibs), max_ts=args.max_ts, ts_key=args.ts_key, per_game=args.per_game
     )
     rng = np.random.default_rng(args.seed)
     games = np.unique(g)
@@ -324,6 +340,7 @@ def main():
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_step = step
         return ho_loss, buckets, rank_acc, top1, ts_bce, ro_rank_acc
+    ema = {k: v.detach().clone() for k, v in net.state_dict().items()} if args.ema else None
     for epoch in range(args.epochs):
         t0 = time.time()
         perm = tr_idx[torch.randperm(n)]
@@ -351,6 +368,11 @@ def main():
                         prm.grad = None
                 last.weight.grad[0] = 0; last.bias.grad[0] = 0
             opt.step()
+            if ema is not None:
+                with torch.no_grad():
+                    for k, v in net.state_dict().items():
+                        if v.dtype.is_floating_point:
+                            ema[k].mul_(args.ema).add_(v, alpha=1.0 - args.ema)
             total += loss.item() * len(idx)
             step += 1
             if step % args.eval_every == 0:
@@ -361,9 +383,26 @@ def main():
         print("  calib", b)
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    if ema is not None:
+        net.load_state_dict(ema)
+        best_state = {k: v.detach().cpu().clone() for k, v in ema.items()}
+        best_ho, best_step = heldout()[0], step
+        print(f"ema {args.ema}: held-out {best_ho:.4f}")
     torch.save({k: v.detach().cpu().clone() for k, v in net.state_dict().items()} if args.heads_only else best_state, args.out)
     print(f"saved: {args.out} (best held-out {best_ho:.4f}, rank_acc {best_rank:.3f}, sib_top1 {best_top1:.3f} at step {best_step})")
 
 
+def _selftest():
+    rng = np.random.default_rng(0)
+    g = np.repeat(np.arange(50), rng.integers(1, 30, 50))
+    rng.shuffle(g)
+    for k in (1, 4, 100):
+        i = per_game_cap(g, k, np.random.default_rng(1))
+        assert (np.diff(i) > 0).all() and (np.bincount(g[i], minlength=50) == np.minimum(np.bincount(g), k)).all(), k
+    print("per_game_cap: ok")
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    _selftest() if sys.argv[1:] == ["--selftest"] else main()

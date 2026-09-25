@@ -181,11 +181,15 @@ impl Mcts {
         let mut steps = 0;
         let mut acts = Vec::with_capacity(64);
         while s.winner() < 0 && s.num_turns < end && steps < 5000 {
-            s.search_actions_into(&mut acts);
-            if acts.is_empty() {
-                break;
-            }
-            let a = acts[(s.next_u64() % acts.len() as u64) as usize];
+            let a = if s.prompt == Prompt::MoveRobber && !s.friendly_robber {
+                random_robber(&mut s)
+            } else {
+                s.search_actions_into(&mut acts);
+                if acts.is_empty() {
+                    break;
+                }
+                acts[rem(s.next_u64(), acts.len())]
+            };
             if s.apply(a, None).is_err() {
                 break;
             }
@@ -389,6 +393,76 @@ impl Mcts {
     }
 }
 
+/// ceil(2^128 / n) for 2 <= n < 128: Lemire, Kaser & Kurz's exact remainder by multiplication (2019).
+const RECIP: [u128; 128] = {
+    let mut t = [0u128; 128];
+    let mut n = 2;
+    while n < 128 {
+        t[n] = u128::MAX / n as u128 + 1;
+        n += 1;
+    }
+    t
+};
+
+/// `x % n` without the 64-bit divide (-1.5% playout cycles, 2026-09-25): exact for every u64 x when n < 128,
+/// as 128 bits of reciprocal cover a 64-bit numerator plus the 7-bit divisor.
+#[inline]
+fn rem(x: u64, n: usize) -> usize {
+    if n < 2 || n >= 128 {
+        return (x % n as u64) as usize;
+    }
+    let low = RECIP[n].wrapping_mul(x as u128);
+    let (lo, hi) = ((low as u64 as u128) * n as u128, (low >> 64) * n as u128);
+    ((hi + (lo >> 64)) >> 64) as usize
+}
+
+/// A playout's draw from `push_robber`'s list (not friendly), counted instead of built: every tile but the
+/// robber's, one move per robbable seat on it (node order) or one with no victim. Branch-free over the 108
+/// corners; the list was 13% of playout time at 5% of the steps (2026-09-25).
+fn random_robber(s: &mut State) -> Action {
+    let p = s.current_player;
+    let mut robbable = 0u8;
+    for i in 0..s.n {
+        if i != p && s.num_resources(i) >= 1 {
+            robbable |= 1 << i;
+        }
+    }
+    let seat_bit = |o: i8| (1u8 << (o + 1) as u8) >> 1; // owner -1 (none) -> 0
+    let mut victims = [0u8; 32];
+    let mut total = 0;
+    for (tid, tile) in s.map.tiles.iter().enumerate() {
+        if tid as u8 != s.robber {
+            victims[tid] = tile.nodes.iter().fold(0, |m, &n| m | seat_bit(s.owner[n as usize])) & robbable;
+            total += victims[tid].count_ones().max(1);
+        }
+    }
+    let mut k = rem(s.next_u64(), total as usize) as u32;
+    for (tid, tile) in s.map.tiles.iter().enumerate() {
+        if tid as u8 == s.robber {
+            continue;
+        }
+        let mut v = victims[tid];
+        if k >= v.count_ones().max(1) {
+            k -= v.count_ones().max(1);
+            continue;
+        }
+        if v == 0 {
+            return Action::MoveRobber { tile: tid as u8, victim: -1 };
+        }
+        for &n in &tile.nodes {
+            let o = s.owner[n as usize];
+            if v & seat_bit(o) != 0 {
+                if k == 0 {
+                    return Action::MoveRobber { tile: tid as u8, victim: o };
+                }
+                k -= 1;
+                v &= !seat_bit(o);
+            }
+        }
+    }
+    unreachable!("the k-th robber move exists")
+}
+
 /// argmax with random tie-breaking, as the thesis does for equal UCT values.
 fn best_by(items: &[usize], mut f: impl FnMut(usize) -> f64, rng: &mut u64) -> usize {
     let mut best = items[0];
@@ -456,5 +530,176 @@ mod tests {
             steps += 1;
         }
         assert!(s.winner() >= 0, "no winner after {steps} steps");
+    }
+
+    /// `rem` is `%` for every divisor it takes the fast path on, at the edges of u64 and at random.
+    #[test]
+    fn rem_is_the_remainder() {
+        let mut rng = 5u64;
+        for n in 1..300usize {
+            for x in [0, 1, n as u64 - 1, n as u64, u64::MAX, u64::MAX - 1, u64::MAX / n as u64 * n as u64, (1 << 63) + 7] {
+                assert_eq!(rem(x, n), (x % n as u64) as usize, "{x} % {n}");
+            }
+            for _ in 0..20_000 {
+                let x = splitmix(&mut rng);
+                assert_eq!(rem(x, n), (x % n as u64) as usize, "{x} % {n}");
+            }
+        }
+    }
+
+    /// Post-roll states of heuristic games at several points in the game, where UCT's playouts start.
+    fn playout_starts() -> Vec<State> {
+        let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
+        let mut out = vec![];
+        for seed in 0..6u64 {
+            let mut s = State::new(Arc::new(Map::generate(seed, &layout)), 4, seed, 10);
+            let mut steps = 0;
+            while s.winner() < 0 && steps < 3000 {
+                if Mcts::owns(&s, s.current_player) && s.num_turns % 7 == (seed % 7) as i32 {
+                    out.push(s.clone_light());
+                }
+                let a = s.decide_heuristic(1).unwrap();
+                s.apply(a, None).unwrap();
+                steps += 1;
+            }
+        }
+        out
+    }
+
+    /// The pre-2026-09-25 robber and year-of-plenty generators, the reference for their push_* rewrites.
+    fn old_robber(s: &State, p: usize) -> Vec<Action> {
+        let mut actions = Vec::new();
+        for (tid, tile) in s.map.tiles.iter().enumerate() {
+            if tid as u8 == s.robber {
+                continue;
+            }
+            let mut victims: Vec<i8> = Vec::new();
+            for &n in &tile.nodes {
+                let o = s.owner[n as usize];
+                if o >= 0 && o as usize != p && s.num_resources(o as usize) >= 1 && !victims.contains(&o) {
+                    victims.push(o);
+                }
+            }
+            if victims.is_empty() {
+                actions.push(Action::MoveRobber { tile: tid as u8, victim: -1 });
+            } else {
+                for v in victims {
+                    actions.push(Action::MoveRobber { tile: tid as u8, victim: v });
+                }
+            }
+        }
+        if !s.friendly_robber {
+            return actions;
+        }
+        let blocks = |a: &Action| match a {
+            Action::MoveRobber { tile, .. } => s.map.tiles[*tile as usize].nodes.iter().any(|&n| {
+                let o = s.owner[n as usize];
+                o >= 0 && o as usize != p && s.players[o as usize].actual_vp < 3
+            }),
+            _ => false,
+        };
+        let filtered: Vec<Action> = actions.iter().copied().filter(|a| !blocks(a)).collect();
+        if filtered.is_empty() { actions } else { filtered }
+    }
+
+    fn old_yop(s: &State) -> Vec<Action> {
+        let bank = &s.bank;
+        let mut options: Vec<Action> = Vec::new();
+        fn add(a: Action, options: &mut Vec<Action>) {
+            if !options.contains(&a) {
+                options.push(a);
+            }
+        }
+        for i in 0..5usize {
+            for j in i..5usize {
+                let mut need = [0i32; 5];
+                need[i] += 1;
+                need[j] += 1;
+                if (0..5).all(|k| bank[k] >= need[k]) {
+                    add(Action::PlayYop(i as u8, j as i8), &mut options);
+                } else {
+                    if bank[i] >= 1 {
+                        add(Action::PlayYop(i as u8, -1), &mut options);
+                    }
+                    if bank[j] >= 1 {
+                        add(Action::PlayYop(j as u8, -1), &mut options);
+                    }
+                }
+            }
+        }
+        options
+    }
+
+    /// The rewritten robber / year-of-plenty generators list exactly what the old ones did (friendly robber
+    /// too) and `random_robber` draws what the list draw did, at every step of many random playouts, and the
+    /// playout fingerprint is unchanged.
+    #[test]
+    fn generators_match_the_old_lists() {
+        let starts = playout_starts();
+        let mut rng = 11u64;
+        let (mut acts, mut buf) = (vec![], vec![]);
+        let (mut robber, mut short_bank) = (0, 0);
+        for (i, s0) in starts.iter().enumerate() {
+            for rep in 0..60 {
+                let mut s = s0.clone_light();
+                s.friendly_robber = (i + rep) % 2 == 1;
+                s.rng = splitmix(&mut rng);
+                let mut steps = 0;
+                while s.winner() < 0 && steps < 400 {
+                    let p = s.current_player;
+                    if s.prompt == Prompt::MoveRobber {
+                        buf.clear();
+                        s.push_robber(p, &mut buf);
+                        assert_eq!(buf, old_robber(&s, p));
+                        robber += 1;
+                        if !s.friendly_robber {
+                            let (mut t, mut u) = (s.clone_light(), s.clone_light());
+                            assert_eq!(random_robber(&mut t), buf[(u.next_u64() % buf.len() as u64) as usize]);
+                            assert_eq!(t.rng, u.rng);
+                        }
+                    }
+                    buf.clear();
+                    s.push_year_of_plenty(&mut buf);
+                    assert_eq!(buf, old_yop(&s));
+                    short_bank += (buf.len() != 15) as u32;
+                    s.search_actions_into(&mut acts);
+                    if acts.is_empty() {
+                        break;
+                    }
+                    let a = acts[(s.next_u64() % acts.len() as u64) as usize];
+                    if s.apply(a, None).is_err() {
+                        break;
+                    }
+                    steps += 1;
+                }
+            }
+        }
+        assert!(robber > 10_000 && short_bank > 1_000, "{robber} robber prompts, {short_bank} bank-short YOP lists");
+        let mut m = Mcts::new(Policy::Uct, 0, 10, 3);
+        let mut sum = 0.0;
+        for _ in 0..40 {
+            for s in &starts {
+                sum += m.playout(s.clone_light(), s.current_player, m.rounds(s));
+            }
+        }
+        assert_eq!(sum, 2384.300000000018, "the 5,080 playouts' rewards under the old generators");
+    }
+
+    /// Playout throughput (cargo test --release --no-default-features --features wasm --lib bench_playouts -- --ignored --nocapture).
+    #[test]
+    #[ignore]
+    fn bench_playouts() {
+        let starts = playout_starts();
+        let mut m = Mcts::new(Policy::Uct, 0, 10, 3);
+        let t0 = std::time::Instant::now();
+        let mut sum = 0.0;
+        for _ in 0..std::env::var("BENCH_ITERS").map_or(400, |v| v.parse().unwrap()) {
+            for s in &starts {
+                let r = m.rounds(s);
+                sum += m.playout(s.clone_light(), s.current_player, r);
+            }
+        }
+        let dt = t0.elapsed().as_secs_f64();
+        eprintln!("{} starts, {} playouts, {:.0} steps each: {:.0} playouts/s, {:.1} Msteps/s (sum {sum})", starts.len(), m.playouts, m.steps as f64 / m.playouts as f64, m.playouts as f64 / dt, m.steps as f64 / dt / 1e6);
     }
 }

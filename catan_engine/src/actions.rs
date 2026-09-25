@@ -196,7 +196,7 @@ impl State {
                         .map(Action::BuildRoad),
                 )
             }
-            Prompt::MoveRobber => out.extend(self.robber_possibilities(p)),
+            Prompt::MoveRobber => self.push_robber(p, out),
             Prompt::DecideTrade => {
                 out.push(Action::RejectTrade);
                 if self.can_accept_offer(p) {
@@ -222,7 +222,7 @@ impl State {
                 }
                 out.reserve(64); // no regrowth
                 if self.can_play_dev(p, YEAR_OF_PLENTY) {
-                    out.extend(self.year_of_plenty_possibilities());
+                    self.push_year_of_plenty(out);
                 }
                 if self.can_play_dev(p, MONOPOLY) {
                     for r in 0..5u8 {
@@ -263,32 +263,31 @@ impl State {
         }
     }
 
-    fn year_of_plenty_possibilities(&self) -> Vec<Action> {
-        let bank = &self.bank;
-        let mut options: Vec<Action> = Vec::new();
-        fn add(a: Action, options: &mut Vec<Action>) {
-            if !options.contains(&a) {
-                options.push(a);
+    // The 15 unordered pairs, a pair the bank cannot pay falling back to its payable singles, first occurrence kept.
+    pub(crate) fn push_year_of_plenty(&self, out: &mut Vec<Action>) {
+        let (bank, start) = (&self.bank, out.len());
+        let add = |a: Action, out: &mut Vec<Action>| {
+            if !out[start..].contains(&a) {
+                out.push(a);
             }
-        }
+        };
         for i in 0..5usize {
             for j in i..5usize {
                 let mut need = [0i32; 5];
                 need[i] += 1;
                 need[j] += 1;
                 if (0..5).all(|k| bank[k] >= need[k]) {
-                    add(Action::PlayYop(i as u8, j as i8), &mut options);
+                    add(Action::PlayYop(i as u8, j as i8), out);
                 } else {
                     if bank[i] >= 1 {
-                        add(Action::PlayYop(i as u8, -1), &mut options);
+                        add(Action::PlayYop(i as u8, -1), out);
                     }
                     if bank[j] >= 1 {
-                        add(Action::PlayYop(j as u8, -1), &mut options);
+                        add(Action::PlayYop(j as u8, -1), out);
                     }
                 }
             }
         }
-        options
     }
 
     pub fn road_building_possibilities(&self, p: usize, check_money: bool) -> Vec<Action> {
@@ -325,37 +324,40 @@ impl State {
         }
     }
 
-    fn robber_possibilities(&self, p: usize) -> Vec<Action> {
-        let actions = self.robber_possibilities_raw(p);
-        if !self.friendly_robber {
-            return actions;
+    /// Every tile but the robber's, once per distinct robbable enemy on it in node order (or once with no
+    /// victim); with the friendly robber, the moves that spare low-VP enemies unless that leaves none.
+    pub(crate) fn push_robber(&self, p: usize, out: &mut Vec<Action>) {
+        let start = out.len();
+        let mut cards = [0i32; 4];
+        for (i, c) in cards.iter_mut().enumerate().take(self.n) {
+            *c = self.num_resources(i);
         }
-        let filtered: Vec<Action> = actions.iter().copied().filter(|a| !self.robber_blocks_low_vp_enemy(p, a)).collect();
-        if filtered.is_empty() { actions } else { filtered }
-    }
-
-    fn robber_possibilities_raw(&self, p: usize) -> Vec<Action> {
-        let mut actions = Vec::new();
         for (tid, tile) in self.map.tiles.iter().enumerate() {
             if tid as u8 == self.robber {
                 continue;
             }
-            let mut victims: Vec<i8> = Vec::new();
+            let mut victims = 0u8;
             for &n in &tile.nodes {
                 let o = self.owner[n as usize];
-                if o >= 0 && o as usize != p && self.num_resources(o as usize) >= 1 && !victims.contains(&o) {
-                    victims.push(o);
+                if o >= 0 && o as usize != p && cards[o as usize] >= 1 && victims & (1 << o) == 0 {
+                    victims |= 1 << o;
+                    out.push(Action::MoveRobber { tile: tid as u8, victim: o });
                 }
             }
-            if victims.is_empty() {
-                actions.push(Action::MoveRobber { tile: tid as u8, victim: -1 });
-            } else {
-                for v in victims {
-                    actions.push(Action::MoveRobber { tile: tid as u8, victim: v });
-                }
+            if victims == 0 {
+                out.push(Action::MoveRobber { tile: tid as u8, victim: -1 });
             }
         }
-        actions
+        if self.friendly_robber && out[start..].iter().any(|a| !self.robber_blocks_low_vp_enemy(p, a)) {
+            let mut keep = start;
+            for i in start..out.len() {
+                if !self.robber_blocks_low_vp_enemy(p, &out[i]) {
+                    out[keep] = out[i];
+                    keep += 1;
+                }
+            }
+            out.truncate(keep);
+        }
     }
 
     fn robber_blocks_low_vp_enemy(&self, p: usize, a: &Action) -> bool {

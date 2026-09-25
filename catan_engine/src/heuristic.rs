@@ -265,11 +265,15 @@ impl State {
     }
 
     pub fn hand_synergy(&self, p: usize) -> f64 {
-        let h = &self.players[p].hand;
-        let d_city = ((2 - h[WHEAT]).max(0) + (3 - h[ORE]).max(0)) as f64 / 5.0;
-        let d_settle = ((1 - h[WHEAT]).max(0) + (1 - h[SHEEP]).max(0) + (1 - h[BRICK]).max(0) + (1 - h[WOOD]).max(0)) as f64 / 4.0;
-        (2.0 - d_city - d_settle) / 2.0
+        hand_synergy_of(&self.players[p].hand)
     }
+}
+
+/// `State::hand_synergy` of a hand (it reads nothing else): trade what-ifs encode without building the state.
+pub fn hand_synergy_of(h: &[i32; 5]) -> f64 {
+    let d_city = ((2 - h[WHEAT]).max(0) + (3 - h[ORE]).max(0)) as f64 / 5.0;
+    let d_settle = ((1 - h[WHEAT]).max(0) + (1 - h[SHEEP]).max(0) + (1 - h[BRICK]).max(0) + (1 - h[WOOD]).max(0)) as f64 / 4.0;
+    (2.0 - d_city - d_settle) / 2.0
 }
 
 impl State {
