@@ -574,10 +574,10 @@ mod tests {
     /// Parity with the torch checkpoint on the vectors tools/export_valuenet.py saved.
     #[test]
     fn forward_matches_torch() {
-        let blob = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../web/public/models/v40.bin")).expect("run tools/export_valuenet.py first");
-        let meta: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../web/public/models/v40.json")).unwrap()).unwrap();
+        let blob = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../web/public/models/v76.bin")).expect("run tools/export_valuenet.py first");
+        let meta: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../web/public/models/v76.json")).unwrap()).unwrap();
         let net = ValueNet::from_bytes(&blob, meta["n_features"].as_u64().unwrap() as usize, meta["hidden"].as_u64().unwrap() as usize, N_HEADS).unwrap();
-        let parity: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/v40_parity.json")).unwrap()).unwrap();
+        let parity: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/v76_parity.json")).unwrap()).unwrap();
         let xs: Vec<Vec<f32>> = parity["x"].as_array().unwrap().iter().map(|r| r.as_array().unwrap().iter().map(|v| v.as_f64().unwrap() as f32).collect()).collect();
         let want: Vec<Vec<f32>> = parity["heads"].as_array().unwrap().iter().map(|r| r.as_array().unwrap().iter().map(|v| v.as_f64().unwrap() as f32).collect()).collect();
         let flat: Vec<f32> = xs.concat();

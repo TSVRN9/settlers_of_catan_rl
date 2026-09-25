@@ -12,7 +12,7 @@ pnpm build           # wasm + tsc + vite -> dist/
 pnpm smoke           # node tools/smoke.mjs: full game + replay through the wasm engine
 ```
 
-Model weights: `public/models/v40.bin` (+ `.json`) from `uv run python tools/export_valuenet.py checkpoints_value/v40.pt v40`.
+Model weights: `public/models/v76.bin` (+ `.json`) from `uv run python tools/export_valuenet.py checkpoints_value/v76.pt v76`. The "vnet" bot plays the loop's `vnets3x` (trade offers inside the search, `VNET_TRADE_SEARCH` in `catan_engine/src/wasm.rs`).
 Board constants: `src/data/topology.json` from `uv run python tools/dump_engine_consts.py`.
 Benchmark table: `src/data/benchmark.json` is a copy of `docs/benchmark/paper_protocol.json`.
 

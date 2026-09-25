@@ -19,6 +19,8 @@ use crate::trade::Eval;
 use crate::valuenet::{sigmoid, ValueNet, N_HEADS};
 
 static LAYOUT: OnceLock<Arc<Layout>> = OnceLock::new();
+/// The "vnet" bot's trade search width: the best 3 acceptable offers are root children (the loop's `vnets3x`).
+const VNET_TRADE_SEARCH: usize = 3;
 
 fn layout() -> Arc<Layout> {
     LAYOUT.get_or_init(|| Arc::new(serde_json::from_str(include_str!("base_layout.json")).expect("base_layout.json"))).clone()
@@ -246,8 +248,13 @@ impl Engine {
                     }
                 }
                 "vnet" => {
+                    // the loop's vnets3x player: replies and confirmations 1-ply with the net, partners predicted with
+                    // base_fn (vnetx); its own offers are decided inside the search below
                     let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
-                    self.state.trade_action(&Eval::Net(net, &layout()))
+                    match self.state.prompt {
+                        Prompt::DecideTrade | Prompt::DecideAcceptees => self.state.trade_action(&Eval::NetVsHeuristic(net, &layout())),
+                        _ => None,
+                    }
                 }
                 _ => None,
             }
@@ -271,7 +278,7 @@ impl Engine {
             }
             "vnet" => {
                 let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
-                let d = self.state.decide_vnet(net, &layout(), depth.max(1), 20000, false);
+                let d = self.state.decide_vnet_trades(net, &layout(), depth.max(1), 20000, VNET_TRADE_SEARCH);
                 (d.action, d.value, d.root, d.leaves)
             }
             _ => return Err(err(format!("unknown bot {bot}"))),

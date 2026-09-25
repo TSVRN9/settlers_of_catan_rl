@@ -130,7 +130,7 @@ export const BOT_NAMES: Record<string, string> = {
   human: "You",
   random: "Random",
   heuristic: "Heuristic search (AlphaBeta's evaluator)",
-  vnet: "Value-net search (v40)",
+  vnet: "Value-net search (v76)",
   drrl: "DRRL (EUMAS 2018) trades, heuristic search plays",
   jsrobot: "jSettler, smart strategy (JSettlers 2.6.10 robot)",
   jsdroid: "jSettler, fast strategy (JSettlers 2.6.10 droid)",
@@ -153,8 +153,8 @@ export const BOT_INFO: Record<BotKind, { sub: string; what: string; how: string;
   vnet: {
     sub: "search",
     what: "The same search with the evaluator replaced by a learned win-probability net.",
-    how: "v40: a value net $V_\\theta(s) \\approx P(\\text{win} \\mid s)$ trained expert-iteration style on rollout outcomes of its own games, read at every leaf of the depth-2 expectimax; leaves are batched per decision. Trades use the 1-ply policy over $V_\\theta$.",
-    measured: "45.0% of 100 games against three stock jSettlers",
+    how: "v76: a value net $V_\\theta(s) \\approx P(\\text{win} \\mid s)$ trained expert-iteration style on self-play rollouts played by this same search, read at every leaf of the depth-2 expectimax. Its three best acceptable offers are searched alongside its other moves, a partner's reply predicted with AlphaBeta's $v$; replies to others' offers use the 1-ply policy over $V_\\theta$.",
+    measured: "v40: 45.0% of 100 games against three stock jSettlers",
   },
   drrl: {
     sub: "trades by DRRL",

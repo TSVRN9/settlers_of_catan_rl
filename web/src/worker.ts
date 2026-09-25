@@ -17,8 +17,8 @@ function boot() {
     ready = (async () => {
       await init({ module_or_path: wasmUrl });
       const base = import.meta.env.BASE_URL;
-      const meta = await (await fetch(`${base}models/v40.json`)).json();
-      const weights = new Uint8Array(await (await fetch(`${base}models/v40.bin`)).arrayBuffer());
+      const meta = await (await fetch(`${base}models/v76.json`)).json();
+      const weights = new Uint8Array(await (await fetch(`${base}models/v76.bin`)).arrayBuffer());
       return { weights, hidden: meta.hidden as number };
     })();
   }

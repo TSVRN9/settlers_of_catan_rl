@@ -10,8 +10,8 @@ const pkg = await import(path.join(here, "../src/engine/catan_engine.js"));
 const wasm = readFileSync(path.join(here, "../src/engine/catan_engine_bg.wasm"));
 await pkg.default({ module_or_path: wasm });
 
-const meta = JSON.parse(readFileSync(path.join(here, "../public/models/v40.json"), "utf8"));
-const weights = readFileSync(path.join(here, "../public/models/v40.bin"));
+const meta = JSON.parse(readFileSync(path.join(here, "../public/models/v76.json"), "utf8"));
+const weights = readFileSync(path.join(here, "../public/models/v76.bin"));
 
 const seed = 42;
 const eng = new pkg.Engine(seed, 4);
