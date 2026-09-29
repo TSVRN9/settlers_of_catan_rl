@@ -154,7 +154,7 @@ export const BOT_INFO: Record<BotKind, { sub: string; what: string; how: string;
     sub: "search",
     what: "The same search with the evaluator replaced by a learned win-probability net.",
     how: "v89w: a value net $V_\\theta(s) \\approx P(\\text{win} \\mid s)$ trained expert-iteration style on self-play rollouts played by this same search, read at every leaf of the depth-2 expectimax. Its three best acceptable offers are searched alongside its other moves, a partner's reply predicted with AlphaBeta's $v$; replies to others' offers use the 1-ply policy over $V_\\theta$.",
-    measured: "60.9% of 1,000 games against three stock jSettlers",
+    measured: "61.9% of 2,000 games against three stock jSettlers",
   },
   drrl: {
     sub: "trades by DRRL",
