@@ -493,6 +493,10 @@ headline (default `MIX`, `full` mode, `fast_pause_percent=1`, ten 100-game serve
 
 Run 2 was decided on before any result came in: a second 1,000 of the site net, not a pick among candidates.
 
+The same player against three Python `AlphaBetaPlayer`s (`evaluate.py --opponent alpha_beta --games 1000`, seeds
+0-999, the protocol of the 81.5% ensemble result): **794/1000 = 79.4% [76.8, 81.8]**
+(`docs/benchmark/headline_ab_v89w_s3x.txt`).
+
 - **Equal share and seats.** An equal share is 25%. Our seat: 0 in 383 games, 1 in 205, 2 in 218, 3 in 194. The
   win rate by seat is 59.8 / 62.4 / 59.6 / 62.9% (run 1).
 - **Opponents.** The robots at our tables: 2,246 smart ("robot"), 754 fast ("droid").

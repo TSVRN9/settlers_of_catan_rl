@@ -3480,3 +3480,8 @@ many games, since a self-play game is itself a depth-2 rollout from each of its 
   at 4,000 vs v89w.** Seven rounds at width 512 since v89w (90-96) and none accepted: with v89w as its own label
   policy the recipe is flat, as it was at v80 (rounds 81-88). Loop stopped 2026-09-29 08:13 during round 97
   generation (d297 deleted).
+- **v89w vs 3x Python AlphaBeta, 1,000 games (seeds 0-999, the 81.5% protocol): 794 = 79.4% [76.8, 81.8]**
+  (`evaluate.py --player vnets3x:checkpoints_value/v89w.pt --opponent alpha_beta --games 1000`,
+  `docs/benchmark/headline_ab_v89w_s3x.txt`, ~55 min at 8 jobs). The AB-gated ensemble `vnet:v46+v49+v51+v55` scored
+  81.5% [79.0, 83.8] on the same seeds; one net gated on the diverse pool is 2.1 points lower, within noise
+  (SE of the difference ~1.8), and 12.7 points higher against real jSettlers (61.9% vs v57's 49.2%).
