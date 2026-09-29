@@ -38,6 +38,26 @@ def wins_by_seed(player, seeds, pool=None):
     return {seed: float(w == Color.BLUE) for seed, w, _, _ in arena.play(lambda s: [player] + opponents(pool, s), seeds, batch=128)}
 
 
+def _hidden(token):
+    """Hidden width of a player token's net (None for non-net tokens)."""
+    m = arena.VNET.match(token)
+    if not m:
+        return None
+    import torch
+
+    return torch.load(m.group("path").split("+")[-1], map_location="cpu")["mlp.0.weight"].shape[0]
+
+
+def wins_isolated(player, seeds, pool=None):
+    """wins_by_seed in a fresh process: the NPU plugin fails (L0 "driver is not initialized") once models of two hidden
+    widths have run in one process (docs/FINDINGS.md 2026-09-25), so a cross-width gate plays each side alone."""
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+
+    with ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn")) as ex:
+        return ex.submit(wins_by_seed, player, list(seeds), pool).result()
+
+
 def by_opponent(d, seeds, pool):
     """Per opponent token: (games with it at the table, mean paired diff, z)."""
     out = {}
@@ -60,12 +80,49 @@ def llr(d, h0, h1):
     return n * (h1 - h0) * (2 * mean - h0 - h1) / (2 * var)
 
 
+def _cache_file(player, pool):
+    """$GATE_CACHE/<hash>.json for this player on this pool: every file a token names is keyed by its contents, so a
+    checkpoint rewritten under the same name misses. The engine build is not in the key (speed-only builds keep play
+    identical, docs/PLAN-gen-speed.md): point GATE_CACHE at a fresh directory after an engine change that alters play."""
+    import hashlib
+
+    h = hashlib.sha1()
+    for t in [player] + (pool or []):
+        for part in t.replace(":", "+").split("+"):
+            h.update(hashlib.sha1(open(part, "rb").read()).digest() if os.path.isfile(part) else part.encode())
+    return os.path.join(os.environ["GATE_CACHE"], h.hexdigest()[:16] + ".json")
+
+
+def cached(play):
+    """`play` that reuses per-seed results from $GATE_CACHE (unset: off). With a fixed --seed across rounds the
+    incumbent, unchanged since it was last gated, costs nothing: about half of every gate (2026-09-27)."""
+    if not os.environ.get("GATE_CACHE"):
+        return play
+
+    def run(player, seeds, pool=None):
+        import json
+
+        f = _cache_file(player, pool)
+        have = {int(k): v for k, v in json.load(open(f)).items()} if os.path.exists(f) else {}
+        todo = [s for s in seeds if s not in have]
+        if todo:
+            have.update(play(player, todo, pool))
+            os.makedirs(os.path.dirname(f), exist_ok=True)
+            json.dump(have, open(f + ".tmp", "w"))
+            os.replace(f + ".tmp", f)
+        print(f"    {player.split('/')[-1]}: {len(seeds) - len(todo)}/{len(seeds)} seeds cached", flush=True)
+        return {s: have[s] for s in seeds}
+
+    return run
+
+
 def gate(cand, inc, seed, block, max_games, h0, h1, alpha=0.05, pool=None):
     bound = math.log((1 - alpha) / alpha)
     d, wa, wb, n = [], 0, 0, 0
+    play = cached(wins_isolated if _hidden(cand) != _hidden(inc) else wins_by_seed)
     while n < max_games:
         seeds = range(seed + n, seed + n + block)
-        a, b = wins_by_seed(cand, seeds, pool), wins_by_seed(inc, seeds, pool)
+        a, b = play(cand, seeds, pool), play(inc, seeds, pool)
         d += [a[s] - b[s] for s in seeds]
         wa += int(sum(a.values())); wb += int(sum(b.values())); n += block
         L = llr(d, h0, h1)

@@ -52,11 +52,33 @@ pub struct RollTask {
     p0: usize,
     child: usize,                                                 // the ro_v slot its win is added to
     parked: Option<Parked>,
+    extra: Option<Vec<(Action, State)>>, // ROLL_PARK_OFFERS: the offers resolved on the NPU, the next tree's extra root children
 }
 
 enum Parked {
     Ply(Vec<Action>, Vec<(usize, f64, f64)>, Action), // one-ply net policy: pruned actions, their leaves, the fallback
-    Tree(Search, Action),                             // the depth-2 search player's tree (net_depth 2), the fallback
+    Tree(Search, Action, Vec<half::f16>),             // the depth-2 search player's tree (net_depth 2), the fallback, its rows
+    Offer(TradePark, Vec<half::f16>),                 // ROLL_PARK_OFFERS: a trade stage's hands (row 0 the current hand), as ArenaGame::park_trade
+}
+
+/// A depth-2 playout's offer stages (trade.rs offer_children) are scored on the NPU with the trees instead of by CPU
+/// forwards (29% of width-512 generation CPU; 98.8% of labels identical, peak memory 9.2 -> 2.3 GB on 64 games,
+/// 2026-09-29). ROLL_PARK_OFFERS=0: the CPU path, bitwise as before.
+fn roll_park_offers() -> bool {
+    static R: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *R.get_or_init(|| std::env::var("ROLL_PARK_OFFERS").as_deref() != Ok("0"))
+}
+
+/// The current player's hand (row 0) and `hands` as hidden rows of `net` into `buf`.
+fn offer_rows(s: &State, net: &Arc<ValueNet>, layout: &Layout, hands: &[[i32; 5]], buf: Vec<half::f16>) -> Vec<half::f16> {
+    let p = s.current_player;
+    let mut sink = net.leaf_sink(&s.encoded(p, layout), &s.map.static_template, buf);
+    sink.out.clear();
+    sink.push_delta(&mut vec![]);
+    for h in hands {
+        sink.push_delta(&mut s.hand_delta(p, layout, h));
+    }
+    sink.out
 }
 
 /// gen_games.StateSampler: samples, AlphaBeta chosen-vs-other pairs, sibling sets.
@@ -65,7 +87,9 @@ pub struct Recorder {
     pub all_seats: bool, // a sampled tick records the state from every seat, not one random seat
     pub net_depth: u32,  // the net rollout policy searches this deep: 1 = one ply (decide_net_rollout), 2 = the depth-2 player
     pub crn: bool,       // sibling rollouts share their replicates' seeds (common random numbers, RESEARCH-SIGNAL §3.1)
-    tree_buf: Vec<half::f16>,
+    pub trades: usize,   // net_depth 2: the playout player trades like `vnets<k>x` (k best offers as root children, replies
+                         // and confirmations by trade_action); 0 = no offers, as before 2026-09-27
+    tree_bufs: Vec<Vec<half::f16>>, // spare row buffers for Parked::Tree
     sample_p: f64,
     rank_p: f64,
     sib_p: f64,
@@ -97,7 +121,7 @@ pub struct Recorder {
 
 impl Recorder {
     pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32, roll_depth: u32, net: Option<Arc<ValueNet>>, net_own: bool) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, net, net_own, net_buf: vec![], park: false, all_seats: false, net_depth: 1, crn: false, tree_buf: vec![], tasks: vec![], h0: vec![], xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, net, net_own, net_buf: vec![], park: false, all_seats: false, net_depth: 1, crn: false, trades: 0, tree_bufs: vec![], tasks: vec![], h0: vec![], xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
     }
 
     /// One playout from `s` by the rollout policy (rab-vs-rab, or the net at one ply when `net` is
@@ -106,12 +130,18 @@ impl Recorder {
     fn rollout(&mut self, mut s: State, p0: usize, layout: &Layout) -> f64 {
         s.rng = splitmix(&mut self.rng);
         while s.winner() < 0 && s.num_turns < TURNS_LIMIT {
+            if let Some(a) = self.trade_reply(&s, p0, layout) {
+                if s.apply(a, None).is_err() {
+                    return 0.0;
+                }
+                continue;
+            }
             let acts = s.search_actions();
             let a = if acts.len() == 1 {
                 acts[0]
             } else if let Some(net) = self.net.as_ref().filter(|_| !self.net_own || s.current_player == p0) {
                 if self.net_depth == 2 {
-                    s.decide_vnet(net, layout, 2, 0, false).action.unwrap_or(acts[0])
+                    s.decide_vnet_trades(net, layout, 2, 0, self.trades).action.unwrap_or(acts[0])
                 } else {
                     s.decide_net_rollout(net, layout, &mut self.net_buf).unwrap_or(acts[0])
                 }
@@ -133,23 +163,67 @@ impl Recorder {
         let Some(net) = self.net.clone() else { return };
         self.h0.clear();
         let mut k = 0;
+        let resign = roll_resign();
         for mut t in std::mem::take(&mut self.tasks) {
-            let next = t.parked.take().map(|p| match p {
+            let mut done = None; // a playout ended early: the player to move's depth-2 value passed ROLL_RESIGN
+            let mut next_offer = None; // an offer stage's logits are read below, in task order like the others
+            let parked = match t.parked.take() {
+                Some(p @ Parked::Offer(..)) => {
+                    next_offer = Some(p);
+                    None
+                }
+                p => p,
+            };
+            let next = parked.map(|p| match p {
+                Parked::Offer(..) => unreachable!(),
                 Parked::Ply(acts, leaves, fallback) => {
                     let ev = one_ply_ev(acts.len(), &leaves, |j| logits[k + j]);
                     k += leaves.len();
                     argmax_first(&ev).map_or(fallback, |i| acts[i])
                 }
-                Parked::Tree(sr, fallback) => {
+                Parked::Tree(sr, fallback, rows) => {
+                    self.tree_bufs.push(rows);
                     let n = sr.n_leaves;
                     let mut v: Vec<f64> = logits[k..k + n].iter().map(|&z| crate::valuenet::sigmoid(z as f64)).collect();
                     for &(i, x) in &sr.fixed {
                         v[i] = x;
                     }
                     k += n;
-                    sr.backup(&v, 0.0).0.unwrap_or(fallback)
+                    let (a, bv) = sr.backup(&v, 0.0);
+                    if bv >= resign {
+                        done = Some((t.s.current_player == t.p0) as u8 as f64);
+                    }
+                    a.unwrap_or(fallback)
                 }
             });
+            if let Some(win) = done {
+                self.ro_v[t.child] += win;
+                continue;
+            }
+            if let Some(Parked::Offer(tp, rows)) = next_offer.take() {
+                let n = rows.len() / net.hidden_width();
+                let vals: Vec<f64> = logits[k..k + n].iter().map(|&z| crate::valuenet::sigmoid(z as f64)).collect();
+                k += n;
+                let (base, rest) = (vals[0], &vals[1..]);
+                match tp {
+                    TradePark::Candidates(affordable) => {
+                        let short = t.s.offer_shortlist(base, rest, &affordable);
+                        if short.is_empty() {
+                            self.tree_bufs.push(rows);
+                            t.extra = Some(vec![]);
+                        } else {
+                            let hands = t.s.shortlist_hands(&short);
+                            t.parked = Some(Parked::Offer(TradePark::Exact(base, short), offer_rows(&t.s, &net, layout, &hands, rows)));
+                            self.tasks.push(t);
+                            continue;
+                        }
+                    }
+                    TradePark::Exact(base0, short) => {
+                        self.tree_bufs.push(rows);
+                        t.extra = Some(t.s.offer_children_from(base0, &short, rest, &Eval::NetVsHeuristic(&net, layout), self.trades));
+                    }
+                }
+            }
             match self.play_task(&mut t, next, &net, layout) {
                 Some(win) => self.ro_v[t.child] += win,
                 None => self.tasks.push(t),
@@ -171,15 +245,30 @@ impl Recorder {
                         return Some((t.s.winner() == t.p0 as i8) as u8 as f64);
                     }
                     let acts = t.s.search_actions();
-                    if acts.len() == 1 {
+                    if let Some(a) = self.trade_reply(&t.s, t.p0, layout) {
+                        a
+                    } else if acts.len() == 1 {
                         acts[0]
                     } else if (!self.net_own || t.s.current_player == t.p0) && self.net_depth == 2 {
                         // the search player's own depth-2 tree, its leaves streamed through layer 1 (search.rs expand_hidden)
-                        let mut sr = t.s.expand_hidden(2, t.s.current_player, layout, net, std::mem::take(&mut self.tree_buf), 0, false, None);
+                        let buf = self.tree_bufs.pop().unwrap_or_default();
+                        let extra = if let Some(e) = t.extra.take() {
+                            e
+                        } else if self.trades > 0 && t.s.prompt == Prompt::PlayTurn && roll_park_offers() {
+                            if let Some((hands, affordable)) = t.s.offer_candidates() {
+                                let buf = self.tree_bufs.pop().unwrap_or_default();
+                                t.parked = Some(Parked::Offer(TradePark::Candidates(affordable), offer_rows(&t.s, net, layout, &hands, buf)));
+                                return None;
+                            }
+                            vec![]
+                        } else if self.trades > 0 && t.s.prompt == Prompt::PlayTurn {
+                            t.s.offer_children(&Eval::NetVsHeuristic(net, layout), self.trades)
+                        } else {
+                            vec![]
+                        };
+                        let mut sr = t.s.expand_hidden_with(2, t.s.current_player, layout, net, buf, 0, false, None, extra);
                         let sink = sr.sink.take().expect("expand_hidden leaves a sink");
-                        self.h0.extend_from_slice(&sink.out);
-                        self.tree_buf = sink.out;
-                        t.parked = Some(Parked::Tree(sr, acts[0]));
+                        t.parked = Some(Parked::Tree(sr, acts[0], sink.out)); // rows stay with the task (row_blocks)
                         return None;
                     } else if !self.net_own || t.s.current_player == t.p0 {
                         let (pacts, leaves) = t.s.net_rollout_park(net, layout, &mut self.net_buf, &mut self.h0);
@@ -202,19 +291,53 @@ impl Recorder {
         }
     }
 
+    /// With `trades`: a reply to an offer or the offerer's confirmation, by the seat's trade policy (the net's for net
+    /// seats, the heuristic's for the others), as the arena's `vnets<k>x` seats decide them. None off trade prompts.
+    fn trade_reply(&self, s: &State, p0: usize, layout: &Layout) -> Option<Action> {
+        if self.trades == 0 || !matches!(s.prompt, Prompt::DecideTrade | Prompt::DecideAcceptees) {
+            return None;
+        }
+        match self.net.as_ref().filter(|_| !self.net_own || s.current_player == p0) {
+            Some(net) => s.trade_action(&Eval::NetVsHeuristic(net, layout)),
+            None => s.trade_action(&Eval::Heuristic),
+        }
+    }
+
     pub fn hidden_width(&self) -> Option<usize> {
         self.net.as_ref().map(|n| n.hidden_width())
     }
 
     pub fn h0_rows(&self) -> usize {
-        self.net.as_ref().map_or(0, |n| self.h0.len() / n.hidden_width())
+        self.net.as_ref().map_or(0, |n| self.row_blocks().iter().map(|b| b.len()).sum::<usize>() / n.hidden_width())
+    }
+
+    /// The parked decisions' rows in task order, the order `advance_rollouts` reads their logits: a one-ply park's
+    /// rows are its run of `h0`, a tree's are its own (not copied into `h0`: ~5% of depth-2 generation CPU with the
+    /// reallocation, docs/PLAN-gen-speed.md 2026-09-27).
+    pub fn row_blocks(&self) -> Vec<&[half::f16]> {
+        let Some(net) = &self.net else { return vec![] };
+        let w = net.hidden_width();
+        let mut off = 0;
+        let blocks: Vec<&[half::f16]> = self
+            .tasks
+            .iter()
+            .filter_map(|t| match t.parked.as_ref()? {
+                Parked::Ply(_, leaves, _) => {
+                    off += leaves.len() * w;
+                    Some(&self.h0[off - leaves.len() * w..off])
+                }
+                Parked::Tree(_, _, rows) | Parked::Offer(_, rows) => Some(&rows[..]),
+            })
+            .collect();
+        debug_assert_eq!(off, self.h0.len());
+        blocks
     }
 
     /// The parked rows' win logits on this thread (the CPU backend, ROLL_PARK=1), from the fp16 rows. With f32 rows
     /// this was bitwise the inline rollouts' forward (verified 2026-09-24, docs/RESEARCH-HARDWARE.md).
     pub fn cpu_logits(&self) -> Vec<f32> {
         let Some(net) = &self.net else { return vec![] };
-        let h0: Vec<f32> = self.h0.iter().map(|x| x.to_f32()).collect();
+        let h0: Vec<f32> = self.row_blocks().concat().iter().map(|x| x.to_f32()).collect();
         net.hidden_heads(&h0, h0.len() / net.hidden_width()).chunks(N_HEADS).map(|h| h[0]).collect()
     }
 
@@ -255,7 +378,7 @@ impl Recorder {
                 for j in 0..self.roll_m as usize {
                     let mut t = c.clone_light();
                     t.rng = if self.crn { shared[j] } else { splitmix(&mut self.rng) }; // rollout()'s draw, in its order
-                    self.tasks.push(RollTask { s: t, p0, child: self.ro_v.len(), parked: None });
+                    self.tasks.push(RollTask { s: t, p0, child: self.ro_v.len(), parked: None, extra: None });
                 }
             } else {
                 for _ in 0..self.roll_m {
@@ -738,4 +861,11 @@ impl ArenaGame {
             }
         }
     }
+}
+
+/// ROLL_RESIGN (default off): a depth-2 playout stops once the player to move backs up at least this win probability,
+/// scored as that player's win (resignation, docs/PLAN-gen-speed.md 2026-09-28).
+fn roll_resign() -> f64 {
+    static R: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    *R.get_or_init(|| std::env::var("ROLL_RESIGN").ok().and_then(|v| v.parse().ok()).unwrap_or(f64::INFINITY))
 }

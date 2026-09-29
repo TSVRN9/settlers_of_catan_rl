@@ -467,6 +467,14 @@ impl PyState {
         self.inner.trade_action(&eval).map(to_canon)
     }
 
+    /// The `vnets<k>x` player's decision (valuenet.rs decide_vnet_trades): depth-`depth` search with the net at the
+    /// leaves (CPU) and, at PlayTurn, the best `k` acceptable offers as root children. Replies and confirmations
+    /// are `trade_action`'s.
+    #[pyo3(signature = (net, layout, depth=2, k=3))]
+    fn decide_vnet_trades(&self, net: &PyValueNet, layout: &PyLayout, depth: u32, k: usize) -> Option<Canon> {
+        self.inner.decide_vnet_trades(&net.inner, &layout.inner, depth, 20000, k).action.map(to_canon)
+    }
+
     /// playable_actions minus domestic trade offers (what the searches branch over).
     fn search_actions(&self) -> Vec<Canon> {
         self.inner.search_actions().into_iter().map(to_canon).collect()
@@ -523,6 +531,7 @@ struct PyArena {
     leaf_net: Option<Arc<ValueNet>>,
     roll_net_depth: u32, // net rollouts play the depth-2 search player instead of the one-ply net (Recorder::net_depth)
     roll_crn: bool,      // sibling rollouts share replicate seeds (Recorder::crn)
+    roll_trades: usize,  // depth-2 playouts trade like vnets<k>x (Recorder::trades)
     park_trades: bool, // park the value-net seats' offer decisions with the leaves (ArenaGame::park_trades)
     trade_search: usize, // the value-net seats search up to this many acceptable offers as root children (ArenaGame::trade_search)
     sample_all: bool, // outcome rows from every seat at a sampled tick (Recorder::all_seats)
@@ -543,8 +552,8 @@ struct PyArena {
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![], roll_park=false, roll_npu=None, pool_npu=vec![], leaf_npu=None, leaf_net=None, luck=false, sample_all=false, roll_net_depth=1, roll_crn=false, trade_search=0, park_trades=false))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>, roll_park: bool, roll_npu: Option<(String, String, usize, usize)>, pool_npu: Vec<(String, String, usize, usize)>, leaf_npu: Option<(String, String, usize, usize)>, leaf_net: Option<&PyValueNet>, luck: bool, sample_all: bool, roll_net_depth: u32, roll_crn: bool, trade_search: usize, park_trades: bool) -> PyResult<PyArena> {
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![], roll_park=false, roll_npu=None, pool_npu=vec![], leaf_npu=None, leaf_net=None, luck=false, sample_all=false, roll_net_depth=1, roll_crn=false, trade_search=0, park_trades=false, roll_trades=0))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>, roll_park: bool, roll_npu: Option<(String, String, usize, usize)>, pool_npu: Vec<(String, String, usize, usize)>, leaf_npu: Option<(String, String, usize, usize)>, leaf_net: Option<&PyValueNet>, luck: bool, sample_all: bool, roll_net_depth: u32, roll_crn: bool, trade_search: usize, park_trades: bool, roll_trades: usize) -> PyResult<PyArena> {
         let pool_npu = pool_npu.iter().map(|(lib, xml, rows, width)| crate::npu::NpuNet::new(lib, xml, *rows, *width).map_err(PyValueError::new_err)).collect::<PyResult<Vec<_>>>()?;
         // roll_npu = (libopenvino_c path, hidden-layers IR .xml, its static rows, its input width)
         let roll_npu = match roll_npu {
@@ -563,7 +572,7 @@ impl PyArena {
         if luck && !leaf_npu.as_ref().is_some_and(|n| n.width() != layout.inner.n_features) {
             return Err(PyValueError::new_err("luck needs the hidden-width leaf_npu (its rows ride the leaf pass)"));
         }
-        Ok(PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, roll_park, roll_npu, pool_npu, leaf_npu, leaf_net, roll_net_depth, roll_crn, trade_search, park_trades, sample_all, luck, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0, 0.0) })
+        Ok(PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, roll_park, roll_npu, pool_npu, leaf_npu, leaf_net, roll_net_depth, roll_crn, roll_trades, trade_search, park_trades, sample_all, luck, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0, 0.0) })
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
@@ -634,6 +643,7 @@ impl PyArena {
                 r.all_seats = self.sample_all;
                 r.net_depth = self.roll_net_depth;
                 r.crn = self.roll_crn;
+                r.trades = self.roll_trades;
                 r
             },
             log: if self.keep_log { Some(vec![]) } else { None },
@@ -726,9 +736,8 @@ impl PyArena {
                         break;
                     }
                     first = false;
-                    let w = n_hidden(games);
                     let t = std::time::Instant::now();
-                    let logits = if n == 0 { vec![] } else { npu.logits(games.iter().flat_map(|g| g.rec.h0.chunks_exact(w)), n).map_err(PyValueError::new_err)? };
+                    let logits = if n == 0 { vec![] } else { npu.logits(&games.iter().flat_map(|g| g.rec.row_blocks()).collect::<Vec<_>>()).map_err(PyValueError::new_err)? };
                     npu_ms += t.elapsed().as_secs_f64() * 1e3;
                     let mut off = 0;
                     let jobs: Vec<(&mut ArenaGame, &[f32])> = games
@@ -785,13 +794,13 @@ impl PyArena {
                 let n = n_leaf + n_trade + games.iter().map(|g| g.luck_h.len() / w).sum::<usize>();
                 if n > 0 {
                     let t = std::time::Instant::now();
-                    let rows = games
+                    let blocks: Vec<&[half::f16]> = games
                         .iter()
-                        .filter(|g| g.pending.is_some())
-                        .flat_map(|g| g.leaf_h.chunks_exact(w))
-                        .chain(games.iter().filter(|g| traded(g)).flat_map(|g| g.trade_h.chunks_exact(w)))
-                        .chain(games.iter().flat_map(|g| g.luck_h.chunks_exact(w)));
-                    let logits = npu.logits(rows, n).map_err(PyValueError::new_err)?;
+                        .filter_map(|g| g.pending.as_ref().map(|s| &g.leaf_h[..s.n_leaves * w]))
+                        .chain(games.iter().filter(|g| traded(g)).map(|g| &g.trade_h[..]))
+                        .chain(games.iter().map(|g| &g.luck_h[..]))
+                        .collect();
+                    let logits = npu.logits(&blocks).map_err(PyValueError::new_err)?;
                     npu_ms += t.elapsed().as_secs_f64() * 1e3;
                     let mut off = 0;
                     for g in games.iter_mut().filter(|g| g.pending.is_some()) {
@@ -1341,10 +1350,6 @@ static LEAF_CHECK: std::sync::Mutex<(u64, u64, f64, u64)> = std::sync::Mutex::ne
 #[pyfunction]
 fn leaf_check() -> (u64, u64, f64, u64) {
     *LEAF_CHECK.lock().unwrap()
-}
-
-fn n_hidden(games: &[ArenaGame]) -> usize {
-    games.iter().find_map(|g| g.rec.hidden_width()).unwrap_or(1)
 }
 
 #[pymodule]

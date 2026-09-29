@@ -399,3 +399,72 @@ Two exact fixes, together **-7.5% wall, -5.5% CPU** on 64 depth-2 games (54.0 / 
 
 **Left:** longest road on BuildRoad (~16% of a playout, `board.rs`) and the 19-tile payout scan on Roll (~12%,
 `apply.rs`; index tiles by number).
+
+## 2026-09-27: round 77 generation (`vnets3x:v76` x4, depth-2 rollouts), profiled live
+
+- `perf --call-graph lbr` on the live process (DWARF unwinding stops at libc). Top entries: memmove 13.7%, `layer_fma`
+  12.7%, `expand_node` 9.7%, mimalloc 14% in total, `encode_board_into` 6.7%.
+- **memmove:** the largest single call site (6.5% of samples) was `npu.logits` copying rows into the input tensor, one
+  row at a time on the stepping thread. The tensor itself isn't slow: 13-27 GB/s from Python, measured between
+  infers. The source rows are, having just been written by other cores. `NpuNet::logits` now takes per-game blocks
+  and copies 256-row pieces in parallel.
+  - Shards are identical to the old engine's modulo row order (48 games, depth-2 rollouts; the old engine's row order
+    also varies from run to run).
+- **Rollout trees:** `advance_rollouts` copied each parked tree's rows into `h0` (3%, plus 2.5% in `h0` reallocation).
+  The rows now stay in `Parked::Tree`, and `Recorder::row_blocks` hands them to the NPU in task order. Shards are
+  identical, same check as above.
+- **Left:** `actions_into` grows a fresh Vec per node (~2%).
+- **Wall effect of both copies: small.** Round 78, alone on the machine: 1.49 games/s, against round 75's 1.46 (also
+  quiet). The copies overlapped with other arenas' CPU work and weren't on the critical path. The gate cache is the
+  win: round 78's gate took 7 min against ~29 before.
+- **Gate, not generation:** `GATE_CACHE` (gate.py) keeps per-seed results by player file contents and pool. With a
+  fixed `GATE_SEED` in run_exit.sh, the incumbent's games are played once, not every round: about half of every gate
+  (~15 of ~30 min). Each incumbent gets its own range (see FINDINGS, round 79): the one it was accepted on
+  is biased in its favour.
+
+## 2026-09-28: width 512 (v89w), NPU turbo, the CPU forwards of rollout offers
+
+96 games of the loop's generation (`vnets3x:v89w` x4, depth-2 rollouts, `roll_p 0.02 roll_m 2`, CRN, `--roll-trades 3`),
+quiet machine:
+
+| build | games/s | NPU busy | CPU (cores) | labels vs base |
+|---|---|---|---|---|
+| base | 0.565 | 92% | 4.8 | — |
+| `NPU_TURBO=1` (npu.rs, `NPU_TURBO` on the core) | 0.647 (+14.5%) | 50% | 6.5 | bitwise identical |
+| turbo + `ROLL_RESIGN=0.97` | 0.687 (+6%) | 51% | 6.0 | 5.5% differ, mean −0.004 |
+
+- **At width 512 the NPU was the bottleneck.** Microbench on v89w's hidden-layer IR (4,096 rows): 4.1 M rows/s at one
+  request, 6.0 M at four; turbo 5.3 M and 8.0 M. The throughput hint alone helps only with several requests in flight
+  (7.4 M at four), and adds nothing on top of turbo. Turbo is on in `run_exit.sh` (`NPU_TURBO`, default 1).
+- **Resignation in playouts (`ROLL_RESIGN`, off):** a depth-2 playout stops once the player to move backs up at least the
+  threshold, and counts as that player's win. +6% at 0.97, but 5.5% of labels change and their mean drops 0.004: the
+  net is overconfident past 0.97 often enough to bias the labels. Not adopted.
+- **Padding:** 65% of the rows the NPU computes are real (4,096-row chunks, the last one of each pass partly stale).
+  With turbo the NPU sits at ~50%, so padding isn't on the critical path.
+- **Under turbo the CPU is the budget (perf, LBR call graphs, live loop):** `layer_fma` 39% of samples, of which
+  `Eval::values` inside `offer_children` (a playout's trade offers, ~50 hands per turn, forwarded row by row on the
+  CPU through two 512x512 layers) is 29%; single-row trade replies (`would_accept`, `trade_action`) 2.6%; the
+  tree leaves' layer 0 (`LeafSink`) ~9%. The NPU driver's host-side busy-wait (`zeFenceHostSynchronize` spinning in
+  `VPUCommandBuffer::waitForCompletion`) is 15% of samples. Next: park the playouts' offer stages on the NPU with
+  the trees, as the main game's `TradePark` already does (`ROLL_PARK_OFFERS`).
+- **Adopted 2026-09-29: playout offers on the NPU (`ROLL_PARK_OFFERS`, default on) and at most four infers in flight
+  (`NPU_INFLIGHT`, default 4).** A playout's two offer stages park as `Parked::Offer` with hidden rows (row 0 the
+  current hand, as the main game's `TradePark`) and resume in `advance_rollouts`; the chosen offers become the tree's
+  extra children. The infer cap is a condvar around `infer()` in npu.rs, so waiting arenas sleep instead of spinning.
+  64 games, run beside round 92's gate (so wall times are noisy):
+
+  | build | CPU s / game | peak memory | labels |
+  |---|---|---|---|
+  | CPU offers | 8.9 | 9.2 GB (OOM at an 8 GB cap) | — |
+  | offers parked | 7.9 | 2.3 GB | 98.8% identical, mean −0.001 |
+  | + `NPU_INFLIGHT=4` | 7.5 | 2.2 GB | bitwise identical to the row above |
+
+  The memory drop matters as much as the CPU: width-512 generation had left ~2-4 GB free on the 30 GB box; round 93's
+  generation used ~8 GB. Round 93 (same lineup as 92): 0.88 games/s, 76 min for 4,000 games, against round 92's
+  ~0.74 once its first 1,000 games (shared with builds and a profile) are excluded: about +20%.
+  - A second A/B (beside round 93's gate, 64 games each, interleaved): `NPU_INFLIGHT` 0 (no cap) 0.334, 8 0.321,
+    4 0.328-0.330, 2 0.316-0.319, 1 0.295 games/s. So the cap is neutral at 4 and costs below it; the spin-wait
+    stayed ~19% of samples in a live profile at 4. Kept at 4 as harmless.
+- **The NPU spin-wait can't be slept away from the caller (2026-09-29).** Per 4,096-row infer on v89w's IR: sync
+  `infer` 1.27-1.38 ms CPU per 1.7 ms wall; `start_async` + `wait` 1.68; polling `wait_for(0)` with 50-200 µs sleeps
+  1.62-1.80. The plugin/driver spins inside whichever call waits, so a sleep-poll loop in npu.rs would save nothing.

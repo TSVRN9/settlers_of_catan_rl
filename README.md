@@ -3,9 +3,10 @@
 A search-based agent for 4-player Settlers of Catan that beats Catanatron's `AlphaBetaPlayer`, and a static
 site to play against it and replay bot games.
 
-**Headline result (2026-09-23):** `v57` — depth-2 expectimax over a learned win-probability net, its side of a
-trade judged by the same net — wins **49.2% [46.1%, 52.3%]** of 1,000 games against three stock
-[JSettlers 2.6.10](https://github.com/jdmonin/JSettlers2) robots on their own server (an equal share is 25%). The
+**Headline result (2026-09-28):** `v89w` — depth-2 expectimax over a learned win-probability net, with its own trade
+offers searched alongside its other moves — wins **61.9% [59.7%, 64.0%]** of 2,000 games (two runs of 1,000: 60.9%, 62.8%) against three stock
+[JSettlers 2.6.10](https://github.com/jdmonin/JSettlers2) robots on their own server (an equal share is 25%; v57 took
+49.2% on 2026-09-23). The
 net was trained by expert iteration on rollout-labelled child states; measurements and negative results are in
 [`docs/FINDINGS.md`](docs/FINDINGS.md). The protocol, the paper-protocol tournament (Xenou et al., EUMAS 2018) and
 every other opponent's numbers are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
@@ -15,7 +16,7 @@ every other opponent's numbers are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 - **Rules engine:** [Catanatron](https://github.com/bcollazo/catanatron) (pinned fork with rule fixes) for the
   Python side; a step-for-step Rust port in [`catan_engine/`](catan_engine/) (PyO3 for training, WebAssembly
   for the site). `test_env.py` replays Python-played games through the Rust engine as its correctness oracle.
-- **Player:** AlphaBeta's depth-2 expectimax search with its hand heuristic replaced by a 403k-parameter MLP
+- **Player:** AlphaBeta's depth-2 expectimax search with its hand heuristic replaced by a 1.07M-parameter MLP (512 wide)
   (`value_net.py`) that predicts P(win), final victory points per seat, and turns remaining.
 - **Training loop:** `gen_games.py` → `train_value.py` → `soup.py` → gate (`scripts/run_exit.sh`).
 - **Site:** [`web/`](web/), live at https://owenwang.dev/settlers_of_catan_rl/ — play against the bots in the browser, step through bot-vs-bot games with

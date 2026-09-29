@@ -473,3 +473,32 @@ An equal share is 25%; v40 took 45.0% [35.6, 54.8] of 100 in Phase F.
 Five turns were force-ended by the server: four on our seat (all in `PLAY1`) and one on a robot. That's above the
 ~1 per 1,000 FINDINGS 2026-09-07 recorded at 2% pauses and five servers (this run: 1%, ten servers, the box ~90%
 idle). At most four games were affected, all against v57.
+
+## Headline (2026-09-28): v89w vs real jSettlers, 1,000 games
+
+`vnets3x:checkpoints_value/v89w.pt`: depth-2 expectimax over v89w, the 512-wide net (v80 widened by Net2Net, then
+trained on depth-2 trading-playout labels). Its three best acceptable offers are searched as root children, with
+partners predicted by `base_fn`. The opponents are three stock JSettlers 2.6.10 robots, same protocol as the v57
+headline (default `MIX`, `full` mode, `fast_pause_percent=1`, ten 100-game servers at once, ~40 min):
+`scripts/headline_jsettlers.sh vnets3x:checkpoints_value/v89w.pt v89w_s3x`. Results:
+`docs/benchmark/headline_jsettlers_v89w_s3x.txt`. v89w is the site's "vnet" bot.
+
+| token | games | wins | win ratio | 95% CI (Wilson) | mean VP |
+|---|---|---|---|---|---|
+| `vnets3x:v89w`, run 1 | 1000 | 609 | 60.9% | [57.8, 63.9] | 8.76 |
+| `vnets3x:v89w`, run 2 (`_b`) | 1000 | 628 | 62.8% | [59.8, 65.7] | 8.86 |
+| **`vnets3x:v89w`, both** | **2000** | **1237** | **61.9%** | **[59.7, 64.0]** | 8.81 |
+| `vnets3x:v93` (port in training, not held out) | 1000 | 626 | 62.6% | [59.6, 65.5] | 8.90 |
+| `vnet:v57` (2026-09-23) | 1000 | 492 | 49.2% | [46.1, 52.3] | 8.42 |
+
+Run 2 was decided on before any result came in: a second 1,000 of the site net, not a pick among candidates.
+
+- **Equal share and seats.** An equal share is 25%. Our seat: 0 in 383 games, 1 in 205, 2 in 218, 3 in 194. The
+  win rate by seat is 59.8 / 62.4 / 59.6 / 62.9% (run 1).
+- **Opponents.** The robots at our tables: 2,246 smart ("robot"), 754 fast ("droid").
+- **Forced turn-ends.** Run 1: four, three on our seat (state 20, `PLAY1`). Run 2: five, three on our seat (two in
+  state 20, one in 41). That's at most six of 2,000 games, the same rate as the v57 run. The v93 run had nine, four
+  on our seat.
+- **Held out.** v89w was trained without jSettlers and without the port; the loop's gate has the port (`jsrobot`)
+  in its pool. From round 92 the loop also puts the port at generation tables (docs/LEVERS.md), so later nets are
+  not held out from this family.

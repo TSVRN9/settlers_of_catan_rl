@@ -309,8 +309,9 @@ class ValueNetPlayer(AlphaBetaPlayer):
 
     Construct one per game (the encoder's map template is per-map)."""
 
-    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000, own_turn=False):
+    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000, own_turn=False, trade_search=0):
         super().__init__(color, depth=depth, prunning=prunning)
+        self.trade_search = trade_search  # > 0: vnets<k> (arena.VNET s<k>): this many acceptable offers searched as root children
         self.use_value_function = True
         self.net_path = net_path
         self.max_leaves = max_leaves  # depth>2 only, see search.rs; arena.MAX_LEAVES is the arena-side twin
@@ -329,6 +330,13 @@ class ValueNetPlayer(AlphaBetaPlayer):
             return torch.sigmoid(net(x)).item()
 
     def decide(self, game, playable_actions):
+        if self.trade_search:  # vnets<k>: the loop's player -- own offers inside the search, replies 1-ply
+            import rust_bridge as rb
+
+            rs, ctx = rb.rust_state(game)
+            if game.state.current_prompt.value not in ("DECIDE_TRADE", "DECIDE_ACCEPTEES"):
+                a = rs.decide_vnet_trades(rust_value_net(self.net_path), rb.layout(ctx), self.depth, self.trade_search)
+                return without_offers(playable_actions)[0] if a is None else rb.uncanon(a, self.color, ctx, list(game.state.colors), state=game.state)
         a = trade_action(game, self.color, self.net_path)
         if a is not None:
             return a
@@ -669,6 +677,9 @@ def make_player(spec, color):
         from catanatron.players.playouts import GreedyPlayoutsPlayer
 
         return no_offers(GreedyPlayoutsPlayer)(color, num_playouts=int(m.group(1) or 25))
+    m = re.fullmatch(r"vnets(\d+)x?:(.+)", spec)  # vnets3x:<path> = the arena's vnets3x (trade search, net-judged replies), same token everywhere
+    if m:
+        return ValueNetPlayer(color, m.group(2), trade_search=int(m.group(1)))
     m = re.fullmatch(r"vnet(\d?)(o?):(.+)", spec)  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (own-turn depth 3, see arena.VNET)
     if m:
         return ValueNetPlayer(color, m.group(3), depth=int(m.group(1) or 2), own_turn=bool(m.group(2)))

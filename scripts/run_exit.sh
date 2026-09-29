@@ -11,6 +11,7 @@
 set -u
 export PYTHONUNBUFFERED=1
 export PYTORCH_ALLOC_CONF=expandable_segments:True  # XPU caching allocator otherwise hoards 4-6 GB (docs/FINDINGS.md)
+export NPU_TURBO=${NPU_TURBO:-1}  # npu.rs: the NPU at turbo clocks, +14.5% width-512 generation, labels bit-identical (2026-09-28)
 cd "$(dirname "$0")/.."  # repo root
 first=$1; last=$2; games=${3:-4000}; every=${4:-10}  # the Python AlphaBeta gate is slow (~10 min): every 10th round, not 3rd (2026-09-22)
 # 2026-09-02 evening (docs/FINDINGS.md): rollout-labeled children replace the base_fn pair / sibling losses --
@@ -33,7 +34,7 @@ roll_net=${ROLL_NET:+--roll-net $ROLL_NET}; DATA_LAST=${DATA_LAST:-4}; TRAIN_EXT
 echo $$ > checkpoints_value/run_exit.pid  # stop with: kill $(cat checkpoints_value/run_exit.pid); never pkill -f (it matches your own shell)
 # Every stage runs in its own transient cgroup with a hard memory cap and no swap: a runaway stage is killed
 # alone and `|| exit 1` stops the loop; the box stays up (docs/FINDINGS.md 2026-09-02, two OOMs took it down).
-run() { systemd-run --user --scope -q -p MemoryMax=14G -p MemorySwapMax=0 "$@"; }
+run() { systemd-run --user --scope -q -p MemoryMax=${MEM_MAX:-14G} -p MemorySwapMax=0 "$@"; }  # MEM_MAX=20G: width-512 generation passes 14G (OOM, 2026-09-28)
 # Never start a GPU stage next to a stale one (a stalled generation once survived pkill, stuck in the GPU driver).
 busy() { pgrep -f "^\S*python[0-9.]* (gen_games|evaluate|train_value)\.py" ; }  # anchored: a shell whose command text mentions the scripts must not match
 if busy >/dev/null; then echo "refusing to start: stale processes: $(busy | tr '\n' ' ')"; exit 1; fi
@@ -63,7 +64,10 @@ for k in $(seq "$first" "$last"); do
   else
     run uv run python soup.py --greedy --base "$prev" --games 1000 --seed $((k * 1000000 + 500000)) --out "checkpoints_value/v$k.pt" checkpoints_value/v${k}_s*.pt || exit 1
   fi
-  seedk=$((k * 1000000 + 7))
+  # GATE_SEED + GATE_CACHE (gate.py): a seed range per incumbent (from its sha1), so rounds against the same incumbent
+  # reuse its games. Not the range it was accepted on: it passed partly by luck on those seeds, which would bias every
+  # later gate against the candidate (round 79, 2026-09-27).
+  seedk=$((k * 1000000 + 7)); [ -n "${GATE_SEED:-}" ] && seedk=$((GATE_SEED + (0x$(sha1sum "$prev" | cut -c1-5) % 900) * 100000))
   if same_net "$prev" "checkpoints_value/v$k.pt"; then echo "=== it$k rejected: the soup kept no draw, v$k == $prev, gate skipped"; else
   echo "=== it$k gate: v$k vs $prev, paired SPRT vs 3x rab, blocks of 1000 to ${GATE_MAX:-12000} games (seed $seedk)  $(date)"
   if run uv run python gate.py "${VSPEC:-vnet}:checkpoints_value/v$k.pt" "${VSPEC:-vnet}:$prev" --seed "$seedk" --max "${GATE_MAX:-12000}" ${GATE_POOL:+--pool $GATE_POOL}; then

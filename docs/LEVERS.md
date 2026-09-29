@@ -4,7 +4,7 @@ The index of what could still make the agent stronger or the loop faster, and wh
 line of evidence per entry; details in the linked doc. Update the entry when a lever is tried: move it, don't
 append a log. (Created 2026-09-25 from `docs/FINDINGS.md`, `docs/PLAN-gen-speed.md`, `docs/RESEARCH-HARDWARE.md`.)
 
-Current: incumbent **v76 played as `vnets3x`** (2026-09-25: depth-2 self-play rollout labels +0.95 and +0.97 in two rounds, trade offers inside the search +3.7); v64 had plateaued since round 63 (FINDINGS "The
+Current: incumbent **v89w played as `vnets3x`** (2026-09-28: v80 widened to 512 by `widen.py` and trained on trading-playout labels, +1.09; the loop runs `HIDDEN=512`); before it v80 (2026-09-27: EMA 0.999 in the depth-2 recipe, +1.86 at round 78, +0.88 at round 80); before it v76 (2026-09-25: depth-2 self-play rollout labels +0.95 and +0.97 in two rounds, trade offers inside the search +3.7); v64 had plateaued since round 63 (FINDINGS "The
 pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than the depth-2 student.
 
 ## Strength: planned (docs/PLAN-plateau.md, in this order; rewritten 2026-09-25)
@@ -16,7 +16,7 @@ pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than th
 | Aux heads used in the search (VP-margin tiebreak, max^n backups) | Training them in is a tie: aux + EMA +0.53, warmed heads +0.21, EMA alone +0.26 (FINDINGS 2026-09-25) | Engine work + a gate |
 | Remaining outcome arms: all four seats' views (`--sample-all`), luck-adjusted labels (~15% variance with a calibrated control), 120° rotation | Only worth running on top of a recipe that doesn't regress | One gated arm each |
 | Depth-2 rollout labels (the labelled seat plays the depth-2 player, net leaves on the NPU, `roll_p` ~0.03) | Targets the diagnosed cause; AlphaZero's rule: value targets from the strongest player. 100k labels were as good as 900k, so 10x fewer, 25x dearer labels fit | Engine work (parked depth-2 trees exist: `pool_npu`); feasibility check first, build only if ≥ 0.8 games/s |
-| Trade search width k (`vnets1x` / `vnets5x` / `vnets8x` vs `vnets3x`), and opponents' offers at their nodes | `vnets3x` accepted at +3.7 on 1,000 games (FINDINGS 2026-09-25); the loop plays it from round 76 | One gate each, no retraining |
+| Opponents' offers at their nodes | Trade search width k is settled at 3: `vnets1x` −0.5% and `vnets5x` +0.1% vs `vnets3x` on v76, both rejected at 2,000 games (FINDINGS 2026-09-27) | Engine: offer children at opponent nodes |
 | Soft listwise sibling loss (softmax over a decision's labelled children vs softmax of their rollout values), then CRN rollouts | Uses label *differences*; hard pairwise targets were dead, the soft version untested | Training-only on `it63-71`, ~1-2 h |
 
 ## Strength: open, not yet planned
@@ -34,14 +34,20 @@ pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than th
 - **Resignation in self-play** (speed): the leader past 0.9 swings a median 0.008 over the last ~31% of a game. Needs a
   calibrated net and a logged false-resign rate first.
 
+- **Trading playouts** (`--roll-trades 3`, `ROLL_TRADES` in run_d2.sh, built 2026-09-27): the label policy trades like
+  the player. Rounds 85-88 on it: +0.12, +0.23, +0.45, −0.26, all ties vs v80; kept on in the loop.
+- **Depth-2 label cost (2026-09-27 arithmetic):** rollouts are ~96% of generation. Round 77 made 91k rollout rows in
+  3,500 games at `roll_m 2`, about 27 game-equivalents of depth-2 play per game, which matches self-play's ~33 games/s.
+  Two arms at equal cost:
+  - `ROLL_M=1 ROLL_P=0.04`: 2x distinct labelled states, noisier labels. `ROLL_M` 8 didn't help in the one-ply era,
+    so label noise may not be the limit.
+  - Truncated rollouts: stop a playout once the net puts a seat past ~0.95. Saves roughly the last third of each
+    playout. The label turns partly bootstrapped, so log the false-stop rate first.
 - **Refresh the pool's cvnet (v57 → v64) in gate and generation.** Keeps the earlier-self opponent hard. At a series
   boundary only (breaks comparability).
 - **Opponents' offers at their nodes** in the trade search (extension of the planned own-offer version).
 - **Policy prior for search (PPO or distilled).** Only if search earns it; MCTS with net values tied depth 2 at ~20x.
 - **MCTS with net leaves on the NPU.** The 20x cost was CPU leaves; unexplored at NPU prices. Tied in strength, so low prior.
-- **Larger net by Net2Net widening** (`widen.py`): 512 wide at matched lineage and data scored +0.77 vs v75 at the 12k
-  cap (llr +2.57, FINDINGS 2026-09-25). Widen the incumbent and re-gate after more depth-2 data; cross-width gates need
-  `VNET_DEVICE=xpu` (NPU plugin bug).
 
 ## Strength: dead (don't re-run without a new reason)
 
@@ -62,10 +68,15 @@ pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than th
 | Smooth prior / smoothed `base_fn` | 5.7% as a player; "learn the choice, don't smooth AB's heuristic" | FINDINGS 2026-09-01 late |
 | PPO self-play (M1-M3) | Plateaued ~80% vs weak bots, lost 98% to ValueFunctionPlayer | FINDINGS M3; `legacy/ppo/` |
 | Loosening the gate | Rounds 63-71 average slightly negative: no hidden small gains | FINDINGS "The pooled loop" |
+| jSettler-port seats at generation tables (rounds 92-94, `OPP=pool,pool GEN_POOL=jsrobot x3,jsdroid`) | −0.05, +0.68 (llr 2.31), −1.50 vs v89w; v93 vs real jSettlers 62.6% = v89w's 61.9% over 2,000. Labels stay self-play rollouts, so only positions change, and a window of only port rounds regresses | FINDINGS 2026-09-29 |
+| Weight soup across rounds (v85-v88, uniform) | +0.21% at the 12k cap vs v80; the rounds' +0.x ties were noise | FINDINGS 2026-09-28 |
 
 ## Speed: open
 
-- **Gate:** move generation in the UCT seat's random playouts (`actions_into` + `push_road_building` ~19% of gate
+- **Generation at width 512, CPU side (2026-09-28 profile, under turbo):** a playout's trade offers scored by CPU
+  forwards were 29% of CPU (now parked on the NPU, adopted), the NPU driver's host busy-wait 15% (capped by
+  `NPU_INFLIGHT`, adopted), the trees' layer 0 ~9%. NPU rows 65% real (4,096-row chunks).
+- **Gate (only when UCT is in the pool):** move generation in the UCT seat's random playouts (`actions_into` + `push_road_building` ~19% of gate
   CPU), `cvnet` seats' CPU forwards (~12% with trades).
 
 - **Gate: UCT playouts** are ~45% of gate CPU (pure game logic). Remaining exact wins are small: tile lookup by dice
@@ -74,6 +85,21 @@ pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than th
   well (see the dead list).
 
 ## Speed: dead or adopted
+
+Adopted 2026-09-28: NPU turbo (`NPU_TURBO=1` in `run_exit.sh`), +14.5% width-512 generation, labels bitwise
+identical; at 512 the NPU had been the bottleneck (92% busy), with turbo the CPU is again. Tried: resignation in
+depth-2 playouts (`ROLL_RESIGN=0.97`), +6%, but 5.5% of labels change and their mean drops 0.004, so it stays off.
+Adopted 2026-09-29: playout trade offers scored on the NPU
+(`ROLL_PARK_OFFERS`, 98.8% of labels identical, −11% CPU per game, peak memory 9.2 → 2.3 GB on 64 games) and a
+four-infer cap on the NPU (`NPU_INFLIGHT`, exact, neutral: 0/4/8 in flight equal within noise, 1-2 slower; the
+driver's spin-wait is still ~19% of samples). Round 93's generation, beside nothing: 0.88 games/s against round 92's
+~0.74 once its first 1,000 games (which shared the CPU with builds) are excluded, about +20%, and ~8 GB used instead
+of ~25. (docs/PLAN-gen-speed.md 2026-09-28.)
+
+Adopted 2026-09-27: the gate cache (`GATE_CACHE` + fixed `GATE_SEED`, the incumbent's games played once: about half
+of every gate); the parallel block copy into the NPU input tensor (exact, ~6.5% of depth-2 generation CPU was that
+copy); rollout trees' rows kept per task instead of copied into `h0` (exact, ~5%). Left from that profile: per-node
+`actions_into` Vecs (~2%) (PLAN-gen-speed 2026-09-27).
 
 Adopted 2026-09-25 (self-play 4.9 → 32.7 games/s): leaves scored by the engine inside the step (`leaf_npu`, hidden-only
 rows; 0.24% decision flips vs exact CPU, fewer than the Python path's), streaming leaves through layer 1 (`LeafSink`,

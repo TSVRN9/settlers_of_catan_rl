@@ -3373,7 +3373,110 @@ many games, since a self-play game is itself a depth-2 rollout from each of its 
   29 min.
   - Two depth-2 rounds, two accepts (+0.95, +0.97). Rounds 63-71 with one-ply labels had none.
   - Today's lineage: v64 → v75 (+0.95, labels) → +3.7 (trade search, same net) → v76 (+0.97, labels).
+  - **Real jSettlers through the bridge: 62/100 (Wilson 95% 52-71%), mean 8.83 VP**, the best on record (v40 45,
+    v57 46, v60 52). The first held-out result outside the ±10-point noise of the v57 baseline, and jSettlers never
+    appears in generation or the gate (only its Rust port, `jsrobot`).
 - **Width 512 re-gated on XPU leaves: +0.77 at the 12,000 cap** (5920 vs 5828, llr +2.57, just short of accepting;
   cvnet +1.0, jsrobot +0.3, rab3 +0.7). Same data and recipe as v75, only the width differs. It leans positive: the
   "width is dead" verdict (from scratch, destructive step) doesn't hold at matched lineage. Cost of 512: ~4x the NPU's
   hidden-layer work, ~2x CPU layer 1. Next: widen the incumbent and re-test over a round or two of depth-2 data.
+- **Round 77 (depth-2 labels, window d275-d277): rejected, −0.9%** (3595 vs 3658 of 7,000; every opponent class
+  slightly negative). The first non-accept of the depth-2 series.
+- **EMA weights on depth-2 labels win the recipe A/B: v77e (`--ema 0.999`) vs v77, +2.2%, accepted at 4,000 games**
+  (2065 vs 1976, llr +3.40; cvnet +1.7, jsrobot +2.1, rab3 +1.6). Same data, draws and soup as round 77; only EMA
+  differs. Under outcome labels EMA tied (+0.26); under depth-2 rollout labels it is the largest recipe gain since the
+  fixed step. The best-held-out checkpoint selection is the likely cost it removes (audit #22, #23).
+  - v77e vs v76 directly: +0.69% at the 12,000 cap (6209 vs 6126, llr +2.69), not accepted. v77 is about −0.9 and
+    v77e about +0.7 against v76, so EMA is worth ~1.6-2.2 points over best-held-out selection on the same data. The
+    loop runs with `EMA=0.999` from round 78 (`scripts/run_d2.sh`). The gate cached v77e's first 4,000 games from
+    the A/B and took 26 min for 12,000.
+- **Round 78, depth-2 labels + EMA 0.999: accepted, +1.86 (v78)** (2615 vs 2522 of 5,000, llr +3.83; cvnet +1.5,
+  jsrobot +1.3, rab3 +1.8). Window d276-d278, from v76. Round time 53 min: generation 45 (1.49 games/s), training
+  1, gate 7 (v76's seeds cached, only the candidate played).
+- **Round 79 (EMA, window d277-d279): rejected, −0.99%** (3653 vs 3722 of 7,000). The gate reused v78's cached games
+  on the seeds where v78 had just been accepted. An incumbent accepted by SPRT is lucky on its own acceptance seeds,
+  so that reuse biases the next gate against the candidate. From round 80, each incumbent gets its own seed range
+  (`GATE_SEED` + its sha1, scripts/run_exit.sh), played in full at its first gate and reused only while it stays
+  incumbent.
+- **Width 512 at the v78 lineage: a tie, +0.27% at the 12,000 cap** (v79w vs v78, 6264 vs 6231, llr +0.13; jsrobot
+  +0.8, cvnet +0.1, rab3 −0.3). This is v78 widened by Net2Net and trained on round 79's window with the round's
+  recipe (EMA); the 256-wide v79 on the same data lost its gate. Width reads positive-but-small twice now (+0.77,
+  +0.27), both short of the +1 point the gate resolves. At ~2x the NPU and layer-1 cost it stays shelved. The arm's
+  isolated cross-width gate beside generation cut generation to 0.76 games/s for ~40 min.
+- **Round 80 (EMA, window d278-d280): accepted, +0.88% (v80)** (5282 vs 5194 of 10,000, llr +3.04; jsrobot +1.4,
+  cvnet +0.4, rab3 +0.4), on v78's own seed range. Lineage: v76 → v78 (+1.86) → v80 (+0.88).
+- **Round 81 (EMA, window d279-d281): rejected, −0.66%** (4672 vs 4731 of 9,000, v80's own seed range, every class
+  slightly negative). EMA 0.999 over the ~550 steps of a training keeps ~58% of the warm start
+  (0.999^550), so it also acts as a smaller step. Decay arms on round 81's window, vs v80: 0.998 −0.43% (reject at
+  11,000), 0.9995 +0.02% (cap). The decay isn't the lever: this window moved nothing at any shrink. 0.999 stays.
+- **Label volume doesn't help: a 5-round window loses −1.42% vs v80** (v82L, d278-d282, ~500k rollout rows vs the
+  loop's 300k over 3 rounds; reject at 5,000, rab3 −1.6, jsrobot −1.0). Older rounds' labels come from weaker
+  players, and more steps also shrink less toward the warm start under EMA. A 2-round window (v82S, d281-d282)
+  scores −0.38%, the same as the loop's 3-round v82 (−0.38%, rejected at 10,000; the equal totals are a
+  coincidence, the block paths differ).
+- **v80 is holding.** Candidates trained from it, all on its seed range: v81 −0.66, v81 at EMA 0.998 −0.43, at 0.9995
+  +0.02, v82 −0.38, v82S −0.38, v82L −1.42. Next arm (loop from round 84): `ROLL_M=1 ROLL_P=0.04`, twice the
+  labelled states per round at the same cost, since fresh labels help and old ones hurt.
+- **Round 84, `ROLL_M=1 ROLL_P=0.04` (2x labelled states, 205k rollout rows): a tie, −0.08% at the 12,000 cap vs v80**
+  (only d284 of the window d282-d284 had the new setting). No better than a tie, so the loop went back to 0.02 / 2.
+- **Rollouts never traded.** Playouts used `search_actions()` (no offers), so every depth-2 label valued a position
+  as if nobody trades, while the player trained on those labels trades (trade search alone was +3.7). This is the
+  pattern of the v64 plateau again: labels from a weaker policy than the student. `--roll-trades K` (arena.rs
+  `Recorder::trades`): the playout player takes the K best offers as root children and answers and confirms offers
+  with `trade_action`, as the `vnets<k>x` seats do (offers on the CPU, trees still on the NPU).
+  - Off: shards identical to the old engine.
+  - `--roll-trades 3` on 48 games: same games and states, 32% of rollout values change, ~10% more wall time.
+  - The loop uses it from round 85.
+- **Round 85, first trading-playout round (d285 with `--roll-trades 3`, window d283-d285): a tie, +0.12% at the
+  12,000 cap vs v80.** Trained on d285 alone (v85T), +0.14% at the cap. The five rounds since v80 (81-85) scored
+  −0.66, −0.38, −0.46, −0.08, +0.12. Candidates now cluster at zero rather than below it; gains under ~1 point sit
+  below the gate's resolution.
+- **Round 86 (window d284-d286, two of three rounds with trading playouts): a tie, +0.23% at the cap vs v80.**
+- **v80 vs real jSettlers: 49, 60 and 48/88 over three runs (157/288 = 54.5%); v76: 62 and 63/100 (125/200 =
+  62.5%).** v80 is 8 points below v76, z ≈ 1.8, despite gating +2.7 points above it on the pool (every class up,
+  jsrobot +1.4 at round 80). The first run's 13.5-point gap was partly luck, and the rest isn't significant: the pool gain
+  since v76 doesn't show on real jSettlers, and may be a small loss there. Held-out runs of 100 games resolve only ~±10
+  points. v76 stays the held-out best, and the site keeps v76.
+- **Rounds 87-88 tie too (+0.45%, −0.26% at the 12,000 cap vs v80), and so does their uniform weight soup.**
+  `soup.py` over v85-v88 (every trading-playout round, unselected): 6314 vs 6289 of 12,000 (+0.21%, llr −0.25; cvnet
+  +0.0, jsrobot +0.3, rab3 +0.0) on the loop's v80 seeds. Round-by-round +0.x results were noise, not gains below the
+  gate's resolution: with v80 as the label policy, this recipe is flat.
+- **Width 512 accepted: v89w, +1.09% vs v80 (4270 vs 4183 of 8,000, llr +2.95; cvnet +1.1, jsrobot +1.4, rab3
+  +0.9).** v80 widened function-preservingly (`widen.py`), then the loop's step (5 draws, EMA 0.999, uniform soup) on
+  d286-d288, all trading-playout data. The third width try at this lineage: +0.77 vs v75, +0.27 vs v78, now +1.09. It is
+  the loop's criterion, but v80's seed range had judged about ten candidates by then, so it carries some winner's
+  curse. The loop runs at 512 from round 90 (`HIDDEN=512` in `scripts/run_d2.sh`), at about 2x the per-leaf cost.
+  Real jSettlers: 60 and 64/100 (124/200 = 62%, mean ~9.0 VP), level with v76 (125/200) and above v80 (157/288):
+  the width gain costs nothing on the held-out opponent, unlike v80's. Width-512
+  generation peaks ~21 GB (OOM at the loop's 14G cap; `MEM_MAX=20G`) and runs 0.56 games/s beside a bridge run.
+- **Rounds 90-91 at width 512 (first labels from v89w itself): −0.64% and −0.57% vs v89w, rejected at 8,000.** A
+  round is ~2.2 h (generation 1 h 48 min at 0.62 games/s, gate 23 min), about twice the width-256 round.
+- **Trade search width k = 3 stays (2026-09-27).** On v76, `vnets1x` vs `vnets3x`: 1021 vs 1031 of 2,000 (−0.5%,
+  reject); `vnets5x` vs `vnets3x`: 1028 vs 1026 (+0.1%, reject). The paired games barely differ, so the SPRT settles in
+  2,000 games: the gain is in having the best few offers as children at all, not in how many.
+- **Cross-width gates run in isolated processes** (`gate.py` `wins_isolated`, one spawned process per side and block).
+  Check: v76 widened to 512 (function-preserving, max |diff| 7.6e-6) vs v76 tied 216/216 of 400 with no NPU error.
+- **v89w vs real jSettlers, 1,000 games: 609 = 60.9% [57.8, 63.9], mean 8.76 VP** (`scripts/headline_jsettlers.sh
+  vnets3x:checkpoints_value/v89w.pt v89w_s3x`, ten servers at once, ~40 min;
+  `docs/benchmark/headline_jsettlers_v89w_s3x.txt`). Its two 100-game runs (124/200) agree. It is 11.7 points above
+  v57's 49.2% [46.1, 52.3] headline (2026-09-23), the first headline since. No forced turn-ends in the 40-game pilot.
+  v89w replaced v76 on the site the same night.
+- **jSettler-port seats in generation (rounds 92-93, 2026-09-29): two ties vs v89w.** Lineup `v89w, v89w, pool,
+  pool` with the pool `jsrobot x3, jsdroid`; labels are still v89w's depth-2 self-play rollouts, so only the
+  labelled positions change. Round 92 (window d290-d292, one mixed round): −0.05% at the 12,000 cap (jsrobot −1.0,
+  z −1.4). Round 93 (two mixed rounds): +0.68% at the cap, llr +2.31 against the +2.94 bound (rab3 +1.7 z +2.8,
+  jsrobot +0.5, cvnet +0.4), the closest to an accept since v89w. The gate's jsrobot seat doesn't move with port
+  games in the data.
+- **Round 94 (window d292-d294, all three rounds with port seats): rejected, −1.50% at 4,000** (every class down:
+  cvnet −2.0, jsrobot −1.9, rab3 −1.3). With the whole window from port tables the candidate regresses; with a
+  third of it (92) or two thirds (93) it ties.
+- **v93 vs real jSettlers, 1,000 games: 626 = 62.6% [59.6, 65.5], mean 8.90 VP** (v89w 60.9% [57.8, 63.9]). +1.7
+  points, SE of the difference ~2.2: not significant, and below the 4.5 points fixed in advance for switching the site.
+  v93 trained on port games, so this bridge number is not held out.
+- **v89w's second 1,000 vs real jSettlers (unselected, fixed in advance): 628 = 62.8% [59.8, 65.7].** Both runs:
+  1237/2000 = 61.9% [59.7, 64.0], mean 8.81 VP. v93 (62.6%) is level with it: two rounds of port-seat data didn't
+  move real jSettlers either.
+- **Rounds 95-96 (back to pure self-play, windows d293-d295 and d294-d296): rejected, −0.35% at 11,000 and −1.55%
+  at 4,000 vs v89w.** Seven rounds at width 512 since v89w (90-96) and none accepted: with v89w as its own label
+  policy the recipe is flat, as it was at v80 (rounds 81-88). Loop stopped 2026-09-29 08:13 during round 97
+  generation (d297 deleted).

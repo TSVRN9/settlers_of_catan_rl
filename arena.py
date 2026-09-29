@@ -148,7 +148,7 @@ def targets(colors, turns, winner_seat, vps, num_turns):
     return y, vp, turns_left
 
 
-def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p=0.0, roll_m=4, roll_depth=2, roll_net="", batch=64, depth=2, keep_log=False, luck=False, sample_all=False, roll_net_depth=1, crn=False):
+def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p=0.0, roll_m=4, roll_depth=2, roll_net="", batch=64, depth=2, keep_log=False, luck=False, sample_all=False, roll_net_depth=1, crn=False, roll_trades=0):
     """Yields (seed, winner_color or None, part, extra) per game as they finish.
     `part` is the gen_games shard dict (float16) or None for a game without a
     winner; `extra` is (game, log, snapshot) when keep_log, else None.
@@ -200,7 +200,8 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
         leaf_kw["trade_search"] = int(g["ts"])
     if roll_net_depth != 1 or crn:  # depth-2 rollouts: the labelled seats play the search player itself (arena.rs Parked::Tree)
         assert roll_park, "depth-2 / CRN rollouts are parked tasks (ROLL_PARK=rust or 1)"
-        leaf_kw.update(roll_net_depth=roll_net_depth, roll_crn=crn)
+        assert not roll_trades or roll_net_depth == 2, "trading playouts are the depth-2 player's (Recorder::trades)"
+        leaf_kw.update(roll_net_depth=roll_net_depth, roll_crn=crn, roll_trades=roll_trades)
     n_arenas = int(os.environ.get("ARENAS", 32 if roll_park == "rust" or cpu_seats else 4 if leaf_kw else 2)) if net is not None else 1
     # ROLL_PARK=rust: net rollouts become tasks parked at each net decision; the engine runs their dense layers on the
     # NPU inside each arena step (npu.rs). =1: the same on the CPU, the exactness check (docs/RESEARCH-HARDWARE.md)
