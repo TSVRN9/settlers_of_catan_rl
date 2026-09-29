@@ -1,0 +1,10 @@
+{
+ "n_features": 1051,
+ "hidden": 512,
+ "n_heads": 6,
+ "layers": 4,
+ "bytes": 4272260,
+ "sha256": "085374c3a099098a16c8ac800c74ba12dae2676c3c9c01f7cdf64ac6c96987f2",
+ "source": "checkpoints_value/v89w.pt",
+ "layout": "mask[n_features], then per layer W[out*in] row-major, b[out]"
+}
