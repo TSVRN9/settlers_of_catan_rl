@@ -34,7 +34,7 @@ ROW_BUCKET = int(os.environ.get("ROW_BUCKET", 4096))  # forwards are padded to a
 MAX_LEAVES = int(os.environ.get("VNET_MAX_LEAVES", 20000))  # depth>2 decisions over this many leaves fall back one ply (search.rs); depth 2 is never capped
 
 
-VNET = re.compile(r"^vnet(?P<depth>\d?)(?P<own>o?)(?:t(?P<tau>[0-9.]+))?(?:k(?P<k>\d+))?(?:m(?P<sims>\d+)(?:c(?P<c>[0-9.]+))?(?P<mb>b?)(?:r(?P<rr>\d+)(?P<rd1>h?)(?:l(?P<lam>[0-9.]+))?)?)?(?:s(?P<ts>\d+))?(?P<x>x{0,2}):(?P<path>.+)$")
+VNET = re.compile(r"^vnet(?P<depth>\d?)(?P<own>o?)(?:t(?P<tau>[0-9.]+))?(?:k(?P<k>\d+))?(?:m(?P<sims>\d+)(?:c(?P<c>[0-9.]+))?(?P<mb>b?)(?:r(?P<rr>\d+)(?P<rd1>h?)(?:l(?P<lam>[0-9.]+))?)?)?(?:s(?P<ts>\d+)(?:w(?P<tw>\d+))?(?:a(?P<ta>\d+))?)?(?P<x>x{0,2}):(?P<path>.+)$")
 # vnet:<path> depth 2; vnet3: depth 3; vnet3o: 3 own actions, opponents never min'ed (search.rs own_turn); t0.1: soft-min
 # temperature at opponent nodes (search.rs backup); k3: 3 replies per opponent node, ordered on the CPU by $PRUNE_NET,
 # default the spec's last member (search.rs expand_into); m500c0.1: the post-roll main phase by net-valued UCT, 500
@@ -198,6 +198,8 @@ def play(lineup, seeds, *, sample_p=0.0, rank_p=0.0, sib_p=0.0, ts_p=0.0, roll_p
     if g is not None and g.get("ts"):  # vnets<k>x: up to k acceptable offers searched as root children (arena.rs trade_search)
         assert leaf_mode == "hidden" and g.get("x") == "x", "trade search rides the engine's parked offers (vnets<k>x on the NPU)"
         leaf_kw["trade_search"] = int(g["ts"])
+        leaf_kw["offer_top"] = int(g.get("tw") or 0)  # vnets<k>w<n>x: the offer shortlist n long (default 8, trade.rs)
+        leaf_kw["offer_any"] = int(g.get("ta") or 0)  # vnets<k>a<m>x: plus m offers base_fn predicts refused (trade.rs)
     if roll_net_depth != 1 or crn:  # depth-2 rollouts: the labelled seats play the search player itself (arena.rs Parked::Tree)
         assert roll_park, "depth-2 / CRN rollouts are parked tasks (ROLL_PARK=rust or 1)"
         assert not roll_trades or roll_net_depth == 2, "trading playouts are the depth-2 player's (Recorder::trades)"

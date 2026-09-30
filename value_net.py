@@ -309,8 +309,9 @@ class ValueNetPlayer(AlphaBetaPlayer):
 
     Construct one per game (the encoder's map template is per-map)."""
 
-    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000, own_turn=False, trade_search=0):
+    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000, own_turn=False, trade_search=0, offer_any=0, offer_top=0):
         super().__init__(color, depth=depth, prunning=prunning)
+        self.offer_any, self.offer_top = offer_any, offer_top
         self.trade_search = trade_search  # > 0: vnets<k> (arena.VNET s<k>): this many acceptable offers searched as root children
         self.use_value_function = True
         self.net_path = net_path
@@ -335,7 +336,7 @@ class ValueNetPlayer(AlphaBetaPlayer):
 
             rs, ctx = rb.rust_state(game)
             if game.state.current_prompt.value not in ("DECIDE_TRADE", "DECIDE_ACCEPTEES"):
-                a = rs.decide_vnet_trades(rust_value_net(self.net_path), rb.layout(ctx), self.depth, self.trade_search)
+                a = rs.decide_vnet_trades(rust_value_net(self.net_path), rb.layout(ctx), self.depth, self.trade_search, self.offer_any, self.offer_top)
                 return without_offers(playable_actions)[0] if a is None else rb.uncanon(a, self.color, ctx, list(game.state.colors), state=game.state)
         a = trade_action(game, self.color, self.net_path)
         if a is not None:
@@ -677,9 +678,9 @@ def make_player(spec, color):
         from catanatron.players.playouts import GreedyPlayoutsPlayer
 
         return no_offers(GreedyPlayoutsPlayer)(color, num_playouts=int(m.group(1) or 25))
-    m = re.fullmatch(r"vnets(\d+)x?:(.+)", spec)  # vnets3x:<path> = the arena's vnets3x (trade search, net-judged replies), same token everywhere
+    m = re.fullmatch(r"vnets(\d+)(?:w(\d+))?(?:a(\d+))?x?:(.+)", spec)  # vnets3x:<path> = the arena's vnets3x (trade search, net-judged replies), same token everywhere; vnets3w40a99x: shortlist 40, haggling (docs/FINDINGS.md 2026-09-30)
     if m:
-        return ValueNetPlayer(color, m.group(2), trade_search=int(m.group(1)))
+        return ValueNetPlayer(color, m.group(4), trade_search=int(m.group(1)), offer_top=int(m.group(2) or 0), offer_any=int(m.group(3) or 0))
     m = re.fullmatch(r"vnet(\d?)(o?):(.+)", spec)  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (own-turn depth 3, see arena.VNET)
     if m:
         return ValueNetPlayer(color, m.group(3), depth=int(m.group(1) or 2), own_turn=bool(m.group(2)))

@@ -136,6 +136,13 @@ impl State {
     /// Stage 2: the top-k (give, get) bundle pairs by the additive estimate gain(get) - cost(give), from the values of
     /// `offer_candidates`' states (`vals`, in its order) and the current hand's value `base`.
     pub fn offer_shortlist(&self, base: f64, vals: &[f64], affordable: &[bool]) -> Vec<(usize, usize)> {
+        self.offer_shortlist_top(base, vals, affordable, TOP_K)
+    }
+
+    /// `offer_shortlist` keeping `top` pairs (0: TOP_K). The trade search's `vnets<k>w<top>x` (2026-09-30): the additive
+    /// estimate ranks lopsided asks first, which the partner filter then drops, so at 8 the search rarely saw an
+    /// acceptable offer worth making (width 40: +20.4 on the pool, docs/FINDINGS.md 2026-09-30).
+    pub fn offer_shortlist_top(&self, base: f64, vals: &[f64], affordable: &[bool], top: usize) -> Vec<(usize, usize)> {
         let gains: Vec<f64> = vals[..TRADE_BUNDLES.len()].iter().map(|v| v - base).collect();
         let mut rest = vals[TRADE_BUNDLES.len()..].iter();
         let costs: Vec<Option<f64>> = affordable.iter().map(|&a| if a { Some(base - rest.next().unwrap()) } else { None }).collect();
@@ -150,7 +157,7 @@ impl State {
             }
         }
         cands.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-        cands.into_iter().take(TOP_K).map(|(gi, ri, _)| (gi, ri)).collect()
+        cands.into_iter().take(if top == 0 { TOP_K } else { top }).map(|(gi, ri, _)| (gi, ri)).collect()
     }
 
     /// The current player's hands after each shortlisted trade, for their exact values.
@@ -179,17 +186,32 @@ impl State {
     /// that a partner would accept (the partner model: the first seat that would), each with the state it leads to
     /// if accepted. They become extra root children of the depth-2 search, so trading competes with building on the
     /// same depth-2 values (+3.7 points at 1,000 games, docs/FINDINGS.md 2026-09-25).
-    pub fn offer_children_from(&self, base: f64, short: &[(usize, usize)], exacts: &[f64], eval: &Eval, k: usize) -> Vec<(Action, State)> {
+    /// `any` (the `vnets<k>a<any>x` token, 2026-09-30): while fewer than `any` offers were refused this turn, one more
+    /// child: the best offer the partner model predicts refused, with the first seat holding the goods as the partner.
+    /// A refused offer is spent at no cost, and real partners (jSettlers) don't answer with base_fn.
+    pub fn offer_children_from(&self, base: f64, short: &[(usize, usize)], exacts: &[f64], eval: &Eval, k: usize, any: usize) -> Vec<(Action, State)> {
         let p = self.current_player;
         let mut order: Vec<usize> = (0..short.len()).filter(|&i| exacts[i] - base > eval.min_gain()).collect();
         order.sort_by(|&a, &b| exacts[b].total_cmp(&exacts[a]));
-        let mut extra = Vec::new();
+        let any = usize::from(self.spent_offers.len() < any);
+        let (mut extra, mut n_any) = (Vec::new(), 0);
         for i in order {
-            if extra.len() == k {
+            if extra.len() == k + any {
                 break;
             }
             let (give, get) = (TRADE_BUNDLES[short[i].0], TRADE_BUNDLES[short[i].1]);
-            let Some(q) = (0..self.n).find(|&q| q != p && self.would_accept(q, &give, &get, &eval.partner())) else { continue };
+            let q = match (0..self.n).find(|&q| q != p && self.would_accept(q, &give, &get, &eval.partner())) {
+                Some(q) if extra.len() - n_any < k => q,
+                Some(_) => continue,
+                None if n_any < any => match (0..self.n).find(|&q| q != p && (0..5).all(|r| self.players[q].hand[r] >= get[r] as i32)) {
+                    Some(q) => {
+                        n_any += 1;
+                        q
+                    }
+                    None => continue,
+                },
+                None => continue,
+            };
             let mut t = self.clone_light();
             for r in 0..5 {
                 t.players[p].hand[r] += get[r] as i32 - give[r] as i32;
@@ -201,16 +223,16 @@ impl State {
     }
 
     /// `offer_children_from` with the offer stages evaluated here (the site's synchronous path; the arena parks them).
-    pub fn offer_children(&self, eval: &Eval, k: usize) -> Vec<(Action, State)> {
+    pub fn offer_children(&self, eval: &Eval, k: usize, any: usize, top: usize) -> Vec<(Action, State)> {
         let p = self.current_player;
         let Some((hands, affordable)) = self.offer_candidates() else { return vec![] };
         let (base, vals) = eval.values(self, p, &hands);
-        let short = self.offer_shortlist(base, &vals, &affordable);
+        let short = self.offer_shortlist_top(base, &vals, &affordable, top);
         if short.is_empty() {
             return vec![];
         }
         let exacts = eval.values(self, p, &self.shortlist_hands(&short)).1;
-        self.offer_children_from(base, &short, &exacts, eval, k)
+        self.offer_children_from(base, &short, &exacts, eval, k, any)
     }
 
     /// DecideTrade: accept iff the responder's value improves.
@@ -408,6 +430,46 @@ mod tests {
         assert!(!s.playable_actions().contains(&bad));
         s.apply(Action::EndTurn, None).unwrap();
         assert!(s.spent_offers.is_empty());
+    }
+
+    /// `any`: exactly one extra child, an offer no partner model accepts, only while fewer than `any` offers were refused
+    /// this turn; the predicted-accepted children are the same with or without it.
+    #[test]
+    fn offers_predicted_refused() {
+        let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
+        let mut s = State::new(Arc::new(Map::generate(3, &layout)), 4, 1, 10);
+        while s.initial_phase {
+            let a = s.playable_actions()[0];
+            s.apply(a, None).unwrap();
+        }
+        s.apply(Action::Roll, Some((2, 3))).unwrap();
+        let p = s.current_player;
+        s.players[p].hand = [1, 1, 0, 0, 4];
+        for q in 0..4 {
+            if q != p {
+                s.players[q].hand = [1, 1, 1, 4, 1];
+            }
+        }
+        let e = Eval::Heuristic;
+        let accepted = |s: &State, a: &Action| {
+            let Action::OfferTrade { give, get } = a else { panic!() };
+            (0..4).any(|q| q != p && s.would_accept(q, give, get, &e))
+        };
+        let plain: Vec<Action> = s.offer_children(&e, 3, 0, 0).into_iter().map(|c| c.0).collect();
+        let with: Vec<Action> = s.offer_children(&e, 3, 2, 0).into_iter().map(|c| c.0).collect();
+        assert!(plain.iter().all(|a| accepted(&s, a)));
+        assert_eq!(with.iter().filter(|a| accepted(&s, a)).cloned().collect::<Vec<_>>(), plain);
+        assert_eq!(with.iter().filter(|a| !accepted(&s, a)).count(), 1, "{with:?}");
+        s.spent_offers = vec![[0; 10]; 2];
+        let capped: Vec<Action> = s.offer_children(&e, 3, 2, 0).into_iter().map(|c| c.0).collect();
+        assert_eq!(capped, plain, "no extra once `any` offers were refused this turn");
+        // the shortlist width: 0 is TOP_K, a wider one extends it
+        let (hands, affordable) = s.offer_candidates().unwrap();
+        let (base, vals) = e.values(&s, p, &hands);
+        let short = s.offer_shortlist(base, &vals, &affordable);
+        assert_eq!(s.offer_shortlist_top(base, &vals, &affordable, 0), short);
+        let wide = s.offer_shortlist_top(base, &vals, &affordable, 40);
+        assert!(wide.len() > TOP_K && wide[..TOP_K] == short[..], "{} pairs", wide.len());
     }
 
     /// A responder counters, the turn player accepts: hands swap at once. A rejected counter is spent.

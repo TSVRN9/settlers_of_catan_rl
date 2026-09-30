@@ -19,8 +19,10 @@ use crate::trade::Eval;
 use crate::valuenet::{sigmoid, ValueNet, N_HEADS};
 
 static LAYOUT: OnceLock<Arc<Layout>> = OnceLock::new();
-/// The "vnet" bot's trade search width: the best 3 acceptable offers are root children (the loop's `vnets3x`).
+/// The "vnet" bot's trade search (`vnets3w40x`): the best 3 acceptable offers out of the 40 scored exactly are root
+/// children. No haggling (`a<m>`): a human at the table would answer ~13 offers a turn (docs/FINDINGS.md 2026-09-30).
 const VNET_TRADE_SEARCH: usize = 3;
+const VNET_OFFER_TOP: usize = 40;
 
 fn layout() -> Arc<Layout> {
     LAYOUT.get_or_init(|| Arc::new(serde_json::from_str(include_str!("base_layout.json")).expect("base_layout.json"))).clone()
@@ -278,7 +280,7 @@ impl Engine {
             }
             "vnet" => {
                 let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
-                let d = self.state.decide_vnet_trades(net, &layout(), depth.max(1), 20000, VNET_TRADE_SEARCH);
+                let d = self.state.decide_vnet_trades(net, &layout(), depth.max(1), 20000, VNET_TRADE_SEARCH, 0, VNET_OFFER_TOP);
                 (d.action, d.value, d.root, d.leaves)
             }
             _ => return Err(err(format!("unknown bot {bot}"))),

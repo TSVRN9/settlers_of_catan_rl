@@ -407,13 +407,13 @@ impl State {
     /// `decide_vnet` for the `vnets<k>x` player: at PlayTurn the best `k` acceptable offers are root children of the
     /// search (trade.rs `offer_children`, partners predicted with base_fn). Replies and confirmations are the caller's
     /// (trade_action with `Eval::NetVsHeuristic`).
-    pub fn decide_vnet_trades(&self, net: &ValueNet, layout: &Layout, depth: u32, max_leaves: usize, k: usize) -> Decision {
+    pub fn decide_vnet_trades(&self, net: &ValueNet, layout: &Layout, depth: u32, max_leaves: usize, k: usize, any: usize, top: usize) -> Decision {
         let actions = self.playable_actions();
         if actions.len() == 1 {
             return Decision { action: Some(actions[0]), value: f64::NAN, root: vec![], leaves: 0 };
         }
         let p0 = self.current_player;
-        let extra = if k > 0 && self.prompt == crate::state::Prompt::PlayTurn { self.offer_children(&crate::trade::Eval::NetVsHeuristic(net, layout), k) } else { vec![] };
+        let extra = if k > 0 && self.prompt == crate::state::Prompt::PlayTurn { self.offer_children(&crate::trade::Eval::NetVsHeuristic(net, layout), k, any, top) } else { vec![] };
         let search = self.expand_with(depth, p0, layout, max_leaves, false, extra);
         let heads = net.forward_batch(&search.leaves, search.n_leaves);
         let mut values: Vec<f64> = (0..search.n_leaves).map(|i| sigmoid(heads[i * N_HEADS] as f64)).collect();
