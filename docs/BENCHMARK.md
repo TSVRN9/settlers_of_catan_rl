@@ -474,6 +474,45 @@ Five turns were force-ended by the server: four on our seat (all in `PLAY1`) and
 ~1 per 1,000 FINDINGS 2026-09-07 recorded at 2% pauses and five servers (this run: 1%, ten servers, the box ~90%
 idle). At most four games were affected, all against v57.
 
+## Headline (2026-09-30): v89w with a wider trade search, vs real jSettlers
+
+`vnets3w40a99x:checkpoints_value/v89w.pt`: the same net and depth-2 search as the 2026-09-28 headline below, with
+two changes to the trade search and no retraining (docs/FINDINGS.md 2026-09-30).
+- **Wider shortlist (`w40`).** It scores 40 offers exactly instead of 8 before choosing the three acceptable ones it
+  searches.
+- **Haggling (`a99`).** It also tries the best offer that `base_fn` predicts every seat refuses. The bot opens with
+  the offers best for itself and works down until someone accepts.
+
+Same protocol as below: `scripts/headline_jsettlers.sh vnets3w40a99x:checkpoints_value/v89w.pt v89w_s3w40a99x`.
+
+| token | games | wins | win ratio | 95% CI (Wilson) | mean VP |
+|---|---|---|---|---|---|
+| `vnets3w40a99x:v89w`, run 1 | 1000 | 849 | 84.9% | [82.5, 87.0] | 9.67 |
+| `vnets3w40a99x:v89w`, run 2 (`_b`) | 1000 | 850 | 85.0% | [82.7, 87.1] | 9.73 |
+| **`vnets3w40a99x:v89w`, both** | **2000** | **1699** | **85.0%** | **[83.3, 86.5]** | 9.70 |
+| `vnets3a99x:v89w` (haggling, width 8), confirmation | 1000 | 810 | 81.0% | [78.5, 83.3] | 9.55 |
+| `vnets3a1x:v89w` (haggling, width 8), screen | 1000 | 787 | 78.7% | [76.1, 81.1] | 9.49 |
+| `vnets3x:v89w` (below) | 2000 | 1237 | 61.9% | [59.7, 64.0] | 8.81 |
+
+The rule was fixed before any of these runs: a candidate replaces the headline only on a fresh 1,000 games at least
+4 points above 61.9%. Tokens were chosen on the pool gate, each got one bridge run, and the headline token was named
+before its result. Run 2 was decided on before any of its games: a second 1,000 of the headline token, pooled whatever
+it showed. Haggling at width 8 was the first candidate found; the wider shortlist came later the same night.
+
+The same token against three Python `AlphaBetaPlayer`s (`evaluate.py --opponent alpha_beta --games 1000`, seeds
+0-999): **939/1000 = 93.9% [92.2, 95.2]** (`docs/benchmark/headline_ab_v89w_s3w40a99x.txt`; haggling at width 8:
+88.3% [86.2, 90.1]; `vnets3x`: 79.4% [76.8, 81.8]).
+
+The site's bot is `vnets3w40x:v89w`, the wide shortlist without haggling (a haggling bot makes ~13 offers a turn,
+and a human at the table answers each): **725/1000 = 72.5% [69.7, 75.2]** against real jSettlers
+(`docs/benchmark/headline_jsettlers_v89w_s3w40x.txt`), 3.0 offers a turn in bot games.
+
+- **Seats (headline run).** Our seat: 0 in 406 games (85.7%), 1 in 215 (85.6%), 2 in 189 (85.2%), 3 in 190 (82.1%).
+- **Opponents (headline run).** 2,236 smart, 764 fast.
+- **Incidents.** Forced turn-ends on our seat: 2 (headline), 3, 4. On robots: 4, 2, 1. The robots' illegal bank
+  trades cluster in two or three games per run where a stock robot loops (e.g. 189, 126 and 54 lines in the headline
+  run), the same pattern as in the v89w runs.
+
 ## Headline (2026-09-28): v89w vs real jSettlers, 1,000 games
 
 `vnets3x:checkpoints_value/v89w.pt`: depth-2 expectimax over v89w, the 512-wide net (v80 widened by Net2Net, then

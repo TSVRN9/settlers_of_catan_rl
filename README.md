@@ -3,10 +3,12 @@
 A search-based agent for 4-player Settlers of Catan that beats Catanatron's `AlphaBetaPlayer`, and a static
 site to play against it and replay bot games.
 
-**Headline result (2026-09-28):** `v89w` — depth-2 expectimax over a learned win-probability net, with its own trade
-offers searched alongside its other moves — wins **61.9% [59.7%, 64.0%]** of 2,000 games (two runs of 1,000: 60.9%, 62.8%) against three stock
-[JSettlers 2.6.10](https://github.com/jdmonin/JSettlers2) robots on their own server (an equal share is 25%; v57 took
-49.2% on 2026-09-23). The
+**Headline result (2026-09-30):** `v89w` — depth-2 expectimax over a learned win-probability net, with trade offers
+searched alongside its other moves (40 scored per decision, and it haggles: it also tries offers it expects to be
+refused) — wins **85.0% [83.3%, 86.5%]** of 2,000 games (two runs of 1,000: 84.9%, 85.0%) against three stock
+[JSettlers 2.6.10](https://github.com/jdmonin/JSettlers2) robots on their own server (an equal share is 25%; the same
+net with its earlier 8-offer trade search took 61.9% of 2,000, v57 49.2%), and **93.9% [92.2%, 95.2%]** of 1,000
+against three Catanatron `AlphaBetaPlayer`s. The site's bot doesn't haggle: 72.5% [69.7%, 75.2%] against jSettlers. The
 net was trained by expert iteration on rollout-labelled child states; measurements and negative results are in
 [`docs/FINDINGS.md`](docs/FINDINGS.md). The protocol, the paper-protocol tournament (Xenou et al., EUMAS 2018) and
 every other opponent's numbers are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).

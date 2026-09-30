@@ -649,6 +649,7 @@ impl PyArena {
                 r.crn = self.roll_crn;
                 r.trades = self.roll_trades;
                 r.trades_any = self.offer_any;
+                r.trades_top = self.offer_top;
                 r
             },
             log: if self.keep_log { Some(vec![]) } else { None },

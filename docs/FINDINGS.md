@@ -3485,3 +3485,62 @@ many games, since a self-play game is itself a depth-2 rollout from each of its 
   `docs/benchmark/headline_ab_v89w_s3x.txt`, ~55 min at 8 jobs). The AB-gated ensemble `vnet:v46+v49+v51+v55` scored
   81.5% [79.0, 83.8] on the same seeds; one net gated on the diverse pool is 2.1 points lower, within noise
   (SE of the difference ~1.8), and 12.7 points higher against real jSettlers (61.9% vs v57's 49.2%).
+- **Uniform soup of v89w and its seven width-512 fine-tunes (v90-v96), 2026-09-30: −0.36% at 5,000 games vs v89w**
+  (cvnet −1.9 z −2.0, jsrobot −0.9, rab3 +0.6), stopped. The rejected rounds don't average into a better net.
+
+## 2026-09-30: the trade search saw 8 offers; widening it is +20 on the pool, haggling +7 more
+
+No retraining in this section: every number is v89w, the same net, with a different trade search.
+
+**The cut.** The trade search (`vnets3x`) ranks all valid (give, get) bundle pairs by an additive estimate,
+gain(get) − cost(give), keeps the top 8 (trade.rs `TOP_K`), scores those exactly, and makes root children of the
+best three that `base_fn` predicts some seat accepts. The additive estimate puts lopsided asks first ("1 ore for 2
+wheat"), which the partner filter then drops, so the search rarely saw an acceptable offer worth making.
+`vnets<k>w<n>x` keeps `n` pairs instead (trade.rs `offer_shortlist_top`).
+
+**Haggling.** `vnets<k>w<n>a<m>x` adds one more child per decision while fewer than `m` offers were refused this turn:
+the best offer by the net that no seat accepts under `base_fn`, valued as if the first seat holding the goods
+accepted. A refused offer is spent for the turn at no other cost, so the optimistic value only orders the offers
+tried; after each refusal the list is re-ranked, so the bot opens with the offers best for itself and works down until
+someone accepts. At width 8 most of haggling's gain was walking past the cut: against 3x Python AlphaBeta, whose
+replies are exactly `base_fn`, haggling alone gained +8.9 points.
+
+- **Pool gate (1,000-2,000 games vs cached `vnets3x:v89w`):**
+  - width 40: **+20.5** (cvnet +21.3, jsrobot +19.0, rab3 +21.4); width 400 (a screen): +19.4. 40 is enough.
+  - haggling at width 8, refused offers per turn capped at 1: +2.85, 2: +4.9, 4: +5.1, 8: +7.65, 16: +11.7,
+    uncapped (`a99`): +14.6. The rule fixed before the caps were read (smallest cap within 2 points of uncapped)
+    picked uncapped.
+  - width 40 + haggling (`vnets3w40a99x`): **+27.1** (every class z > 12); width 400 + haggling (screen) +29.0.
+  - The pool's `cvnet` and `rab` seats still trade through `best_offer` at width 8, so part of these margins is
+    opponents handicapped by the same cut. Real jSettlers is the clean read.
+- **Haggling on other nets (pool, both sides `vnets3a99x`):** v93 +0.22 vs v89w at 4,000, v80 −0.88: the gain is
+  the trade search's, not v89w's.
+- **What haggling changes in a game** (four v89w bots at a table, 32 sim games): offers per turn mean 1.1 (median 0,
+  p90 3) for `vnets3x`, 13.0 (median 8, p90 34, max 98) haggling, 2.5 (p90 5) capped at 2; completed trades per game
+  11.3, 24.9, 11.7. A human at a site table answers every offer.
+- **Real jSettlers, haggling at width 8 (`vnets3a99x`):** screen 787/1000 = 78.7% [76.1, 81.1], fresh confirmation
+  810/1000 = 81.0% [78.5, 83.3], mean 9.55 VP; both 1597/2000 = 79.9% [78.0, 81.6], against `vnets3x`'s 61.9%
+  [59.7, 64.0] (`docs/benchmark/headline_jsettlers_v89w_s3a{1,99}x.txt`). Not disruption: the stock robots' illegal
+  bank trades come from one or two looping games per run as before, robot forced turn-ends 1-2 per run as before,
+  ours 3-4.
+- **Real jSettlers, width 40 (fresh 1,000 each, tokens fixed before either run):** `vnets3w40a99x` 849 = **84.9%
+  [82.5, 87.0]**, mean 9.67 VP, and an unselected second run 850 = 85.0% [82.7, 87.1]: 1699/2000 = **85.0% [83.3,
+  86.5]**; `vnets3w40x` (the site's bot, no haggling) 725 = **72.5% [69.7, 75.2]**, mean 9.30,
+  3.0 offers a turn in four-bot games (11.3 → 31.3 completed trades a game).
+- **3x Python AlphaBeta, `vnets3w40a99x`: 939/1000 = 93.9% [92.2, 95.2]** (`docs/benchmark/headline_ab_v89w_s3w40a99x.txt`).
+- **3x Python AlphaBeta (seeds 0-999), haggling at width 8:** 883/1000 = 88.3% [86.2, 90.1], against 79.4% for
+  `vnets3x` (`docs/benchmark/headline_ab_v89w_s3a99x.txt`).
+- **Children per decision at width 40 (pool, vs `vnets3w40x`):** k = 5 −1.2% (rejected at 1,000), k = 8 +0.97% at
+  4,000 (accepted, too small to see on the bridge). k stays 3.
+- **Generation cost (the round-97 recipe, depth-2 self-play with trading playouts, 128 games, v89w):** `vnets3x` 0.83
+  games/s, 20 samples and 21.2 rollout labels/s; `vnets3w40x` 0.41 games/s but 37 samples per game, 19.5 labels/s
+  (−8%); `vnets3w40a99x` with haggling playouts 0.056 games/s, 177 samples per game, 10.8 labels/s, most of them at
+  offer decisions. The wide shortlist is affordable in the loop; haggling in generation halves the labels and skews
+  them towards offer states.
+- **Round 97, the loop on the wide search (`VSPEC=vnets3w40x`, playouts trading at width 40 too, 2,000 games, window
+  d295-d297): rejected, −1.93% at 3,000 vs v89w** (every class down: cvnet −1.9, jsrobot −2.6, rab3 −2.4). Generation
+  ran at 0.35 games/s and made 97k rollout labels, about what 4,000 `vnets3x` games make. Eight rounds at width 512
+  since v89w without an accept; the play-time trade search moved strength, the training loop didn't.
+- Residual effect of partners that don't answer with `base_fn` (CLAUDE.md flags that assumption): haggling still
+  adds ~7 points on top of width 40 on the pool, where net seats and the jSettler port accept offers `base_fn` says
+  they refuse.

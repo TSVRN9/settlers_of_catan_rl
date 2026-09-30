@@ -88,6 +88,7 @@ pub struct Recorder {
     pub net_depth: u32,  // the net rollout policy searches this deep: 1 = one ply (decide_net_rollout), 2 = the depth-2 player
     pub crn: bool,       // sibling rollouts share their replicates' seeds (common random numbers, RESEARCH-SIGNAL §3.1)
     pub trades_any: usize, // ... and haggles like `vnets<k>a<m>x` (trade.rs offer_children_from `any`): the seat's `offer_any`
+    pub trades_top: usize, // ... from the seat's offer shortlist (`offer_top`, 0: TOP_K)
     pub trades: usize,   // net_depth 2: the playout player trades like `vnets<k>x` (k best offers as root children, replies
                          // and confirmations by trade_action); 0 = no offers, as before 2026-09-27
     tree_bufs: Vec<Vec<half::f16>>, // spare row buffers for Parked::Tree
@@ -122,7 +123,7 @@ pub struct Recorder {
 
 impl Recorder {
     pub fn new(seed: u64, sample_p: f64, rank_p: f64, sib_p: f64, ts_p: f64, roll_p: f64, roll_m: u32, roll_depth: u32, net: Option<Arc<ValueNet>>, net_own: bool) -> Recorder {
-        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, net, net_own, net_buf: vec![], park: false, all_seats: false, net_depth: 1, crn: false, trades: 0, trades_any: 0, tree_bufs: vec![], tasks: vec![], h0: vec![], xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
+        Recorder { rng: seed ^ 0xA5A5_5A5A_1234_8765, sample_p, rank_p, sib_p, ts_p, roll_p, roll_m, roll_depth, net, net_own, net_buf: vec![], park: false, all_seats: false, net_depth: 1, crn: false, trades: 0, trades_any: 0, trades_top: 0, tree_bufs: vec![], tasks: vec![], h0: vec![], xs: vec![], colors: vec![], turns: vec![], rank_c: vec![], rank_o: vec![], sib_x: vec![], sib_v: vec![], sib_n: vec![], sib_isp0: vec![], ts_x: vec![], ts_v: vec![], ro_x: vec![], ro_v: vec![], ro_n: vec![] }
     }
 
     /// One playout from `s` by the rollout policy (rab-vs-rab, or the net at one ply when `net` is
@@ -142,7 +143,7 @@ impl Recorder {
                 acts[0]
             } else if let Some(net) = self.net.as_ref().filter(|_| !self.net_own || s.current_player == p0) {
                 if self.net_depth == 2 {
-                    s.decide_vnet_trades(net, layout, 2, 0, self.trades, self.trades_any, 0).action.unwrap_or(acts[0])
+                    s.decide_vnet_trades(net, layout, 2, 0, self.trades, self.trades_any, self.trades_top).action.unwrap_or(acts[0])
                 } else {
                     s.decide_net_rollout(net, layout, &mut self.net_buf).unwrap_or(acts[0])
                 }
@@ -208,7 +209,7 @@ impl Recorder {
                 let (base, rest) = (vals[0], &vals[1..]);
                 match tp {
                     TradePark::Candidates(affordable) => {
-                        let short = t.s.offer_shortlist(base, rest, &affordable);
+                        let short = t.s.offer_shortlist_top(base, rest, &affordable, self.trades_top);
                         if short.is_empty() {
                             self.tree_bufs.push(rows);
                             t.extra = Some(vec![]);
@@ -263,7 +264,7 @@ impl Recorder {
                             }
                             vec![]
                         } else if self.trades > 0 && t.s.prompt == Prompt::PlayTurn {
-                            t.s.offer_children(&Eval::NetVsHeuristic(net, layout), self.trades, self.trades_any, 0)
+                            t.s.offer_children(&Eval::NetVsHeuristic(net, layout), self.trades, self.trades_any, self.trades_top)
                         } else {
                             vec![]
                         };
