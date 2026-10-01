@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { isStale } from "../engine";
 import type { Attribution, LuckRoll, PlayerView } from "../engine";
-import { fmtDelta, fmtPct, who, whom, whose } from "../labels";
+import { fmtDelta, fmtPct, vpCards, who, whom, whose } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
 import { groupText, narrate, num } from "../coach";
@@ -15,9 +15,9 @@ import { get, set, useApp, you } from "../store";
 
 // SPLIT also fixes where "The position now" row starts, which the CSS board anchor
 // ([data-anchor="game"], index.css) is tuned to sit right at the top of — moving SPLIT
-// desyncs the board from its own heading, so the timeline's new step line (2.3) has to
-// fit inside the curve panel's existing height instead of growing it.
-const PANEL_TOP = 92, CHART_H = 148, SPLIT = 392;
+// desyncs the board from its own heading, so the curve panel's height is fixed and the
+// chart takes whatever the header, the axis rows and the step line leave it.
+const PANEL_TOP = 92, SPLIT = 392;
 const MARK = 15, MARK_ROW = 17, CAP_ROW = 14, GAP = 6;
 
 /** Rows for things laid along one axis: each takes the first row where it does not touch
@@ -25,6 +25,9 @@ const MARK = 15, MARK_ROW = 17, CAP_ROW = 14, GAP = 6;
 /** Public VP unless the row is entitled to the hand: your own, or every row when nobody is seated. */
 const vpOf = (p: PlayerView, i: number, you: number) => (i === you || you < 0 ? p.actual_vp ?? p.vp : p.vp);
 const cards = (p: PlayerView) => p.hand.reduce((a, b) => a + b, 0);
+/** A seat's score line, for the header and the hover card alike: spaced, not dotted. */
+const scoreLine = (p: PlayerView, i: number, you: number) =>
+  [`${vpOf(p, i, you)} vp`, `${cards(p)} cards`, vpCards(p)].filter(Boolean).map((t) => <span key={t}>{t}</span>);
 
 function lanes(items: { x: number; w: number }[], max: number): number[] {
   const taken: [number, number][][] = [];
@@ -53,16 +56,21 @@ export default function Game() {
   const [luck, setLuck] = useState<LuckRoll[] | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
-  // The axis lays its markers and captions out in pixels, so it needs its own width.
+  // The axis lays its markers and captions out in pixels, so it needs its own width; the dots
+  // on the stretched chart need its height.
   const axisRef = useRef<HTMLDivElement>(null);
   const [axisW, setAxisW] = useState(0);
+  const [chartH, setChartH] = useState(1);
+  const frame = frames && step != null ? frames[step] : null;
+  const ready = !!map && !!frame;
   useEffect(() => {
-    const el = axisRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setAxisW(el.clientWidth));
+    const el = axisRef.current, svg = svgRef.current;
+    if (!el || !svg) return;
+    const ro = new ResizeObserver(() => { setAxisW(el.clientWidth); setChartH(svg.clientHeight || 1); });
     ro.observe(el);
+    ro.observe(svg);
     return () => ro.disconnect();
-  }, []);
+  }, [ready]);
 
   useEffect(() => stopAutoplay, []);   // leaving the view stops any running autoplay
 
@@ -80,7 +88,6 @@ export default function Game() {
     return () => { live = false; };
   }, [over, frames.length]);
 
-  const frame = frames && step != null ? frames[step] : null;
   const mover = frame?.seat ?? 0;
 
   useEffect(() => {
@@ -217,7 +224,7 @@ export default function Game() {
         </button>
       </Dock>
 
-      <Dock name="game-curve" side="t" className="cut" style={{ position: "absolute", left: 34, right: 34, top: PANEL_TOP, height: SPLIT - PANEL_TOP - 14, ...paper }}>
+      <Dock name="game-curve" side="t" className="cut" style={{ position: "absolute", left: 34, right: 34, top: PANEL_TOP, height: SPLIT - PANEL_TOP - 14, ...paper, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <span className="d" style={{ fontSize: 17 }}>Who is winning, all game</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 14 }}>
@@ -225,19 +232,19 @@ export default function Game() {
               <span key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
                 <i style={{ width: 8, height: 8, borderRadius: "50%", background: SEAT_FILL[i], display: "inline-block" }} />
                 {who(i, me)} <b className="num">{fmtPct(frame.evals[i]?.win)}</b>
-                <span className="cap num" style={{ fontSize: 11, marginLeft: 3 }}>{vpOf(p, i, me)} vp · {cards(p)} cards</span>
+                <span className="cap num" style={{ fontSize: 11, marginLeft: 3, display: "flex", gap: 7 }}>{scoreLine(p, i, me)}</span>
               </span>
             ))}
           </span>
         </div>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <div className="cap num" style={{ width: 26, flex: "0 0 26px", height: CHART_H, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 10.5, textAlign: "right", lineHeight: 1 }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flex: 1, minHeight: 0 }}>
+          <div className="cap num" style={{ width: 26, flex: "0 0 26px", height: chartH, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 10.5, textAlign: "right", lineHeight: 1 }}>
             {[100, 75, 50, 25, 0].map((p) => <span key={p}>{p}</span>)}
           </div>
-          <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-            <svg ref={svgRef} viewBox={`0 0 ${Math.max(1, last)} 100`} preserveAspectRatio="none" width="100%" height={CHART_H}
-                 style={{ display: "block", cursor: "col-resize", touchAction: "none" }}
+          <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <svg ref={svgRef} viewBox={`0 0 ${Math.max(1, last)} 100`} preserveAspectRatio="none" width="100%"
+                 style={{ display: "block", flex: 1, minHeight: 0, cursor: "col-resize", touchAction: "none" }}
                  onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => setHover(null)}>
               {[0, 25, 50, 75, 100].map((p) => (
                 <line key={p} x1={0} x2={last} y1={100 - p} y2={100 - p} stroke="var(--color-dust)" strokeWidth={p === 50 ? 1.5 : 1}
@@ -253,8 +260,8 @@ export default function Game() {
               {/* Every deciding move, full height so it cannot be missed, with the stretch the move
                   actually moved drawn solid over it: the dash marks the moment, the solid part is
                   its size. Dash arrays are in y-units — the viewBox is stretched on x and
-                  `non-scaling-stroke` fixes width only — so "4 3" reads about 6px on, 5px off at
-                  CHART_H. The dot is an ellipse for the same reason: a circle would not be one. */}
+                  `non-scaling-stroke` fixes width only — so "4 3" scales with
+                  the chart's height. The dot is an ellipse for the same reason: a circle would not be one. */}
               {moments.map((m) => {
                 const y0 = 100 - 100 * (frames[m.step].evals[m.seat]?.win ?? 0.5);
                 const y1 = 100 - 100 * (frames[m.step + 1].evals[m.seat]?.win ?? 0.5);
@@ -270,7 +277,7 @@ export default function Game() {
                     </line>
                     {axisW > 0 && (
                       <ellipse cx={m.step} cy={y1} rx={(on ? 3 : 2.2) * Math.max(1, last) / axisW}
-                               ry={(on ? 3 : 2.2) * 100 / CHART_H} fill={SEAT_FILL[m.seat]} />
+                               ry={(on ? 3 : 2.2) * 100 / chartH} fill={SEAT_FILL[m.seat]} />
                     )}
                   </g>
                 );
@@ -290,7 +297,7 @@ export default function Game() {
             </svg>
 
             {/* the turning points, on the axis */}
-            <div ref={axisRef} style={{ position: "relative", height: markRows * MARK_ROW + 2 * CAP_ROW + 2, marginTop: 4 }}>
+            <div ref={axisRef} style={{ position: "relative", height: markRows * MARK_ROW + 2 * CAP_ROW + 2, flex: "0 0 auto", marginTop: 4 }}>
               {ev.map((e, i) => (
                 <button key={`m${e.step}-${i}`} className="num" title={e.text} onClick={() => set({ step: e.step })} style={{
                   position: "absolute", left: px(e.step), top: markRow[i] * MARK_ROW, transform: "translateX(-50%)",
@@ -320,7 +327,7 @@ export default function Game() {
               <div className="cut8" style={{
                 position: "absolute", top: 8, left: `${(hover! / Math.max(1, last)) * 100}%`,
                 transform: hover! / Math.max(1, last) > 0.6 ? "translateX(calc(-100% - 12px))" : "translateX(12px)",
-                background: "var(--color-pine)", color: "var(--color-chalk)", padding: "9px 11px", width: 200, pointerEvents: "none", fontSize: 12, lineHeight: 1.45,
+                background: "var(--color-pine)", color: "var(--color-chalk)", padding: "9px 11px", width: 250, pointerEvents: "none", fontSize: 12, lineHeight: 1.45,
               }}>
                 {inRun && runText && (
                   <div className="cut8" style={{
@@ -336,7 +343,7 @@ export default function Game() {
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                     <i style={{ width: 7, height: 7, borderRadius: "50%", background: SEAT_FILL[i] }} />
                     <span style={{ flex: 1, fontWeight: i === hf.seat ? 600 : 400 }}>{who(i, me)}</span>
-                    <span className="cap num" style={{ fontSize: 11, color: "var(--color-dust)" }}>{vpOf(p, i, me)} vp · {cards(p)} cards</span>
+                    <span className="cap num" style={{ fontSize: 11, color: "var(--color-dust)", whiteSpace: "nowrap", display: "flex", gap: 7 }}>{scoreLine(p, i, me)}</span>
                     <span className="num" style={{ width: 38, textAlign: "right", fontWeight: i === hf.seat ? 700 : 400 }}>{fmtPct(hf.evals[i]?.win)}</span>
                   </div>
                 ))}

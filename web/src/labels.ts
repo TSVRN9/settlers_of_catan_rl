@@ -1,9 +1,11 @@
-import type { Attribution, BotKind, Canon, MapView, View } from "./engine";
+import type { Attribution, BotKind, Canon, MapView, PlayerView, View } from "./engine";
 
 export const RESOURCES = ["Wood", "Brick", "Sheep", "Wheat", "Ore"];
 export const RESOURCE_EMOJI = ["🌲", "🧱", "🐑", "🌾", "⛰️"];
 export const DEV_CARDS = ["Knight", "Year of Plenty", "Monopoly", "Road Building", "Victory Point"];
 export const SEAT_NAMES = ["Red", "Blue", "Orange", "White"];
+/** The victory-point cards in a hand — hidden information, so only where hands are shown. */
+export const vpCards = (p: PlayerView) => (p.devs[4] ? `${p.devs[4]} vp card${p.devs[4] === 1 ? "" : "s"}` : null);
 // Seat colours live in board/palette.ts now, generated from the design canvas — the old
 // near-white fourth seat vanished on chalk, sheep and desert.
 /** What the engine is waiting for, as an obligation. Only the phases that really are one:

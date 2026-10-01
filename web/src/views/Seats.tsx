@@ -8,7 +8,7 @@
 // the analysis, as its own dimmer sub-row rather than more numbers on the public line — a
 // glance has to tell you which of the two you are reading.
 import type { PlayerView } from "../engine";
-import { who } from "../labels";
+import { vpCards, who } from "../labels";
 import { RES_FILL, SEAT_FILL } from "../board/palette";
 
 interface Props { players: PlayerView[]; you: number; open: boolean; row?: boolean; current?: number }
@@ -57,6 +57,7 @@ export default function Seats({ players, you, open, row = false, current }: Prop
                 <span className="cap" style={{ fontSize: 10.5, marginLeft: 2 }}>
                   {p.devs.reduce((a, b) => a + b, 0)} dev
                 </span>
+                {vpCards(p) && <span className="cap" style={{ fontSize: 10.5 }}>{vpCards(p)}</span>}
               </div>
             </div>
           </div>
