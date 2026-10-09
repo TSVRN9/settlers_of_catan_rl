@@ -11,8 +11,8 @@
 // from the old rect to the new one over --t-board. There is no second animation system.
 import { useEffect, useLayoutEffect, useRef } from "react";
 import Board from "./Board";
+import Carry, { type CarryProps } from "./Carry";
 import type { Canon, MapView, View } from "../engine";
-import type { Heat } from "../waiting";
 import type { ViewName } from "../store";
 
 interface Props {
@@ -22,20 +22,17 @@ interface Props {
   /** Behind the lineup: the board being configured, at half strength. On the layer itself
    *  so the view transition's snapshot carries it. */
   dim?: boolean;
-  legal?: Canon[];
-  onAction?: (a: Canon) => void;
-  onChoice?: (acts: Canon[]) => void;
-  heat?: Heat;
   highlight?: Canon | null;
   litTiles?: number[];
   hidePieces?: boolean;
   dealing?: boolean;
   ghost?: Canon | null;
   since?: View | null;
-  onHover?: (a: Canon | null) => void;
+  /** The piece in hand and where it can go, laid over the board (Carry.tsx). */
+  carry?: CarryProps | null;
 }
 
-export default function BoardLayer({ view, map, gameView, dim, ...rest }: Props) {
+export default function BoardLayer({ view, map, gameView, dim, carry, ...rest }: Props) {
   const el = useRef<HTMLDivElement>(null);
   /** The last box written. An anchor can move without the view changing or the stage
    *  resizing — --board-x does exactly that when the coach opens — so parking runs on
@@ -83,7 +80,8 @@ export default function BoardLayer({ view, map, gameView, dim, ...rest }: Props)
 
   return (
     <div id="board-layer" ref={el} style={{ opacity: dim ? 0.45 : 1 }}>
-      <Board map={map} view={gameView} {...rest} />
+      <Board map={map} view={gameView} robberLifted={carry?.held?.kind === "robber"} {...rest} />
+      {carry && <Carry {...carry} />}
     </div>
   );
 }

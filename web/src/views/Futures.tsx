@@ -45,8 +45,6 @@ export default function Futures() {
   const me = v.players[s.human];
   const mine = playing(s) && v.current_player === s.human && v.winner < 0;
   const liveWin = s.evals[s.human]?.win ?? 0;
-  const stagedKey = s.staged ? actionKey(s.staged) : null;
-  const stagedVal = s.staged ? top6.find(([a]) => actionKey(a) === stagedKey)?.[1] : undefined;
 
   return (
     <>
@@ -67,25 +65,13 @@ export default function Futures() {
         </div>
 
         <div style={{ marginTop: "auto" }}>
-          {s.staged && mine ? (
-            <div className="cut arrive dock-b" style={{ background: "var(--color-paper)", padding: "12px 13px" }}>
-              <div style={{ font: "600 13px var(--font-sans)", lineHeight: 1.35 }}>{label(s.staged, map)}</div>
-              {stagedVal != null && (
-                <div style={{ marginTop: 4, display: "flex", gap: 8, alignItems: "baseline" }}>
-                  <span className="d num" style={{ fontSize: 17 }}>{fmtPct(stagedVal)}</span>
-                  <span className="d num" style={{ fontSize: 12.5, color: stagedVal - liveWin >= 0 ? "var(--color-wood)" : "var(--color-brick)" }}>{fmtDelta(stagedVal - liveWin)}</span>
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button className="act cut8 go" style={{ height: 38 }} onClick={() => void act(s.staged!)}>Play it</button>
-                <button className="act cut8" style={{ height: 38 }} onClick={() => set({ staged: null })}>Cancel</button>
-              </div>
-            </div>
-          ) : top6[0] ? (
-            <button className="act cut8" style={{ height: 40, width: "100%" }} disabled={!mine} onClick={() => set({ staged: top6[0][0] })}>
+          {/* Choosing a candidate plays it — the cell already shows what it is worth, so there
+              is nothing left to confirm. */}
+          {top6[0] && (
+            <button className="act cut8" style={{ height: 40, width: "100%" }} disabled={!mine} onClick={() => void act(top6[0][0])}>
               Let the net choose
             </button>
-          ) : null}
+          )}
         </div>
       </Dock>
 
@@ -102,15 +88,14 @@ export default function Futures() {
             const pv = previews[i];
             const delta = val - liveWin;
             const key = actionKey(a);
-            const on = stagedKey === key;
             const vpUp = pv ? pv.players[s.human].vp - me.vp : 0;
             const cost = COST[a[0]];
             return (
-              <div key={key} className="cell arrive" role="button" tabIndex={0} aria-label={label(a, map)} aria-pressed={on}
-                   style={{ transitionDelay: `${i * 45}ms`, cursor: mine ? "pointer" : "default", boxShadow: on ? "0 0 0 2.5px var(--color-pine)" : undefined, padding: 6, margin: -6, display: "flex", flexDirection: "column", minHeight: 0 }}
+              <div key={key} className="cell arrive" role="button" tabIndex={0} aria-label={label(a, map)}
+                   style={{ transitionDelay: `${i * 45}ms`, cursor: mine ? "pointer" : "default", padding: 6, margin: -6, display: "flex", flexDirection: "column", minHeight: 0 }}
                    onMouseEnter={() => mine && set({ hover: a })} onMouseLeave={() => set({ hover: null })}
-                   onClick={() => mine && set({ staged: a, hover: null })}
-                   onKeyDown={(e) => { if (mine && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); set({ staged: a }); } }}>
+                   onClick={() => { if (mine) { set({ hover: null }); void act(a); } }}
+                   onKeyDown={(e) => { if (mine && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); void act(a); } }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, lineHeight: 1.25, minWidth: 0 }}>
                   <span className="d num" style={{ fontSize: 16, flex: "0 0 auto", color: i === 0 ? "var(--color-pine)" : "var(--color-moss)" }}>{fmtPct(val)}</span>
                   <span style={{ font: `${i === 0 ? 600 : 500} 12.5px var(--font-sans)`, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: i === 0 ? "var(--color-pine)" : "var(--color-moss)" }}>{label(a, map)}</span>

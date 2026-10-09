@@ -14,11 +14,11 @@ import Handoff from "./views/Handoff";
 import Discard from "./views/Discard";
 import Offer from "./views/Offer";
 import Spine, { NAME } from "./Spine";
-import { toLineup } from "./game";
+import { act, toLineup } from "./game";
 import * as keys from "./keys";
 import * as route from "./route";
 import { currentView, playing, set, useApp } from "./store";
-import { heat, waiting } from "./waiting";
+import { heat, held, waiting } from "./waiting";
 
 /** The views that put something other than the live position on the board (the Table only
  *  while the stands look back at a step). */
@@ -33,7 +33,11 @@ function Head() {
   const view = currentView(s);
   if (s.phase === "lineup" || !s.view) return null;
   const shown = view === "table" && s.step != null ? s.frames[s.step]?.view ?? s.view : s.view;
-  const title = view === "table" ? `Turn ${shown.num_turns}` : NAME[view];
+  // The engine counts every seat's turn, the opening's placements included, so "Turn 6" was the
+  // first roll of a four-seat game. The head counts rounds of the table from the first roll.
+  const first = s.frames.find((f) => !f.view.initial_phase)?.view.num_turns ?? shown.num_turns;
+  const title = view !== "table" ? NAME[view] : shown.initial_phase ? "Opening"
+    : `Round ${Math.floor((shown.num_turns - first) / shown.n) + 1}`;
   const back = view === "table" ? toLineup : route.pop;
   return (
     <button className="head" style={{ viewTransitionName: "head" } as CSSProperties} onClick={back}
@@ -61,9 +65,10 @@ export default function App() {
   // another never shows the live position in between.
   const override = !setup && OWNS_OVERRIDE.has(view) ? s.boardOverride : null;
   const mine = !setup && playing(s) && s.view?.current_player === s.human && s.view.winner < 0 && s.step == null;
-  // A board move is staged, never played from a click: the piece appears as a ghost and the
-  // Table asks. Hovering a target previews it the same way.
   const live = view === "table" || view === "futures";
+  // The piece in hand, on the Table only: the game's own (the opening, the robber) or one
+  // picked up off a building card. With nothing in hand the board offers nothing.
+  const inHand = !setup && view === "table" ? held(s) : null;
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -90,13 +95,16 @@ export default function App() {
                 dim={setup}
                 map={s.map}
                 gameView={override?.view ?? s.view}
-                legal={mine && view === "table" ? s.legal : []}
-                onAction={(a) => set({ staged: a, hover: null })}
-                onHover={(a) => set({ hover: a })}
-                onChoice={(acts) => set({ pending: { title: `Move the robber there — whom do you rob?`, actions: acts } })}
-                heat={s.revealAll ? heat(s.advice) : undefined}
+                carry={mine && view === "table" && (inHand || s.revealAll) ? {
+                  map: s.map, view: s.view, legal: s.legal, seat: s.human, held: inHand, robTile: s.robTile,
+                  heat: s.analysis || s.revealAll ? heat(s.advice) : undefined, reveal: s.revealAll && !inHand,
+                  onPlace: (a) => void act(a),
+                  onRobTile: (t) => set({ robTile: t }),
+                  onDrop: () => set({ carry: null }),
+                  onClickCarry: () => set((cur) => (cur.carry ? { carry: { ...cur.carry, drag: false } } : {})),
+                } : null}
                 highlight={override?.highlight ?? (live ? s.mark : null)}
-                ghost={live && mine ? s.staged ?? s.hover : null}
+                ghost={view === "futures" && mine ? s.hover : null}
                 litTiles={override?.litTiles}
                 hidePieces={s.reveal}
                 dealing={s.reveal}

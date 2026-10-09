@@ -14,6 +14,10 @@ import type { BotSpec, Canon, Decision, Evaluation, Frame, MapView, View } from 
 
 export type ViewName = "table" | "futures" | "move" | "game";
 export type Pace = "slow" | "normal" | "fast";
+export type Building = "road" | "settlement" | "city";
+/** A piece in hand: what it is, and whether it is being dragged (it goes down where the drag
+ *  ends) or was picked up with a click (it follows the pointer until a click puts it down). */
+export interface Carry { kind: Building; drag: boolean; x0: number; y0: number; kbd?: boolean }
 
 export interface Bubble { from: "assistant" | "user"; text: string }
 
@@ -34,10 +38,14 @@ export interface State {
   advice: Decision | null;
   last: Canon | null;
 
-  /** A move you have picked but not yet played: the board shows it as a ghost and asks. A
-   *  hovered target previews the same way. Both are the seat on move's own. */
-  staged: Canon | null;
+  /** A Futures candidate under the pointer, shown on the live board as the mover's ghost. */
   hover: Canon | null;
+  /** The piece picked up off the building cards. The game also puts one in your hand by
+   *  itself — the opening's settlement and road, the robber, Road Building's roads — and that
+   *  one is derived (`table.ts` `held`), never stored. */
+  carry: Carry | null;
+  /** The robber set down on a tile with more than one seat to rob: the board asks whom. */
+  robTile: number | null;
   /** The move the coach is talking about, ringed on the live board. */
   mark: Canon | null;
 
@@ -93,8 +101,8 @@ export interface State {
    *  which is always, unless two different human seats are actually sharing the table. */
   pendingHandoff: number | null;
 
-  /** "Ignore this bot's trades for its turn": the offering seat and the `current_turn` it was
-   *  muted on. Expires by itself once `current_turn` moves past it — no separate clear needed. */
+  /** "Ignore this bot's trades for its turn": the offering seat and the `num_turns` it was
+   *  muted on. Expires by itself once the turn count moves past it — no separate clear needed. */
   mutedSeat: number | null;
   mutedTurn: number | null;
 }
@@ -117,8 +125,9 @@ const initial: State = {
   evals: [],
   advice: null,
   last: null,
-  staged: null,
   hover: null,
+  carry: null,
+  robTile: null,
   mark: null,
   status: "idle",
   error: null,

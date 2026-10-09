@@ -54,6 +54,20 @@ export function canOffer(give: number[], get: number[], hand: number[], spent: n
   return !spent.some((k) => key.every((c, i) => k[i] === c));
 }
 
+/** The bank's side of the builder: one resource given, one card wanted. Returns the rate the
+ *  engine offers for that resource (port or 4:1) and, when the give side is exactly that many,
+ *  the MARITIME_TRADE that does it. Read off `legal` rather than the ports, so the rate is the
+ *  engine's and the button can never raise an error. */
+export function maritimeFor(give: number[], get: number[], legal: Canon[]): { rate: number; action: Canon | null } | null {
+  const gives = give.flatMap((n, r) => (n > 0 ? [r] : [])), gets = get.flatMap((n, r) => (n > 0 ? [r] : []));
+  if (gives.length !== 1 || gets.length !== 1 || get[gets[0]] !== 1) return null;
+  const [r, z] = [gives[0], gets[0]];
+  const ways = legal.filter((a) => a[0] === "MARITIME_TRADE" && a[1] === r && a[3] === z);
+  if (!ways.length) return null;
+  const rate = Math.min(...ways.map((a) => a[2]));
+  return { rate, action: give[r] === rate ? ways.find((a) => a[2] === rate)! : null };
+}
+
 export function actionKey(a: Canon) { return a.join(":"); }
 
 export function label(a: Canon, map?: MapView): string {
@@ -114,7 +128,11 @@ export function cornerName(node: number, map?: MapView) {
   const all = map ? tilesAt(node, map) : [];
   const ts = all.filter((t) => t.resource >= 0);
   if (!ts.length) return all.length ? "the desert corner" : "the far corner";
-  return `the ${ts.map(tileText).join(" · ")} corner`;
+  // A dock says so: the port is half of why a coastal corner is worth taking, and its thin
+  // connector lines were easy to misread as reaching the corner next door.
+  const port = map?.ports.find((pt) => pt.nodes.includes(node));
+  const on = port ? ` on the ${port.resource < 0 ? "3:1" : `2:1 ${RESOURCES[port.resource].toLowerCase()}`} port` : "";
+  return `the ${ts.map(tileText).join(" · ")} corner${on}`;
 }
 
 /** An edge is named by the tiles either side of it. */

@@ -47,7 +47,8 @@ export default function Spine() {
       {s.view && s.phase !== "lineup" && !REVIEW.has(currentView(s)) && (
         <button className="step num" onClick={() => openGameAnalysis()}
                 title="Open the whole game at this turn">
-          turn {s.view.num_turns}
+          {/* The Table's head already carries the turn; here the door names where it goes. */}
+          {currentView(s) === "table" ? NAME.game : `turn ${s.view.num_turns}`}
         </button>
       )}
 

@@ -9,6 +9,18 @@ import { GLYPH_MINI, RES, RES_FILL } from "./palette";
 
 const raw = (markup: string) => ({ __html: markup });
 
+const INK = "var(--color-pine)";
+/** One mark per development card, in deck order: knight, year of plenty, monopoly, road
+ *  building, victory point. Filled shapes in the card's ink, like the resource glyphs. */
+const DEV_GLYPH = [
+  <path key="k" d="M16 3 L27 7.5 V15.5 C27 22 22 26.5 16 29 C10 26.5 5 22 5 15.5 V7.5 Z" fill={INK} />,
+  <g key="y"><rect x="6" y="5" width="13" height="18" rx="1.5" fill={INK} opacity=".45" />
+    <rect x="13" y="9" width="13" height="18" rx="1.5" fill={INK} /></g>,
+  <path key="m" d="M4 25 L6.5 9 L12 16 L16 6 L20 16 L25.5 9 L28 25 Z" fill={INK} />,
+  <g key="r" stroke={INK} strokeWidth="4.2" strokeLinecap="round"><path d="M5 15 L17 8" /><path d="M15 25 L27 18" /></g>,
+  <path key="v" d="M16 3 L19.6 11.6 L28.9 12.4 L21.8 18.4 L24 27.5 L16 22.6 L8 27.5 L10.2 18.4 L3.1 12.4 L12.4 11.6 Z" fill={INK} />,
+];
+
 interface Props {
   /** A resource card by index, or — with `dev` — a development card by kind. */
   resource?: number;
@@ -58,9 +70,10 @@ export default function Card({ resource = 0, dev, count, width, height, rotate, 
           <g transform={`translate(16,16) scale(${g.k}) translate(${g.dx},${g.dy})`} dangerouslySetInnerHTML={raw(g.markup)} />
         </svg>
       ) : (
-        <span className="d" aria-hidden="true" style={{ position: "absolute", top: Math.round(height * 0.14), fontSize: Math.round(width * 0.42), opacity: 0.8 }}>
-          {DEV_CARDS[dev!][0]}
-        </span>
+        <svg viewBox="0 0 32 32" width={Math.round(width * 0.5)} height={Math.round(width * 0.5)}
+             style={{ position: "absolute", top: Math.round(height * 0.12), opacity: 0.85 }} aria-hidden="true">
+          {DEV_GLYPH[dev!]}
+        </svg>
       )}
       {count != null && <span key={count} className="d num bump" style={{ fontSize: Math.max(11, Math.round(height * 0.22)) }}>{count}</span>}
       {delta ? (

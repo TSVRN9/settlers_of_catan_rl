@@ -11,9 +11,10 @@
 // one is disabled — so the Offer button can never raise an error. `canOffer` is the same
 // predicate, kept in labels.ts where the self-check can reach it.
 import { useState } from "react";
+import type { Canon } from "../engine";
 import { act } from "../game";
 import Card from "../board/Card";
-import { RESOURCES, bundleText, canOffer, packBundle } from "../labels";
+import { RESOURCES, SEAT_NAMES, bundleText, canOffer, maritimeFor, packBundle } from "../labels";
 import { set, useApp } from "../store";
 
 const ZERO = [0, 0, 0, 0, 0];
@@ -25,8 +26,12 @@ const CAP = 19;
 export default function Offer() {
   const s = useApp();
   const v = s.view;
-  const [give, setGive] = useState<number[]>(ZERO);
-  const [want, setWant] = useState<number[]>(ZERO);
+  // A counter starts from the offer it answers, turned round: what they asked of you is what
+  // you would give, what they offered is what you want. You change it from there.
+  const counter = v && v.prompt === "DECIDE_TRADE" && v.current_player === s.human ? v.current_trade : null;
+  const [give, setGive] = useState<number[]>(() =>
+    counter ? counter.slice(5, 10).map((n, r) => Math.min(n, v!.players[s.human].hand[r])) : ZERO);
+  const [want, setWant] = useState<number[]>(() => (counter ? counter.slice(0, 5) : ZERO));
   const [busy, setBusy] = useState(false);
   if (!v) return null;
 
@@ -44,7 +49,9 @@ export default function Offer() {
   const canAdd = (side: "give" | "want", r: number) =>
     side === "give" ? give[r] < hand[r] && want[r] === 0 : give[r] === 0 && want[r] < CAP;
 
-  const ok = canOffer(give, want, hand, v.spent_offers);
+  const ok = s.legal.some((a) => a[0] === "OFFER_TRADE") && canOffer(give, want, hand, v.spent_offers);
+  // The same cards can go to the bank instead, at the engine's rate for that resource.
+  const bank = maritimeFor(give, want, s.legal);
   const spent = give.some(Boolean) && want.some(Boolean) && !ok
     && !give.some((c, i) => c > hand[i]) && !give.some((c, i) => c > 0 && want[i] > 0);
 
@@ -53,6 +60,10 @@ export default function Offer() {
   const offer = async () => {
     setBusy(true);
     if (!await act(["OFFER_TRADE", packBundle(give), packBundle(want), -1])) setBusy(false);
+  };
+  const toBank = async (a: Canon) => {
+    setBusy(true);
+    if (await act(a)) close(); else setBusy(false);
   };
 
   const row = (side: "give" | "want", counts: number[]) => (
@@ -77,7 +88,7 @@ export default function Offer() {
   return (
     <div className="modal arrive">
       <div className="cut arrive dock-t" style={{ background: "var(--color-paper)", padding: "20px 22px" }}>
-        <div className="d" style={{ fontSize: 20 }}>Offer a trade</div>
+        <div className="d" style={{ fontSize: 20 }}>{counter ? `Counter ${SEAT_NAMES[counter[10]]}` : "Trade"}</div>
 
         <div style={{ display: "flex", gap: 26, marginTop: 16, alignItems: "flex-start" }}>
           <div>
@@ -97,6 +108,11 @@ export default function Offer() {
               : "Nothing offered yet."}
             {spent && <span className="cap" style={{ marginLeft: 8, color: "var(--color-warn)" }}>already refused this turn</span>}
           </span>
+          {bank && (
+            <button className="act cut8" disabled={busy || !bank.action} onClick={() => void toBank(bank.action!)}>
+              Bank {bank.rate}:1
+            </button>
+          )}
           <button className="act go cut8" disabled={busy || !ok} onClick={() => void offer()}>Offer it</button>
           <button className="act cut8" disabled={busy} onClick={close}>Back</button>
         </div>

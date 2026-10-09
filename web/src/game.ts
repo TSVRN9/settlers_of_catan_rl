@@ -21,12 +21,21 @@ let pumping = false;
 const PACE: Record<Pace, number> = { slow: 1200, normal: 350, fast: 40 };
 /** The pace buttons are the stands' own (Table's transport) — a seated player has no
  *  control and used to get the 350ms playback beat, which is faster than a person can
- *  read a move. Seated, a bot's move is held long enough to follow instead.
- *  ponytail: one knob; raise it if the table still feels rushed. */
-const SEATED_MS = 900;
+ *  read a move. Seated, the move before is held long enough to follow, by what it was: a
+ *  roll until its dice, tiles and cards have landed (views/Fx.tsx), a build until it has
+ *  settled, a word in a trade only briefly. Timers, never an animation's end: a background
+ *  tab runs no animation frames, and a loop that waited on one would stall there.
+ *  ponytail: one table of knobs; tune by feel. */
+const SEATED_MS: Record<string, number> = { ROLL: 1800, MOVE_ROBBER: 1300, BUILD_SETTLEMENT: 1100, BUILD_CITY: 1100,
+  BUILD_ROAD: 900, BUY_DEVELOPMENT_CARD: 900, END_TURN: 500, OFFER_TRADE: 1000, ACCEPT_TRADE: 600, REJECT_TRADE: 450,
+  CONFIRM_TRADE: 900, CANCEL_TRADE: 450, DISCARD_RESOURCE: 250 };
 const beat = (forced: boolean) => {
-  const ms = playing(get()) ? SEATED_MS : get().pace === "fast" ? 0 : PACE[get().pace];
-  return forced ? Math.min(120, ms) : ms;
+  const s = get();
+  if (!playing(s)) { const ms = s.pace === "fast" ? 0 : PACE[s.pace]; return forced ? Math.min(120, ms) : ms; }
+  const prev = s.last?.[0] ?? "";
+  const ms = SEATED_MS[prev] ?? 900;
+  // A forced move goes quickly — except straight after a roll, whose cards are still flying.
+  return forced && prev !== "ROLL" ? Math.min(120, ms) : ms;
 };
 
 /** A live position as a frame: the last of `store.frames` until an action closes it. */
@@ -48,7 +57,7 @@ export async function deal() {
   const seed = s.seed, n = s.lineup.length;
   resetReview();
   stopWatching();
-  set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, staged: null, hover: null, mark: null,
+  set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, hover: null, carry: null, robTile: null, mark: null,
         boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], frames: [], mutedSeat: null, mutedTurn: null });
   try {
     const g = await live.newGame(seed, n);
@@ -85,7 +94,7 @@ export async function start() {
 export function toLineup() {
   stopWatching();
   transition(() => set({ phase: "lineup", pending: null, offering: false, advice: null, status: "idle", crumbs: ["table"], step: null,
-                          boardOverride: null, pendingHandoff: null, paused: false, staged: null, hover: null, mark: null,
+                          boardOverride: null, pendingHandoff: null, paused: false, hover: null, carry: null, robTile: null, mark: null,
                           mutedSeat: null, mutedTurn: null }));
 }
 
@@ -169,7 +178,7 @@ export function seek(step: number) {
   if (last < 0) return;
   const at = Math.max(0, Math.min(last, step));
   if (!playing(s)) { hold(); show(at); return; }
-  set({ step: at >= last ? null : at, staged: null, hover: null });
+  set({ step: at >= last ? null : at, hover: null });
 }
 
 /** Back to a game left behind the lineup: the lineup leaves, the furniture returns, and the
@@ -208,7 +217,7 @@ async function advance(action: Canon, at: View): Promise<boolean> {
   const s = get();
   if (!s.view) return false;
   const seat = s.view.current_player;
-  set({ status: "applying", advice: null, pending: null, staged: null, hover: null, mark: null });
+  set({ status: "applying", advice: null, pending: null, hover: null, mark: null, carry: null, robTile: null });
   let res;
   try {
     res = await live.apply(action, at.steps);
@@ -262,16 +271,19 @@ export async function pump(once = false) {
       if (s.paused && !once) return;
       const seat = v.current_player;
       const spec = s.lineup[seat];
-      // A human's only-legal roll still needs a click — unlike every other forced move,
-      // which plays itself because there is nothing to decide.
-      const forced = s.legal.length === 1 && !(spec.kind === "human" && s.legal[0][0] === "ROLL");
+      // A person's only-legal roll or end of turn still waits for them — playing it for them
+      // ended turns before they had seen the card they drew. Every other forced move plays
+      // itself, because there is nothing to decide.
+      const forced = s.legal.length === 1 && !(spec.kind === "human" && (s.legal[0][0] === "ROLL" || s.legal[0][0] === "END_TURN"));
       // A trade offered to the seated person: answer it for them, silently, when it can't be
       // afforded or when they've muted this bot for its turn — it never reaches the panel.
       if (v.prompt === "DECIDE_TRADE" && seat === s.human && spec.kind === "human") {
         const give = [5, 6, 7, 8, 9].map((i) => v.current_trade[i]);
         const hand = v.players[s.human].hand;
         const cannotAfford = give.some((n, i) => hand[i] < n);
-        const muted = v.current_trade[10] === s.mutedSeat && v.current_turn === s.mutedTurn;
+        // `num_turns`, not `current_turn` — that is the seat on move, so a mute keyed on it never
+        // expired and silently declined that seat's offers for the rest of the game.
+        const muted = v.current_trade[10] === s.mutedSeat && v.num_turns === s.mutedTurn;
         if (cannotAfford || muted) {
           if (!await advance(["REJECT_TRADE", -1, -1, -1], v)) return;
           continue;

@@ -331,7 +331,10 @@ engine surface.
   Play was never actually blocked when this happened — rolling, trading and discarding all
   worked normally regardless of what the pill said — so it reads as `waiting()` lagging the
   view by one render rather than a stuck engine state. Not reproduced deliberately; worth a
-  look if it recurs with a tighter repro.
+  look if it recurs with a tighter repro. **Closed 2026-10-08:** it was not a lag. The engine
+  sets `is_moving_knight` and never clears it (Catanatron does the same, and the replay oracle
+  pins the port to that), so `waiting()` read "move the robber" for the rest of the turn.
+  It reads `prompt === "MOVE_ROBBER"` now.
 
 ### Cards were flat rectangles, in every view, since M1
 
@@ -514,6 +517,100 @@ used to kill the table, since `pump`'s own catch abandons the loop with a bot on
 Refresh re-evaluating `game.ts` left a second client, worker, engine and `pumping` flag driving
 one store, with the old loop still mid-`wait(900)`. `game.ts` and `review.ts` now dispose their
 workers. Dev-only, which is why it never showed headlessly or under `pnpm preview`.
+
+## The play-feel pass (2026-10-08)
+
+Played on the live site, a turn felt like clicking through menus: a corner click staged a ghost
+and the commit was a "Play it" panel in the far corner; the hand sat bottom-left and the buttons
+bottom-right; development cards were letters nobody could play; bank trades and card plays were
+rows in a generic list; a roll was a 1.7 s pill and production a log line. What changed:
+
+- **Pieces, not targets.** At rest the board offers nothing — the old field of yellow dots on
+  every legal spot is gone. A placement starts with a piece in hand (`held()` in waiting.ts):
+  one the game hands you when a placement is all it will take (the opening's settlement and
+  road, the robber after a seven or a knight, Road Building's roads), or one taken off a
+  building card — dragged, or clicked up to carry. Only then do its places show
+  (`board/Carry.tsx`, its own layer over the board so pointer moves don't re-render the board),
+  as sockets that swell as the pointer nears; the piece snaps to the nearest within reach and
+  goes down where the drag ends or on a click. No confirm step: setting a piece down is the
+  decision, and Esc puts it back. A robber set on a tile with several seats to rob asks whom by
+  making those seats' own buildings the sockets. Keyboard: Tab walks the sockets, the focused one
+  shows the piece, Enter places.
+- **The opening reads as a draft.** The head says "Opening"; the strip above the board is the
+  snake order (`views/Opening.tsx`) — out along the top row, back along the bottom, each seat's
+  two turns in one column; the tray shows the four pieces you place, in order, and the building
+  cards stay away until there is something to buy. The second settlement's starting cards fly
+  off the tiles it touches.
+- **The tray** (`views/Tray.tsx`) — a departure from `ViewTable.dc.html`, which has the hand
+  bottom-left and an action column bottom-right. One strip along the rim, in the order a turn
+  runs: hand, development cards (only kinds held), building cards, Trade, the dice, End turn.
+  The dice are the Roll button and rest there showing the last throw. Anything the tray and the
+  board do not cover still goes to the panel above it, so no legal action is unreachable.
+- **Building cards** (`views/Build.tsx`): road, settlement, city, development. One you can
+  build from stands up with your piece on it, to be taken; one you can't sits down, its cost
+  pips hollow where your hand runs short. Each carries the engine's `*_available` count. A card
+  stands up exactly when its action is legal — no rule restated in the UI. The development
+  card has nowhere to go, so pressing it buys.
+- **Development cards play from the hand.** A card stands up when its `PLAY_*` is legal; Year
+  of Plenty and Monopoly open a row of resource cards over the card, built from that card's own
+  legal actions.
+- **Trades are cards.** An offer to you is two rows — the offerer's cards, yours — keyed on
+  `current_trade`, so a haggled re-offer lands as a new panel. The builder gains "Bank k:1"
+  from `maritimeFor` (labels.ts), which reads the rate off the legal `MARITIME_TRADE`s.
+- **Motion with a rule: holds are timers, animations are decoration.** `game.ts` holds the
+  move before by its kind while seated (a roll 1.8 s, a build ~1 s, a trade word ~0.5 s).
+  `views/Fx.tsx` flies cards on a fixed overlay with the Web Animations API — a roll's cards
+  from each paying tile to the seat (to your hand cards for you, via `production()` in
+  coach.ts), the robber's card from victim to thief (face down unless it is yours to see), a
+  bot's development card from the bank. Nothing awaits an animation: the extension's hidden
+  tab never runs a frame, and a loop that waited on one would stall.
+- **The seat on move sits on paper** in the rail, with its newest move said under its row.
+- Smaller: "Red traded with You" (`whom`), the browser's rectangular focus box on SVG
+  targets (the keyboard gets the target's darker fill instead), and the turn printed three
+  times — the spine's door now reads "The whole game" on the Table, and the strip's caption
+  shows only when looking back or in the stands.
+
+### After two playtests (2026-10-08)
+
+Two agents played the reworked Table and reported back.
+
+**What broke, and why:**
+- **The board placed where the pointer last moved, not where the click landed.** A tap, or a
+  click without a fresh move, snapped to the wrong place or dropped the piece. Placement is now
+  read from the click's own coordinates (`snapAt` in Carry.tsx), the same rule the preview and a
+  drag's end use.
+- **"Ignore X this turn" stored `current_turn`.** That is the seat on move, so the mute never
+  expired and silently declined that seat's offers all game. It now keys on `num_turns`.
+- **A person's only-legal END_TURN played itself**, which ended turns before the drawn card was
+  seen. It now waits for the click, like a lone ROLL.
+- **Controls moved under the pointer.** Roll became End turn in the same spot, and a new offer
+  put Accept where the last Accept was. The tray's turn controls now sit in fixed slots, and any
+  control that just appeared ignores the pointer for 450 ms (`.armed`, kept under reduced motion).
+
+**What was unclear, and what replaced it:**
+- **Trades.** An offer to you labels its rows "Red gives" / "You give", and Counter opens
+  pre-filled as "Counter Red". Your own offer gets a panel (`OfferOut`, from `offerAnswers` in
+  coach.ts): the terms, each seat's answer as it comes, Trade beside each seat that took it, or
+  "Nobody took it." A completed trade's log line names the cards.
+- **Things done to you.** Lines about you since your last turn — cards lost to the robber or a
+  monopoly, a trade with you, Longest Road or Largest Army changing hands (`titleText`) — are set
+  in full weight, and the log stays tall enough to keep them in view. VP changes pulse on the rail.
+- **Road Building** says "place 2 free roads" on the spine, and the road card says "2 free".
+  Year of Plenty's picker shows its two slots.
+- **The robber.** While the robber is in hand, the one on the board fades. The spine says
+  "choose whom to rob" during the victim step.
+- **Building cards and sockets.** With four or fewer legal places, every socket is shown
+  whatever it is worth. A building card you can pay for but can't place says "no room"
+  (or "none left" for development cards).
+- **Ports.** Port docks are named in corner names ("…corner on the 2:1 brick port"), and the
+  dock lines are firmer.
+- **The header** counts rounds from the first roll ("Round 3"). The engine's `num_turns`
+  counts every seat's turn, the opening included. The strip's step count is back.
+
+**Left as it was:**
+- **Reload resumes the board, not the play** — the routing decision above.
+- **Bots still make offers as often as their policy does.** "Ignore X this turn" is the
+  answer for now.
 
 ## Milestones
 

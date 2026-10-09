@@ -11,9 +11,13 @@ import type { PlayerView } from "../engine";
 import { vpCards, who } from "../labels";
 import { RES_FILL, SEAT_FILL } from "../board/palette";
 
-interface Props { players: PlayerView[]; you: number; open: boolean; row?: boolean; current?: number }
+interface Props {
+  players: PlayerView[]; you: number; open: boolean; row?: boolean; current?: number;
+  /** The newest thing the seat on move did, under its own row while its turn lasts. */
+  said?: { seat: number; text: string } | null;
+}
 
-export default function Seats({ players, you, open, row = false, current }: Props) {
+export default function Seats({ players, you, open, row = false, current, said }: Props) {
   return (
     <div style={row ? { display: "flex", gap: 22 } : undefined}>
       {players.map((p, i) => {
@@ -22,7 +26,7 @@ export default function Seats({ players, you, open, row = false, current }: Prop
         const onMove = i === current;
         const size = onMove ? 13 : 9;
         return (
-          <div key={i} style={{ padding: "3px 0", minWidth: row ? 150 : undefined }}>
+          <div key={i} data-seat={i} className={`seat${onMove ? " on" : ""}`} style={{ minWidth: row ? 150 : undefined }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12.5 }}>
               {/* Bigger, not ringed, for whoever is on the move — sized rather than stroked,
                   and keyed so it remounts (replaying the same .bump every changed count
@@ -30,7 +34,8 @@ export default function Seats({ players, you, open, row = false, current }: Prop
               <span key={onMove ? `on-${current}` : `off-${i}`} className={onMove ? "bump" : undefined}
                     style={{ width: size, height: size, flex: `0 0 ${size}px`, background: SEAT_FILL[i] }} />
               <span style={{ flex: 1, fontWeight: own ? 700 : 600 }}>{who(i, you)}</span>
-              <span className="d num" style={{ fontSize: 15 }}>{exact ? p.actual_vp ?? p.vp : p.vp}</span>
+              {/* keyed on the score, so a point gained or lost pulses rather than just changing */}
+              <span key={`vp${exact ? p.actual_vp ?? p.vp : p.vp}`} className="d num bump" style={{ fontSize: 15 }}>{exact ? p.actual_vp ?? p.vp : p.vp}</span>
               <span className="cap" style={{ fontSize: 11 }}>vp</span>
               <span className="d num" style={{ fontSize: 15, marginLeft: 6 }}>{p.hand.reduce((a, b) => a + b, 0)}</span>
               <span className="cap" style={{ fontSize: 11 }}>cards</span>
@@ -43,6 +48,11 @@ export default function Seats({ players, you, open, row = false, current }: Prop
                 {p.has_road && <span>{p.longest_road_length} road</span>}
                 {p.has_army && <span>{p.played[0] ?? 0} army</span>}
               </div>
+            )}
+            {/* The seat on move keeps a fixed two-line slot for what it just did, so the rail
+                moves once a turn, when the turn passes, never on every move inside it. */}
+            {said !== undefined && onMove && !own && (
+              <div className="said">{said?.seat === i && <span key={said.text} className="line">{said.text}</span>}</div>
             )}
             {/* Always mounted, opened by a class: a row that is conditionally rendered can
                 animate in at best, and never out. */}

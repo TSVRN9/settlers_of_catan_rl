@@ -9,14 +9,13 @@
 //
 // The board itself is the app's single instance; this view only says where it goes, with the
 // anchor below.
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import type { Canon, Frame } from "../engine";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { Frame } from "../engine";
 import { act, advise, seek, setPace, start, stepOnce, toLineup, togglePause } from "../game";
-import { GROUP, PROMPTS, SEAT_NAMES, actionKey, fmtDelta, fmtPct, label, rows, tradeText, turnSeat, who, type Row } from "../labels";
-import { RES_FILL, SEAT_FILL } from "../board/palette";
-import Card from "../board/Card";
+import { GROUP, PROMPTS, actionKey, fmtDelta, label, rows, turnSeat, who, type Row } from "../labels";
+import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
-import { COST, narrate, newsworthy } from "../coach";
+import { narrate, newsworthy, offerAnswers, titleHolder, titleText } from "../coach";
 import { openGameAnalysis, openMoveAnalysis, rowAt, turns } from "../review";
 import { playing, set, useApp, you, type Pace, type State } from "../store";
 import { waiting } from "../waiting";
@@ -24,12 +23,20 @@ import Coach from "./Coach";
 import Ring from "./Ring";
 import Seats from "./Seats";
 import Strip from "./Strip";
+import Tray, { Die, OfferOut, TradeOffer } from "./Tray";
+import Fx from "./Fx";
+import { DraftOrder } from "./Opening";
 
 /** The board takes builds and the robber; the column takes the standing actions. Everything
  *  else the engine offers goes to the panel, in full — a position with no surface for one of
  *  its legal actions is a position you cannot play. */
 const ONBOARD = new Set(["BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY", "MOVE_ROBBER"]);
-const INCOLUMN = new Set(["BUY_DEVELOPMENT_CARD", "ROLL", "END_TURN"]);
+/** The tray's own: the dice, the end of the turn, the building and development cards, and the
+ *  trade builder (offers to players and to the bank). */
+const INTRAY = new Set(["BUY_DEVELOPMENT_CARD", "ROLL", "END_TURN", "OFFER_TRADE", "MARITIME_TRADE",
+                        "PLAY_KNIGHT_CARD", "PLAY_YEAR_OF_PLENTY", "PLAY_MONOPOLY", "PLAY_ROAD_BUILDING"]);
+/** The answers the trade-offer panel carries. */
+const ANSWER = new Set(["ACCEPT_TRADE", "REJECT_TRADE"]);
 /** The right column sits beside the analysis fold, which owns the last 84px of the edge. */
 const RIGHT = { position: "absolute", right: 128, width: 302 } as const;
 /** The seek bar: board-width, but centred on the screen and staying there. It deliberately
@@ -62,10 +69,23 @@ function Log({ s, style }: { s: State; style?: React.CSSProperties }) {
   const { frames, map } = s;
   const me = you(s);
   const rows = useMemo(() => {
-    const out: { i: number; text: string; seat: number }[] = [];
+    const out: { i: number; text: string; seat: number; you: boolean }[] = [];
+    // Since your last turn ended: what happened to you in it stays in view until you are back.
+    let since = -1;
+    for (let i = upTo - 1; i >= 0; i--) if (frames[i].seat === me && frames[i].action?.[0] === "END_TURN") { since = i; break; }
     for (let i = upTo - 1; i >= 0 && out.length < LOG_ROWS; i--) {
+      // Longest Road and Largest Army change hands without an action of their own.
+      const a = frames[i]?.view, b = frames[i + 1]?.view;
+      if (a && b) for (const kind of ["road", "army"] as const) {
+        const from = titleHolder(a, kind), to = titleHolder(b, kind);
+        if (from !== to) out.push({ i, text: titleText(kind, from, to, me), seat: to >= 0 ? to : from, you: me >= 0 && i > since && (from === me || to === me) });
+      }
       const row = rowAt(frames, i);
-      if (row && newsworthy(row.action) && map) out.push({ i, text: narrate(row, map, me), seat: row.seat });
+      if (!row || !newsworthy(row.action) || !map) continue;
+      // About you: another seat's move that cost you cards (robber, monopoly) or traded with you.
+      const hit = me >= 0 && row.seat !== me && i > since
+        && ((row.gains[me] ?? []).some((n) => n < 0) || (row.action[0] === "CONFIRM_TRADE" && row.action[1] === me));
+      out.push({ i, text: narrate(row, map, me), seat: row.seat, you: hit });
     }
     return out;
   }, [frames, upTo, map, me]);
@@ -80,6 +100,10 @@ function Log({ s, style }: { s: State; style?: React.CSSProperties }) {
       el.toggleAttribute("data-fade-t", el.scrollTop > 1);
       el.toggleAttribute("data-fade-b", el.scrollTop + el.clientHeight < el.scrollHeight - 1);
     };
+    // At rest the log shows three lines — or as many as it takes to reach the oldest line about
+    // you since your last turn, so a robbery in someone else's turn is still there when you look.
+    const mine = [...el.querySelectorAll<HTMLElement>(".line.you")].pop();
+    el.style.setProperty("--log-rest", `${Math.min(200, Math.max(76, mine ? mine.offsetTop - el.offsetTop + mine.offsetHeight : 0))}px`);
     read();
     el.addEventListener("scroll", read, { passive: true });
     const ro = new ResizeObserver(read);          // opening on hover can end the clipping
@@ -90,8 +114,8 @@ function Log({ s, style }: { s: State; style?: React.CSSProperties }) {
   return (
     <div className="log" ref={box} style={style}>
       {rows.length === 0 && <div className="cap">Nothing has happened yet.</div>}
-      {rows.map(({ i, text, seat }, k) => (
-        <div key={i} className="line" style={{ display: "flex", gap: 8, lineHeight: 1.4, fontSize: k === 0 ? 13.5 : 12.5, color: k === 0 ? "var(--color-pine)" : "var(--color-moss)" }}>
+      {rows.map(({ i, text, seat, you: hit }, k) => (
+        <div key={`${i}:${text}`} className={`line${hit ? " you" : ""}`} style={{ display: "flex", gap: 8, lineHeight: 1.4, fontSize: k === 0 ? 13.5 : 12.5, color: k === 0 || hit ? "var(--color-pine)" : "var(--color-moss)" }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "0 0 7px", marginTop: 6, background: SEAT_FILL[seat] }} />
           <span>{text}</span>
         </div>
@@ -100,26 +124,26 @@ function Log({ s, style }: { s: State; style?: React.CSSProperties }) {
   );
 }
 
-/** A die face. */
-const FACE: [number, number][][] = [
-  [], [[0, 0]], [[-1, -1], [1, 1]], [[-1, -1], [0, 0], [1, 1]], [[-1, -1], [1, -1], [-1, 1], [1, 1]],
-  [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]],
-];
-const Die = ({ n }: { n: number }) => (
-  <svg width="38" height="38" viewBox="-1.6 -1.6 3.2 3.2" aria-hidden="true" style={{ display: "block" }}>
-    <rect x="-1.5" y="-1.5" width="3" height="3" rx="0.42" fill="var(--color-paper)" />
-    {(FACE[n] ?? []).map(([x, y], i) => <circle key={i} cx={x * 0.72} cy={y * 0.72} r="0.23" fill="var(--color-pine)" />)}
-  </svg>
-);
-
-/** The roll, over the board's centre: two dice and the total, rising in and fading out. */
+/** The roll, over the board's centre: two dice tumbling, landing on the throw, and the total.
+ *  The tumble is a few face swaps on a timer; reduced motion lands straight away. */
+const TUMBLE = [[3, 5], [6, 2], [1, 4], [5, 6], [2, 3]];
 function Roll({ frame }: { frame: Frame }) {
   const [a, b] = frame.outcome!;
   const seven = a + b === 7;
+  const [k, setK] = useState(() => (matchMedia("(prefers-reduced-motion: reduce)").matches ? TUMBLE.length : 0));
+  useEffect(() => {
+    if (k >= TUMBLE.length) return;
+    const t = setTimeout(() => setK(k + 1), 80);
+    return () => clearTimeout(t);
+  }, [k]);
+  const landed = k >= TUMBLE.length;
+  const [x, y] = landed ? [a, b] : TUMBLE[k];
   return (
     <div className="roll" aria-label={`Rolled ${a + b}`}>
-      <Die n={a} /><Die n={b} />
-      <span className="d num" style={{ fontSize: 36, marginLeft: 4, color: seven ? "var(--color-brick)" : "var(--color-pine)" }}>{a + b}</span>
+      <span className={landed ? "die landed" : "die"}><Die n={x} /></span>
+      <span className={landed ? "die landed" : "die"} style={{ rotate: landed ? "0deg" : `${(k % 2 ? -1 : 1) * 14}deg` }}><Die n={y} /></span>
+      <span className="d num" style={{ fontSize: 36, marginLeft: 4, opacity: landed ? 1 : 0, transition: "opacity var(--t-feel) var(--ease)",
+                                        color: seven ? "var(--color-brick)" : "var(--color-pine)" }}>{a + b}</span>
     </div>
   );
 }
@@ -135,9 +159,11 @@ function GameStrip({ s, over }: { s: State; over: boolean }) {
   return (
     <Dock name="table-strip" side="t" style={{ position: "absolute", ...STRIP_X, top: 24 }}>
       <Strip frames={s.frames} step={at} you={you(s)} onSeek={seek} />
+      {/* The step is always there — it is how a move is found again. Seated at the live position
+          the head and the spine already say the round and whose turn, so the caption doesn't. */}
       <div className="cap num" style={{ marginTop: 6, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>step {at} of {last}{done || playing(s) ? "" : " so far"} · turn {f.view.num_turns}</span>
-        {!done && (() => {
+        <span>step {at} of {last}{done || playing(s) ? "" : " so far"}{looking || !playing(s) ? ` · turn ${f.view.num_turns}` : ""}</span>
+        {!done && (looking || !playing(s)) && (() => {
           const turn = turnSeat(f.view);
           return (
             <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -256,24 +282,22 @@ function Seated({ s, over }: { s: State; over: boolean }) {
   const v = s.view!, map = s.map!;
   const me = v.players[s.human];
   const mine = v.current_player === s.human && !over && s.step == null;
-  const has = (c: number[]) => c.every((n, i) => me.hand[i] >= n);
-  const of = (type: string): Canon | undefined => s.legal.find((a) => a[0] === type);
   const held = me.hand.reduce((a, b) => a + b, 0);
-  // Not a menu any more: the builder makes its own offer. This only answers "may I?" —
-  // the engine emits these exactly when an offer is legal to make.
-  const offers = s.legal.filter((a) => a[0] === "OFFER_TRADE");
   const discarding = waiting(s)?.kind === "discard";
   // The seat rail's box, named once: the log's ceiling is measured off it.
   const railTop = held > 7 ? 128 : 72;
   const railHeight = v.players.length * (s.analysis ? 44 : 25);
-  const rest = s.legal.filter((a) => !ONBOARD.has(a[0]) && !INCOLUMN.has(a[0]) && a[0] !== "OFFER_TRADE");
+  // A trade put to you gets its own panel, drawn as cards; so does your own offer going round.
+  const offered = v.prompt === "DECIDE_TRADE" && v.current_player === s.human;
+  const out = !offered && s.step == null ? offerAnswers(s.frames, shown(s), s.human) : null;
+  const rest = s.legal.filter((a) => !ONBOARD.has(a[0]) && !INTRAY.has(a[0]) && !(offered && ANSWER.has(a[0]))
+                                  && !(out && (a[0] === "CONFIRM_TRADE" || a[0] === "CANCEL_TRADE")));
   // Inside a drill-down the group is already the whole list; outside it, fold the long ones.
   const listed: Row[] =
     s.pending ? s.pending.actions.map((a) => ({ a, group: null })) : rows(rest);
   const panel = s.pending ?? (rest.length
     ? {
-        title: v.prompt === "DECIDE_TRADE" ? tradeText(v.current_trade)
-             : PROMPTS[v.prompt] ? `You have to ${PROMPTS[v.prompt]}`
+        title: PROMPTS[v.prompt] ? `You have to ${PROMPTS[v.prompt]}`
              : "Your options",
         actions: rest,
       }
@@ -286,6 +310,18 @@ function Seated({ s, over }: { s: State; over: boolean }) {
   const gains = prev && cur ? cur.view.players[s.human].hand.map((c, r) => c - prev.view.players[s.human].hand[r]) : [];
   const devGains = prev && cur ? cur.view.players[s.human].devs.map((c, r) => c - (prev.view.players[s.human].devs[r] ?? 0)) : [];
   const hand = s.step != null && cur ? cur.view.players[s.human] : me;
+  // Another seat's newest move this turn, said under its row while its turn lasts — the newest
+  // one worth saying, so a roll's quiet follow-ups do not blank it.
+  const said = (() => {
+    const on = turnSeat(v);
+    if (on === s.human) return null;
+    for (let i = at - 1; i >= 0; i--) {
+      const row = rowAt(s.frames, i);
+      if (!row || row.seat !== on) return null;
+      if (newsworthy(row.action)) return { seat: on, text: narrate(row, map, s.human) };
+    }
+    return null;
+  })();
 
   return (
     <>
@@ -304,7 +340,7 @@ function Seated({ s, over }: { s: State; over: boolean }) {
 
       {/* Every seat, yours included: table information you can see across a real table. */}
       <Dock name="table-seats" side="l" style={{ position: "absolute", left: 34, top: railTop, width: 262 }}>
-        <Seats players={v.players} you={s.human} open={s.analysis} current={turnSeat(v)} />
+        <Seats players={v.players} you={s.human} open={s.analysis} current={turnSeat(v)} said={said} />
       </Dock>
 
       {/* The analysis, folded against the right edge: a zone, not a button. */}
@@ -325,23 +361,9 @@ function Seated({ s, over }: { s: State; over: boolean }) {
         </Dock>
       )}
 
-      {/* Your hand, docked to the rim and fanned: one card per resource carrying its count, and
-          beside it your development cards. A change floats off the card it happened to. */}
-      <Dock name="table-hand" side="b" style={{ position: "absolute", left: 40, bottom: 20, display: "flex", alignItems: "flex-end", gap: 18 }}>
-        <div style={{ display: "flex", alignItems: "flex-end" }}>
-          {hand.hand.map((n, i) => (
-            <span key={i} style={{ marginLeft: i ? -15 : 0 }}>
-              <Card resource={i} count={n} width={74} height={100} rotate={(i - 2) * 4} dim={n === 0} delta={gains[i] || 0} deltaKey={at} />
-            </span>
-          ))}
-        </div>
-        <div style={{ display: "flex", alignItems: "flex-end" }}>
-          {hand.devs.map((n, i) => (
-            <span key={i} style={{ marginLeft: i ? -8 : 0 }}>
-              <Card dev={i} count={n} width={40} height={54} dim={n === 0} delta={devGains[i] || 0} deltaKey={at} />
-            </span>
-          ))}
-        </div>
+      {/* The tray along the rim: hand, development cards, building cards, trade, dice, end. */}
+      <Dock name="table-tray" side="b" style={{ position: "absolute", left: 34, right: 128, bottom: 0 }}>
+        <Tray s={s} me={hand} mine={mine} over={over} at={at} gains={gains} devGains={devGains} />
       </Dock>
 
       {/* The log opens upward, so it may only have the room between itself and the seat rail
@@ -353,24 +375,17 @@ function Seated({ s, over }: { s: State; over: boolean }) {
         <Log s={s} />
       </Dock>
 
-      {/* One bottom-anchored right column: what is being asked above the buttons, in the same
-          stack, so the two can never overlap. With the analysis open the coach has the top. */}
-      {!over && (
+      {/* What is being asked, above the tray's right end: a trade put to you, or any legal
+          action nothing else on the table covers. Bottom-anchored so it grows upward. */}
+      {!over && !discarding && ((mine && (offered || panel)) || out) && (
         <Dock name="table-actions" side="r" style={{
-          ...RIGHT, bottom: 26, top: s.analysis ? 520 : 300,
+          ...RIGHT, bottom: 150, top: s.analysis ? 520 : 300,
           display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "flex-end", gap: 12,
           pointerEvents: "none",
         }}>
-          {mine && s.staged && (
-            <div className="cut arrive dock-r" style={{ width: "100%", background: "var(--color-paper)", padding: "13px 15px", pointerEvents: "auto" }}>
-              <div style={{ font: "600 13px var(--font-sans)", lineHeight: 1.35 }}>{label(s.staged, map)}</div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button className="act cut8 go" style={{ height: 36 }} onClick={() => void act(s.staged!)}>Play it</button>
-                <button className="act cut8" style={{ height: 36 }} onClick={() => set({ staged: null })}>Cancel</button>
-              </div>
-            </div>
-          )}
-          {mine && !s.staged && panel && !discarding && (
+          {offered && mine && <TradeOffer v={v} legal={s.legal} />}
+          {out && <OfferOut out={out} v={v} legal={mine ? s.legal : []} />}
+          {mine && panel && (
             <div className="cut arrive dock-r" style={{
               width: "100%", background: "var(--color-paper)", padding: "13px 15px",
               minHeight: 0, overflowY: "auto", pointerEvents: "auto",
@@ -393,52 +408,6 @@ function Seated({ s, over }: { s: State; over: boolean }) {
                   </button>
                 ))}
               </div>
-              {v.prompt === "DECIDE_TRADE" && (
-                <button className="cap" style={{ background: "none", border: 0, cursor: "pointer", fontSize: 11.5, padding: 0, marginTop: 10 }}
-                        onClick={() => { set({ mutedSeat: v.current_trade[10], mutedTurn: v.current_turn }); void act(["REJECT_TRADE", -1, -1, -1]); }}>
-                  Ignore {SEAT_NAMES[v.current_trade[10]]} this turn
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Whoever's turn it is has their own legal actions, so this block would otherwise
-              render for a bot's turn too — merely disabled. Not your move, not your buttons. */}
-          {mine && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 9, flex: "0 0 auto", pointerEvents: "auto" }}>
-              {offers.length > 0 && (
-                <button className="act cut8" onClick={() => set({ offering: true })} style={{ height: 42 }}>
-                  {v.prompt === "DECIDE_TRADE" ? "Counter-offer" : "Offer a trade"}
-                </button>
-              )}
-              {/* The one thing every turn starts with — its own size, not folded into the
-                  other standing actions, which don't become legal until after it anyway. */}
-              {of("ROLL") && (
-                <button className="act cut8 go" style={{ height: 56, fontSize: 16, fontWeight: 700 }}
-                        onClick={() => void act(of("ROLL")!)}>
-                  {label(of("ROLL")!, map)}
-                </button>
-              )}
-              {(["BUY_DEVELOPMENT_CARD", "END_TURN"] as const).map((t) => {
-                const a = of(t);
-                if (!a) return null;
-                const cost = COST[t];
-                return (
-                  <button key={t} className={`act cut8${t === "END_TURN" ? " go" : ""}`}
-                          style={{ height: 42 }}
-                          disabled={cost ? !has(cost) : false}
-                          onClick={() => void act(a)}>
-                    {label(a, map)}
-                    {cost && (
-                      <span style={{ display: "inline-flex", gap: 3, marginLeft: 4 }}>
-                        {cost.flatMap((n, i) => Array.from({ length: n }, (_, k) => (
-                          <i key={`${i}-${k}`} style={{ width: 7, height: 7, borderRadius: "50%", background: RES_FILL[i] }} />
-                        )))}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
             </div>
           )}
         </Dock>
@@ -474,8 +443,11 @@ export default function Table() {
       {/* where the board goes; layout decides, BoardLayer parks on it */}
       <div data-anchor="table" />
       <Ring off={seated && !s.analysis && !over} />
-      <GameStrip s={s} over={over} />
+      {v.initial_phase && s.step == null
+        ? <Dock name="table-strip" side="t" style={{ position: "absolute", ...STRIP_X, top: 18 }}><DraftOrder v={v} you={you(s)} /></Dock>
+        : <GameStrip s={s} over={over} />}
       {rolled && <Roll key={at - 1} frame={rolled} />}
+      {s.step == null && (seated || s.pace !== "fast") && <Fx frames={s.frames} at={at} map={map} you={you(s)} />}
       {seated ? <Seated s={s} over={over} /> : <Stands s={s} over={over} />}
       {over && <Ending s={s} />}
     </>

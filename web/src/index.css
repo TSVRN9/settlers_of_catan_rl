@@ -161,9 +161,12 @@ body {
    newest-first and the top line is the live one. */
 .log {
   display: flex; flex-direction: column; gap: 7px;
-  max-height: 76px; overflow: hidden; transition: max-height var(--t-panel) var(--ease);
+  max-height: var(--log-rest, 76px); overflow: hidden; transition: max-height var(--t-panel) var(--ease);
 }
 .log:hover, .log:focus-within { max-height: var(--log-open, 60vh); overflow-y: auto; }
+/* A line about you — cards you lost, a trade with you, a title that changed hands — in full ink
+   and weight until your next turn. */
+.log .line.you { font-weight: 600; }
 /* Only the edge with something past it fades; Log sets these as it scrolls and resizes. */
 .log[data-fade-t]:not([data-fade-b]) { mask-image: linear-gradient(to bottom, transparent, black 10px); }
 .log[data-fade-b]:not([data-fade-t]) { mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent); }
@@ -199,6 +202,8 @@ body {
   clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
   animation: roll 1.7s var(--ease) both;
 }
+.roll .die { display: block; transition: rotate 80ms linear; }
+.roll .die.landed { animation: bump var(--t-feel) var(--ease); }
 @keyframes roll {
   0%   { opacity: 0; translate: -50% calc(-50% + 28px); }
   16%  { opacity: 1; translate: -50% -50%; }
@@ -265,9 +270,8 @@ body {
   transition: left var(--t-panel) var(--ease), top var(--t-panel) var(--ease),
               width var(--t-panel) var(--ease);
 }
-/* Only the painted targets take a click — the layer's box is bigger than the hexes,
-   and a panel over it must win the click, not the transparent corner it overlaps. */
-#board-layer .targets { pointer-events: auto; }
+/* The board takes no click: the layer's box is bigger than the hexes, and a panel over it
+   must win. Only the piece-in-hand layer (.carry.holding) takes the pointer, while held. */
 /* Every Board instance carries this, including the futures view's static clones — the live
    board additionally sits inside #board-layer, whose own rule below is redundant but harmless. */
 .board-svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -348,7 +352,6 @@ body {
 .ghost .pc, .ghost.pc { animation: none; }
 .robber { transition: translate var(--t-board) var(--ease); }
 @keyframes fade { from { opacity: 0; } }
-.targets > * { animation: fade var(--t-feel) var(--ease) both; }
 /* A line of commentary answers a move the way a control answers a press. */
 .line { animation: fade var(--t-feel) var(--ease) both; }
 .drift { transition: translate var(--t-board) var(--ease); }
@@ -376,3 +379,128 @@ body {
 /* A lineup chip answers a hover the way a button does. */
 .chip { transition: background var(--t-feel) var(--ease); }
 .chip:hover { background: var(--color-tint) !important; }
+
+/* The seat rail: the seat on move sits on paper, the way a player leans in. */
+.seat { padding: 3px 8px; margin: 0 -8px; transition: background var(--t-panel) var(--ease); }
+.seat.on { background: var(--color-paper); }
+.said { margin-left: 18px; padding: 1px 0 3px; font-size: 11.5px; line-height: 1.35; height: calc(2 * 1.35em + 4px);
+         color: var(--color-moss); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* ── the tray: the seat's strip along the rim ─────────────────────────────────────────── */
+.tray { display: flex; align-items: flex-end; gap: 18px; pointer-events: none; }
+.tray > * { pointer-events: auto; }
+
+/* The building cards sit in the rim. One you can build from stands up with your piece on it,
+   ready to be taken; one you can't sits down, the resources you lack hollowed out of its cost.
+   The card whose piece is in your hand is left empty. */
+.build { display: flex; align-items: flex-end; gap: 6px; }
+.bcard {
+  position: relative; width: 70px; height: 84px; border: 0; padding: 12px 4px 0;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  background: var(--color-paper); color: inherit; font: inherit;
+  box-shadow: 0 -2px 10px rgba(18, 33, 31, .08);
+  translate: 0 16px; touch-action: none; user-select: none;
+  transition: translate var(--t-panel) var(--ease), background var(--t-feel) var(--ease);
+}
+.bcard.ready { translate: 0 0; cursor: grab; }
+.bcard.ready:hover { translate: 0 -5px; }
+.bcard.ready:active { cursor: grabbing; }
+.bcard:disabled .bpiece { opacity: .3; filter: grayscale(1); }
+.bpiece { transition: opacity var(--t-feel) var(--ease), scale var(--t-feel) var(--ease); }
+.bcard.ready:hover .bpiece { scale: 1.08; }
+.bcard.taken { background: var(--color-chalk); }
+.bcard.taken .bpiece { opacity: 0; }
+.bcost { display: flex; gap: 3px; }
+.bcost i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.bcost i.short { background: transparent; box-shadow: inset 0 0 0 1.5px var(--c); opacity: .7; }
+.bnote { font: 600 10.5px var(--font-sans); color: var(--color-moss); }
+.bleft { position: absolute; top: 5px; left: 8px; font-size: 11px; color: var(--color-moss); }
+.bcard:disabled .bleft { opacity: .5; }
+
+/* The piece in hand (board/Carry.tsx): its own layer over the board, live only while held. */
+.carry { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.carry.holding { pointer-events: auto; cursor: pointer; }
+.carry.dragging { cursor: grabbing; }
+.carry .socket { transition: opacity 90ms linear; }
+.carry .socket:focus { outline: none; }
+.carry .socket.victim circle { animation: beckon 1.1s var(--ease) infinite alternate; transform-box: fill-box; transform-origin: center; }
+@keyframes beckon { from { scale: .9; } to { scale: 1.08; } }
+.held-piece { pointer-events: none; }
+.held-piece.snap { animation: snap var(--t-feel) var(--ease) both; transform-box: fill-box; transform-origin: center bottom; }
+@keyframes snap { from { scale: 1.18; opacity: .6; } }
+.afloat { position: fixed; z-index: 4; pointer-events: none; overflow: visible;
+          filter: drop-shadow(0 6px 6px rgba(18, 33, 31, .28)); }
+
+/* The opening's draft order: out along the top row, back along the bottom. */
+.draft { position: relative; display: grid; gap: 4px; width: max-content; margin: 0 auto; padding-right: 16px; }
+.draft-row { display: flex; gap: 14px; justify-content: center; }
+.draft-cell { width: 30px; height: 26px; display: flex; align-items: center; justify-content: center;
+              transition: opacity var(--t-panel) var(--ease); }
+.draft-cell.next { opacity: .38; }
+.draft-cell.now { animation: bob 1.4s var(--ease) infinite alternate; }
+@keyframes bob { from { translate: 0 1px; } to { translate: 0 -3px; } }
+.draft-turn { position: absolute; right: 0; top: 0; width: 14px; height: 100%; overflow: visible; }
+
+/* The tray's opening pieces: what you place in it, in order. */
+.opening { display: flex; align-items: flex-end; gap: 10px; padding-bottom: 26px; }
+.opiece { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px;
+          background: var(--color-paper); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+          transition: translate var(--t-panel) var(--ease), opacity var(--t-panel) var(--ease); }
+.opiece.done { opacity: .25; translate: 0 10px; }
+.opiece.next { opacity: .55; }
+.opiece.now { translate: 0 -8px; }
+.opiece.taken { translate: 0 -8px; background: var(--color-chalk); }
+.opiece.taken svg { opacity: 0; }
+
+/* Development cards: one you can play now stands up out of the hand. */
+.devcard { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: default;
+           transition: translate var(--t-feel) var(--ease); }
+.devcard.live { cursor: pointer; translate: 0 -10px; }
+.devcard.open { translate: 0 -16px; }
+.picker { position: absolute; bottom: calc(100% + 22px); left: 50%; translate: -50% 0; z-index: 2;
+          display: flex; align-items: flex-end; gap: 6px; padding: 9px; background: var(--color-paper);
+          box-shadow: 0 6px 24px rgba(18, 33, 31, .18);
+          clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }
+
+.pick-slots { display: flex; gap: 4px; align-items: flex-end; margin-right: 8px; }
+.pick-slot { width: 34px; height: 46px; background: var(--color-dust); opacity: .45;
+             clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+
+/* The dice: the roll button is the dice themselves; after the roll they rest where they fell. */
+.dice { display: flex; align-items: center; gap: 6px; height: 52px; padding: 0 14px; }
+.dice > span { margin-left: 4px; }
+.dice.rest { padding: 0 4px; }
+
+/* A card in flight between two things on screen (views/Fx.tsx). Paper with its resource's edge,
+   or the pine back of a card you are not entitled to see. */
+.fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+.fly { position: absolute; left: -9px; top: -12px; width: 18px; height: 24px; background: var(--color-paper);
+       border-bottom: 4px solid var(--color-pine); border-radius: 2px; box-shadow: 0 3px 8px rgba(18, 33, 31, .25); }
+.fly.back { background: var(--color-pine); }
+
+/* Under ~1240px the tray has about 860px between the rail's edge and the analysis fold. */
+@media (max-width: 1240px) {
+  .tray { gap: 12px; }
+  .build { gap: 4px; }
+  .bcard { width: 58px; height: 78px; padding-top: 10px; gap: 7px; }
+  .bcard .bpiece svg { width: 32px; height: 28px; }
+}
+
+/* The tray's turn controls: fixed slots, so nothing moves under a pointer that is mid-click. */
+.turn-slots { display: flex; align-items: center; gap: 10px; padding-bottom: 22px; }
+.slot-trade { width: 72px; display: flex; justify-content: flex-end; }
+.slot-dice { width: 146px; display: flex; justify-content: center; }
+.slot-end { width: 104px; display: flex; }
+/* A control that just appeared — a new offer's Accept, End turn after the roll — ignores the
+   pointer for a beat, so the second half of a double-click cannot land on it. */
+@keyframes arm { from { pointer-events: none; opacity: .55; } to { pointer-events: none; opacity: .55; } }
+.armed { animation: arm 450ms steps(1, end); }
+@media (max-width: 1240px) {
+  .turn-slots { gap: 6px; }
+  .slot-trade { width: 66px; }
+  .slot-dice { width: 136px; }
+  .slot-end { width: 98px; }
+}
+/* Reduced motion still needs the guard — it is a safety, not a flourish — just without the fade. */
+@keyframes arm-quiet { from { pointer-events: none; } to { pointer-events: none; } }
+@media (prefers-reduced-motion: reduce) { .armed { animation: arm-quiet 450ms steps(1, end) !important; } }

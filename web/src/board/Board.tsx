@@ -8,10 +8,9 @@
 //
 // The glyph markup is injected as raw SVG. It is generated at build time from our own
 // design source by web/design/export-tokens.mjs, never from anything a user supplies.
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import type { Canon, MapView, View } from "../engine";
-import { actionKey, SEAT_NAMES, cornerName, edgeName, tileName } from "../labels";
-import type { Heat } from "../waiting";
+import { actionKey, SEAT_NAMES } from "../labels";
 import {
   CITY, CITY_DOOR, CITY_TOWER, C, DESERT_FILL, GLYPH, GLYPH_MINI, PORT_FILL,
   PORT_GENERIC_FILL, PORT_R, RES, RES_FILL, SEAT_FILL, SEAT_HI, SEAT_LO, SET, SET_ROOF,
@@ -19,16 +18,6 @@ import {
 } from "./palette";
 import { EDGES, PIPS, VIEWBOX, hex, nodeXY, portCentre, pts, tileCentre } from "./geometry";
 
-/** Click targets are SVG shapes; this makes them focusable buttons for keyboard and
- *  screen-reader users. Lifted from the previous board, which had it right. */
-const keyable = (fire: () => void, label: string) => ({
-  role: "button" as const,
-  tabIndex: 0,
-  "aria-label": label,
-  onKeyDown: (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fire(); }
-  },
-});
 
 const pipsOf = (n: number) => PIPS[n] ?? 0;
 const raw = (markup: string) => ({ __html: markup });
@@ -36,11 +25,6 @@ const raw = (markup: string) => ({ __html: markup });
 interface Props {
   map: MapView;
   view: View;
-  legal?: Canon[];
-  onAction?: (a: Canon) => void;
-  /** Several actions on one target — the caller decides how to ask. */
-  onChoice?: (acts: Canon[]) => void;
-  heat?: Heat;
   highlight?: Canon | null;
   /** Tiles an analysis reading is pointing at — Game analysis lights the tiles behind
    *  whichever attribution row is hovered. Independent of `highlight`, which marks one
@@ -49,15 +33,16 @@ interface Props {
   /** Withholds the pieces, so a deal can put the board down before the position. */
   hidePieces?: boolean;
   dealing?: boolean;
-  /** A move shown before it is played — hovered or staged — as the mover's own piece at
+  /** A move shown before it is played — hovered in Futures — as the mover's own piece at
    *  half strength. */
   ghost?: Canon | null;
   /** The position this one is a hypothetical from: pieces not in it are new, and land. */
   since?: View | null;
-  onHover?: (a: Canon | null) => void;
+  /** The robber is in someone's hand: the one on the board fades to where it was standing. */
+  robberLifted?: boolean;
 }
 
-export default function Board({ map, view, legal = [], onAction, onChoice, heat, highlight, litTiles, hidePieces, dealing, ghost, since, onHover }: Props) {
+export default function Board({ map, view, highlight, litTiles, hidePieces, dealing, ghost, since, robberLifted }: Props) {
   const centres = useMemo(() => map.tiles.map((t) => tileCentre(t.nodes)), [map]);
 
   // The deal resolves outward from the middle, so a tile's --i is its rank by distance from
@@ -68,18 +53,6 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
     order.forEach(([i], r) => { out[i] = r; });
     return out;
   }, [centres]);
-
-  const targets = useMemo(() => {
-    const nodes = new Map<number, Canon>();
-    const edges = new Map<number, Canon>();
-    const tiles = new Map<number, Canon[]>();
-    for (const a of legal) {
-      if (a[0] === "BUILD_SETTLEMENT" || a[0] === "BUILD_CITY") nodes.set(a[1], a);
-      else if (a[0] === "BUILD_ROAD") edges.set(a[1], a);
-      else if (a[0] === "MOVE_ROBBER") tiles.set(a[1], [...(tiles.get(a[1]) ?? []), a]);
-    }
-    return { nodes, edges, tiles };
-  }, [legal]);
 
   // The lattice the island sits on: the same loop that places the tiles, so it lines up by
   // construction. Opacity falls off with distance squared, so it thins away faster than it
@@ -98,36 +71,6 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
       }
     return out;
   }, [centres]);
-
-  const hl = highlight ? actionKey(highlight) : null;
-  const heatOf = (a: Canon) => heat?.[actionKey(a)];
-  const fire = (a: Canon) => () => onAction?.(a);
-  // A tile can carry several MOVE_ROBBER actions, one per victim. Firing the first silently
-  // chose for you; now the choice is handed up when there is one to make.
-  const fireTile = (acts: Canon[]) => () => (acts.length === 1 ? onAction?.(acts[0]) : onChoice?.(acts));
-
-  const hoverable = (a: Canon) => (onHover ? { onMouseEnter: () => onHover(a), onMouseLeave: () => onHover(null) } : {});
-  const piece = (kind: "set" | "city", seat: number, x: number, y: number, key: string, cls = "pc") => {
-    const body = kind === "city" ? CITY : SET;
-    const base = kind === "city" ? 10.5 : 8.8;
-    const halfW = kind === "city" ? 13 : 9.5;
-    // The plinth is the only shadow: the tile darkens where the piece stands.
-    const plinth = hex(0, base + 0.5, halfW + 4).map(([px, pz]) => [px, (pz - (base + 0.5)) * 0.42 + base + 0.5] as [number, number]);
-    return (
-      <g key={key} className={cls} transform={`translate(${x.toFixed(2)},${(y - (kind === "city" ? 3 : 1)).toFixed(2)})`}>
-        <polygon points={pts(plinth)} fill={C.pine} opacity="0.22" />
-        <polygon points={pts(body as [number, number][])} fill={SEAT_FILL[seat]} />
-        {kind === "city" ? (
-          <>
-            <polygon points={pts(CITY_TOWER as [number, number][])} fill={SEAT_HI[seat]} />
-            <polygon points={pts(CITY_DOOR as [number, number][])} fill={SEAT_LO[seat]} />
-          </>
-        ) : (
-          <polygon points={pts(SET_ROOF as [number, number][])} fill={SEAT_HI[seat]} />
-        )}
-      </g>
-    );
-  };
 
   return (
     <svg viewBox={`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`} role="img"
@@ -154,7 +97,7 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
             <g className="pt" key={p.id}>
               {p.nodes.map((n) => {
                 const [vx, vy] = nodeXY(n);
-                return <line key={n} x1={x} y1={y} x2={vx} y2={vy} stroke={C.pine} strokeWidth="2" strokeLinecap="round" opacity="0.35" />;
+                return <line key={n} x1={x} y1={y} x2={vx} y2={vy} stroke={C.pine} strokeWidth="2.6" strokeLinecap="round" opacity="0.5" />;
               })}
               <circle cx={x} cy={y} r={PORT_R} fill={generic ? PORT_GENERIC_FILL : PORT_FILL[p.resource]} />
               {g && (
@@ -173,7 +116,7 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
       {/* the island */}
       <g className="tiles">
         {map.tiles.map((t, i) => (
-          <polygon key={t.id} className="tl" style={{ ["--i" as string]: rank[i] }}
+          <polygon key={t.id} className="tl" data-tile={t.id} style={{ ["--i" as string]: rank[i] }}
                    points={pts(hex(centres[i][0], centres[i][1], R - 2.5))}
                    fill={t.resource < 0 ? DESERT_FILL : RES_FILL[t.resource]} />
         ))}
@@ -202,7 +145,7 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
           const ink = hot ? C.wheat : C.chalk;
           const n = pipsOf(t.number);
           return (
-            <g key={t.id} className="tk" style={{ ["--i" as string]: rank[i] }}
+            <g key={t.id} className="tk" data-tile={t.id} style={{ ["--i" as string]: rank[i] }}
                transform={`translate(${centres[i][0].toFixed(2)},${centres[i][1].toFixed(2)})`}>
               <polygon points={pts(hex(0, 0, TOKEN.r))} fill={C.pine} />
               <text y={TOKEN.base} textAnchor="middle" fontSize={TOKEN.font} fontWeight="700" fill={ink}>{t.number}</text>
@@ -258,22 +201,18 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
             if (owner < 0) return null;
             const [x, y] = nodeXY(n);
             const fresh = since ? since.owner[n] !== owner || since.is_city[n] !== view.is_city[n] : false;
-            return piece(view.is_city[n] ? "city" : "set", owner, x, y, `p${n}${view.is_city[n] ? "c" : "s"}`, fresh ? "pc new" : "pc");
+            return Piece(view.is_city[n] ? "city" : "set", owner, x, y, `p${n}${view.is_city[n] ? "c" : "s"}`, fresh ? "pc new" : "pc");
           })}
           {view.robber >= 0 && map.tiles[view.robber] && (() => {
             const [x, y] = centres[view.robber];
             return (
-              <g className="robber" style={{ translate: `${x.toFixed(2)}px ${(y - 17).toFixed(2)}px` }}>
-                <path d="M-6 0 L-6 -4 Q-6 -10 0 -10 Q6 -10 6 -4 L6 0 Z" fill={C.pine} />
-                <circle cx="0" cy="-13" r="4.4" fill={C.pine} />
-                <rect x="-8" y="0" width="16" height="3" fill={C.pine} />
-              </g>
+              <g className="robber" opacity={robberLifted ? 0.22 : 1} style={{ translate: `${x.toFixed(2)}px ${(y - 17).toFixed(2)}px` }}><RobberShape /></g>
             );
           })()}
           {/* a move before it is played: the mover's piece, at half strength */}
           {ghost && (ghost[0] === "BUILD_SETTLEMENT" || ghost[0] === "BUILD_CITY") && (() => {
             const [x, y] = nodeXY(ghost[1]);
-            return <g className="ghost" key={`g${actionKey(ghost)}`}>{piece(ghost[0] === "BUILD_CITY" ? "city" : "set", view.current_player, x, y, "ghost", "pc")}</g>;
+            return <g className="ghost" key={`g${actionKey(ghost)}`}>{Piece(ghost[0] === "BUILD_CITY" ? "city" : "set", view.current_player, x, y, "ghost", "pc")}</g>;
           })()}
           {ghost && ghost[0] === "BUILD_ROAD" && (() => {
             const [a, b] = EDGES[ghost[1]];
@@ -283,59 +222,45 @@ export default function Board({ map, view, legal = [], onAction, onChoice, heat,
           {ghost && ghost[0] === "MOVE_ROBBER" && map.tiles[ghost[1]] && (() => {
             const [x, y] = centres[ghost[1]];
             return (
-              <g className="ghost" key={`g${actionKey(ghost)}`} style={{ translate: `${x.toFixed(2)}px ${(y - 17).toFixed(2)}px` }}>
-                <path d="M-6 0 L-6 -4 Q-6 -10 0 -10 Q6 -10 6 -4 L6 0 Z" fill={C.pine} />
-                <circle cx="0" cy="-13" r="4.4" fill={C.pine} />
-                <rect x="-8" y="0" width="16" height="3" fill={C.pine} />
-              </g>
+              <g className="ghost" key={`g${actionKey(ghost)}`} style={{ translate: `${x.toFixed(2)}px ${(y - 17).toFixed(2)}px` }}><RobberShape /></g>
             );
           })()}
         </g>
       )}
 
-      {/* what you can do, drawn last so it sits on top of everything */}
-      <g className="targets">
-        {[...targets.tiles].map(([id, acts]) => {
-          const [x, y] = centres[id];
-          const h = Math.max(...acts.map((a) => heatOf(a) ?? 0));
-          return (
-            <polygon key={`t${id}`} points={pts(hex(x, y, R - 6))} fill={`rgba(226,174,63,${0.24 + 0.46 * h})`}
-                     style={{ cursor: "pointer" }} onClick={fireTile(acts)} {...hoverable(acts[0])}
-                     {...keyable(fireTile(acts), acts.length > 1
-                       ? `Move the robber to ${tileName(id, map)} and choose whom to rob`
-                       : `Move the robber to ${tileName(id, map)}`)}>
-              <title>{acts.length > 1 ? "Move the robber here, then choose whom to rob" : "Move the robber here"}</title>
-            </polygon>
-          );
-        })}
-        {[...targets.edges].map(([e, a]) => {
-          const [n1, n2] = EDGES[e];
-          const [x1, y1] = nodeXY(n1), [x2, y2] = nodeXY(n2);
-          const h = heatOf(a) ?? 0;
-          const on = hl === actionKey(a);
-          return (
-            <line key={`e${e}`} x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke={on ? C.pine : `rgba(226,174,63,${0.55 + 0.4 * h})`} strokeWidth={on ? 7 : 5.4}
-                  strokeLinecap="round" style={{ cursor: "pointer" }} onClick={fire(a)} {...hoverable(a)}
-                  {...keyable(fire(a), `Build a road ${edgeName(e, map)}`)}>
-              <title>Build a road</title>
-            </line>
-          );
-        })}
-        {[...targets.nodes].map(([n, a]) => {
-          const [x, y] = nodeXY(n);
-          const h = heatOf(a) ?? 0;
-          const on = hl === actionKey(a);
-          return (
-            <circle key={`n${n}`} cx={x} cy={y} r={on ? 10 : 8}
-                    fill={on ? C.pine : `rgba(226,174,63,${0.62 + 0.35 * h})`}
-                    style={{ cursor: "pointer" }} onClick={fire(a)} {...hoverable(a)}
-                    {...keyable(fire(a), a[0] === "BUILD_CITY" ? `Build a city on ${cornerName(n, map)}` : `Build a settlement on ${cornerName(n, map)}`)}>
-              <title>{a[0] === "BUILD_CITY" ? "Upgrade to a city" : "Build a settlement"}</title>
-            </circle>
-          );
-        })}
-      </g>
     </svg>
   );
 }
+
+/** A settlement or city standing at (x, y), with its plinth — the board's only shadow. Shared
+ *  with the piece in hand (Carry.tsx), so what you hold is exactly what lands. */
+export function Piece(kind: "set" | "city", seat: number, x: number, y: number, key: string, cls = "pc") {
+  const body = kind === "city" ? CITY : SET;
+  const base = kind === "city" ? 10.5 : 8.8;
+  const halfW = kind === "city" ? 13 : 9.5;
+  // The plinth: the tile darkens where the piece stands.
+  const plinth = hex(0, base + 0.5, halfW + 4).map(([px, pz]) => [px, (pz - (base + 0.5)) * 0.42 + base + 0.5] as [number, number]);
+  return (
+    <g key={key} className={cls} transform={`translate(${x.toFixed(2)},${(y - (kind === "city" ? 3 : 1)).toFixed(2)})`}>
+      <polygon points={pts(plinth)} fill={C.pine} opacity="0.22" />
+      <polygon points={pts(body as [number, number][])} fill={SEAT_FILL[seat]} />
+      {kind === "city" ? (
+        <>
+          <polygon points={pts(CITY_TOWER as [number, number][])} fill={SEAT_HI[seat]} />
+          <polygon points={pts(CITY_DOOR as [number, number][])} fill={SEAT_LO[seat]} />
+        </>
+      ) : (
+        <polygon points={pts(SET_ROOF as [number, number][])} fill={SEAT_HI[seat]} />
+      )}
+    </g>
+  );
+}
+
+/** The robber, standing on its base at the origin. */
+export const RobberShape = () => (
+  <>
+    <path d="M-6 0 L-6 -4 Q-6 -10 0 -10 Q6 -10 6 -4 L6 0 Z" fill={C.pine} />
+    <circle cx="0" cy="-13" r="4.4" fill={C.pine} />
+    <rect x="-8" y="0" width="16" height="3" fill={C.pine} />
+  </>
+);

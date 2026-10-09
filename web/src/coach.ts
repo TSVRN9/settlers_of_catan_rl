@@ -6,7 +6,7 @@
 // Pure functions over the engine's own views. The self-check at the bottom runs with
 // `node --experimental-strip-types src/coach.ts`.
 import type { Attribution, Canon, MapView, View } from "./engine";
-import { DEV_CARDS, GROUP as GROUP_TITLES, RESOURCES, canOffer, SEAT_NAMES, cornerName, edgeName, fmtDelta, fmtPct, rows, tileText, tilesAt, unpackBundle, who, whom, whose } from "./labels.ts";
+import { GROUP as GROUP_TITLES, RESOURCES, canOffer, maritimeFor, SEAT_NAMES, cornerName, edgeName, fmtDelta, fmtPct, rows, tileText, tilesAt, unpackBundle, who, whom, whose } from "./labels.ts";
 
 export interface Ctx { map: MapView; view: View; /** whose move is being weighed */ seat: number; /** the reader's seat, or -1 */ you: number }
 export interface Row { seat: number; action: Canon; outcome: [number, number] | null; gains: number[][] }
@@ -259,7 +259,7 @@ export function narrate(row: Row, map: MapView, you: number): string {
     case "BUILD_SETTLEMENT": return `${W} ${me ? "built" : "built"} a settlement on ${cornerName(x, map)}.`;
     case "BUILD_CITY": return `${W} raised a city on ${cornerName(x, map)}.`;
     case "BUILD_ROAD": return `${W} built a road ${edgeName(x, map)}.`;
-    case "BUY_DEVELOPMENT_CARD": return me && row.outcome && row.outcome[0] >= 0 ? `You bought a development card and drew ${DEV_CARDS[row.outcome[0]].toLowerCase()}.` : `${W} bought a development card.`;
+    case "BUY_DEVELOPMENT_CARD": return me && row.outcome && row.outcome[0] >= 0 ? `You bought a development card and drew ${A_DEV[row.outcome[0]]}.` : `${W} bought a development card.`;
     case "PLAY_KNIGHT_CARD": return `${W} played a knight.`;
     case "MOVE_ROBBER": {
       const tile = map.tiles[x];
@@ -270,7 +270,12 @@ export function narrate(row: Row, map: MapView, you: number): string {
     case "OFFER_TRADE": return `${W} offered ${cards(unpackBundle(x))} for ${cards(unpackBundle(y))}.`;
     case "ACCEPT_TRADE": return `${W} accepted the offer.`;
     case "REJECT_TRADE": return `${W} declined the offer.`;
-    case "CONFIRM_TRADE": return `${W} traded with ${who(x, you)}.`;
+    case "CONFIRM_TRADE": {
+      // The terms, read off what the offerer's hand did: what left it went to the partner.
+      const g = row.gains[row.seat] ?? [];
+      const gave = g.map((n) => Math.max(0, -n)), got = g.map((n) => Math.max(0, n));
+      return sum(gave) && sum(got) ? `${W} traded ${cards(gave)} to ${whom(x, you)} for ${cards(got)}.` : `${W} traded with ${whom(x, you)}.`;
+    }
     case "CANCEL_TRADE": return `${W} withdrew the offer.`;
     case "MARITIME_TRADE": return `${W} traded ${num(y)} ${res(x)} to the bank for ${aRes(z)}.`;
     case "PLAY_MONOPOLY": {
@@ -283,6 +288,41 @@ export function narrate(row: Row, map: MapView, you: number): string {
     default: return `${W} played ${noun(row.action, ctx)}.`;
   }
   void z;
+}
+
+/** Longest Road or Largest Army changing hands — not an action, so the log builds the line
+ *  from two positions. `from`/`to` are seats, -1 for nobody. */
+export function titleText(kind: "road" | "army", from: number, to: number, you: number) {
+  const name = kind === "road" ? "Longest Road" : "Largest Army";
+  if (to < 0) return `${who(from, you)} lost ${name}.`;
+  if (from >= 0) return `${who(to, you)} took ${name} from ${whom(from, you)}.`;
+  return `${who(to, you)} ${to === you ? "have" : "has"} ${name}.`;
+}
+export const titleHolder = (v: View, kind: "road" | "army") => v.players.findIndex((p) => (kind === "road" ? p.has_road : p.has_army));
+
+/** A development card as it reads after "drew". */
+const A_DEV = ["a knight", "a year of plenty", "a monopoly", "road building", "a victory point"];
+
+/** Your own offer and how the table has answered it, as of frame `upTo`: the terms (from your
+ *  side), each seat's answer so far, and whether it is still open. Null once anything else has
+ *  happened since — the offer is no longer the latest thing — so a panel built on it leaves by
+ *  itself on your next move. */
+export function offerAnswers(frames: { seat: number; action: Canon | null; view: View }[], upTo: number, you: number) {
+  let i = upTo - 1;
+  const answers: (null | "yes" | "no" | "counter")[] = frames[upTo]?.view.players.map(() => null) ?? [];
+  for (; i >= 0; i--) {
+    const f = frames[i];
+    if (!f.action) return null;
+    if (f.seat === you) break;
+    const k = f.action[0];
+    if (k !== "ACCEPT_TRADE" && k !== "REJECT_TRADE" && k !== "OFFER_TRADE") return null;
+    answers[f.seat] ??= k === "ACCEPT_TRADE" ? "yes" : k === "REJECT_TRADE" ? "no" : "counter";
+  }
+  if (i < 0 || frames[i].action?.[0] !== "OFFER_TRADE") return null;
+  const [, give, get] = frames[i].action!;
+  const now = frames[upTo]?.view;
+  const open = !!now && now.is_resolving_trade && now.current_trade[10] === you;
+  return { give: unpackBundle(give), get: unpackBundle(get), answers, open };
 }
 
 /** Rows worth a line of commentary. Ending a turn is not news. */
@@ -371,6 +411,25 @@ function gainText(ctx: Ctx, gets: number[], gives: number[]) {
   return gained.length ? `That puts ${list(gained)} within reach.` : "It puts nothing new within reach.";
 }
 
+/** Where a roll's cards came from: one entry per card, from the tile that paid it to the seat it
+ *  went to. Read off the hands before and after (so a short bank is already accounted for), and
+ *  sourced from the tiles showing the number, not under the robber, that the seat builds on. */
+export function production(map: MapView, before: View, after: View, sum: number) {
+  const out: { tile: number; seat: number; resource: number }[] = [];
+  after.players.forEach((p, seat) => p.hand.forEach((n, r) => {
+    let owed = n - before.players[seat].hand[r];
+    for (const t of map.tiles) {
+      if (owed <= 0) break;
+      if (t.number !== sum || t.resource !== r || t.id === before.robber) continue;
+      for (const node of t.nodes) {
+        if (before.owner[node] !== seat) continue;
+        for (let k = before.is_city[node] ? 2 : 1; k > 0 && owed > 0; k--, owed--) out.push({ tile: t.id, seat, resource: r });
+      }
+    }
+  }));
+  return out;
+}
+
 // ── self-check ─────────────────────────────────────────────────────────────────────────
 const argv = (globalThis as { process?: { argv?: string[] } }).process?.argv;
 if (argv?.[1]?.endsWith("coach.ts")) {
@@ -417,7 +476,7 @@ if (argv?.[1]?.endsWith("coach.ts")) {
   assert(l1 === "Your hand is doing most of the work here: −10.0 without it.", `singular lean: ${l1}`);
   assert(groupText({ group: "roads", seat: 2, delta: 0 }, 1, 4, 1) === "White's roads", "relative seat mapping");
   const qs = questions([[["BUILD_CITY", 2, -1, -1], 0.336], [["BUILD_SETTLEMENT", 0, -1, -1], 0.304]], ctx, [0.3, 0.336, 0.2, 0.164]);
-  assert(qs[0].q === "Why not take the settlement on the 8 wood corner?", qs[0].q);
+  assert(qs[0].q === "Why not take the settlement on the 8 wood corner on the 3:1 port?", qs[0].q);
   // The reading is stated once, not twice — "It reads 30.4%. … 33.6% against 30.4%." was
   // the same fact in two sentences, and the ladder above the chips already shows it.
   assert(!qs[0].a.includes("It reads") && qs[0].a.includes("33.6% against 30.4%"), qs[0].a);
@@ -489,6 +548,41 @@ if (argv?.[1]?.endsWith("coach.ts")) {
   const refused = [[1, 0, 0, 0, 0, 0, 0, 0, 0, 1]];      // give[0..5] then get[5..10]
   assert(!canOffer(bundle(1, 0, 0, 0, 0), bundle(0, 0, 0, 0, 1), myHand, refused), "already refused this turn");
   assert(canOffer(bundle(1, 0, 0, 0, 0), bundle(0, 1, 0, 0, 0), myHand, refused), "a different offer still stands");
+
+  // The builder's bank button: the engine's rate, and an action only at exactly that many cards.
+  const sea: Canon[] = [["MARITIME_TRADE", 0, 4, 4], ["MARITIME_TRADE", 0, 2, 4], ["MARITIME_TRADE", 1, 4, 4]];
+  assert(maritimeFor(bundle(2, 0, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea)?.action?.join() === "MARITIME_TRADE,0,2,4", "port rate wins");
+  assert(maritimeFor(bundle(3, 0, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea)?.action === null, "wrong count, no action");
+  assert(maritimeFor(bundle(0, 4, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea)?.rate === 4, "4:1");
+  assert(maritimeFor(bundle(2, 0, 0, 0, 0), bundle(0, 0, 0, 1, 0), sea) === null, "no such trade");
+  assert(maritimeFor(bundle(2, 1, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea) === null, "two resources is not a bank trade");
+
+  // A roll's cards come off the tiles that paid them, and a robbed tile pays nothing.
+  {
+    const before = { ...view, owner: view.owner.slice(), is_city: view.is_city.slice(), robber: 2 } as View;
+    before.owner[2] = 1; before.is_city[2] = true; before.owner[5] = 3;
+    const after = { ...before, players: before.players.map((p, i) => ({ ...p, hand: p.hand.map((n, r) => n + (r === 0 && i === 1 ? 2 : r === 0 && i === 3 ? 1 : 0)) })) } as View;
+    const got = production(map, before, after, 8);
+    assert(got.length === 3 && got.filter((g) => g.seat === 1).length === 2 && got.every((g) => g.tile === 0 && g.resource === 0), `production: ${JSON.stringify(got)}`);
+    assert(production(map, { ...before, robber: 0 }, after, 8).length === 0, "the robber's tile pays nothing");
+  }
+
+  assert(titleText("road", 0, 1, 1) === "You took Longest Road from Red." && titleText("army", -1, 2, 1) === "Orange has Largest Army.", "title lines");
+
+  // Your own offer, answered round the table: open until it resolves, gone once you move again.
+  {
+    const vw = (open: boolean) => ({ ...view, is_resolving_trade: open, current_trade: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] }) as View;
+    const offer: Canon = ["OFFER_TRADE", 1, 32, -1];
+    const fr = [
+      { seat: 1, action: offer, view: vw(false) },
+      { seat: 2, action: ["REJECT_TRADE", -1, -1, -1] as Canon, view: vw(true) },
+      { seat: 3, action: ["ACCEPT_TRADE", -1, -1, -1] as Canon, view: vw(true) },
+      { seat: 1, action: null, view: vw(true) },
+    ];
+    const o = offerAnswers(fr, 3, 1);
+    assert(o?.open && o.answers[2] === "no" && o.answers[3] === "yes" && o.give[0] === 1 && o.get[1] === 1, `offer answers: ${JSON.stringify(o)}`);
+    assert(offerAnswers([...fr.slice(0, 3), { seat: 1, action: ["END_TURN", -1, -1, -1] as Canon, view: vw(false) }, { seat: 2, action: null, view: vw(false) }], 4, 1) === null, "gone once you move");
+  }
 
   // A trade the coach can see is a trade it can argue about.
   const trading = { ...view, is_resolving_trade: true, current_trade: [0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0] } as unknown as View;
