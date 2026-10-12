@@ -4,7 +4,9 @@
 import { SEAT_FILL } from "../board/palette";
 import { SEAT_NAMES, turnSeat } from "../labels";
 import { pct } from "./usePhone";
-import { useApp } from "../store";
+import { playing, useApp } from "../store";
+import { offerAnswers } from "../coach";
+import { act } from "../game";
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
@@ -15,8 +17,26 @@ export default function Chips() {
   const seats = Array.from({ length: n - 1 }, (_, k) => (s.human + 1 + k) % n);
   const onMove = turnSeat(v);
   const prev = s.frames[s.frames.length - 2]?.view;
+  // Your offer going round: each seat's answer, as it arrives, on open board under its chip.
+  const out = playing(s) && s.step == null && v.is_resolving_trade && v.current_trade[10] === s.human && v.current_turn === s.human
+    ? offerAnswers(s.frames, s.frames.length - 1, s.human) : null;
+  const ANSWER = { yes: "Accepts", no: "No", counter: "Counters" } as const;
   return (
     <div className="ph-chips">
+      {out && (
+        <div className="ph-answers">
+          {seats.map((i) => {
+            const a = out.answers[i];
+            const confirm = s.legal.find((x) => x[0] === "CONFIRM_TRADE" && x[1] === i);
+            return (
+              <span key={i}>
+                {confirm ? <button className="badge yes cut5" onClick={() => void act(confirm)}>{ANSWER.yes}</button>
+                  : <span className={`badge cut5 ${a ?? "wait"}`}>{a ? ANSWER[a] : "···"}</span>}
+              </span>
+            );
+          })}
+        </div>
+      )}
       {seats.map((i) => {
         const p = v.players[i];
         const cards = sum(p.hand), devs = sum(p.devs);

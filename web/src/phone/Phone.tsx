@@ -25,7 +25,11 @@ export default function Phone() {
   return (
     <div className="ph">
       {!setup && s.view && <><TopBar /><Chips /></>}
-      <div className="ph-board"><div data-anchor="table" className="ph-anchor" /></div>
+      {/* A tap on the board hurries the bots until you are asked something (spec "Another seat's turn"). With a
+          piece in hand the tap is Carry's, on its own layer above this. */}
+      <div className="ph-board" onClick={() => { if (!setup && playing(s) && !mine && !s.hurry) set({ hurry: true }); }}>
+        <div data-anchor="table" className="ph-anchor" />
+      </div>
       {s.map && s.view && (
         <BoardLayer view="table" dim={setup} map={s.map} gameView={s.view}
           carry={mine && inHand ? {

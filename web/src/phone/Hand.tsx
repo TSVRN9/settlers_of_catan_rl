@@ -2,14 +2,17 @@
 // resource, in fixed order, drawn at most four deep with the count on top; your development cards fan at
 // the right. Holding a build card lifts the cards it spends out of their stacks, into the space your row
 // gives up while you hold it, with a faint card for each one you are short.
+import type { CSSProperties, ReactNode } from "react";
 import Card from "../board/Card";
 import { SEAT_FILL } from "../board/palette";
 import { COST } from "../coach";
-import { DEV_CARDS } from "../labels";
+import { DEV_CARDS, RESOURCES } from "../labels";
 import { act } from "../game";
 import { playing, set, useApp } from "../store";
 import { held, heldAction } from "../waiting";
 import { pct, useMetrics } from "./usePhone";
+import { inSlots, lifted } from "./drafts";
+import { pickDiscard, useSlabMode } from "./Slab";
 
 const DEEP = 4, STEP = 5, LIFT = 30;
 const PLAY = ["PLAY_KNIGHT_CARD", "PLAY_YEAR_OF_PLENTY", "PLAY_MONOPOLY", "PLAY_ROAD_BUILDING", null] as const;
@@ -37,25 +40,41 @@ export function YouRow() {
   );
 }
 
+/** One resource's stack: a button while the phase takes cards off the hand (the builder, a discard). */
+function Stack({ r, tap, style, children }: { r: number; tap: ((r: number) => void) | null; style: CSSProperties; children: ReactNode }) {
+  return tap
+    ? <button data-res={r} className="ph-stack tap" style={style} onClick={() => tap(r)} aria-label={RESOURCES[r]}>{children}</button>
+    : <span data-res={r} className="ph-stack" style={style}>{children}</span>;
+}
+
 export function Hand() {
   const s = useApp();
   const { cw, ch } = useMetrics();
   const v = s.view!;
   const me = v.players[s.human];
-  const cost = spending(s);
+  const mode = useSlabMode();
+  const cost = lifted({ mode, cost: spending(s), give: s.offerDraft.give, asked: v.prompt === "DECIDE_TRADE" ? v.current_trade.slice(5, 10) : null });
+  const slotted = mode === "discard" ? inSlots(s.discardPick) : null;
   const mine = playing(s) && v.current_player === s.human && s.step == null && s.pendingHandoff == null;
   // Every playable development card's actions: the pile opens them as a list (Milestone 2 gives each card its
   // own drag or picker). Knight and Road Building then hand you a piece and Carry takes over.
   const plays = mine ? s.legal.filter((a) => (PLAY as readonly (string | null)[]).includes(a[0])) : [];
   const kinds = me.devs.flatMap((n, k) => (n > 0 ? [k] : []));
   const dw = Math.round(cw * 0.8), dh = Math.round(ch * 0.84), step = 8;
+  // In the builder a stack gives one card to the offer; in a discard it puts one in the next slot.
+  const tap = mode === "builder" ? (r: number) => {
+    const { give, want } = s.offerDraft;
+    if (give[r] >= me.hand[r] || want[r] > 0) return;
+    set({ offerDraft: { give: give.map((n, i) => (i === r ? n + 1 : n)), want } });
+  } : mode === "discard" ? (r: number) => pickDiscard(r) : null;
   return (
     <div className="ph-hand" style={{ height: ch + (DEEP - 1) * STEP }}>
       {me.hand.map((n, r) => {
-        const need = cost?.[r] ?? 0, up = Math.min(need, n), short = need - up, rest = n - up;
+        const have = n - (slotted?.[r] ?? 0);
+        const need = cost[r], up = Math.min(need, have), short = need - up, rest = have - up;
         const shown = Math.min(rest, DEEP);
         return (
-          <span key={r} data-res={r} className="ph-stack" style={{ width: cw, height: ch, marginTop: Math.max(Math.min(n, DEEP) - 1, 0) * STEP }}>
+          <Stack key={r} r={r} tap={tap} style={{ width: cw, height: ch, marginTop: Math.max(Math.min(have, DEEP) - 1, 0) * STEP }}>
             {Array.from({ length: shown }, (_, i) => (
               <span key={i} className="ph-card" style={{ top: -(shown - 1 - i) * STEP, filter: i < shown - 1 ? "brightness(.93)" : undefined }}>
                 <Card resource={r} count={i === shown - 1 ? rest : undefined} width={cw} height={ch} />
@@ -68,7 +87,7 @@ export function Hand() {
                 <Card resource={r} width={cw} height={ch} />
               </span>
             ))}
-          </span>
+          </Stack>
         );
       })}
       {kinds.length > 0 && (

@@ -35,6 +35,8 @@ const beat = (forced: boolean) => {
   if (!playing(s)) { const ms = s.pace === "fast" ? 0 : PACE[s.pace]; return forced ? Math.min(120, ms) : ms; }
   const prev = s.last?.[0] ?? "";
   const ms = SEATED_MS[prev] ?? 900;
+  // A tap on the board hurries the bots until the seated person is asked something (the phone's bot turns).
+  if (s.hurry) return Math.min(120, ms);
   // A forced move goes quickly — except straight after a roll, whose cards are still flying.
   return forced && prev !== "ROLL" ? Math.min(120, ms) : ms;
 };
@@ -71,7 +73,7 @@ export async function deal() {
   const seed = s.seed, n = s.lineup.length;
   resetReview();
   stopWatching();
-  set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, hover: null, carry: null, robTile: null, mark: null,
+  set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, hover: null, carry: null, robTile: null, mark: null,
         boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], mutedSeat: null, mutedTurn: null });
   // Two people at one screen: the game starts with the hidden cards hidden, whatever this viewer
   // last chose; that choice is not overwritten, so it is back for the next game.
@@ -110,7 +112,7 @@ export async function start() {
  *  every turn, so this is also how a game in progress is abandoned. */
 export function toLineup() {
   stopWatching();
-  transition(() => set({ phase: "lineup", pending: null, offering: false, advice: null, status: "idle", crumbs: ["table"], step: null,
+  transition(() => set({ phase: "lineup", pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, advice: null, status: "idle", crumbs: ["table"], step: null,
                           boardOverride: null, pendingHandoff: null, paused: false, hover: null, carry: null, robTile: null, mark: null,
                           mutedSeat: null, mutedTurn: null }));
 }
@@ -245,7 +247,7 @@ async function advance(action: Canon, at: View): Promise<boolean> {
   const s = get();
   if (!s.view) return false;
   const seat = s.view.current_player;
-  set({ status: "applying", advice: null, pending: null, hover: null, mark: null, carry: null, robTile: null });
+  set({ status: "applying", advice: null, pending: null, devSheet: null, hover: null, mark: null, carry: null, robTile: null });
   let res;
   try {
     res = await live.apply(action, at.steps);
@@ -257,7 +259,7 @@ async function advance(action: Canon, at: View): Promise<boolean> {
     throw e;
   }
   // `offering` clears here rather than above, so a dropped offer leaves the builder open.
-  set({ view: res.view, legal: res.legal, last: action, offering: false });
+  set({ view: res.view, legal: res.legal, last: action, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] } });
   const [ev, other] = shown(await live.evaluateAll(viewer(get())));
   // Never drag the app back out of the lineup: leaving a game mid-turn is allowed, and the
   // apply that was already in flight must not undo it.
@@ -322,6 +324,7 @@ export async function pump(once = false) {
         // Hold there — `human` (and the hand/coach it drives) does not move until that
         // seat's own player taps through `confirmHandoff()`.
         if (seat !== s.human) set({ pendingHandoff: seat });
+        if (get().hurry) set({ hurry: false });
         return;
       }
       set({ status: "thinking" });

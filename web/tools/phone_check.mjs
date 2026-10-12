@@ -78,7 +78,9 @@ const drive = (until) => run(async (src) => {
 }, until.toString());
 const touch = async (type, x, y) => cdp("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" || type === "touchCancel" ? [] : [{ x, y }] });
 const LIFT = 56;   // Phone.tsx passes liftPx 56 to Carry
-const tap = (x, y) => cdp("Input.synthesizeTapGesture", { x, y, duration: 60 });
+// A tap as raw touch events: CDP's synthesizeTapGesture never fires `click` in the headless shell (not even on a
+// plain button), so a check built on it misses every onClick a real phone would run.
+const tap = async (x, y) => { await touch("touchStart", x, y); await wait(40); await touch("touchEnd"); };
 const state = () => run(() => { const s = window.__app.get(); return { carry: s.carry, roads: s.view.players[s.human].roads_available, steps: s.view.steps, snapped: !!document.querySelector(".carry .held-piece.snap") }; });
 const putBack = () => run(() => window.__app.set({ carry: null }));
 
@@ -140,36 +142,163 @@ result.tapPlaced = { before, after: afterTap.roads, carry: afterTap.carry };
 }
 } catch (e) { result.error = String(e).slice(0, 300); }
 
-// The rest of the game: Roll through its slab once, the board's box, small buttons, sideways scroll.
-const rest = await run(async () => {
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const app = window.__app, d = document;
-  const boxes = new Map(), modes = new Set(), small = new Set();
-  const box = (tag) => { const b = d.querySelector("#board-layer").getBoundingClientRect(); const k = [b.x, b.y, b.width, b.height].map(Math.round).join(","); if (!boxes.has(k)) boxes.set(k, tag); };
-  const smallButtons = () => { for (const b of d.querySelectorAll(".ph button")) { const r = b.getBoundingClientRect(); if (r.width && r.height && (r.width < 44 || r.height < 44)) small.add(`${b.className || b.tagName} ${Math.round(r.width)}x${Math.round(r.height)}`); } };
-  let roll = null, overflowX = 0, tapThrough = null;
-  for (let i = 0; i < 6000; i++) {
-    const s = app.get();
-    box(s.view.prompt);
-    if (i % 20 === 0) smallButtons();
-    if (d.documentElement.scrollWidth > innerWidth) overflowX++;
-    if (s.view.winner >= 0) break;
-    const mine = s.view.current_player === s.human && s.status === "idle" && s.pendingHandoff == null && s.legal.length;
-    if (!mine) { await sleep(60); continue; }
-    modes.add(d.querySelector(".ph-slab")?.firstElementChild?.className ?? "none");
-    if (roll == null && s.legal.some((a) => a[0] === "ROLL")) { const b = s.view.steps; await sleep(600); d.querySelector(".ph-roll-slab").click();
-      // A tap landing right after the slab turned from Roll to building must not reach End turn.
+// The rest of the game, driven from here so a probe can use real touch: Roll through its slab once, the board's
+// box, small buttons, sideways scroll, and Milestone 2's probes, each run the first time its phase comes up.
+// The person's moves follow a steered heuristic (buy development cards; hold cards until 9 so a seven costs a
+// discard) so the phases come up; up to GAMES games are played until every probe in NEED has run.
+const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut"];
+const GAMES = Number(process.env.GAMES ?? 3);
+const probes = {};
+const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
+const S = () => run(() => {
+  const s = window.__app.get(), v = s.view;
+  return { prompt: v.prompt, cur: v.current_player, human: s.human, status: s.status, winner: v.winner, steps: v.steps, opening: v.initial_phase,
+           handoff: s.pendingHandoff, hurry: s.hurry, legal: s.legal, hand: v.players[s.human].hand, devs: v.players[s.human].devs,
+           robber: v.robber, robTile: s.robTile, discard: v.discard_counts[s.human], trade: v.current_trade, resolving: v.is_resolving_trade };
+});
+const click = (sel) => run((q) => { const e = document.querySelector(q); if (!e || e.disabled) return false; e.click(); return true; }, sel);
+const rect = (sel) => run((q) => { const e = document.querySelector(q); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }, sel);
+const sleep = wait;
+// The person's move when no probe takes it.
+const policy = () => run(async () => {
+  const app = window.__app, s = app.get(), v = s.view;
+  const buy = s.legal.find((a) => a[0] === "BUY_DEVELOPMENT_CARD");
+  let a = buy ?? (await app.live.decide("heuristic", 1)).action;
+  const cards = v.players[s.human].hand.reduce((x, y) => x + y, 0);
+  const end = s.legal.find((x) => x[0] === "END_TURN");
+  if (!v.initial_phase && /^BUILD_/.test(a[0]) && cards < 9 && end && !v.is_road_building) a = end;
+  await app.act(a);
+});
+
+const boxes = new Map(), modes = new Set(), small = new Set();
+let roll = null, overflowX = 0, tapThrough = null, games = 0, winner = -1, hurriedTurn = -1;
+const checks = () => run(() => {
+  const d = document, small = [];
+  for (const b of d.querySelectorAll(".ph button")) { const r = b.getBoundingClientRect(); if (r.width && r.height && (r.width < 44 || r.height < 44)) small.push(`${b.className || b.tagName} ${Math.round(r.width)}x${Math.round(r.height)}`); }
+  const b = d.querySelector("#board-layer").getBoundingClientRect();
+  return { small, box: [b.x, b.y, b.width, b.height].map(Math.round).join(","), over: d.documentElement.scrollWidth > innerWidth, mode: d.querySelector(".ph-slab")?.firstElementChild?.className ?? "none" };
+});
+try {
+for (let i = 0; i < 40000; i++) {
+  const s = await S();
+  if (i % 10 === 0) { const c = await checks(); if (!boxes.has(c.box)) boxes.set(c.box, s.prompt); c.small.forEach((x) => small.add(x)); if (c.over) overflowX++; }
+  if (s.winner >= 0) {
+    games++; winner = s.winner;
+    const missing = NEED.filter((k) => probes[k] == null);
+    if (!missing.length || games >= GAMES) break;
+    await run(async (seed) => { window.__app.set({ seed }); await window.__app.start(); }, 1000 + games * 7919);
+    await sleep(2500);
+    continue;
+  }
+  const mine = s.cur === s.human && s.status === "idle" && s.handoff == null && s.legal.length;
+  if (!mine) {
+    // A bot's turn: tap the board to hurry it, once per turn (and that is the hurry probe).
+    if (s.cur !== s.human && !s.hurry && hurriedTurn !== s.steps && s.handoff == null) {
+      hurriedTurn = s.steps;
+      const r = await rect(".ph-board");
+      if (r) { await tap(r[0] + 6, r[1] + 6); await sleep(60); if ((await S()).hurry) probe("hurry", true); }
+    }
+    await sleep(40); continue;
+  }
+  modes.add((await checks()).mode);
+  if (roll == null && s.legal.some((a) => a[0] === "ROLL")) {
+    await sleep(600);
+    const b = s.steps;
+    await click(".ph-roll-slab");
+    // A tap landing right after the slab turned from Roll to building must not reach End turn.
+    tapThrough = await run(async () => {
+      const d = document, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), app = window.__app;
       for (let k = 0; k < 100 && !d.querySelector(".ph-build-slab"); k++) await sleep(10);
       const end = [...d.querySelectorAll(".ph-build-slab .ph-btn.go")].find((e) => !e.disabled);
+      if (!end) return null;
       const at = app.get().view.steps;
-      if (end) { end.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 })); await sleep(300); tapThrough = app.get().view.steps !== at; }
-      await sleep(1500); roll = app.get().view.steps > b; continue; }
-    const dd = await app.live.decide("heuristic", 1); await app.act(dd.action);
+      end.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 })); await sleep(300);
+      return app.get().view.steps !== at;
+    });
+    await sleep(1500); roll = (await S()).steps > b; continue;
   }
-  const s = app.get();
-  return { roll, tapThrough, overflowX, winner: s.view.winner, steps: s.view.steps, boxes: [...boxes].map(([k, v]) => `${v} ${k}`), modes: [...modes], small: [...small], overText: d.querySelector(".ph-over")?.innerText };
-});
+  // Discard on a 7: Suggest fills the slots, a tap on a filled slot takes one back, and a tap on the hand
+  // fills the last slot, which commits.
+  if (s.prompt === "DISCARD" && probes.discard == null) {
+    const need = s.discard, before = s.hand.reduce((a, b) => a + b, 0);
+    const center = async (sel) => { const r = await rect(sel); return r && [r[0] + r[2] / 2, r[1] + r[3] / 2]; };
+    const pick = () => run(() => window.__app.get().discardPick.length);
+    await sleep(600);   // a human beat: the slab drops taps for 400ms after it changes
+    const sug = await center(".ph-discard-slab .ph-btn");
+    if (sug) await tap(...sug);
+    let suggested = 0;
+    for (let k = 0; k < 40 && (suggested = await pick()) < need; k++) await sleep(100);
+    const slot = await center(".ph-slot.full");
+    if (slot) await tap(...slot);
+    await sleep(150);
+    const tookBack = suggested - (await pick());
+    const r = await run(() => { const s = window.__app.get(), h = s.view.players[s.human].hand; return h.findIndex((n, i) => n - s.discardPick.filter((p) => p === i).length > 0); });
+    const st = await center(`.ph-stack[data-res="${r}"]`);
+    if (st) await tap(...st);
+    for (let k = 0; k < 60 && (await S()).prompt === "DISCARD" && (await S()).cur === s.human; k++) await sleep(100);
+    const after = (await S()).hand.reduce((a, b) => a + b, 0);
+    probe("discard", { need, suggested, tookBack, lost: before - after, ok: before - after === need && suggested === need && tookBack === 1 });
+    continue;
+  }
+  const center = async (sel) => { const r = await rect(sel); return r && [r[0] + r[2] / 2, r[1] + r[3] / 2]; };
+  const tapSel = async (sel) => { const c = await center(sel); if (c) await tap(...c); return !!c; };
+  // An offer to you: the cards, what accepting does (Eval on), then Accept.
+  if (s.prompt === "DECIDE_TRADE" && probes.offerIn == null) {
+    await sleep(600);
+    const slab = !!(await rect(".ph-offer"));
+    let eff = 0;
+    for (let k = 0; k < 30 && (eff = await run(() => document.querySelectorAll(".ph-offer .eff .num").length)) < 2; k++) await sleep(100);
+    const lifted = await run(() => document.querySelectorAll(".ph-card.lifted").length);
+    const accept = await run(() => !document.querySelector(".ph-offer-slab .ph-btn.go")?.disabled);
+    await tapSel(accept ? ".ph-offer-slab .ph-btn.go" : ".ph-offer-slab .ph-btn:not(.go)");
+    await sleep(800);
+    const answered = (await S()).steps > s.steps;
+    probe("offerIn", { slab, eff, lifted, accepted: accept, answered, ok: slab && eff === 2 && lifted > 0 && answered });
+    continue;
+  }
+  // Your offer: Trade opens the builder, a hand card gives, a token asks, Offer sends it; the answers come back
+  // under the chips; then trade with a taker, or withdraw.
+  if (probes.builder == null && s.prompt === "PLAY_TURN" && !s.opening && s.legal.some((a) => a[0] === "OFFER_TRADE")
+      && s.hand.some((n) => n > 0) && s.hand.some((n) => n === 0) && !s.legal.some((a) => a[0] === "ROLL")) {
+    await sleep(600);
+    await tapSel(".ph-build-slab .ph-row .ph-btn:not(.go)");
+    await sleep(300);
+    const open = !!(await rect(".ph-builder"));
+    const most = s.hand.indexOf(Math.max(...s.hand)), none = s.hand.indexOf(0);
+    await tapSel(`.ph-stack[data-res="${most}"]`); await sleep(150);
+    const toks = await run(() => [...document.querySelectorAll(".ph-tokbtn")].map((b) => { const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
+    if (toks[none]) await tap(...toks[none]);
+    await sleep(150);
+    const draft = await run(() => window.__app.get().offerDraft);
+    const lifted = await run(() => document.querySelectorAll(".ph-card.lifted").length);
+    const enabled = await run(() => !document.querySelector(".ph-builder-slab .ph-btn.go")?.disabled);
+    await tapSel(".ph-builder-slab .ph-btn.go");
+    probe("builder", { open, draft, lifted, enabled, ok: open && draft.give[most] === 1 && draft.want[none] === 1 && lifted === 1 && enabled });
+    let sawOut = false, badges = 0, traded = false, withdrew = false;
+    for (let k = 0; k < 200; k++) {
+      const x = await S();
+      const out = await run(() => ({ out: !!document.querySelector(".ph-offer.out"), badges: document.querySelectorAll(".ph-answers .badge").length,
+                                     take: !!document.querySelector(".ph-offer-slab .ph-btn.go"), cancel: !document.querySelector(".ph-offer-slab .ph-btn:not(.go)")?.disabled }));
+      sawOut ||= out.out; badges = Math.max(badges, out.badges);
+      if (x.prompt === "DECIDE_ACCEPTEES" && x.cur === s.human) {
+        await sleep(600);
+        if (out.take) { traded = await tapSel(".ph-offer-slab .ph-btn.go"); } else if (out.cancel) { withdrew = await tapSel(".ph-offer-slab .ph-btn:not(.go)"); }
+        await sleep(800);
+      }
+      if (!x.resolving && x.prompt === "PLAY_TURN" && k > 2) break;
+      await sleep(100);
+    }
+    const ended = !(await S()).resolving;
+    probe("offerOut", { sawOut, badges, traded, withdrew, ended, ok: sawOut && badges === 3 && ended });
+    continue;
+  }
+  await policy();
+}
+} catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 await shot("end");
-console.log(JSON.stringify({ ...result, ...rest }, null, 1));
+const missing = NEED.filter((k) => probes[k] == null);
+const failed = Object.entries(probes).filter(([, v]) => v && v.ok === false).map(([k]) => k);
+console.log(JSON.stringify({ ...result, roll, tapThrough, overflowX, winner, games, boxes: [...boxes].map(([k, v]) => `${v} ${k}`), modes: [...modes], small: [...small], probes, missing, failed }, null, 1));
+process.exitCode = missing.length || failed.length || result.error ? 1 : 0;
 ws.close();
 proc.kill();

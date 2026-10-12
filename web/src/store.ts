@@ -77,6 +77,17 @@ export interface State {
   /** The offer builder is open. `pending` carries a list of actions and cannot hold
    *  builder state, so this is its own flag. */
   offering: boolean;
+  /** The phone's offer builder: what you give and what you ask for, per resource. Hand taps add to `give`, so
+   *  the hand and the slab both read it. Cleared with `offering` whenever an action lands. */
+  offerDraft: { give: number[]; want: number[] };
+  /** The phone's discard slots, one resource per filled slot. Not cleared by `advance` — the slots are played
+   *  one card per action — but by the commit that plays them (`phone/Slab.tsx`). */
+  discardPick: number[];
+  /** The phone's dev pile spread into the slab (`dev: null`), or Year of Plenty / Monopoly choosing. Cleared
+   *  by `advance`, like `pending`. */
+  devSheet: { dev: 1 | 2 | null; first: number | null } | null;
+  /** A tap on the board hurries the bots until the seated person is asked something. */
+  hurry: boolean;
 
   /** Seated: the analysis is open — the ring, the coach's column beside the board, and the
    *  advice search behind them. Closed by default, so a person's turn costs no depth-2 search
@@ -148,6 +159,10 @@ const initial: State = {
   step: null,
   pending: null,
   offering: false,
+  offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] },
+  discardPick: [],
+  devSheet: null,
+  hurry: false,
   analysis: false,
   coachThread: null,
   revealAll: false,

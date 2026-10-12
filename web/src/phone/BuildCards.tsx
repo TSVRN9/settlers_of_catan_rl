@@ -19,7 +19,7 @@ const KINDS = [
 
 const raw = (markup: string) => ({ __html: markup });
 /** One cost token: the resource's colour with its glyph, or a dust slot with the glyph faint. */
-function Token({ r, have, w }: { r: number; have: boolean; w: number }) {
+export function Token({ r, have, w }: { r: number; have: boolean; w: number }) {
   const g = GLYPH_MINI[RES[r]];
   return (
     <span className="cut5 ph-tok" style={{ width: w, height: w + 3, background: have ? RES_FILL[r] : "var(--color-dust)" }}>
