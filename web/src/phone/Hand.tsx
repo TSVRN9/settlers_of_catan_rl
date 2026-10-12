@@ -56,9 +56,9 @@ export function Hand() {
   const cost = lifted({ mode, cost: spending(s), give: s.offerDraft.give, asked: v.prompt === "DECIDE_TRADE" ? v.current_trade.slice(5, 10) : null });
   const slotted = mode === "discard" ? inSlots(s.discardPick) : null;
   const mine = playing(s) && v.current_player === s.human && s.step == null && s.pendingHandoff == null;
-  // Every playable development card's actions: the pile opens them as a list (Milestone 2 gives each card its
-  // own drag or picker). Knight and Road Building then hand you a piece and Carry takes over.
+  // The pile lifts when a card in it can be played, and opens into the slab on your turn (phone/Slab.tsx DevSheet).
   const plays = mine ? s.legal.filter((a) => (PLAY as readonly (string | null)[]).includes(a[0])) : [];
+  const sheetable = mine && v.prompt === "PLAY_TURN" && !v.is_resolving_trade;
   const kinds = me.devs.flatMap((n, k) => (n > 0 ? [k] : []));
   const dw = Math.round(cw * 0.8), dh = Math.round(ch * 0.84), step = 8;
   // In the builder a stack gives one card to the offer; in a discard it puts one in the next slot.
@@ -91,9 +91,9 @@ export function Hand() {
         );
       })}
       {kinds.length > 0 && (
-        <button className={`ph-devs${plays.length ? " live" : ""}`} disabled={!plays.length}
+        <button className={`ph-devs${plays.length ? " live" : ""}`} disabled={!sheetable}
                 style={{ width: Math.max(44, dw + step * (kinds.length - 1)), height: Math.max(44, dh) }}
-                onClick={() => set({ pending: { title: "Development cards", actions: plays } })}
+                onClick={() => set({ devSheet: { dev: null, first: null } })}
                 aria-label={`Development cards: ${kinds.map((k) => `${me.devs[k]} ${DEV_CARDS[k]}`).join(", ")}`}>
           {kinds.map((k, i) => (
             <span key={k} className="ph-dev" style={{ left: i * step, rotate: `${(i - (kinds.length - 1) / 2) * 4}deg` }}>

@@ -146,7 +146,7 @@ result.tapPlaced = { before, after: afterTap.roads, carry: afterTap.carry };
 // box, small buttons, sideways scroll, and Milestone 2's probes, each run the first time its phase comes up.
 // The person's moves follow a steered heuristic (buy development cards; hold cards until 9 so a seven costs a
 // discard) so the phases come up; up to GAMES games are played until every probe in NEED has run.
-const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut"];
+const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -198,6 +198,10 @@ for (let i = 0; i < 40000; i++) {
       const r = await rect(".ph-board");
       if (r) { await tap(r[0] + 6, r[1] + 6); await sleep(60); if ((await S()).hurry) probe("hurry", true); }
     }
+    if (probes.moveIcons == null && s.cur !== s.human && !s.opening) {
+      const n = await run(() => document.querySelectorAll(".ph-move .ic svg").length);
+      if (n > 0) { probe("moveIcons", { icons: n, ok: true }); await shot("moves"); }
+    }
     await sleep(40); continue;
   }
   modes.add((await checks()).mode);
@@ -228,6 +232,7 @@ for (let i = 0; i < 40000; i++) {
     if (sug) await tap(...sug);
     let suggested = 0;
     for (let k = 0; k < 40 && (suggested = await pick()) < need; k++) await sleep(100);
+    await shot("discard");
     const slot = await center(".ph-slot.full");
     if (slot) await tap(...slot);
     await sleep(150);
@@ -242,6 +247,29 @@ for (let i = 0; i < 40000; i++) {
   }
   const center = async (sel) => { const r = await rect(sel); return r && [r[0] + r[2] / 2, r[1] + r[3] / 2]; };
   const tapSel = async (sel) => { const c = await center(sel); if (c) await tap(...c); return !!c; };
+  // A later offer: Counter opens the builder on it turned round, Back returns to the offer, Ignore declines it
+  // and mutes that seat for its turn.
+  if (s.prompt === "DECIDE_TRADE" && probes.offerIn != null && probes.counterIgnore == null && s.legal.some((a) => a[0] === "OFFER_TRADE")) {
+    await sleep(600);
+    const from = s.trade[10];
+    const btn = (label) => run((l) => { const b = [...document.querySelectorAll(".ph-answer .ph-btn")].find((x) => x.textContent.startsWith(l)); if (!b) return null; const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }, label);
+    const c = await btn("Counter");
+    if (c) await tap(...c);
+    await sleep(300);
+    const draft = await run(() => window.__app.get().offerDraft);
+    const turned = draft.want.every((n, r) => n === s.trade[r]) && draft.give.every((n, r) => n === Math.min(s.trade[5 + r], s.hand[r]));
+    const builder = !!(await rect(".ph-builder"));
+    await shot("counter");
+    await tapSel(".ph-builder-slab .ph-btn:not(.go)"); await sleep(600);
+    const back = !!(await rect(".ph-offer"));
+    const ig = await btn("Ignore");
+    if (ig) await tap(...ig);
+    await sleep(800);
+    const muted = await run(() => window.__app.get().mutedSeat);
+    const answered = (await S()).steps > s.steps;
+    probe("counterIgnore", { counter: !!c, builder, turned, back, muted: muted === from, answered, ok: !!c && builder && turned && back && muted === from && answered });
+    continue;
+  }
   // An offer to you: the cards, what accepting does (Eval on), then Accept.
   if (s.prompt === "DECIDE_TRADE" && probes.offerIn == null) {
     await sleep(600);
@@ -249,6 +277,7 @@ for (let i = 0; i < 40000; i++) {
     let eff = 0;
     for (let k = 0; k < 30 && (eff = await run(() => document.querySelectorAll(".ph-offer .eff .num").length)) < 2; k++) await sleep(100);
     const lifted = await run(() => document.querySelectorAll(".ph-card.lifted").length);
+    await shot("offer-in");
     const accept = await run(() => !document.querySelector(".ph-offer-slab .ph-btn.go")?.disabled);
     await tapSel(accept ? ".ph-offer-slab .ph-btn.go" : ".ph-offer-slab .ph-btn:not(.go)");
     await sleep(800);
@@ -272,6 +301,7 @@ for (let i = 0; i < 40000; i++) {
     const draft = await run(() => window.__app.get().offerDraft);
     const lifted = await run(() => document.querySelectorAll(".ph-card.lifted").length);
     const enabled = await run(() => !document.querySelector(".ph-builder-slab .ph-btn.go")?.disabled);
+    await shot("builder");
     await tapSel(".ph-builder-slab .ph-btn.go");
     probe("builder", { open, draft, lifted, enabled, ok: open && draft.give[most] === 1 && draft.want[none] === 1 && lifted === 1 && enabled });
     let sawOut = false, badges = 0, traded = false, withdrew = false;
@@ -279,6 +309,7 @@ for (let i = 0; i < 40000; i++) {
       const x = await S();
       const out = await run(() => ({ out: !!document.querySelector(".ph-offer.out"), badges: document.querySelectorAll(".ph-answers .badge").length,
                                      take: !!document.querySelector(".ph-offer-slab .ph-btn.go"), cancel: !document.querySelector(".ph-offer-slab .ph-btn:not(.go)")?.disabled }));
+      if (out.out && !sawOut) await shot("offer-out");
       sawOut ||= out.out; badges = Math.max(badges, out.badges);
       if (x.prompt === "DECIDE_ACCEPTEES" && x.cur === s.human) {
         await sleep(600);
@@ -290,6 +321,62 @@ for (let i = 0; i < 40000; i++) {
     }
     const ended = !(await S()).resolving;
     probe("offerOut", { sawOut, badges, traded, withdrew, ended, ok: sawOut && badges === 3 && ended });
+    continue;
+  }
+  // Development cards: the pile spreads into the slab; a Year of Plenty or Monopoly picks there.
+  const playable = (k) => s.legal.some((a) => a[0] === k);
+  const yopOrMono = playable("PLAY_YEAR_OF_PLENTY") || playable("PLAY_MONOPOLY");
+  if (s.prompt === "PLAY_TURN" && s.devs.some((n) => n > 0) && !s.resolving && (probes.devSheet == null || (yopOrMono && probes.pick == null))) {
+    await sleep(600);
+    await tapSel(".ph-devs"); await sleep(300);
+    const cards = await run(() => [...document.querySelectorAll(".ph-devcard")].map((b) => !b.disabled));
+    probe("devSheet", { cards: cards.length, playable: cards.filter(Boolean).length, ok: cards.length > 0 });
+    await shot("devs");
+    if (yopOrMono && probes.pick == null) {
+      const kind = playable("PLAY_YEAR_OF_PLENTY") ? 1 : 2;
+      const before = s.hand.reduce((a, b) => a + b, 0);
+      // The sheet lists held kinds in deck order; tap the one for this kind.
+      const i = await run((k) => { const held = window.__app.get().view.players[window.__app.get().human].devs; return held.slice(0, k).filter((n) => n > 0).length; }, kind);
+      const at = await run((i) => { const b = document.querySelectorAll(".ph-devcard")[i]; if (!b) return null; const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }, i);
+      if (at) await tap(...at);
+      await sleep(400);
+      const choices = await run(() => document.querySelectorAll(".ph-pick .ph-res").length);
+      await shot("pick");
+      for (let k = 0; k < 2 && (await S()).steps === s.steps; k++) { await tapSel(".ph-pick .ph-res"); await sleep(500); }
+      await sleep(600);
+      const x = await S();
+      probe("pick", { kind, choices, played: x.steps > s.steps, ok: choices > 0 && x.steps > s.steps && (kind === 2 || x.hand.reduce((a, b) => a + b, 0) === before + 2) });
+    } else {
+      await tapSel(".ph-devsheet-slab .ph-btn");
+      await sleep(300);
+    }
+    continue;
+  }
+  // The robber in hand: tap a tile (one with two or more seats to rob when there is one), then a victim's chip.
+  if (s.prompt === "MOVE_ROBBER" && probes.robberVictim == null) {
+    await sleep(600);
+    const plan = await run(async () => {
+      const g = await import("/src/board/geometry.ts");
+      const app = window.__app, st = app.get(), map = st.map, v = st.view;
+      const by = new Map();
+      for (const a of st.legal) if (a[0] === "MOVE_ROBBER") by.set(a[1], [...(by.get(a[1]) ?? []), a[2]]);
+      const tiles = [...by.entries()].sort((a, b) => b[1].filter((x) => x >= 0).length - a[1].filter((x) => x >= 0).length);
+      const [tile, victims] = tiles[0];
+      const ctm = document.querySelector(".carry").getScreenCTM();
+      const scr = ([x, y]) => { const p = new DOMPoint(x, y).matrixTransform(ctm); return [p.x, p.y]; };
+      const t = map.tiles[tile];   // MOVE_ROBBER names the tile by its index (Board.tsx reads map.tiles[a[1]])
+      const xy = t.nodes.map((n) => g.nodeXY(n));
+      const c = scr([xy.reduce((a, p) => a + p[0], 0) / xy.length, xy.reduce((a, p) => a + p[1], 0) / xy.length]);
+      const vs = victims.filter((x) => x >= 0);
+      const node = vs.length > 1 ? t.nodes.find((n) => v.owner[n] === vs[0]) : null;
+      return { tile, victims: vs, centre: c, chip: node != null ? scr([g.nodeXY(node)[0], g.nodeXY(node)[1] - 20]) : null };
+    });
+    await tap(...plan.centre); await sleep(700);
+    const asked = (await S()).robTile;
+    if (plan.chip && asked != null) { await shot("victims"); await tap(...plan.chip); }
+    for (let k = 0; k < 30 && (await S()).prompt === "MOVE_ROBBER"; k++) await sleep(100);
+    const x = await S();
+    probe("robberVictim", { tile: plan.tile, victims: plan.victims.length, asked, moved: x.robber === plan.tile, ok: x.robber === plan.tile && (plan.victims.length < 2 || asked === plan.tile) });
     continue;
   }
   await policy();

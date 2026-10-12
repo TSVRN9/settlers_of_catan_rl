@@ -6,7 +6,8 @@ import { act, confirmHandoff, discardAll, live, toLineup } from "../game";
 import Card from "../board/Card";
 import { newsworthy, narrate } from "../coach";
 import { SEAT_FILL } from "../board/palette";
-import { bankFor, bundleText, canOffer, fmtDelta, label, packBundle, RESOURCES, SEAT_NAMES } from "../labels";
+import { bankFor, bundleText, canOffer, DEV_CARDS, fmtDelta, label, packBundle, RESOURCES, SEAT_NAMES } from "../labels";
+import { devChoices, devStep } from "../devpick";
 import { rowAt } from "../review";
 import { get, playing, set, useApp, viewer, you } from "../store";
 import { canPick, inSlots } from "./drafts";
@@ -16,7 +17,7 @@ import { PieceIcon } from "../views/Build";
 import BuildCards, { Token } from "./BuildCards";
 import { slabMode, viewerNow, type SlabMode } from "./slab";
 import { useMetrics } from "./usePhone";
-import type { Canon, Evaluation } from "../engine";
+import type { Canon, Evaluation, View } from "../engine";
 
 const SETTLE_MS = 400;
 
@@ -88,6 +89,13 @@ function DiscardSlab() {
   );
 }
 
+/** A counter starts from the offer it answers, turned round: what they asked of you is what you would give
+ *  (as far as you hold it), what they offered is what you want. You change it from there (desktop Offer.tsx). */
+const turnedRound = (v: View, you: number) => ({
+  give: v.current_trade.slice(5, 10).map((n, r) => Math.min(n, v.players[you].hand[r])),
+  want: v.current_trade.slice(0, 5),
+});
+
 /** An offer to you (or a counter to yours): the cards that would change hands and, with Eval on, what accepting
  *  does to your chance and the offerer's. Keyed on the trade, so a haggled re-offer lands as a new one. */
 function OfferIn() {
@@ -105,6 +113,7 @@ function OfferIn() {
     return () => { on = false; };
   }, [key, s.evalShown, s.showHidden]);  // eslint-disable-line react-hooks/exhaustive-deps
   const accept = s.legal.find((a) => a[0] === "ACCEPT_TRADE"), reject = s.legal.find((a) => a[0] === "REJECT_TRADE");
+  const counter = s.legal.some((a) => a[0] === "OFFER_TRADE");
   const w = Math.round(cw * 0.8), h = Math.round(ch * 0.8);
   const cards = (counts: number[]) => counts.flatMap((n, r) => Array.from({ length: n }, (_, k) => <Card key={`${r}.${k}`} resource={r} width={w} height={h} />));
   const eff = (seat: number) => (after?.key === key && s.evals[seat] ? after.evals[seat].win - s.evals[seat].win : null);
@@ -122,8 +131,10 @@ function OfferIn() {
           </div>
         )}
       </div>
-      <div className="ph-row" style={{ height: btnH }}>
+      <div className="ph-row ph-answer" style={{ height: btnH }}>
+        {reject && <button className="ph-btn cut8" onClick={() => { set({ mutedSeat: from, mutedTurn: v.num_turns }); void act(reject); }}>Ignore {SEAT_NAMES[from]}</button>}
         <button className="ph-btn cut8" disabled={!reject} onClick={() => reject && void act(reject)}>Decline</button>
+        {counter && <button className="ph-btn cut8" onClick={() => set({ offering: true, offerDraft: turnedRound(v, s.human) })}>Counter</button>}
         <button className="ph-btn go cut8" disabled={!accept} onClick={() => accept && void act(accept)}>Accept</button>
       </div>
     </div>
@@ -210,6 +221,75 @@ function OfferOut() {
   );
 }
 
+/** Development cards in deck order, and the action that plays each (victory points are never played). */
+const PLAY_DEV = ["PLAY_KNIGHT_CARD", "PLAY_YEAR_OF_PLENTY", "PLAY_MONOPOLY", "PLAY_ROAD_BUILDING", null] as const;
+
+/** The dev pile spread into the slab at full size: a playable card stands up and plays at a tap (the Knight
+ *  then puts the robber in your hand, Road Building its roads); Year of Plenty and Monopoly open their pick. */
+function DevSheet() {
+  const s = useApp();
+  const v = s.view!;
+  const { cw, ch, btnH } = useMetrics();
+  const devs = v.players[s.human].devs;
+  const play = (k: number) => s.legal.find((a) => a[0] === PLAY_DEV[k]);
+  const press = (k: number) => {
+    const a = play(k);
+    if (!a) return;
+    if (k === 1 || k === 2) set({ devSheet: { dev: k, first: null } });
+    else void act(a);
+  };
+  return (
+    <div className="ph-devsheet-slab">
+      <div className="ph-devsheet">
+        {devs.map((n, k) => n > 0 && (
+          <button key={k} className="ph-devcard" disabled={!play(k)} onClick={() => press(k)} aria-label={`Play ${DEV_CARDS[k]}`}>
+            <Card dev={k} count={n > 1 ? n : undefined} width={cw} height={ch} />
+          </button>
+        ))}
+      </div>
+      <div className="ph-row" style={{ height: btnH }}>
+        <button className="ph-btn cut8" onClick={() => set({ devSheet: null })}>Back</button>
+      </div>
+    </div>
+  );
+}
+
+/** Year of Plenty or Monopoly choosing: the card, its name, and the resources it can take (devpick.ts); Year of
+ *  Plenty fills a slot with its first pick and plays on the second. */
+function Pick() {
+  const s = useApp();
+  const { cw, ch } = useMetrics();
+  const sheet = s.devSheet!;
+  const dev = sheet.dev as 1 | 2;
+  const choices = devChoices(dev, sheet.first, s.legal);
+  const tapRes = (r: number) => {
+    const step = devStep(dev, sheet.first, r, s.legal);
+    if ("first" in step) set({ devSheet: { dev, first: step.first } });
+    else void act(step.action);
+  };
+  return (
+    <div className="ph-pick cut8">
+      <div className="ph-pick-head">
+        <button className="ph-back" onClick={() => set({ devSheet: { dev: null, first: null } })} aria-label="Back">‹</button>
+        <span className="d">{DEV_CARDS[dev]}</span>
+        {dev === 1 && (
+          <span className="slots">
+            {sheet.first != null ? <Card resource={sheet.first} width={26} height={34} /> : <span className="slot cut5" />}
+            <span className="slot cut5" />
+          </span>
+        )}
+      </div>
+      <div className="res">
+        {choices.map((r) => (
+          <button key={r} className="ph-res" onClick={() => tapRes(r)} aria-label={`Take ${RESOURCES[r].toLowerCase()}`}>
+            <Card resource={r} width={Math.min(cw, 52)} height={Math.min(ch, 64)} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The slab's mode for the live position: `Hand` reads it too, since what the hand lifts and whether its
  *  stacks take taps depend on the phase (phone/drafts.ts). */
 export function useSlabMode(): SlabMode {
@@ -238,21 +318,33 @@ function Actions({ actions, onBack }: { actions: Canon[]; onBack?: () => void })
   );
 }
 
-/** The last few moves, newest on top, each with what it did to its own seat's chance (Eval on). */
+/** What a move was, drawn: the piece for a build, the dice for a roll, a face-down card for a buy. */
+function MoveIcon({ a, seat }: { a: Canon; seat: number }) {
+  const kind = a[0] === "BUILD_ROAD" ? "road" : a[0] === "BUILD_SETTLEMENT" ? "settlement" : a[0] === "BUILD_CITY" ? "city" : null;
+  if (kind) return <PieceIcon kind={kind} seat={seat} size={18} />;
+  if (a[0] === "BUY_DEVELOPMENT_CARD") return <svg viewBox="0 0 14 18" width="12" height="16" aria-hidden="true"><rect x="1" y="1" width="12" height="16" rx="1.5" fill="var(--color-pine)" /></svg>;
+  return null;
+}
+
+/** The moves since the seated person last moved, newest on top, scrolling inside the slab: each its seat, what
+ *  it was (an icon, the narration) and, with Eval on, what it did to that seat's chance. */
 function Moves() {
   const s = useApp();
-  const rows: { i: number; seat: number; text: string; d: number | null }[] = [];
-  for (let i = s.frames.length - 2; i >= 0 && rows.length < 3; i--) {
+  const rows: { i: number; seat: number; a: Canon; text: string; d: number | null; dice: [number, number] | null }[] = [];
+  for (let i = s.frames.length - 2; i >= 0 && rows.length < 24; i--) {
     const f = s.frames[i], row = rowAt(s.frames, i);
+    if (f.seat === s.human && rows.length) break;
     if (!row || !f.action || !newsworthy(f.action) || !s.map) continue;
     const a = f.evals[f.seat]?.win, b = s.frames[i + 1].evals[f.seat]?.win;
-    rows.push({ i, seat: f.seat, text: narrate(row, s.map, viewerNow(you(s), s.pendingHandoff)), d: a != null && b != null ? b - a : null });
+    rows.push({ i, seat: f.seat, a: f.action, text: narrate(row, s.map, viewerNow(you(s), s.pendingHandoff)), d: a != null && b != null ? b - a : null,
+                dice: f.action[0] === "ROLL" ? f.outcome : null });
   }
   return (
     <div className="ph-moves">
       {rows.map((r, k) => (
         <div key={r.i} className={`ph-move cut5${k ? "" : " new line"}`}>
           <i className="sw" style={{ background: SEAT_FILL[r.seat] }} />
+          <span className="ic">{r.dice ? <><Die n={r.dice[0]} size={14} /><Die n={r.dice[1]} size={14} /></> : <MoveIcon a={r.a} seat={r.seat} />}</span>
           <span className="tx">{r.text}</span>
           {s.evalShown && r.d != null && Math.abs(r.d) >= 0.005 && <span className={`num dl ${r.d > 0 ? "up" : "dn"}`}>{fmtDelta(r.d)}</span>}
         </div>
@@ -279,6 +371,10 @@ export default function Slab() {
         return <OfferIn />;
       case "builder":
         return <Builder />;
+      case "devs":
+        return <DevSheet />;
+      case "pick":
+        return <Pick />;
       case "offer-out":
         return <OfferOut />;
       case "roll": {

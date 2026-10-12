@@ -26,7 +26,8 @@ export function slabMode(x: SlabInput): SlabMode {
   if (!x.mine) return "bots";
   if (x.opening) return "opening";                       // Carry holds the piece; the slab shows the supply
   if (x.prompt === "DISCARD") return "discard";
-  if (x.prompt === "DECIDE_TRADE") return "offer-in";    // an offer to you, or a counter to yours
+  // An offer to you, or a counter to yours; Counter opens the builder on it, turned round.
+  if (x.prompt === "DECIDE_TRADE") return x.builder && x.legal.includes("OFFER_TRADE") ? "builder" : "offer-in";
   if (x.prompt === "MOVE_ROBBER") return "build";        // Carry holds the robber; the build cards sink
   if (x.prompt !== "PLAY_TURN") return "fallback";
   if (x.sheet === "pick" && x.legal.some((k) => k === "PLAY_YEAR_OF_PLENTY" || k === "PLAY_MONOPOLY")) return "pick";
@@ -55,6 +56,8 @@ if (argv?.[1]?.endsWith("slab.ts")) {
   assert(slabMode({ ...base, mine: false, offerOut: true, prompt: "DECIDE_TRADE" }) === "offer-out", "your offer, bots answering");
   assert(slabMode({ ...base, offerOut: true, prompt: "DECIDE_ACCEPTEES", legal: ["CONFIRM_TRADE", "CANCEL_TRADE"] }) === "offer-out", "answers back");
   assert(slabMode({ ...base, legal: ["END_TURN", "OFFER_TRADE"], builder: true }) === "builder", "the builder");
+  assert(slabMode({ ...base, prompt: "DECIDE_TRADE", legal: ["ACCEPT_TRADE", "REJECT_TRADE", "OFFER_TRADE"], builder: true }) === "builder", "countering an offer");
+  assert(slabMode({ ...base, prompt: "DECIDE_TRADE", legal: ["ACCEPT_TRADE", "REJECT_TRADE"], builder: true }) === "offer-in", "no counter where none is legal");
   assert(slabMode({ ...base, legal: ["END_TURN"], sheet: "devs" }) === "devs", "the dev sheet");
   assert(slabMode({ ...base, legal: ["ROLL", "PLAY_KNIGHT_CARD"], sheet: "devs" }) === "devs", "the dev sheet before the roll");
   assert(slabMode({ ...base, legal: ["END_TURN", "PLAY_YEAR_OF_PLENTY"], sheet: "pick" }) === "pick", "a pick");
