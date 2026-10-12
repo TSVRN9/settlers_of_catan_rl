@@ -327,6 +327,37 @@ impl Engine {
         Ok(Value::Array(r.into_iter().map(reading_json).collect()).to_string())
     }
 
+    /// Both readings of the position after the seat on move accepts the offer in front of it (`State::accepted`):
+    /// {pub, full}, `pub` from `viewer`'s public information exactly as `evaluate_all_public` reads it.
+    pub fn accepted_readings(&self, viewer: i32, k: u32) -> Result<String, JsValue> {
+        let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
+        let s = self.state.accepted().map_err(err)?;
+        let v = match viewer {
+            v if v < 0 => None,
+            v if (v as usize) < self.n => Some(v as usize),
+            v => return Err(err(format!("no seat {v}"))),
+        };
+        let (public, _) = s.public_evals(net, &layout(), v, k as usize, self.seed as u64 ^ 0x9B1C_5EA7_0000_0001);
+        let full: Vec<Value> = (0..self.n).map(|p| reading_json(s.reading(net, &layout(), p))).collect();
+        Ok(json!({"pub": public.into_iter().map(reading_json).collect::<Vec<_>>(), "full": full}).to_string())
+    }
+
+    /// The whole discard `bot` would make for the seat on move, one card per action, without applying it: the
+    /// phone's Suggest fills the discard slots with it.
+    pub fn suggest_discards(&self, bot: &str, depth: u32) -> Result<String, JsValue> {
+        let seat = self.state.current_player;
+        let mut shadow = Engine { state: self.state.clone(), seed: self.seed, n: self.n, log: vec![], net: self.net.clone(),
+                                  bot_rng: self.bot_rng, drrl: vec![], jsettlers: vec![] };
+        let mut out = vec![];
+        while shadow.state.prompt == Prompt::Discard && shadow.state.current_player == seat && out.len() < 20 {
+            let d: Value = serde_json::from_str(&shadow.decide(bot, depth)?).map_err(err)?;
+            let a = d["action"].clone();
+            shadow.apply(&a.to_string())?;
+            out.push(a);
+        }
+        Ok(Value::Array(out).to_string())
+    }
+
     /// Leave-one-group-out attribution of P(win) for `seat`: [{group, seat, delta}] (seat is relative to
     /// the evaluated player; -1 = global).
     pub fn attribution(&self, seat: usize) -> Result<String, JsValue> {

@@ -101,6 +101,10 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
       return JSON.parse(need().attribution(req.seat)) as Attribution[];
     case "preview":
       return JSON.parse(need().preview(JSON.stringify(req.action))) as View;
+    case "acceptedReadings":
+      return JSON.parse(need().accepted_readings(req.viewer, PUBLIC_K)) as Readings;
+    case "suggestDiscards":
+      return JSON.parse(need().suggest_discards(req.bot, req.depth)) as Canon[];
     case "record":
       return need().record();
     case "replay": {

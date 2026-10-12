@@ -38,11 +38,29 @@ assert.equal(map.ports.length, 9);
 }
 
 const bots = ["vnet", "heuristic", "random", "heuristic"];
+let sawAccept = false, sawDiscard = false;
 let steps = 0, tVnet = 0, nVnet = 0, maxLeaves = 0, tPublic = 0;
 while (eng.winner() < 0 && eng.num_turns() < 1000) {
   const seat = eng.current_player();
   const legal = JSON.parse(eng.legal_actions());
   assert.ok(legal.length > 0, "legal actions");
+  // The phone's read-only helpers (wasm accepted_readings / suggest_discards) must not touch the live game.
+  const v = JSON.parse(eng.view());
+  if (v.prompt === "DECIDE_TRADE" && !sawAccept && [5, 6, 7, 8, 9].every((i, r) => v.players[seat].hand[r] >= v.current_trade[i])) {
+    const before = eng.view();
+    const r = JSON.parse(eng.accepted_readings(seat, 4));
+    assert.ok(r.pub.length === 4 && r.full.length === 4, "readings after accepting, both kinds");
+    assert.equal(eng.view(), before, "accepted_readings must not touch the live engine");
+    sawAccept = true;
+  }
+  if (v.prompt === "DISCARD" && !sawDiscard) {
+    const before = eng.view();
+    const picks = JSON.parse(eng.suggest_discards("vnet", 1));
+    assert.equal(picks.length, v.discard_counts[seat], "one pick per card owed");
+    assert.ok(picks.every((a) => a[0] === "DISCARD_RESOURCE"), "picks are discards");
+    assert.equal(eng.view(), before, "suggest_discards must not touch the live engine");
+    sawDiscard = true;
+  }
   const t0 = performance.now();
   const d = JSON.parse(eng.decide(bots[seat], 2));
   if (bots[seat] === "vnet" && legal.length > 1) { tVnet += performance.now() - t0; nVnet++; maxLeaves = Math.max(maxLeaves, d.leaves); }
@@ -52,6 +70,7 @@ while (eng.winner() < 0 && eng.num_turns() < 1000) {
 }
 const view = JSON.parse(eng.view());
 assert.ok(view.winner >= 0, "game reached a winner");
+assert.ok(sawDiscard, "the smoke game had a discard to suggest");
 const evals = JSON.parse(eng.evaluate_all());
 assert.equal(evals.length, 4);
 const attr = JSON.parse(eng.attribution(0));
@@ -176,6 +195,6 @@ let capOffers = 0;
   assert.ok(Math.max(...perTurn.values()) <= 2, `at most two refused offers a turn, got ${Math.max(...perTurn.values())}`);
 }
 
-console.log(`smoke ok: geometry + replay-net + 2/3-seat games + offer cap (${capOffers} refused offers) checked; seed ${seed}, ${steps} steps, ${view.num_turns} turns, winner seat ${view.winner}, ` +
+console.log(`smoke ok: accepted_readings ${sawAccept ? "checked" : "not reached"} + suggest_discards + geometry + replay-net + 2/3-seat games + offer cap (${capOffers} refused offers) checked; seed ${seed}, ${steps} steps, ${view.num_turns} turns, winner seat ${view.winner}, ` +
   `vnet ${nVnet} decisions avg ${(tVnet / Math.max(nVnet, 1)).toFixed(1)} ms (max leaves ${maxLeaves}), ` +
   `evaluate_all_public(-1, 4) avg ${(tPublic / steps).toFixed(2)} ms`);

@@ -8,6 +8,25 @@ use crate::state::*;
 pub type Outcome = (i32, i32);
 
 impl State {
+    /// The position after the seat on move accepts the offer in front of it, played through the engine's own rules:
+    /// the accept, the other seats declining, and the offerer confirming with this seat. A counter to the turn
+    /// player trades on the accept itself. Read-only: for "what accepting does" (wasm `accepted_readings`).
+    pub fn accepted(&self) -> Result<State, String> {
+        if self.prompt != Prompt::DecideTrade {
+            return Err("no offer to answer".into());
+        }
+        let me = self.current_player;
+        let mut s = self.clone();
+        s.apply(Action::AcceptTrade, None)?;
+        while s.prompt == Prompt::DecideTrade {
+            s.apply(Action::RejectTrade, None)?;
+        }
+        if s.prompt == Prompt::DecideAcceptees {
+            s.apply(Action::ConfirmTrade { partner: me as u8 }, None)?;
+        }
+        Ok(s)
+    }
+
     pub fn apply(&mut self, action: Action, result: Option<Outcome>) -> Result<Outcome, String> {
         let p = self.current_player;
         match action {
@@ -644,5 +663,41 @@ mod tests {
             steps += 1;
         }
         assert!(kinds.iter().all(|&k| k > 0), "every event kind occurred: {kinds:?}");
+    }
+
+    /// `accepted` is the position after the seat on move takes the offer in front of it: the cards change hands
+    /// exactly as `current_trade` says, the trade is logged (so public readings stay consistent), and the live
+    /// state is untouched.
+    #[test]
+    fn accepted_swaps_the_offer() {
+        let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
+        let mut found = 0;
+        for seed in 0..40u64 {
+            let map = Arc::new(Map::generate(seed, &layout));
+            let mut s = State::new(map, 4, seed, 10);
+            let mut steps = 0;
+            while s.winner() < 0 && steps < 3000 {
+                if s.prompt == Prompt::DecideTrade && s.can_accept_offer(s.current_player) {
+                    let me = s.current_player;
+                    let them = s.current_trade[10] as usize;
+                    let hands = (s.players[me].hand, s.players[them].hand);
+                    let after = s.accepted().unwrap();
+                    assert_eq!((s.players[me].hand, s.players[them].hand), hands, "live state untouched");
+                    for r in 0..5 {
+                        let (give, get) = (s.current_trade[r], s.current_trade[5 + r]);
+                        assert_eq!(after.players[me].hand[r], s.players[me].hand[r] + give - get);
+                        assert_eq!(after.players[them].hand[r], s.players[them].hand[r] + get - give);
+                    }
+                    assert!(!after.is_resolving_trade && after.prompt == Prompt::PlayTurn);
+                    assert!(after.events.len() > s.events.len(), "the trade is logged");
+                    found += 1;
+                }
+                let a = s.trade_action(&Eval::Heuristic).or_else(|| s.decide_heuristic(1)).unwrap_or(s.playable_actions()[0]);
+                s.apply(a, None).unwrap();
+                steps += 1;
+            }
+            if found >= 5 { break; }
+        }
+        assert!(found >= 5, "only {found} acceptable offers seen");
     }
 }

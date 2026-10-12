@@ -50,6 +50,8 @@ export type Request =
   | { op: "evaluateAll"; viewer: number }
   | { op: "attribution"; seat: number }
   | { op: "preview"; action: Canon }
+  | { op: "acceptedReadings"; viewer: number }
+  | { op: "suggestDiscards"; bot: BotKind; depth: number }
   | { op: "run"; seed: number; bots: BotSpec[]; maxSteps: number }
   | { op: "record" }
   | { op: "replay"; record: string; steps: number }
@@ -132,6 +134,11 @@ export class EngineClient {
   attribution(seat: number) { return this.call<Attribution[]>({ op: "attribution", seat }); }
   /** The view after `action`, without touching the live game — for showing several hypotheticals at once. */
   preview(action: Canon) { return this.call<View>({ op: "preview", action }); }
+  /** Both readings after the seat on move accepts the offer in front of it (wasm `accepted_readings`): the phone's
+   *  "what accepting does". */
+  acceptedReadings(viewer: number) { return this.call<Readings>({ op: "acceptedReadings", viewer }); }
+  /** The bot's whole discard for the seat on move, not applied (the phone's Suggest). */
+  suggestDiscards(bot: BotKind, depth: number) { return this.call<Canon[]>({ op: "suggestDiscards", bot, depth }); }
   /** The live game's log, so a review client can replay it without touching this engine. */
   record() { return this.call<string>({ op: "record" }); }
   /** Rebuild a game from a record at a given step. Reloads the net: Engine::replay does not. */
