@@ -4,7 +4,7 @@
 import { SEAT_FILL } from "../board/palette";
 import { SEAT_NAMES, turnSeat } from "../labels";
 import { pct } from "./usePhone";
-import { playing, useApp } from "../store";
+import { playing, useApp, you } from "../store";
 import { offerAnswers } from "../coach";
 import { act } from "../game";
 
@@ -14,15 +14,16 @@ export default function Chips() {
   const s = useApp();
   const v = s.view!;
   const n = v.players.length;
-  const seats = Array.from({ length: n - 1 }, (_, k) => (s.human + 1 + k) % n);
+  // Watching, nobody sits at the bottom: every seat is a chip.
+  const seats = playing(s) ? Array.from({ length: n - 1 }, (_, k) => (s.human + 1 + k) % n) : Array.from({ length: n }, (_, k) => k);
   const onMove = turnSeat(v);
-  const prev = s.frames[s.frames.length - 2]?.view;
+  const prev = s.frames[v.steps - 1]?.view;
   // Your offer going round: each seat's answer, as it arrives, on open board under its chip.
   const out = playing(s) && s.step == null && v.is_resolving_trade && v.current_trade[10] === s.human && v.current_turn === s.human
     ? offerAnswers(s.frames, s.frames.length - 1, s.human) : null;
   const ANSWER = { yes: "Accepts", no: "No", counter: "Counters" } as const;
   return (
-    <div className="ph-chips">
+    <div className={`ph-chips${playing(s) ? "" : " all"}`}>
       {out && (
         <div className="ph-answers">
           {seats.map((i) => {
@@ -43,7 +44,7 @@ export default function Chips() {
         // A count that went up on this step turns green for a beat (no "+3": it would crowd the win figure).
         const gained = !!prev && cards > sum(prev.players[i].hand);
         const win = s.evals[i]?.win;
-        const cls = onMove === i ? " on" : onMove !== s.human ? " off" : "";
+        const cls = onMove === i ? " on" : onMove !== you(s) ? " off" : "";
         return (
           <div key={i} data-seat={i} className={`ph-chip cut8${cls}`}>
             <div className="ph-chip-row">
@@ -53,7 +54,7 @@ export default function Chips() {
             </div>
             <div className="ph-chip-row small">
               <span className="ct"><svg viewBox="0 0 14 16" width="10" height="12" aria-hidden="true"><rect x="1" y="1" width="12" height="14" rx="1.5" fill="currentColor" opacity=".55" /></svg>
-                <span key={s.frames.length} className={`num${gained ? " gainflash" : ""}`}>{cards}</span></span>
+                <span key={v.steps} className={`num${gained ? " gainflash" : ""}`}>{cards}</span></span>
               <span className="ct"><svg viewBox="0 0 32 32" width="12" height="12" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2" fill="currentColor" /></svg>
                 <span className="num">{devs}</span></span>
               {s.evalShown && <span className="num pct">{pct(win)}</span>}

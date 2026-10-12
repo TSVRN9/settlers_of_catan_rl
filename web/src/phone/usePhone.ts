@@ -1,5 +1,6 @@
 // Whether the window is phone-sized: below the width the desktop table was designed down to.
 import { useSyncExternalStore } from "react";
+import type { Frame, View } from "../engine";
 
 /** A win chance as a whole percentage: a chip has no room for "100.0%". */
 export const pct = (w: number | null | undefined) => (w == null ? "–" : `${Math.round(w * 100)}%`);
@@ -12,6 +13,10 @@ const query = (q: string) => {
   return () => useSyncExternalStore(subscribe, snap);
 };
 export const usePhone = query("(max-width: 999px)");
+
+/** The frames up to the position on screen. Seated they are all of them; watching, the worker has played ahead of
+ *  the playhead, and the moves after it must not show. */
+export const seen = (s: { frames: Frame[]; view: View | null }) => (s.view ? s.frames.slice(0, s.view.steps + 1) : s.frames);
 const useShort = query("(max-height: 699px)"), useSlim = query("(max-width: 374px)");
 export interface Metrics { cw: number; ch: number; tileH: number; btnH: number }
 /** Card, build-card and button sizes, stepped down on small phones (spec "Layout"; small.mjs). The same

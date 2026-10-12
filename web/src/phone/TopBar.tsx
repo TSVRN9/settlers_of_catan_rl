@@ -5,6 +5,7 @@ import { setShowHidden, toLineup } from "../game";
 import { roundOf } from "../labels";
 import { hiddenLocked, setEvalShown, useApp } from "../store";
 import { Thrown } from "../views/Tray";
+import { seen } from "./usePhone";
 
 export default function TopBar() {
   const s = useApp();
@@ -23,7 +24,7 @@ export default function TopBar() {
     <div className="ph-top">
       <button className="ph-back" onClick={toLineup} aria-label="Back to the lineup">‹</button>
       <span className="d ph-title">{title}</span>
-      <span className="ph-roll"><Thrown frames={s.frames} at={s.frames.length - 1} live={s.step == null} /></span>
+      <span className="ph-roll"><Thrown frames={seen(s)} at={v.steps} live={s.step == null} /></span>
       <div ref={pop} className="ph-evalwrap">
         <button className={`ph-eval${s.evalShown ? " on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
           Eval<i />

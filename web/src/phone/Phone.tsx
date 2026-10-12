@@ -42,7 +42,7 @@ export default function Phone() {
           hidePieces={s.reveal} dealing={s.reveal} />
       )}
       {!setup && s.map && s.view && s.step == null && <Fx frames={s.frames} at={Math.max(0, Math.min(s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), s.pendingHandoff)} />}
-      {setup ? <div className="ph-setup"><Lineup /></div> : <div className="ph-seat">{s.view && <>{/* Hidden, not removed, during a handoff: the next person must not see this hand, and the board must not move. */}<div style={{ visibility: s.pendingHandoff == null ? undefined : "hidden" }}><YouRow /><Hand /></div><Slab /></>}</div>}
+      {setup ? <div className="ph-setup"><Lineup /></div> : <div className="ph-seat">{s.view && <>{/* Hidden, not removed, during a handoff: the next person must not see this hand, and the board must not move. */}{playing(s) && <div style={{ visibility: s.pendingHandoff == null ? undefined : "hidden" }}><YouRow /><Hand /></div>}<Slab /></>}</div>}
     </div>
   );
 }
