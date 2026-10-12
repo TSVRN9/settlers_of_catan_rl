@@ -4,14 +4,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { BotKind, BotSpec } from "../engine";
 import { deal, resume, start } from "../game";
-import { BOT_INFO, BOT_NAMES, BOT_SHORT, SEAT_NAMES, roundOf } from "../labels";
+import { BOT_INFO, BOT_NAMES, BOT_SHORT, ORDINAL, SEAT_NAMES, roundOf } from "../labels";
 import Picker from "./Picker";
 import Tex from "./Tex";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
 import { set, useApp } from "../store";
 
-const ORDINAL = ["first", "second", "third", "fourth"];
 const MAX = 4, MIN = 2;
 
 /** `human` names the seat the readings are written from. It follows the first person at the
