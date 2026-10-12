@@ -2,7 +2,7 @@
 // Milestone 1 designs the roll, building and someone else's turn; every other position falls back to a list
 // of its legal actions, so a whole game can be played on a phone before those phases get their own design.
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
-import { act, confirmHandoff, live, toLineup } from "../game";
+import { act, confirmHandoff, live } from "../game";
 import Card from "../board/Card";
 import { newsworthy, narrate } from "../coach";
 import { SEAT_FILL } from "../board/palette";
@@ -408,10 +408,12 @@ export default function Slab() {
       case "opening": {
         const h = held(s);
         const kind = h?.kind === "road" ? "road" : "settlement";
+        // Four pieces in the opening, settlement and road twice: the next one shows only if there is one.
+        const down = v.owner.filter((o) => o === s.human).length + v.road_owner.filter((o) => o === s.human).length;
         return (
           <div className="ph-supply cut">
             <span className="now"><PieceIcon kind={kind} seat={s.human} size={64} /></span>
-            <span className="next"><PieceIcon kind={kind === "road" ? "settlement" : "road"} seat={s.human} size={44} /></span>
+            {down + 1 < 4 && <span className="next"><PieceIcon kind={kind === "road" ? "settlement" : "road"} seat={s.human} size={44} /></span>}
           </div>
         );
       }
@@ -427,12 +429,7 @@ export default function Slab() {
           </div>
         );
       case "over":
-        return (
-          <div className="ph-over">
-            <span className="d" style={{ color: SEAT_FILL[v.winner] }}>{SEAT_NAMES[v.winner]} won</span>
-            <button className="ph-btn go cut8" style={{ height: btnH }} onClick={toLineup}>New game</button>
-          </div>
-        );
+        return null;                                   // the result covers the seated block (phone/Result.tsx)
       default:
         return <Actions actions={s.legal} />;
     }

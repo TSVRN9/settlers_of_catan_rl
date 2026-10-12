@@ -2,10 +2,27 @@
 // popover with its two switches: the readings on screen at all, and whether they may use hidden cards.
 import { useEffect, useRef, useState } from "react";
 import { setShowHidden, toLineup } from "../game";
-import { roundOf } from "../labels";
+import { SEAT_NAMES, roundOf } from "../labels";
+import { SEAT_FILL } from "../board/palette";
+import { draft } from "../views/Opening";
+import type { View } from "../engine";
 import { hiddenLocked, setEvalShown, useApp } from "../store";
 import { Thrown } from "../views/Tray";
 import { seen } from "./usePhone";
+
+/** The opening's snake order as squares, seat 0 first (State::new starts at seat 0): out, then back. Placed turns
+ *  fade, the turn being taken is bigger. */
+function Draft({ v }: { v: View }) {
+  const n = v.n, { turn } = draft(v);
+  return (
+    <span className="ph-draft" role="img" aria-label={`Opening: turn ${Math.min(turn + 1, 2 * n)} of ${2 * n}, ${SEAT_NAMES[v.current_player]} placing`}>
+      {Array.from({ length: 2 * n }, (_, i) => (
+        <i key={i} className={i < turn ? "done" : i === turn ? "now" : undefined}
+           style={{ background: SEAT_FILL[i < n ? i : 2 * n - 1 - i], marginRight: i === n - 1 ? 5 : undefined }} />
+      ))}
+    </span>
+  );
+}
 
 export default function TopBar() {
   const s = useApp();
@@ -24,7 +41,7 @@ export default function TopBar() {
     <div className="ph-top">
       <button className="ph-back" onClick={toLineup} aria-label="Back to the lineup">‹</button>
       <span className="d ph-title">{title}</span>
-      <span className="ph-roll"><Thrown frames={seen(s)} at={v.steps} live={s.step == null} /></span>
+      <span className="ph-roll">{v.initial_phase ? <Draft v={v} /> : <Thrown frames={seen(s)} at={v.steps} live={s.step == null} />}</span>
       <div ref={pop} className="ph-evalwrap">
         <button className={`ph-eval${s.evalShown ? " on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
           Eval<i />

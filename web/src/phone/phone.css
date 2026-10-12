@@ -13,7 +13,7 @@
    absolutely positioned box on --board-x/--board-y. */
 .ph .ph-anchor { position: static; transform: none; left: auto; top: auto;
                  width: min(100cqw, 100cqh * 1.04746); aspect-ratio: 511.56 / 488.4; }
-.ph-seat { flex: 0 0 auto; padding: 0 var(--gut) 10px; }
+.ph-seat { flex: 0 0 auto; padding: 0 var(--gut) 10px; position: relative; }
 
 /* ── the lineup ── */
 .ph-word { flex: 0 0 44px; display: flex; align-items: center; padding: 0 var(--gut); font-size: 22px; }
@@ -157,9 +157,7 @@
 .ph-move .tx { font: 500 12.5px/1.35 var(--font-sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ph-move .dl { margin-left: auto; font: 700 11.5px var(--font-sans); white-space: nowrap; }
 .ph-move .dl.up { color: #2e7d4f; } .ph-move .dl.dn { color: #a5452b; }
-.ph-over { display: flex; flex-direction: column; justify-content: space-between; }
-.ph-over .d { font-size: 34px; }
-.ph-over .ph-btn, .ph-bots > .ph-btn { flex: 0 0 auto; }
+.ph-bots > .ph-btn { flex: 0 0 auto; }
 
 /* ── discard ── */
 .ph-discard-slab { display: flex; flex-direction: column; gap: 10px; }
@@ -216,3 +214,25 @@
 .ph-res { border: 0; padding: 0; background: none; min-width: 44px; min-height: 44px; display: flex; justify-content: center; cursor: pointer; }
 .ph-answer .ph-btn { font-size: 13.5px; padding: 0 4px; }
 .ph-row.ph-answer .ph-btn.go { flex: 1.2; }
+
+/* ── the opening ── */
+.ph-draft { display: inline-flex; align-items: center; gap: 3px; }
+.ph-draft i { width: 9px; height: 9px; transition: width var(--t-feel) var(--ease), height var(--t-feel) var(--ease), opacity var(--t-feel) var(--ease); }
+.ph-draft i.now { width: 14px; height: 14px; }
+.ph-draft i.done { opacity: .3; }
+
+/* ── game over ── */
+.ph-result { display: flex; flex-direction: column; gap: 8px; background: var(--color-chalk); }
+.ph-result.cover { position: absolute; inset: 0 var(--gut) 10px; z-index: 2; }
+.ph-result .hd { display: flex; align-items: baseline; gap: 10px; flex: 0 0 auto; }
+.ph-result .win { font-size: 30px; line-height: 1; white-space: nowrap; }
+.ph-result .pl { font: 600 14px var(--font-sans); white-space: nowrap; }
+.ph-result .curve { flex: 1 1 0; min-height: 24px; width: 100%; background: var(--color-paper); }
+.ph-result:not(.cover) .curve { flex: 0 0 56px; }
+.ph-result .rows { display: grid; grid-template-columns: 1fr; flex: 0 0 auto; }
+@media (max-height: 699px) { .ph-result .rows { grid-template-columns: 1fr 1fr; column-gap: 18px; } }
+.ph-result .row { height: 30px; display: flex; align-items: center; gap: 9px; min-width: 0; }
+.ph-result .row .sw { width: 9px; height: 9px; flex: 0 0 9px; }
+.ph-result .row .nm { font: 600 14px var(--font-sans); }
+.ph-result .row .vpc { display: inline-flex; gap: 2px; }
+.ph-result .row .vp { margin-left: auto; font-size: 22px; line-height: 1; }
