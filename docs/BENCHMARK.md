@@ -77,7 +77,9 @@ Cost: 13.7 M weights per seat (55 MB), about 15 ms per decision in Python/Rust a
 DRRL seat runs in 1.3 s against three `rab`. At the paper's reward scale the TD error is ~1e-4, so a single SGD step
 at lr 0.0023 moves a head's estimate by less than f32 resolution: within one game the agent is, in effect, its
 initial weights plus a handful of large-error steps. This is what the paper describes ("alternated among 3 or 4
-actions") and is recorded here rather than corrected.
+actions") and is recorded here rather than corrected. (Measured 2026-10-11, DRRL replication below: over 30 carried
+games the weights move by 4e-5 on average but up to 0.046, and the argmax changes on 43 of 136 fixed decisions,
+because the 72 heads' estimates sit within a hair of each other. The policy drifts; it doesn't learn.)
 
 Results (this engine, DRRL over the heuristic base, fresh weights per game, `evaluate.py --player drrl --opponent
 alpha_beta --games 300 --seed 0`): **24/300 = 8.0% [5.4, 11.6] vs 3x trading AlphaBeta** (the base alone: `rab` alone 76/300 = 25.3% [20.7, 30.5], same seeds).
@@ -128,6 +130,9 @@ as opponents, default mix, 100 games each):
 | `drrl+` over 30 sequential games (from Phase B) | 10.0% [5.5, 17.4] | 6.52 |
 | `drrl+:blcw` over 30 sequential games | 20.0% [9.5, 37.3] | 6.57 |
 | `drrl+:c` over 30 sequential games | 6.7% [1.8, 21.3] | 5.80 |
+
+(2026-10-11: these bridge rows drew their "fresh" weights from four networks, since the bridge's rebuilt games all had
+seed 0, and ran a FAST base against a mostly SMART mix; see the DRRL replication section for the salted, faithful runs.)
 
 Reading: none of the literal readings, alone or together, moves DRRL toward the paper's 45%. `l` alone changes
 nothing measurable because, at the paper's reward scale, neither update rule moves the weights within a game
@@ -200,7 +205,11 @@ DRRL 45% / 56%; the Rust heuristic alone wins 20.0%, so the value net adds about
 this opponent. DRRL reproduced over the real jSettler wins 12.0% [7.0, 19.8] fresh per game and 10.0% [5.5, 17.4]
 with weights kept across the 100 sequential games, against the paper's 45% and 56% (20-30 game numbers, so [25, 67]
 and [38, 73] as intervals); DRRL over the Rust heuristic 9.0%. A stock jSettler seat is a 25% baseline by
-construction, so the DRRL reproduction sits well below a stock jSettler, and the persisted weights do not help. The
+construction, so the DRRL reproduction sits well below a stock jSettler, and the persisted weights do not help.
+(Corrected 2026-10-11, DRRL replication below: the bridge seat is named "extrabot", which JSettlers gives the FAST
+parameters, here against a mostly SMART default mix; the stock brain in that seat wins 13.5% [9.4, 18.9], so DRRL's
+12% is its own base's level, not a loss to it. Every bridge DRRL number before 2026-10-11 also drew its "fresh"
+weights from only four networks, since the bridge's rebuilt games all have seed 0.) The
 thesis MCTS agents through the bridge: UCT 34.0%, BUCT 30.0%, VPI 10.0% (thesis: 9%, 14%, 17% at its 15 s budget;
 see Phase D). Incidents over the 1,000 games: 1 forced turn-end, 1 rejected build, 13 duplicate bank trades (the
 stock brain re-plans on a not-yet-updated hand when the server is slow; the duplicate is refused and play goes on).
@@ -491,7 +500,7 @@ Same protocol as below: `scripts/headline_jsettlers.sh vnets3w40a99x:checkpoints
 | `vnets3w40a99x:v89w`, run 2 (`_b`) | 1000 | 850 | 85.0% | [82.7, 87.1] | 9.73 |
 | **`vnets3w40a99x:v89w`, both** | **2000** | **1699** | **85.0%** | **[83.3, 86.5]** | 9.70 |
 | `vnets3a99x:v89w` (haggling, width 8), confirmation | 1000 | 810 | 81.0% | [78.5, 83.3] | 9.55 |
-| `vnets3a1x:v89w` (haggling, width 8), screen | 1000 | 787 | 78.7% | [76.1, 81.1] | 9.49 |
+| `vnets3a1x:v89w`, screen, **old semantics**: one predicted-refused child at every decision, uncapped (today's `a99`, not a cap of 1) | 1000 | 787 | 78.7% | [76.1, 81.1] | 9.49 |
 | `vnets3x:v89w` (below) | 2000 | 1237 | 61.9% | [59.7, 64.0] | 8.81 |
 
 The rule was fixed before any of these runs: a candidate replaces the headline only on a fresh 1,000 games at least
@@ -545,3 +554,257 @@ The same player against three Python `AlphaBetaPlayer`s (`evaluate.py --opponent
 - **Held out.** v89w was trained without jSettlers and without the port; the loop's gate has the port (`jsrobot`)
   in its pool. From round 92 the loop also puts the port at generation tables (docs/LEVERS.md), so later nets are
   not held out from this family.
+
+## Phase G (2026-10-11): the paper opponents re-checked against their papers
+
+Question: are the benchmark opponents as strong as their papers report? If not, every win rate against them is
+inflated. Each was compared with its paper on the paper's own setting, the causes were looked for in configuration,
+port and bridge, and the fixes re-measured on fresh seeds. Tokens and knobs added: `evaluate.py --opponent jsrobot` /
+`random` (an agent vs 3 jSettler ports / 3 catanatron random players), MCTS tokens `<uct|buct|vpi>[j][N][p<x>][v]`
+(`j` = every non-search decision by the jSettler port, `p<x>` = Dirichlet prior, `v` = most-visited final move),
+`Launch.java -Dbridge.expire=<min>`, `scripts/headline_jsettlers.sh` takes `MIX`, `PORT0` and `BRIDGE_OPTS`.
+
+### Paper vs here, before the fixes
+
+| agent | paper | here (before) |
+|---|---|---|
+| jSettler vs 3 random (thesis) | 90% | port 300/300 = 100% [98.7, 100] (catanatron's `RandomPlayer`) |
+| UCT vs 3 random (thesis) | 72-74% | 300/300 = 100% [98.7, 100] |
+| UCT vs 3 jSettlers (thesis) | 9% | 57.0% [51.3, 62.5] vs 3 ports (300); 34-37% vs 3 real (Phases B, F) |
+| BUCT vs 3 jSettlers (thesis) | 11-14% | 40.0% [34.6, 45.6] vs 3 ports |
+| VPI vs 3 jSettlers (thesis) | 17% | 13.3% [9.9, 17.6] vs 3 ports; 10-11% vs 3 real |
+| DRRL vs 3 jSettlers (Fig. 3b) | 45% (20 games) | 17.0% [13.2, 21.7] vs 3 ports (its `rab` base alone: 24.7% [20.1, 29.8]); 12% vs 3 real (trades mode) |
+| Fig. 3a pool, VPI / BUCT / UCT / jSettler / DRRL | 22 / 26 / 23 / 21 / 31% | 9.8 / 34.0 / 47.2 / 22.5 / 11.5% (`paper_pool_before_prior.json`, seeds 3,000,000+) |
+| port vs 3 stock jSettlers through the bridge | ~25% if neutral | 31.0% [25.9, 36.6] over 287 games, default mix |
+
+UCT and BUCT are far above their published numbers (full observability, Rust-speed playouts, `rab` sub-policies);
+the jSettler port sits on the paper's 21%. VPI and DRRL are below.
+
+### What was wrong, and the fixes
+
+- **VPI and BUCT: the Dirichlet prior.** One pseudo-count per VP value (11 in all) pulls every young node's mean to
+  0.5 and widens its variance, so selection explores almost uniformly. The thesis leaves the prior open. Sweep, vs 3
+  ports, 300 games each, seeds 0-299: VPI 1 → 13.3%, 0.3 → 21.0%, 0.0909 → 26.7%, **0.01 → 35.3% [30.1, 40.9]**,
+  0.001 → 32.3% (saturated); BUCT 1 → 40.0%, 0.0909 → 50.3%, **0.01 → 49.0% [43.4, 54.6]**. The most-visited final
+  move (`v`) changes nothing (VPI 12.0% at prior 1, 35.7% at 0.01). `mcts.rs PRIOR = 0.01` is now the default for
+  `buct` / `vpi` (the arena's `uct` has no prior); `vpip1` / `buctp1` are the old agents.
+- **The thesis' division of labour (`uctj`, `buctj`, `vpij`).** The thesis ran its searches inside JSettlers, with
+  the jSettler's opening, robber, discards and negotiator. Routing those to the port makes every agent weaker: uct
+  57.0 → 38.3%, buct 40.0 → 29.0%, vpi 13.3 → 6.7%. Not adopted: `rab`'s depth-2 sub-policies are the stronger
+  faithful-in-spirit choice.
+- **Real jSettlers: the bridge is neutral.** The port through the bridge against three stock robots all on
+  SMART_STRATEGY (`MIX=smart`): **81/350 = 23.1% [19.0, 27.8]**, an equal share. The earlier 31% at the default mix
+  is consistent with a weaker FAST droid seat, though v89w's runs found droids winning about their share. Robots wait 5 pinger seconds for trade replies in bots-only games
+  (`TRADE_RESPONSE_TIMEOUT_SEC_BOTS_ONLY`); the bridge's reply time was not measured.
+- **Real jSettlers: stalled games.** With four jSettler-type seats, 13-16 of ~364 games (games running at the stop are ambiguous) reach a position
+  nobody can win: every seat hemmed in, dev deck empty, everyone rolling and passing. JSettlers expires a game only
+  after 120 min, so one stalled game blocked a shard for two hours (the "hangs" of Phase F). `Launch.java` now sets
+  `SOCGameListAtServer.GAME_TIME_EXPIRE_MINUTES` from `-Dbridge.expire` (10 in these runs); an expired game writes
+  no result line, so the shard log's `joined` count minus its result lines is the stall count. The vnet runs never
+  stalled (it wins first).
+- **Which jSettlers.** Xenou et al. cite nand.net's JSettlers. The 2.0-2.6.10 changelog has no robot-strategy change
+  (bug fixes; STAC's `setTargetPiece` upstreamed), so 2.6.10 stands in for the 2018 robot. The fork's parameter
+  sets are `ROBOT_PARAMS_DEFAULT` (FAST) and `ROBOT_PARAMS_SMARTER` (SMART), both with trading on. The default
+  server mix put 0 or 1 droid at each of our tables (25% of robot seats).
+- **DRRL: no defect found.** Phase A tried every literal reading; vs 3 ports it scores 17.0% against its own base's
+  24.7%, the trade layer still costing its base. The paper's 45% is 9/20 games ([26, 66]). Closed 2026-10-11 by the
+  DRRL replication section below.
+- The thesis PDF sits behind the library's bot check (Anubis); it was not re-read for this pass.
+
+### After the fixes, fresh seeds
+
+The Fig. 3a pool, same seeds as the "before" row (3,000,000+, 500 games each, `paper_pool_prior.json`):
+
+| agent | before | after | paper |
+|---|---|---|---|
+| DRRL | 11.5% [8.7, 15.0] | 8.2% [5.9, 11.4] | 31% |
+| jSettler (`jsrobot`) | 22.5% [18.7, 26.8] | 20.2% [16.6, 24.5] | 21% |
+| UCT | 47.2% [42.4, 52.1] | 37.5% [32.9, 42.3] | 23% |
+| BUCT | 34.0% [29.5, 38.8] | 38.8% [34.1, 43.6] | 26% |
+| VPI | 9.8% [7.2, 13.1] | **20.2% [16.6, 24.5]** | 22% |
+
+VPI now lands on its paper's number. BUCT and UCT tie, and both stay above theirs. The thesis' order (VPI > BUCT >
+UCT) is still not reproduced: VPI remains the weakest of the three.
+
+### v89w against the strengthened field
+
+The paper pool plus v89w, every 4-subset (15 lineups x 40 games, seeds 4,000,000+, each agent in 400 games; same
+seeds for all three runs):
+
+| token | field | v89w win ratio | file |
+|---|---|---|---|
+| `vnets3w40x` (site bot) | before (`buctp1`, `vpip1`) | 87.8% [84.2, 90.6] | `pool6_v89w_s3w40x_before.json` |
+| `vnets3w40x` | after | **82.5% [78.5, 85.9]** (paired −5.2 ± 4.1) | `pool6_v89w_s3w40x.json` |
+| `vnets3w40a99x` (haggling) | after | **89.0% [85.6, 91.7]** | `pool6_v89w_s3w40a99x.json` |
+
+Real jSettlers with every robot SMART (`MIX=smart BRIDGE_OPTS=-Dbridge.expire=10`, 1,000 fresh games each):
+
+| token | games | wins | win ratio | 95% CI | default-mix headline |
+|---|---|---|---|---|---|
+| `vnets3w40x` (site bot) | 1000 | 722 | **72.2%** | [69.3, 74.9] | 72.5% [69.7, 75.2] |
+| `vnets3w40a99x` (haggling) | 1000 | 846 | **84.6%** | [82.2, 86.7] | 85.0% [83.3, 86.5] |
+
+The site's `buct` / `vpi` bots at the new prior, same protocol as Phase F (`full` mode, default `MIX`, real jSettlers),
+500 fresh games each (`scripts/headline_jsettlers.sh buct buct_prior001 4` with `GAMES_PER=125`, `-Dbridge.expire=10`):
+
+| token | games | wins | win ratio | 95% CI | Phase F (prior 1, 100 games) |
+|---|---|---|---|---|---|
+| `buct` | 500 | 199 | **39.8%** | [35.6, 44.2] | 25.0% [17.5, 34.3] |
+| `vpi` | 500 | 109 | **21.8%** | [18.4, 25.6] | 11.0% [6.3, 18.6] |
+
+No game expired; forced turn-ends: BUCT 2 (1 on our seat), VPI 5 (3 on our seat). As in Phase F, the bridge's rebuilt
+games all have seed 0 and `MctsPlayer` seeds each game's search from it, so every game's playouts start from one of
+four RNG streams (one per seat); the wasm bots don't share this. Not expected to move a win rate; not re-run. Files `docs/benchmark/headline_jsettlers_{buct,vpi}_prior001.txt`.
+
+Neither run stalled (every shard's 100 games finished); forced turn-ends 4 on our seat and 1 on a robot (site bot),
+1 on a robot (haggling). An all-SMART field doesn't move v89w: the default mix's droid was never what it beat. Files
+`docs/benchmark/headline_jsettlers_v89w_s3w40{x,a99x}_smart.txt`, `headline_jsettlers_jsrobot_smart.txt`.
+
+The gate cache stays valid: `vnets3w40c99x` (cap never binding) played the same 128 pool seeds with outcomes identical
+to `vnets3w40x`, and `pm = 0` and the arena's `uct` seat are untouched; test_env passed on the rebuilt engine.
+
+## Non-haggling v89w variants vs real jSettlers (2026-10-11)
+
+Same protocol as the 2026-09-30 headline (default mix, ten 100-game servers, `-Dbridge.expire=10`, `OFFER_LOG` on;
+fresh games). Offers and refusals per turn of our seat are from the offer log; a refusal is an offer after which the
+hand didn't move by the trade (the bridge's spent list also holds taken offers).
+
+| token | games | wins | win ratio | 95% CI | offers / refused per turn (mean, p90, max) |
+|---|---|---|---|---|---|
+| `vnets3w40x` (site bot, 2026-09-30) | 1000 | 725 | 72.5% | [69.7, 75.2] | 5.7 / 5.3 (p90 14, max 62; 2 x 200 logged games) |
+| `vnets3w40n1x` (partner model `base_fn` or needs) | 1000 | 744 | 74.4% | [71.6, 77.0] | 6.6 / 6.2 (p90 16, max 66) |
+| `vnets3w40a2x` (haggling until 2 refusals), screen | 1000 | 759 | 75.9% | [73.2, 78.4] | 7.4 / 7.0 (p90 16, max 60) |
+| `vnets3w40a2x`, confirmation (`_b`, token fixed before it ran; one game expired) | 999 | 748 | 74.9% | [72.1, 77.5] | |
+| **`vnets3w40a2x`, both** | **1999** | **1507** | **75.4%** | **[73.5, 77.2]** | |
+| `vnets3w40a99x` (headline) | 2000 | 1699 | 85.0% | [83.3, 86.5] | ~20 |
+| `vnets3w40c2x` (the site bot from the next wasm build: no offer once 2 were refused this turn) | 1000 | 670 | **67.0%** | [64.0, 69.8] | 1.52 / 1.34 (p90 2, max 2) |
+
+The cap costs the site bot 5.5 points against real jSettlers (67.0% vs 72.5%, z 2.7; the port screen said −9,
+the pool −10) and cuts refused offers from 5.3 to 1.3 a turn. That run: 0 expired games, 6 forced turn-ends on our seat
+and 1 on a robot (`docs/benchmark/headline_jsettlers_v89w_s3w40c2x.txt`).
+
+`a2` over 2,000 games is +2.9 over the site bot (z 1.7): a likely small gain, not a confirmed one. Every token here
+sends a human ~6-7 refused offers a turn, the site bot included. No variant capped at 1-2 refused
+offers a turn passed the pool veto (docs/FINDINGS.md 2026-10-11), so none was run here. Against real jSettlers with
+the client's view of hands, offers `base_fn` predicts accepted are taken 5.5-6.6% of the time and haggles 4.8%: the
+prediction carries almost no information. With full information the port takes 7.9% and 2.7%, so the client's
+estimated hands cost little; real robots take haggles more often than the port does. Files `docs/benchmark/headline_jsettlers_v89w_s3w40{n1,a2}x.txt`.
+
+## DRRL replication (2026-10-11): the paper's Fig. 3b in its own setting, and why 45% / 56% don't come back
+
+Question: can the EUMAS 2018 DRRL results (Fig. 3b: 45% = 9/20 vs three jSettlers, 56% = 17/30 with weights carried
+over 30 games; Fig. 3a: 31% in the five-agent pool) be reproduced? The paper was re-read end to end
+(`docs/papers/xenou2018-drrl.pdf`), with the two papers it builds on: Cuayáhuitl, Keizer & Lemon 2015 (its [4], whose
+"action and game set up" it says it follows; arXiv 1511.08099) and Keizer et al. 2017 (its [13], EACL short paper).
+
+### Deviations and ambiguities, paper vs here
+
+| point | paper | here before today | status |
+|---|---|---|---|
+| base agent | a stock jSettler plays everything but trades | bridge `trades` mode: the stock 2.6.10 brain on the bridge seat | faithful |
+| base and opponent parameters | opponents named jSettler5/6/7; JSettlers gives every robot not named "robot …" `ROBOT_PARAMS_DEFAULT` (FAST), so all four seats were FAST unless a DB said otherwise | bridge seat ("extrabot 1") FAST against the default mix (~2.25 SMART + 0.75 FAST built-ins) | **deviation, fixed**: `MIX=fast` (all four FAST); all-SMART also run |
+| JSettlers version | nand.net JSettlers, version not stated (current in 2018: 1.2.00 / 1.2.01) | 2.6.10 | the 1.2.01 → 2.6.10 changelog lists no robot-strategy change (bot timeouts, bot-only game options from 2.0.00, STAC's `setTargetPiece`); 1.2 had no bots-only mode, which fits the paper's 30-90 minute games |
+| trade environment | nand.net jSettlers: DRRL's 10-40 offers a game were "significantly more" than its opponents' | stock 2.6.10: 6.3 offers per seat per game, 8.6 player trades a game (tally below) | consistent. Not the STAC environment of [4] (~150 offers per agent per game, ~280 trades per game, a random trader wins 0.01%), where trading dominates |
+| action set | 70 offers (1-2 cards for 1) + accept + reject; a counter-offer is "a new offer" | same 70; counters only under `c` | measured |
+| offers addressed to | unspecified ([4]: to everyone) | everyone | — |
+| state | "161 integers"; Table 1 lists 5+49+54+80+1+1+1 = 191 (161 = [4]'s 160 + VP) | 154 (engine's 19 tiles, 72 edges) + Q-hat | ambiguous in the paper; immaterial (no learning, below) |
+| reward | Eq. 7, k = 0.01; [4]: offers wgp 0.1 / wtp 0.01 with a positive TotalPoints term | Eq. 7 as printed (negative) | faithful to the printed text |
+| update | Algorithm 1: every head regressed toward the same target r + γQ̂ | same | **structural**: a shared target cannot separate actions; all Q^i drift toward one V(s). Steelman `q`: only the chosen head moves |
+| learning signal | lr 0.0023, k 0.01 | same | most TD errors are ~1e-4, but the heads' estimates are so close that over 30 carried games the argmax still changes on a third of fixed decisions (mechanism, below): drift, not learning. Steelman `k`: k = 1 |
+| network / normalisation | LSTM per action, "soft-max" to [0, 1] | LSTM cell per action, sigmoid | argmax is the same under any monotone squashing; `b`, `w` measured (Phase A) |
+| exploration | none | none | faithful |
+| experiences per game | at most ~70 | 24-36 offers + replies | close |
+| replies | "rarely accepting ... rather counter-offer" | argmax over accept/reject; accepts ~30% | `r` (never accept) and `c` (counters) measured |
+| refused offers | unspecified | the stock brain re-asks while the plan lacks resources; ≤ 3 DRRL offers a turn, no repeats in a turn | — |
+| timing | DRRL ~56 s per game, games 30-90 min | ms per decision | slow replies time out (robots wait 5 s in bots-only games), which reads as "rarely accepting" = `r` |
+| pre-training | none for DRRL; the 53.36% "pre-trained DRL" is [4]'s agent (500k experiences, STAC) | none | — |
+| weights across games | fresh (45%), kept over 30 games (56%) | `drrl+` (10 series x 30 games); steelman `drrl+:qk` (6 x 100) | measured |
+| sample | 20 and 30 games | ≥ 200 per screen, 500 confirmations | 9/20 has Wilson [25.8, 65.8]; 17/30 [39.2, 72.6] |
+
+### What was run
+
+Setting: the real-jSettlers bridge in `trades` mode (the stock 2.6.10 brain plays everything; the token decides only
+offers and replies), `MIX=fast` (all four seats FAST, the reading of the paper's opponents above), `-Dbridge.expire=10`,
+fresh games, two to ten 100-game shards at once. The result line now carries per-seat offers, player trades and bank
+trades (`BridgeClient.treat`), so trade volume is measured, not assumed. New tokens: `stock` (every hook to the stock
+brain: the comparator), `ptrade<k>[u]` (up to k uniformly random paper offers a turn, `u` one-for-one only, every reply
+rejected; `ptrade0` = no player trading), `drrl:r` (DRRL offers, every reply rejected), `drrl:q` / `drrl:k` (chosen
+head only / k = 1), `drrlj` / `drrljs` (DRRL over the FAST / SMART jSettler port on the arena). The bridge now salts
+each game's seed (`jsettlers_server.py`): before, every rebuilt game had seed 0, so "fresh" DRRL weights were one of
+four networks for the whole series. Every DRRL row below was re-run after the fix; the pre-fix numbers follow the table.
+
+Selection rule, written before any result (scratch plan, 15:05): the stock seat at ≥ 500 games is the comparator; a
+configuration replicates Fig. 3b only if it is both consistent with the paper's count (Fisher p > 0.05) and
+significantly above the stock seat (the paper's claim that DRRL beats the jSettler); among DRRL variants the best
+200-game screen gets a fresh 500-game confirmation, and the confirmation is the reported number; trade-volume and
+bounding policies are reported as measured, never selected.
+
+| series (MIX=fast, trades mode) | games | win ratio | 95% CI | offers / player trades per game (ours) | vs stock seat |
+|---|---|---|---|---|---|
+| `stock` (comparator) | 499 | 22.2% | [18.8, 26.1] | 6.3 / 4.3 | — |
+| `ptrade0` (no player trading) | 200 | 22.5% | [17.3, 28.8] | 0 / 0 | z 0.1 |
+| `drrl` (the agent as implemented) | 200 | **11.0%** | [7.4, 16.1] | 24.9 / 8.1 | z −3.4 |
+| `drrl:c` (counter-offers) | 200 | 12.5% | [8.6, 17.8] | 37.7 / 5.5 | z −2.9 |
+| `drrl:r` (never accept), screen | 199 | 22.6% | [17.4, 28.9] | 3.4 / 0.2 | z 0.1 |
+| **`drrl:r`, confirmation (selected)** | 500 | **16.0%** | [13.0, 19.5] | 3.5 / 0.2 | z −2.5 |
+| `drrl+`, paper scale, 10 series x 30 games | 300 | **12.3%** | [9.1, 16.5] | 24.0 / 7.7 | z −3.5 |
+| — games 16-30 of each series | 150 | 13.3% | | | paper 9/15: Fisher p = 0.0001 |
+| `drrl+:qk` steelman, 6 series x 100 games | 600 | 9.8% | [7.7, 12.5] | 25.8 / 9.4 | z −5.7 |
+| `ptrade2` (random offers, ≤ 2 a turn) | 199 | 13.1% | [9.1, 18.5] | 34.1 / 5.9 | z −2.8 |
+| `ptrade9u` (random one-for-one offers, ≤ 9 a turn) | 200 | 15.5% | [11.1, 21.2] | 142.8 / 13.0 | z −2.0 |
+| bound: `vnets3w40c2x:v89w` (net-judged, capped at 2 refusals) | 200 | 28.0% | [22.2, 34.6] | 24.2 / 4.5 | z 1.6 |
+| bound: `vnets3w40x:v89w` (net-judged) | 199 | 30.7% | [24.7, 37.4] | 96.9 / 6.7 | z 2.3 |
+| bound: `vnets3w40a99x:v89w` (net-judged, haggling) | 500 | **42.6%** | [38.3, 47.0] | 332.6 / 9.3 | z 6.9 |
+
+The other reading of the opponents, every seat SMART (`MIX=smart`, bridge base pinned with `-Dbridge.strategy=smart`;
+all-jSettler SMART tables stall often, so these stopped short of 200, with 8-11 games expired each): `stock` 54/189 =
+28.6% [22.6, 35.4], `drrl` 24/183 = 13.1% [9.0, 18.8] (z −3.7), `drrl:r` 34/168 = 20.2% [14.9, 26.9] (z −1.8). Same
+picture: DRRL below its stock base, not above it.
+
+Superseded by the salted re-runs (four networks only, same setting): `drrl` 15.5% [11.1, 21.2], `drrl:c` 10.5%,
+`drrl:r` 23.0% screen / 16.6% [13.6, 20.1] confirmation, `drrl+:qk` 6 x 200 games 11.8% [10.1, 13.8]. Default mix,
+same tally: the stock seat wins 13.5% [9.4, 18.9] (200 games) while the built-in FAST droids at its tables win 22.4%
+per seat and the SMART robots 30.9%. Learning curves (pooled by game index within each series): `drrl+:qk` 13, 7, 11,
+8% over games 1-25, 26-50, 51-75, 76-100; `drrl+` 11% then 13% over games 1-15, 16-30; the best of the ten 30-game
+series won 8/30 (paper: 17/30). Expired games (joined minus results): 1 each in `stock`, `ptrade2`, the salted `drrl:r` screen and `vnets3w40x`; none in the other FAST runs.
+
+The site's `drrl` bot (DRRL over the heuristic search, `full` mode, default mix, the Phase F protocol) re-measured with
+the salt: 38/500 = 7.6% [5.6, 10.3] (Phase F: 5.0% of 100 on four networks; 0 expired, 7 forced turn-ends, 3 on our
+seat; `docs/benchmark/headline_jsettlers_drrl_full_salted.txt`).
+
+Mechanism, on the arena (30 sequential games vs 3x `rab`, weights carried, decisions recorded in game 1 and replayed
+through the initial and the final network): paper scale, the weights move by 4e-5 on average and at most 0.046, and the
+argmax changes on 43 of 136 decisions; `qk`, at most 0.23 and 61 of 136. The heads' estimates sit so close together
+that small shared-target steps reorder them: the policy drifts game to game without improving, which is what the
+win-rate curves show.
+
+Fig. 3a on the Rust arena with DRRL over the jSettler port, the paper's base (`tournament.py`, same seeds 3,000,000+
+as Phase G, 500 games each): over the SMART port `drrljs` 6.0% [4.1, 8.8] against its own base `jsrobot`'s 19.2% in the
+same pool (`drrljs:r` 12.0% vs 18.0%); over the FAST port `drrlj` 4.2% [2.7, 6.7] vs `jsdroid` 13.8%. The paper had DRRL
+31% above jSettler 21%. The rest of the pool is confounded as Phase G found (UCT 34-43%, BUCT 38-45%, VPI 19-22% here;
+paper 23 / 26 / 22%). Files `docs/benchmark/paper_pool_drrl{js,jsr,j}.json`.
+
+### Verdict
+
+Not replicated, at any sample size that can tell. Every DRRL configuration, including the paper's literal one in its
+own setting (stock jSettler base, three FAST jSettlers, weights fresh or carried), wins 10-16% where a stock jSettler in
+the same seat wins 22% (all-SMART: 13-20% against 29%), and 45% (9/20) and 17/30 are rejected at p ≤ 0.003. The
+variants that trade (`drrl`, `drrl:c`, `drrl+`, `qk`) lose 10-12 points to their base through accepts and offers the
+jSettlers take. Carrying weights over 30 or 100 games changes the policy but not the win rate. Never accepting (`r`)
+removes the loss on a 200-game screen but not on the 500-game confirmation (pooled, salted: 125/699 = 17.9%), and it
+cuts DRRL's offers to ~3.5 a game. At 0.2 player trades a game it barely trades, so its gap to the stock seat is not a
+trading effect; screen and confirmation disagree at z ≈ 2, and the confirmation is the number the rule reports.
+The behaviour the paper describes (10-40 offers a game, rarely accepting) is `ptrade2`'s, which wins 13.1%.
+
+What it would take, as effect sizes (evidence, not proof). In this environment the stock negotiator is worth nothing
+over not trading (22.2% vs 22.5%), and random offers at the paper's volume cost 7-9 points: jSettlers accept the
+trades that serve their own plan. The strongest trade layer we have, v89w's net-judged trade search over the same FAST
+base, wins 28.0% at the paper's offer volume (24 offers a game) and 42.6% only with 333 offers a game. That bound is
+not a ceiling (v89w judges trades for its own plan while the jSettler builds for another), but it is a 2-ply search
+over a value net trained on millions of positions. Reaching 45% with DRRL means trading better than that search at a
+tenth of its offer volume, from at most ~70 updates a game whose shared target cannot tell one action from another.
+We find no reading of the paper under which that is plausible. Its numbers come from 20 and 30 games, one series each.
+The 2018 code is not available, and the STAC JSettlers environment of its reference [4], where trading dominates
+(4.5 trades a turn, a random trader wins 0.01%), could not be run (third-party code). The FAST reading of the opponents
+is an inference from 2.6.10's `getRobotParameters` and the opponents' names, not from the 2018 code; the all-SMART runs
+are the other reading.

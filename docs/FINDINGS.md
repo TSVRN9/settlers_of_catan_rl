@@ -3518,7 +3518,8 @@ replies are exactly `base_fn`, haggling alone gained +8.9 points.
 - **What haggling changes in a game** (four v89w bots at a table, 32 sim games): offers per turn mean 1.1 (median 0,
   p90 3) for `vnets3x`, 13.0 (median 8, p90 34, max 98) haggling, 2.5 (p90 5) capped at 2; completed trades per game
   11.3, 24.9, 11.7. A human at a site table answers every offer.
-- **Real jSettlers, haggling at width 8 (`vnets3a99x`):** screen 787/1000 = 78.7% [76.1, 81.1], fresh confirmation
+- **Real jSettlers, haggling at width 8 (`vnets3a99x`):** screen 787/1000 = 78.7% [76.1, 81.1] (run under the token's
+  first semantics, `vnets3a1x` = one predicted-refused child at every decision, uncapped; not a cap of 1), fresh confirmation
   810/1000 = 81.0% [78.5, 83.3], mean 9.55 VP; both 1597/2000 = 79.9% [78.0, 81.6], against `vnets3x`'s 61.9%
   [59.7, 64.0] (`docs/benchmark/headline_jsettlers_v89w_s3a{1,99}x.txt`). Not disruption: the stock robots' illegal
   bank trades come from one or two looping games per run as before, robot forced turn-ends 1-2 per run as before,
@@ -3544,3 +3545,167 @@ replies are exactly `base_fn`, haggling alone gained +8.9 points.
 - Residual effect of partners that don't answer with `base_fn` (CLAUDE.md flags that assumption): haggling still
   adds ~7 points on top of width 40 on the pool, where net seats and the jSettler port accept offers `base_fn` says
   they refuse.
+
+## 2026-10-11: the paper opponents re-checked; VPI and BUCT were crippled by their prior
+
+Details and tables: docs/BENCHMARK.md Phase G.
+
+- **VPI and BUCT ran with a prior that made them explore almost uniformly.** One Dirichlet pseudo-count per VP value
+  (11 in all) puts every young node at a mean of 0.5 with a wide variance. At 0.01 per value VPI goes from 13.3% to
+  35.3% against 3 jSettler ports (300 games each), BUCT from 40.0% to 49.0%. On fresh seeds in the paper's own pool
+  VPI goes from 9.8% to 20.2% (paper: 22%). `mcts.rs PRIOR = 0.01` is the default now.
+- **UCT and BUCT were never weak.** UCT wins 57% against 3 ports where the thesis reports 9% against 3 jSettlers. The
+  thesis' own division of labour (the jSettler doing everything but the search) makes every MCTS agent 11-19 points
+  weaker; `rab`'s sub-policies stay.
+- **The real-jSettlers bridge is neutral.** The port through it scores 23.1% [19.0, 27.8] (350 games) against three
+  stock SMART robots, an equal share. The 31% seen before is consistent with the default mix's FAST droid seat.
+- **Stalled games.** 13-16 of ~364 all-jSettler games reached a position nobody can win; the server only expired them
+  after 120 minutes, which was the bridge "hang" of 2026-09-08. `-Dbridge.expire` fixes it.
+- **DRRL stays well below its paper** (17.0% vs 3 ports against its base's 24.7%; paper 45% over 20 games). No defect
+  found beyond the Phase A readings.
+- **The strengthened field costs v89w's site bot 5.2 ± 4.1 points** in the paper pool (87.8% → 82.5%, paired, same
+  seeds). The haggling token scores 89.0% on the same seeds.
+- **Real jSettlers, every robot SMART (1,000 fresh games each):** `vnets3w40x` 72.2% [69.3, 74.9], `vnets3w40a99x`
+  84.6% [82.2, 86.7], the same as the default mix (72.5%, 85.0%). The stock field was already at full strength for
+  v89w; only the MCTS agents were under-strength.
+- **The site's `buct` / `vpi` bots change at the next wasm build** (`mcts.rs PRIOR`).
+
+## 2026-10-11: where haggling's gain comes from, and what a refused-offer cap costs
+
+No retraining; v89w throughout. `OFFER_LOG=<dir>` (value_net.py) logs every post-roll decision of a `vnets` seat, so
+a turn's next line shows whether an offer was taken or refused. New tokens: `c<m>` = no offer at all once m offers
+were refused this turn (trade.rs `cap`); `n1` / `n2` = partner model `base_fn` or a needs model / the needs model
+alone (trade.rs `needs_accept`: the partner takes a trade that brings its nearest piece closer in rolls, the shape of
+the jSettler's considerOffer2 and of a human trading for what they build).
+
+- **Haggling's gain is the number of attempts, not better offers.** Full-information games vs 3 jSettler ports
+  (1,000 games, seeds 6000+): the ports take 7.9% of the offers `base_fn` predicts they accept and 2.7% of the
+  haggles. Against 3 Python AlphaBeta (100 games) the same offers are taken 97.6% and 0%, and haggling is worth
+  nothing (94% vs 95%). Against partners `base_fn` can't predict, the bot finds the few acceptable trades by trying
+  many: 20 offers a turn haggling, 3.5 more completed trades a game.
+- **The site bot spams too.** `vnets3w40x` makes 4.9 offers a turn against the ports (median 3, p90 13, max 59; 92%
+  refused), against AlphaBeta 1.16. FINDINGS 2026-09-30's "3.0 a turn" was four v89w bots, which answer like
+  `base_fn`. Its offers predicted acceptable are not capped, so against people who refuse more than `base_fn`
+  predicts it walks down its 40-offer shortlist (the 8-offer turn seen on the site).
+- **A cap of 1-2 refused offers costs 5-11 points against jSettler-type partners** (vs 3 ports, 1,000 games each,
+  same seeds): w40x 76.4% (4.5 refused a turn), `a99` 84.6% (19.5), `n1` uncapped 79.9% (5.3); capped at 2:
+  `a2c2` 71.7%, `a2c2n1` 71.5%, `c2n1` 70.5%, `c2` 67.4% (1.3-1.9 refused a turn); capped at 1: `c1n1` 67.0%,
+  `a1c1` 66.0%; `c2n2` (needs only) 65.8%. The needs model doubles the acceptance of its predictions (22.9% vs
+  13.1%) but predicts too few offers to be worth it alone.
+- **Pool, haggling capped but predicted-acceptable offers uncapped** (vs `vnets3w40x`, 4,000 games, seed 97200007):
+  `a1` +1.30, `a2` +1.68, both accepted. Every class of opponent ties or gains.
+- **Pool, every offer capped** (vs `vnets3w40x`, same seeds, SPRT rejects at 1,000): `c2` −10.3, `c2n1` −11.8,
+  `c1n1` −19.9, `a2c2` −21.1, `a2c2n1` −21.6, `a1c1` −28.4. A haggle that opens the turn burns the capped slots, and
+  even without haggling the pool's net and port seats refuse enough for a cap of 2 to bind. The selection rule fixed
+  before these gates were read (best capped variant on the port screen, vetoed below −2 on the pool) vetoes every
+  capped variant, so none went to the bridge.
+- **The needs model as a second opinion, uncapped (`vnets3w40n1x`): pool +1.80 at 4,000 games, accepted** (cvnet
+  +2.6 z 3.1, jsrobot +1.7, rab3 +1.3), 79.9% vs 76.4% against 3 ports. It makes more refused offers, not fewer.
+- **Real jSettlers (1,000 fresh games each, default mix):** `vnets3w40n1x` 74.4% [71.6, 77.0], `vnets3w40a2x` 75.9%
+  [73.2, 78.4] (a pre-registered fresh 1,000: 74.9%; both 1507/1999 = 75.4% [73.5, 77.2], +2.9 over the site bot,
+  z 1.7), against the site bot's 72.5% [69.7, 75.2] and haggling's 85.0%. Neither difference from the site bot
+  is significant on its own (z 1.0, 1.7); both agree in sign with the pool and the port screen. On the bridge the site
+  bot makes 5.7 offers a turn with 5.3 refused (p90 14, max 62), `a2` 7.4 with 7.0 refused; real jSettlers take
+  5.5-6.6% of the offers `base_fn` predicts and 4.8% of the haggles (ports with full information: 7.9%, 2.7%). The
+  client's estimated hands are not where the bridge's larger haggling gain (+12.5 vs +8.2 against ports) comes from;
+  real robots taking more haggles is.
+- **Conclusion.** Haggling's +12.5 against real jSettlers is brute force against partners whose acceptance `base_fn`
+  can't predict, and every playable form of it (a cap on refused offers) loses that and more. The site bot is already
+  not playable in the FYI's sense: ~6 refused offers a turn against anyone who doesn't answer like `base_fn`. A cap is
+  needed for people whatever it costs (`c2`: −10 on the pool, −9 against ports); the strength lever is a partner
+  model good enough to find the acceptable trade in one or two tries, which neither `base_fn` nor the needs model is.
+
+## 2026-10-11: the EUMAS 2018 DRRL results do not replicate; the site's capped bot and new-prior MCTS bots measured
+
+Details, tables and the deviation list: docs/BENCHMARK.md "DRRL replication" and the 2026-10-11 rows of the
+non-haggling and Phase G sections.
+
+- **Site bots, real jSettlers.** The capped site bot `vnets3w40c2x:v89w` (no offer once 2 were refused this turn) wins
+  670/1000 = 67.0% [64.0, 69.8] (uncapped 72.5%; 1.5 offers and 1.3 refusals a turn). At `mcts.rs PRIOR = 0.01`,
+  `buct` 39.8% [35.6, 44.2] and `vpi` 21.8% [18.4, 25.6] over 500 games each (were 25.0% and 11.0% of 100 at prior 1).
+  The site's `drrl` (over the heuristic search, full mode), with fresh weights per game at last: 7.6% [5.6, 10.3] of 500.
+- **The bridge seat plays FAST.** JSettlers gives any robot not named "robot …" the FAST parameters, so in `trades`
+  mode our seat was a FAST jSettler against a mostly SMART default mix: the stock brain there wins 13.5%. Old bridge
+  DRRL numbers (12%) were their base's level, not a loss to it. The paper's opponents (jSettler5/6/7) would be FAST
+  too; `MIX=fast` is the faithful setting (stock seat 22.2% [18.8, 26.1], 499 games).
+- **The bridge rebuilt every game with seed 0**, so DRRL's "fresh" weights were one of four networks per series.
+  `jsettlers_server.py` now salts the seed per game (port, game index); every DRRL row was re-run after the fix.
+- **DRRL in its own setting: 10-16% against the stock seat's 22%.** Literal agent 11.0%, counters 12.5%, never
+  accepting 16.0% (500-game confirmation of the selected screen); carried weights at the paper's scale 12.3% over ten
+  30-game series (best series 8/30; paper 17/30), the learnable steelman `qk` 9.8% over six 100-game series, flat.
+  Fig. 3b's 9/20 and 17/30 are rejected at p ≤ 0.003. Fig. 3a with DRRL over the jSettler port: 4-6% against its
+  base's 14-19% (paper 31% vs 21%).
+- **Why.** In this environment trading is worth nothing to a jSettler (stock 22.2% vs no player trades 22.5%), random
+  offers at the paper's volume cost 7-9 points, and Algorithm 1's shared target cannot separate actions: carried weights
+  drift (the argmax changes on a third of fixed decisions over 30 games) without improving. The strongest trade layer we
+  have (v89w's net-judged trade search over the same FAST base) wins 28.0% at the paper's 24 offers a game and 42.6%
+  only at 333 a game. 45% from DRRL would need better trade judgment than that search at a tenth of the volume.
+- **Not runnable:** the STAC JSettlers of the paper's reference [4] (third-party code), where trading dominates (~280
+  trades a game, a random trader wins 0.01%); and the 2018 code.
+
+## 2026-10-12: win chances from public information (public.rs), and what hiding costs
+
+The site's `evaluate(seat)` encodes from that seat's perspective, so it reads that seat's hand, dev cards and
+actual_vp: shown to anyone else, a bar jumps when its seat draws a VP card. `State::public_evals` (wasm
+`evaluate_all_public(viewer, k)`, -1 = spectator) keeps the viewer's own reading, which already sees only the
+others' public features, and averages every other seat's over `k` deals of what the viewer can't see. Resources come
+from the JSettlers client's view replayed from `State.events` (jsettler/view.rs): known counts per type plus an
+unknown count, and the unseen pool is the cards in hands minus every known count. Dev cards come from the 25-card deck
+minus all played cards and the viewer's own. A seat's actual_vp is its public vp plus the VP cards it is dealt. A
+deal that would give a seat 10 VP is redrawn, since that seat would already have won on its turn. The deals are seeded
+by the game seed only. The same position always reads the same, and consecutive positions share their random
+numbers, so a bar moves only when the public position does. Each distinct (hand, devs) of a seat is forwarded once.
+
+Measured over 200 finished games (`public::tests::measure`, seeds 10000-10199) with heuristic / jsrobot / jsdroid
+lineups rotated round the table: 106,765 positions, v89w, every position.
+
+- **The arithmetic always adds up.** None of the 213,530 calls had an inconsistent pool, and no known count ever
+  exceeded the true count. The client view's known counts are a lower bound by construction (a discard or a hidden
+  steal turns the hand to unknown, and a loss larger than the known count comes out of unknown). The fallback (keep
+  hand sizes, forget types) never ran. Known lossiness, not fixed: a monopoly's victims with none of the resource emit
+  no event, so a deal can give them that resource. Offers aren't read.
+- **K = 4.** Mean |public(K) − public(256)| over every seat and step, spectator, against an independently seeded
+  reference: K=4 0.43 pp [0.40, 0.47], 8 0.30, 16 0.22, 32 0.16. Share of readings more than 2 pp off: 4.9%, 2.5%,
+  1.3%, 0.5%.
+- **Cost in wasm** (Node, built pkg, 3,946 positions of 6 bot games): `evaluate_all_public(-1, 4)` 0.28 ms mean
+  (p95 0.49, max 1.0), against `evaluate_all` 0.13 ms. As seat 0 it is 0.22 ms; K=8 0.42, K=16 0.62 (p95 1.5), K=32
+  0.88 (p95 2.5). It is cheap because most opponent hands are fully known: every gain is typed, so only steals,
+  discards and dev cards are hidden, and many deals repeat. Native: 0.21 ms per K=4 call.
+- **Accuracy costs almost nothing** (eventual winner, paired by position, bootstrap over games). Spectator vs full
+  information, all seats: Brier 0.1567 vs 0.1561, +0.0006 [−0.0004, +0.0015]; log loss 0.4770 vs 0.4742, +0.0028
+  [+0.0001, +0.0056]. Seat 0 as viewer, scoring seats 1-3 against full information on the same seats: Brier +0.0008
+  [−0.0003, +0.0018], log loss +0.0035 [+0.0001, +0.0074]. At K=256 the Brier cost is +0.0005 [−0.0004, +0.0014],
+  so K=4's sampling noise adds nothing measurable.
+- **The leak is closed.** Counterfactual over 1,581 non-winning dev-card buys, with the drawn card swapped VP ↔ other
+  in the same position: the full reading of the buyer moves 2.38 pp [2.17, 2.64], and the public reading (spectator
+  and viewer) moves exactly 0. This is also the unit test's assertion. Observed: the full reading jumps +1.02 pp after
+  a VP card vs +0.12 after another card, a gap of 0.90 pp [0.51, 1.32] (1.08 [0.61, 1.59] on the seats a seat-0
+  viewer scores). Public shows no gap: spectator −0.05 pp [−0.37, 0.29], viewer −0.06 [−0.40, 0.26].
+
+**On the site** (2026-10-12): every frame carries both readings; the public one is shown unless the viewer turns on
+"Hidden information" in the spine, which swaps them (game.ts `setShowHidden`). The site deals K=16, not 4 (worker.ts
+`PUBLIC_K`): 0.62 ms buys a quarter of the >2 pp outliers. The viewer is the one person seated, or a spectator when
+nobody is, or when two people share the screen, so neither's hand colours the other's readings; the switch is
+hidden while such a game is live. `attribution(seat)` has the same leak (it reads the mover's own hand), so the
+whole-game view shows "what the net is leaning on" for anyone else's move only with the switch on.
+Still on full information, switch or not: dice luck (computed only once the game is over), and everything built on
+search values (the advice heat, Every legal move, the move ladder, `rankedAt`): the search plays every seat with its
+real hand, and a determinized search costs K searches. `deciding.ts`'s FLOOR, margin and dwell were measured on
+full-information curves; they now run on public curves by default (1.8 pp apart on average, 8.6 at most in one
+watched game), not re-measured.
+
+Reproduce: `cd catan_engine && cargo test --release --no-default-features --features wasm --lib public::tests::measure
+-- --ignored --nocapture` (PUBLIC_GAMES, PUBLIC_K, PUBLIC_THREADS; ~75 s on 6 threads). The wasm cost is
+`node web/tools/smoke.mjs`'s last line.
+
+## 2026-10-12: how big a game record is, for share links
+
+`web/tools/record_size.mjs`, 40 games of four heuristic-search bots and 12 of vnet / heuristic / jsrobot / jsdroid,
+all finished. A record (`Engine::record()`) is the seed plus every action and its random outcome, and the seed alone
+does not reproduce the outcomes: a record with them stripped fails to replay. Games run 414 and 429 steps at the
+median (p90 ~580, max 715). The JSON record is 14-15 KB at the median (max 25 KB); deflated and base64url-encoded,
+1.3-1.4 KB (max 2.0 KB). A compact form, each action as its index in that step's `legal_actions()` plus one byte per
+dice roll, steal, dev-card draw or discard, is 525-542 bytes at the median (max 859), and 376-388 characters as a
+deflated base64url link (max 598). Legal lists reach ~250 actions (offers), so an index is sometimes two varint bytes.
+The phone spec (docs/superpowers/specs/2026-10-11-mobile-ui-design.md) uses the compact form. A person who trades a
+lot plays longer games than these bots; unmeasured.

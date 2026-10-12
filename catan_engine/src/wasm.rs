@@ -16,13 +16,15 @@ use crate::encode::Layout;
 use crate::map::Map;
 use crate::state::{Prompt, State};
 use crate::trade::Eval;
-use crate::valuenet::{sigmoid, ValueNet, N_HEADS};
+use crate::valuenet::{ValueNet, N_HEADS};
 
 static LAYOUT: OnceLock<Arc<Layout>> = OnceLock::new();
-/// The "vnet" bot's trade search (`vnets3w40x`): the best 3 acceptable offers out of the 40 scored exactly are root
-/// children. No haggling (`a<m>`): a human at the table would answer ~13 offers a turn (docs/FINDINGS.md 2026-09-30).
+/// The "vnet" bot's trade search (`vnets3w40c2x`): the best 3 acceptable offers out of the 40 scored exactly are root
+/// children, and none at all once 2 were refused this turn. No haggling (`a<m>`), and the cap even though it costs
+/// strength: repeated offers only pay against bot partners and a human would answer ~5 a turn (docs/FINDINGS.md 2026-10-11).
 const VNET_TRADE_SEARCH: usize = 3;
 const VNET_OFFER_TOP: usize = 40;
+const VNET_OFFER_CAP: usize = 2;
 
 fn layout() -> Arc<Layout> {
     LAYOUT.get_or_init(|| Arc::new(serde_json::from_str(include_str!("base_layout.json")).expect("base_layout.json"))).clone()
@@ -51,6 +53,10 @@ fn prompt_name(p: Prompt) -> &'static str {
         Prompt::DecideTrade => "DECIDE_TRADE",
         Prompt::DecideAcceptees => "DECIDE_ACCEPTEES",
     }
+}
+
+fn reading_json((win, vps, turns_left): crate::public::Reading) -> Value {
+    json!({"win": win, "vps": vps, "turns_left": turns_left})
 }
 
 fn err(e: impl std::fmt::Display) -> JsValue {
@@ -280,7 +286,7 @@ impl Engine {
             }
             "vnet" => {
                 let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
-                let d = self.state.decide_vnet_trades(net, &layout(), depth.max(1), 20000, VNET_TRADE_SEARCH, 0, VNET_OFFER_TOP);
+                let d = self.state.decide_vnet_trades(net, &layout(), depth.max(1), 20000, VNET_TRADE_SEARCH, 0, VNET_OFFER_TOP, VNET_OFFER_CAP, 0);
                 (d.action, d.value, d.root, d.leaves)
             }
             _ => return Err(err(format!("unknown bot {bot}"))),
@@ -290,18 +296,11 @@ impl Engine {
         Ok(json!({"action": canon_json(action), "value": if value.is_finite() { json!(value) } else { Value::Null }, "root": root, "leaves": leaves}).to_string())
     }
 
-    /// The value net's forecast from `seat`'s perspective: {win, vps: [4], turns_left}.
+    /// The value net's forecast from `seat`'s perspective: {win, vps: [4], turns_left}. Reads that seat's hidden cards
+    /// (the "show hidden information" reading); `evaluate_all_public` is what a viewer could know.
     pub fn evaluate(&self, seat: usize) -> Result<String, JsValue> {
         let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
-        let s = &self.state;
-        let w = s.winner();
-        if w >= 0 {
-            let vps: Vec<f64> = (0..s.n).map(|i| s.players[(seat + i) % s.n].actual_vp as f64).collect();
-            return Ok(json!({"win": (w as usize == seat) as u8 as f64, "vps": vps, "turns_left": 0.0}).to_string());
-        }
-        let h = net.heads(&s.encoded(seat, &layout()));
-        let vps: Vec<f64> = (1..5).map(|i| (h[i] as f64) * 10.0).collect();
-        Ok(json!({"win": sigmoid(h[0] as f64), "vps": vps, "turns_left": (h[5] as f64) * 100.0}).to_string())
+        Ok(reading_json(self.state.reading(net, &layout(), seat)).to_string())
     }
 
     /// evaluate() for every seat, as an array.
@@ -312,6 +311,20 @@ impl Engine {
             out.push(v);
         }
         Ok(Value::Array(out).to_string())
+    }
+
+    /// `evaluate_all`'s shape from public information only (public.rs): `viewer` (-1 = a spectator) reads its own seat
+    /// exactly and every other seat averaged over `k` deals of the cards it cannot see. The same position always gives
+    /// the same reading (the deals are seeded by the game seed), so a live game and its review agree.
+    pub fn evaluate_all_public(&self, viewer: i32, k: u32) -> Result<String, JsValue> {
+        let net = self.net.as_ref().ok_or_else(|| err("load_net() first"))?;
+        let viewer = match viewer {
+            v if v < 0 => None,
+            v if (v as usize) < self.n => Some(v as usize),
+            v => return Err(err(format!("no seat {v}"))),
+        };
+        let (r, _) = self.state.public_evals(net, &layout(), viewer, k as usize, self.seed as u64 ^ 0x9B1C_5EA7_0000_0001);
+        Ok(Value::Array(r.into_iter().map(reading_json).collect()).to_string())
     }
 
     /// Leave-one-group-out attribution of P(win) for `seat`: [{group, seat, delta}] (seat is relative to

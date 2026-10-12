@@ -470,9 +470,9 @@ impl PyState {
     /// The `vnets<k>x` player's decision (valuenet.rs decide_vnet_trades): depth-`depth` search with the net at the
     /// leaves (CPU) and, at PlayTurn, the best `k` acceptable offers as root children. Replies and confirmations
     /// are `trade_action`'s.
-    #[pyo3(signature = (net, layout, depth=2, k=3, any=0, top=0))]
-    fn decide_vnet_trades(&self, net: &PyValueNet, layout: &PyLayout, depth: u32, k: usize, any: usize, top: usize) -> Option<Canon> {
-        self.inner.decide_vnet_trades(&net.inner, &layout.inner, depth, 20000, k, any, top).action.map(to_canon)
+    #[pyo3(signature = (net, layout, depth=2, k=3, any=0, top=0, cap=0, pm=0))]
+    fn decide_vnet_trades(&self, net: &PyValueNet, layout: &PyLayout, depth: u32, k: usize, any: usize, top: usize, cap: usize, pm: usize) -> Option<Canon> {
+        self.inner.decide_vnet_trades(&net.inner, &layout.inner, depth, 20000, k, any, top, cap, pm).action.map(to_canon)
     }
 
     /// playable_actions minus domestic trade offers (what the searches branch over).
@@ -535,6 +535,8 @@ struct PyArena {
     park_trades: bool, // park the value-net seats' offer decisions with the leaves (ArenaGame::park_trades)
     offer_top: usize,    // ... from a shortlist this long (0: TOP_K)
     offer_any: usize,    // ... plus up to this many the partner model predicts refused (trade.rs offer_children_from)
+    offer_cap: usize,    // ... and none once this many were refused this turn (0: no cap)
+    offer_pm: usize,     // ... partner model: 0 base_fn, 1 base_fn or needs, 2 needs (trade.rs)
     trade_search: usize, // the value-net seats search up to this many acceptable offers as root children (ArenaGame::trade_search)
     sample_all: bool, // outcome rows from every seat at a sampled tick (Recorder::all_seats)
     luck: bool, // record each outcome row's dice luck (arena.rs luck_per_row); needs the hidden-width leaf_npu
@@ -554,8 +556,8 @@ struct PyArena {
 #[pymethods]
 impl PyArena {
     #[new]
-    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![], roll_park=false, roll_npu=None, pool_npu=vec![], leaf_npu=None, leaf_net=None, luck=false, sample_all=false, roll_net_depth=1, roll_crn=false, trade_search=0, park_trades=false, roll_trades=0, offer_any=0, offer_top=0))]
-    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>, roll_park: bool, roll_npu: Option<(String, String, usize, usize)>, pool_npu: Vec<(String, String, usize, usize)>, leaf_npu: Option<(String, String, usize, usize)>, leaf_net: Option<&PyValueNet>, luck: bool, sample_all: bool, roll_net_depth: u32, roll_crn: bool, trade_search: usize, park_trades: bool, roll_trades: usize, offer_any: usize, offer_top: usize) -> PyResult<PyArena> {
+    #[pyo3(signature = (layout, depth=2, sample_p=0.0, rank_p=0.0, sib_p=0.0, keep_log=false, rab_depth=2, max_leaves=0, ts_p=0.0, own_turn=false, roll_p=0.0, roll_m=4, roll_depth=2, roll_net=None, roll_net_own=false, tau=0.0, prune_net=None, prune_k=0, trade_net=None, trade_net_partners=false, mcts_net=None, mcts_sims=0, mcts_c=0.1, mcts_max=false, mcts_roll=0, mcts_lambda=1.0, mcts_roll_depth1=false, pool_nets=vec![], roll_park=false, roll_npu=None, pool_npu=vec![], leaf_npu=None, leaf_net=None, luck=false, sample_all=false, roll_net_depth=1, roll_crn=false, trade_search=0, park_trades=false, roll_trades=0, offer_any=0, offer_top=0, offer_cap=0, offer_pm=0))]
+    fn new(layout: &PyLayout, depth: u32, sample_p: f64, rank_p: f64, sib_p: f64, keep_log: bool, rab_depth: u32, max_leaves: usize, ts_p: f64, own_turn: bool, roll_p: f64, roll_m: u32, roll_depth: u32, roll_net: Option<&PyValueNet>, roll_net_own: bool, tau: f64, prune_net: Option<&PyValueNet>, prune_k: usize, trade_net: Option<&PyValueNet>, trade_net_partners: bool, mcts_net: Option<&PyValueNet>, mcts_sims: u32, mcts_c: f64, mcts_max: bool, mcts_roll: u32, mcts_lambda: f64, mcts_roll_depth1: bool, pool_nets: Vec<PyRef<PyValueNet>>, roll_park: bool, roll_npu: Option<(String, String, usize, usize)>, pool_npu: Vec<(String, String, usize, usize)>, leaf_npu: Option<(String, String, usize, usize)>, leaf_net: Option<&PyValueNet>, luck: bool, sample_all: bool, roll_net_depth: u32, roll_crn: bool, trade_search: usize, park_trades: bool, roll_trades: usize, offer_any: usize, offer_top: usize, offer_cap: usize, offer_pm: usize) -> PyResult<PyArena> {
         let pool_npu = pool_npu.iter().map(|(lib, xml, rows, width)| crate::npu::NpuNet::new(lib, xml, *rows, *width).map_err(PyValueError::new_err)).collect::<PyResult<Vec<_>>>()?;
         // roll_npu = (libopenvino_c path, hidden-layers IR .xml, its static rows, its input width)
         let roll_npu = match roll_npu {
@@ -574,7 +576,7 @@ impl PyArena {
         if luck && !leaf_npu.as_ref().is_some_and(|n| n.width() != layout.inner.n_features) {
             return Err(PyValueError::new_err("luck needs the hidden-width leaf_npu (its rows ride the leaf pass)"));
         }
-        Ok(PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, roll_park, roll_npu, pool_npu, leaf_npu, leaf_net, roll_net_depth, roll_crn, roll_trades, trade_search, offer_any, offer_top, park_trades, sample_all, luck, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0, 0.0) })
+        Ok(PyArena { layout: layout.inner.clone(), depth, rab_depth, max_leaves, ts_p, own_turn, roll_p, roll_m, roll_depth, roll_net: roll_net.map(|n| n.inner.clone()), roll_net_own, roll_park, roll_npu, pool_npu, leaf_npu, leaf_net, roll_net_depth, roll_crn, roll_trades, trade_search, offer_any, offer_top, offer_cap, offer_pm, park_trades, sample_all, luck, tau, prune: prune_net.map(|n| (n.inner.clone(), prune_k)), trade_net: trade_net.map(|n| (n.inner.clone(), trade_net_partners)), mcts: mcts_net.map(|n| (n.inner.clone(), mcts_sims, mcts_c, mcts_max, mcts_roll, mcts_lambda, mcts_roll_depth1)), pool_nets: Arc::new(pool_nets.iter().map(|n| n.inner.clone()).collect()), sample_p, rank_p, sib_p, keep_log, games: vec![], last_ms: (0.0, 0.0, 0.0) })
     }
 
     /// seats[i]: 0 = value net, 1 = Rust AlphaBeta, for the player at seat index i.
@@ -633,6 +635,8 @@ impl PyArena {
             trade_skip: false,
             trade_search: self.trade_search,
             offer_any: self.offer_any,
+            offer_cap: self.offer_cap,
+            offer_pm: self.offer_pm,
             offer_top: self.offer_top,
             park_trades: self.park_trades,
             luck_net: if self.luck && self.leaf_npu.as_ref().is_some_and(|n| n.width() != self.layout.n_features) { self.leaf_net.clone() } else { None },
@@ -1277,6 +1281,12 @@ impl PyJsettler {
     fn decide(&mut self, state: &PyState) -> Option<Canon> {
         self.inner.decide(&state.inner).map(to_canon)
     }
+
+    /// SOCRobotParameters.tradeFlag: false = the port makes no offers (DRRL over the port decides them instead)
+    #[setter]
+    fn set_trade(&mut self, on: bool) {
+        self.inner.trade = on;
+    }
 }
 
 #[pyclass(name = "Drrl")]
@@ -1326,14 +1336,21 @@ struct PyMcts {
 #[pymethods]
 impl PyMcts {
     #[new]
-    #[pyo3(signature = (policy, sims=None, cutoff=10, seed=0))]
-    fn new(policy: &str, sims: Option<u32>, cutoff: u32, seed: u64) -> PyResult<PyMcts> {
+    #[pyo3(signature = (policy, sims=None, cutoff=10, seed=0, prior=crate::mcts::PRIOR, robust=false))]
+    fn new(policy: &str, sims: Option<u32>, cutoff: u32, seed: u64, prior: f64, robust: bool) -> PyResult<PyMcts> {
         let p = Policy::parse(policy).ok_or_else(|| PyValueError::new_err(format!("unknown policy {policy}")))?;
-        Ok(PyMcts { inner: Mcts::new(p, sims.unwrap_or(p.default_sims()), cutoff, seed) })
+        let mut inner = Mcts::new(p, sims.unwrap_or(p.default_sims()), cutoff, seed);
+        (inner.prior, inner.robust) = (prior, robust);
+        Ok(PyMcts { inner })
     }
 
     fn decide(&mut self, state: &PyState) -> Option<Canon> {
         self.inner.decide(&state.inner).map(to_canon)
+    }
+
+    /// The search alone (None off its prompt): for a player whose other decisions come from elsewhere (value_net `uctj`).
+    fn search(&mut self, state: &PyState) -> Option<Canon> {
+        self.inner.search(&state.inner).map(to_canon)
     }
 
     fn playouts(&self) -> u64 {

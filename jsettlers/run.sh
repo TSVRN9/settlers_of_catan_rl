@@ -12,7 +12,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 JS=$ROOT/vendor/JSettlers2/jsettlers-2.6.10
 JAR=$JS/JSettlersServer-2.6.10.jar
-OUT=$ROOT/jsettlers/out
+OUT=${BRIDGE_OUT:-$ROOT/jsettlers/out}   # BRIDGE_OUT: build/run another class dir while a run uses the default
 
 case "${1:-}" in
   build)

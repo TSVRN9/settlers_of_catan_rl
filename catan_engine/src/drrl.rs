@@ -39,6 +39,11 @@ pub struct Variant {
     pub literal: bool,
     pub counter: bool,
     pub tf_init: bool,
+    /// `q`: only the chosen head moves (standard Q-learning); Algorithm 1 moves every head toward one shared
+    /// target, which cannot separate actions (docs/BENCHMARK.md, DRRL replication)
+    pub chosen_only: bool,
+    /// `k`: reward scale k = 1 instead of 0.01, so a TD step moves the estimates (the steelman's learnable scale)
+    pub big_k: bool,
 }
 
 impl Variant {
@@ -50,7 +55,9 @@ impl Variant {
                 'l' => v.literal = true,
                 'c' => v.counter = true,
                 'w' => v.tf_init = true,
-                _ => return Err(format!("unknown drrl variant flag {ch:?} (b, l, c, w)")),
+                'q' => v.chosen_only = true,
+                'k' => v.big_k = true,
+                _ => return Err(format!("unknown drrl variant flag {ch:?} (b, l, c, w, q, k)")),
             }
         }
         Ok(v)
@@ -58,9 +65,9 @@ impl Variant {
 }
 
 /// Eq. 7: the VP gained this step times k, else minus the VP held times k.
-fn reward(vp: i32, prev_vp: i32) -> f32 {
+fn reward(vp: i32, prev_vp: i32, k: f32) -> f32 {
     let dvp = vp - prev_vp;
-    if dvp > 0 { dvp as f32 * K } else { -(vp as f32) * K }
+    if dvp > 0 { dvp as f32 * k } else { -(vp as f32) * k }
 }
 
 /// The paper's 70 offers: each 1- or 2-card bundle for one card of a resource it does not contain.
@@ -183,6 +190,7 @@ struct Prev {
     x: Vec<f32>,
     vp: i32,
     caches: Vec<Cache>,
+    chosen: usize,
 }
 
 pub struct Drrl {
@@ -241,6 +249,10 @@ impl Drrl {
                 return sigma * z as f32;
             }
         }
+    }
+
+    fn k(&self) -> f32 {
+        if self.variant.big_k { 1.0 } else { K }
     }
 
     /// Keep the weights, forget the game: the paper's "train across a series of games" setting.
@@ -339,7 +351,7 @@ impl Drrl {
         if self.variant.literal {
             // Algorithm 1 as written: every head at s_t is regressed toward r_t + gamma * Q-hat_{t-1}
             // (the fed-back estimate is the bootstrap), then re-evaluated before the argmax (line 11)
-            let target = reward(vp, self.prev_vp.unwrap_or(vp)) + GAMMA * self.q_hat;
+            let target = reward(vp, self.prev_vp.unwrap_or(vp), self.k()) + GAMMA * self.q_hat;
             for (cell, k) in self.cells.iter_mut().zip(caches.iter_mut()) {
                 cell.sgd(hidden, &x, k, target);
                 let again = cell.forward_from(hidden, &x, &k.h_prev, &k.c_prev);
@@ -348,16 +360,18 @@ impl Drrl {
                 *k = again;
             }
         } else if let Some(prev) = self.prev.take() {
-            let target = reward(vp, prev.vp) + GAMMA * legal.iter().map(|&i| caches[i].q).fold(f32::MIN, f32::max);
-            for (cell, k) in self.cells.iter_mut().zip(&prev.caches) {
-                cell.sgd(hidden, &prev.x, k, target);
+            let target = reward(vp, prev.vp, self.k()) + GAMMA * legal.iter().map(|&i| caches[i].q).fold(f32::MIN, f32::max);
+            for (i, (cell, k)) in self.cells.iter_mut().zip(&prev.caches).enumerate() {
+                if !self.variant.chosen_only || i == prev.chosen {
+                    cell.sgd(hidden, &prev.x, k, target);
+                }
             }
         }
         self.prev_vp = Some(vp);
         let best = legal.iter().copied().fold(legal[0], |b, i| if caches[i].q > caches[b].q { i } else { b });
         self.q_hat = caches[best].q;
         if !self.variant.literal {
-            self.prev = Some(Prev { x, vp, caches });
+            self.prev = Some(Prev { x, vp, caches, chosen: best });
         }
         self.steps += 1;
         match (s.prompt, best) {
@@ -463,7 +477,9 @@ mod tests {
     fn drrl_variants_step() {
         assert!(Variant::parse("x").is_err());
         let v = Variant::parse("blcw").unwrap();
-        assert_eq!(v, Variant { basis: true, literal: true, counter: true, tf_init: true });
+        assert_eq!(v, Variant { basis: true, literal: true, counter: true, tf_init: true, ..Variant::default() });
+        let qk = Variant::parse("qk").unwrap();
+        assert!(qk.chosen_only && qk.big_k && !qk.counter);
         let layout: Layout = serde_json::from_str(include_str!("base_layout.json")).unwrap();
         let mut s = State::new(Arc::new(Map::generate(5, &layout)), 4, 1, 10);
         while s.initial_phase {

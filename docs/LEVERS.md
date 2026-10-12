@@ -35,6 +35,15 @@ pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than th
 - **Resignation in self-play** (speed): the leader past 0.9 swings a median 0.008 over the last ~31% of a game. Needs a
   calibrated net and a logged false-resign rate first.
 
+- **Trade acceptance prediction against partners that don't answer with `base_fn`** (2026-10-11, FINDINGS "where
+  haggling's gain comes from"): the jSettler takes 7.9% of the offers `base_fn` predicts it accepts, so every trade
+  against it costs ~13 tries. A predictor good enough to find them in 1-2 tries is the only way a playable bot
+  (refused offers capped) keeps haggling's +8-12 points. Tried: the needs model `n<m>` (trade.rs `needs_accept`),
+  22.9% acceptance alone but too few predicted offers; `n1` uncapped (base_fn or needs) 79.9% vs 76.4% for w40x
+  against 3 ports, pool +1.80 at 4,000 (accepted). Haggling capped at 1-2 refusals a turn with predicted offers
+  uncapped (`a1`/`a2` at w40): pool +1.30 / +1.68 at 4,000 (accepted). Real jSettlers, 1,000 each: `n1` 74.4%, `a2`
+  75.9% vs w40x 72.5% (neither significant alone). Open: `a2n1` together; rank offers by P(accept) x gain at the root
+  (needs a P that isn't fitted to one partner).
 - **Trading playouts** (`--roll-trades 3`, `ROLL_TRADES` in run_d2.sh, built 2026-09-27): the label policy trades like
   the player. Rounds 85-88 on it: +0.12, +0.23, +0.45, −0.26, all ties vs v80; kept on in the loop.
 - **Depth-2 label cost (2026-09-27 arithmetic):** rollouts are ~96% of generation. Round 77 made 91k rollout rows in
@@ -70,6 +79,7 @@ pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than th
 | PPO self-play (M1-M3) | Plateaued ~80% vs weak bots, lost 98% to ValueFunctionPlayer | FINDINGS M3; `legacy/ppo/` |
 | Loosening the gate | Rounds 63-71 average slightly negative: no hidden small gains | FINDINGS "The pooled loop" |
 | jSettler-port seats at generation tables (rounds 92-94, `OPP=pool,pool GEN_POOL=jsrobot x3,jsdroid`) | −0.05, +0.68 (llr 2.31), −1.50 vs v89w; v93 vs real jSettlers 62.6% = v89w's 61.9% over 2,000. Labels stay self-play rollouts, so only positions change, and a window of only port rounds regresses | FINDINGS 2026-09-29 |
+| Refused-offer cap per turn (`c<m>`, 2026-10-11) as a strength lever | Costs 5-11 points vs 3 jSettler ports (`c2` 67.4%, `a2c2` 71.7% vs w40x 76.4%) and 10-28 on the pool (`c2` −10.3, `a2c2` −21.1, `a1c1` −28.4: haggles burn the slots). Kept as the playability knob, not a strength one | FINDINGS 2026-10-11 |
 | Weight soup across rounds (v85-v88, uniform) | +0.21% at the 12k cap vs v80; the rounds' +0.x ties were noise | FINDINGS 2026-09-28 |
 
 ## Speed: open

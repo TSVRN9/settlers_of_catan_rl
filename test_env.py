@@ -1198,6 +1198,37 @@ def test_domestic_trading_matches_between_engines():
     print("  domestic trading: offer / replies / confirm / spent-offer rule; python == rust: ok")
 
 
+def test_drrl_replication_tokens():
+    """docs/BENCHMARK.md DRRL replication: `ptrade` draws from exactly the paper's 70 offers (20 one-for-one) when the
+    hand affords all of them, and the bridge's per-game salt gives DRRL a fresh network each game (seed 0 alone gave
+    one network per seat)."""
+    from catanatron.game import Game
+    from catanatron.models.enums import RESOURCES
+    from catanatron.models.player import Color, RandomPlayer
+    from value_net import PaperTrader, make_player
+
+    game = Game([RandomPlayer(c) for c in (Color.RED, Color.BLUE, Color.ORANGE, Color.WHITE)], seed=7)
+    while game.state.current_prompt.value != "PLAY_TURN" or not game.state.player_state[f"P{game.state.current_player_index}_HAS_ROLLED"]:
+        game.play_tick()
+    pi = game.state.current_player_index
+    for r in RESOURCES:
+        game.state.player_state[f"P{pi}_{r}_IN_HAND"] = 2
+    from catanatron.models.actions import generate_playable_actions
+
+    acts = generate_playable_actions(game.state)
+    assert len(PaperTrader(Color.RED, 1).paper_offers(acts)) == 70
+    assert len(PaperTrader(Color.RED, 1, one_for_one=True).paper_offers(acts)) == 20
+
+    def init(salt):
+        p = make_player("drrl", game.state.colors[pi])
+        p.seed_salt = salt
+        p.decide(game, acts)
+        return p.drrl.weights()[:50]
+
+    assert init(0) == init(0) and init(1) != init(2), "the salt must change DRRL's initial network"
+    print("  DRRL replication tokens: 70 / 20 paper offers, salted inits differ: ok")
+
+
 if __name__ == "__main__":
     test_encoder_matches_reference()
     test_extra_features_match_catanatron_reference()
@@ -1225,4 +1256,5 @@ if __name__ == "__main__":
     test_bank_shortage_pays_a_sole_recipient()
     test_win_only_on_own_turn()
     test_domestic_trading_matches_between_engines()
+    test_drrl_replication_tokens()
     print("test_env.py: all invariants passed")

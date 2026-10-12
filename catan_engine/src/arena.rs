@@ -143,7 +143,7 @@ impl Recorder {
                 acts[0]
             } else if let Some(net) = self.net.as_ref().filter(|_| !self.net_own || s.current_player == p0) {
                 if self.net_depth == 2 {
-                    s.decide_vnet_trades(net, layout, 2, 0, self.trades, self.trades_any, self.trades_top).action.unwrap_or(acts[0])
+                    s.decide_vnet_trades(net, layout, 2, 0, self.trades, self.trades_any, self.trades_top, 0, 0).action.unwrap_or(acts[0])
                 } else {
                     s.decide_net_rollout(net, layout, &mut self.net_buf).unwrap_or(acts[0])
                 }
@@ -222,7 +222,7 @@ impl Recorder {
                     }
                     TradePark::Exact(base0, short) => {
                         self.tree_bufs.push(rows);
-                        t.extra = Some(t.s.offer_children_from(base0, &short, rest, &Eval::NetVsHeuristic(&net, layout), self.trades, self.trades_any));
+                        t.extra = Some(t.s.offer_children_from(base0, &short, rest, &Eval::NetVsHeuristic(&net, layout), self.trades, self.trades_any, 0, 0));
                     }
                 }
             }
@@ -264,7 +264,7 @@ impl Recorder {
                             }
                             vec![]
                         } else if self.trades > 0 && t.s.prompt == Prompt::PlayTurn {
-                            t.s.offer_children(&Eval::NetVsHeuristic(net, layout), self.trades, self.trades_any, self.trades_top)
+                            t.s.offer_children(&Eval::NetVsHeuristic(net, layout), self.trades, self.trades_any, self.trades_top, 0, 0)
                         } else {
                             vec![]
                         };
@@ -571,6 +571,8 @@ pub struct ArenaGame {
     pub park_trades: bool,       // park the offer stages at all (pays only with ~1,000 games in flight; slower at ~100)
     pub offer_top: usize,        // with trade_search: the shortlist length (0: TOP_K; trade.rs offer_shortlist_top)
     pub offer_any: usize,        // with trade_search: up to this many offers the partner model predicts refused (trade.rs)
+    pub offer_cap: usize,        // with trade_search: no offers once this many were refused this turn (0: none; trade.rs)
+    pub offer_pm: usize,         // with trade_search: the partner model (trade.rs offer_children_from `pm`)
     pub trade_search: usize,     // > 0: up to this many acceptable offers become root children of the search instead
                                  // of being decided 1-ply (trades inside the search, docs/PLAN-plateau.md #2)
     /// Dice luck per seat (docs/RESEARCH-SIGNAL.md §3.2, backgammon's luck adjustment): at every roll the 11 post-roll
@@ -628,7 +630,7 @@ impl ArenaGame {
                 // the best acceptable offers searched against the ordinary moves (trade.rs offer_children_from)
                 let net = self.trade_net.as_ref().unwrap().0.clone();
                 let p = self.state.current_player;
-                let extra = self.state.offer_children_from(base0, &short, rest, &Eval::NetVsHeuristic(&*net, layout), self.trade_search, self.offer_any);
+                let extra = self.state.offer_children_from(base0, &short, rest, &Eval::NetVsHeuristic(&*net, layout), self.trade_search, self.offer_any, self.offer_cap, self.offer_pm);
                 if extra.is_empty() {
                     self.trade_skip = true;
                     return false;

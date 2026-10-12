@@ -14,6 +14,7 @@ the search is reimplemented.
 """
 
 import math
+import os
 import re
 
 import numpy as np
@@ -58,6 +59,7 @@ for _i, _name in enumerate(FEATURES):
 
 _NET_CACHE = {}
 _threads_capped = False
+OFFER_LOG = os.environ.get("OFFER_LOG")  # a directory: ValueNetPlayer._log_offer writes per-process JSON lines there
 
 try:
     import catan_engine  # noqa: F401  (build: uv run maturin develop --release -m catan_engine/Cargo.toml)
@@ -309,9 +311,10 @@ class ValueNetPlayer(AlphaBetaPlayer):
 
     Construct one per game (the encoder's map template is per-map)."""
 
-    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000, own_turn=False, trade_search=0, offer_any=0, offer_top=0):
+    def __init__(self, color, net_path, depth=2, prunning=False, max_leaves=20000, own_turn=False, trade_search=0, offer_any=0, offer_top=0, offer_cap=0, offer_pm=0):
         super().__init__(color, depth=depth, prunning=prunning)
-        self.offer_any, self.offer_top = offer_any, offer_top
+        self.offer_any, self.offer_top, self.offer_cap = offer_any, offer_top, offer_cap  # cap: no offers once this many were refused this turn
+        self.offer_pm = offer_pm  # partner model: 0 base_fn, 1 base_fn or needs, 2 needs (trade.rs offer_children_from)
         self.trade_search = trade_search  # > 0: vnets<k> (arena.VNET s<k>): this many acceptable offers searched as root children
         self.use_value_function = True
         self.net_path = net_path
@@ -336,7 +339,9 @@ class ValueNetPlayer(AlphaBetaPlayer):
 
             rs, ctx = rb.rust_state(game)
             if game.state.current_prompt.value not in ("DECIDE_TRADE", "DECIDE_ACCEPTEES"):
-                a = rs.decide_vnet_trades(rust_value_net(self.net_path), rb.layout(ctx), self.depth, self.trade_search, self.offer_any, self.offer_top)
+                a = rs.decide_vnet_trades(rust_value_net(self.net_path), rb.layout(ctx), self.depth, self.trade_search, self.offer_any, self.offer_top, *([self.offer_cap, self.offer_pm] if self.offer_cap or self.offer_pm else []))
+                if OFFER_LOG and game.state.current_prompt.value == "PLAY_TURN":
+                    self._log_offer(game, rs, ctx, a)
                 return without_offers(playable_actions)[0] if a is None else rb.uncanon(a, self.color, ctx, list(game.state.colors), state=game.state)
         a = trade_action(game, self.color, self.net_path)
         if a is not None:
@@ -345,6 +350,29 @@ class ValueNetPlayer(AlphaBetaPlayer):
         if USE_RUST:
             return self.decide_rust(game, playable_actions)
         return self.decide_python(game, playable_actions)
+
+    def _log_offer(self, game, rs, ctx, a):
+        """OFFER_LOG=<dir>: one JSON line per post-roll decision of this seat (turn, offers refused so far, the offer
+        made if any, and whether the same search without haggling makes it too). A turn's next line tells whether the
+        offer was refused (`spent` + 1) or taken (docs/FINDINGS.md 2026-10-11, where haggling's gain comes from)."""
+        import json
+
+        s = game.state
+        if not s.current_player_index == list(s.colors).index(self.color) or not s.player_state[f"P{s.current_player_index}_HAS_ROLLED"]:
+            return
+        from catanatron.state_functions import get_player_freqdeck
+
+        # the hand too: the bridge's spent list holds every offer made this turn, taken or not
+        rec = {"turn": s.num_turns, "spent": len(s.spent_offers), "offer": None, "hand": list(get_player_freqdeck(s, self.color))}
+        if a is not None and a[0] == "OFFER_TRADE":
+            import rust_bridge as rb
+
+            rec["offer"] = rb.unpack_bundle(a[1]) + rb.unpack_bundle(a[2])  # give, get in catanatron resource order
+            if self.offer_any:
+                plain = rs.decide_vnet_trades(rust_value_net(self.net_path), rb.layout(ctx), self.depth, self.trade_search, 0, self.offer_top)
+                rec["plain"] = plain == a
+        with open(os.path.join(OFFER_LOG, f"{os.getpid()}.jsonl"), "a") as f:
+            f.write(json.dumps(rec) + "\n")
 
     def decide_rust(self, game, playable_actions):
         """Same tree as decide_python, expanded and encoded by catan_engine
@@ -490,21 +518,27 @@ class DrrlPlayer(Player):
         self.variant = variant
         self.bridge = False
         self.drrl = None
+        self.base = None  # drrlj / drrljs: the jSettler port (its own offers off) plays everything but trades
+        self.seed_salt = 0  # the bridge sets a per-game salt (its rebuilt games all have seed 0)
 
     def reset_state(self):
         if self.persist and self.drrl is not None:
             self.drrl.new_game()
         else:
             self.drrl = None
+        if self.base is not None:
+            self.base.reset_state()
 
     def decide(self, game, playable_actions):
         import catan_engine
         import rust_bridge as rb
 
+        if "r" in self.variant and game.state.current_prompt.value == "DECIDE_TRADE":  # r: never accept, reply without the net
+            return next(a for a in playable_actions if a.action_type == ActionType.REJECT_TRADE)
         colors = list(game.state.colors)
         if self.drrl is None:
-            seed = (int(game.seed or 0) * 4 + colors.index(self.color)) & (2**63 - 1)
-            self.drrl = catan_engine.Drrl(seed, self.hidden or catan_engine.DRRL_N_IN, self.variant)
+            seed = (int(game.seed or 0) * 4 + colors.index(self.color) + (self.seed_salt << 2)) & (2**63 - 1)
+            self.drrl = catan_engine.Drrl(seed, self.hidden or catan_engine.DRRL_N_IN, self.variant.replace("r", ""))
         rs, ctx = rb.rust_state(game)
         a = self.drrl.trade_action(rs)
         if a is None and game.state.current_prompt.value == "DECIDE_ACCEPTEES":
@@ -514,6 +548,8 @@ class DrrlPlayer(Player):
         playable_actions = without_offers(playable_actions)
         if len(playable_actions) == 1:
             return playable_actions[0]
+        if self.base is not None:
+            return self.base.decide(game, playable_actions)
         best = rs.decide_heuristic(self.depth)
         return playable_actions[0] if best is None else rb.uncanon(best, self.color, ctx, colors, state=game.state)
 
@@ -521,14 +557,48 @@ class DrrlPlayer(Player):
         return f"DrrlPlayer:{self.color.value}(steps={self.drrl.steps() if self.drrl else 0})"
 
 
+class PaperTrader(Player):
+    """Bounding trade policy for the DRRL replication (docs/BENCHMARK.md, DRRL replication; bridge `trades` mode, where
+    only offers and replies reach the token): up to `per_turn` offers a turn drawn uniformly from the paper's 70
+    (1-2 cards for one card of another resource) that the hand affords, every incoming offer rejected. Token
+    `ptrade<k>`, `ptrade<k>u` one-for-one offers only; `ptrade0` never trades with players. Outside trade hooks it ends the turn (unused in trades mode)."""
+
+    def __init__(self, color, per_turn=0, one_for_one=False):
+        super().__init__(color)
+        self.per_turn, self.one_for_one = per_turn, one_for_one  # u: only the paper's 20 one-for-one offers
+        self.turn, self.made = None, 0
+        import random
+
+        self.rng = random.Random()
+
+    def paper_offers(self, playable_actions):
+        """The paper's offers among the legal ones: 1-2 cards (1 under `u`) for one card of a resource not given."""
+        top = 1 if self.one_for_one else 2
+        return [a for a in playable_actions if a.action_type == ActionType.OFFER_TRADE and 1 <= sum(a.value[:5]) <= top and sum(a.value[5:]) == 1 and not any(a.value[i] and a.value[5 + i] for i in range(5))]
+
+    def decide(self, game, playable_actions):
+        s = game.state
+        if s.current_prompt.value == "DECIDE_TRADE":
+            return next(a for a in playable_actions if a.action_type == ActionType.REJECT_TRADE)
+        if s.num_turns != self.turn:
+            self.turn, self.made = s.num_turns, 0
+        paper = self.paper_offers(playable_actions)
+        if paper and self.made < self.per_turn:
+            self.made += 1
+            return self.rng.choice(paper)
+        rest = without_offers(playable_actions)
+        return next((a for a in rest if a.action_type == ActionType.END_TURN), rest[0])
+
+
 class JsettlerPlayer(Player):
     """The JSettlers 2.6.10 robot ported to the engine (catan_engine jsettler/): `jsrobot` = SMART_STRATEGY
     ("robot N"), `jsdroid` = FAST_STRATEGY ("droid N"), `jsettler` = jsrobot. The trackers see every piece in
     order through the game's action records (or, on the bridge, the client's piece log in `pieces_log`)."""
 
-    def __init__(self, color, smart=True):
+    def __init__(self, color, smart=True, trade=True):
         super().__init__(color)
         self.smart = smart
+        self.trade = trade  # False: the port makes no offers (tradeFlag 0), e.g. under DRRL
         self.bot = None
         self.rs = None  # a Rust State kept in step with the game (its piece and event logs feed the port)
         self.ctx = None
@@ -556,6 +626,7 @@ class JsettlerPlayer(Player):
             rs, ctx = rb.rust_state(game)
             if self.bot is None:
                 self.bot = catan_engine.Jsettler(rs, pn, self.smart, (int(game.seed or 0) * 4 + pn) & (2**63 - 1), self.node_js)
+                self.bot.trade = self.trade
             for kind, who, coord, gs in self.pieces_log[self.seen:]:
                 self.bot.observe_js(kind, who, coord, gs < 15)
             self.seen = len(self.pieces_log)
@@ -583,6 +654,7 @@ class JsettlerPlayer(Player):
             pn = colors.index(self.color)
             self.rs, self.ctx = rb.rust_state(game)
             self.bot = catan_engine.Jsettler(self.rs, pn, self.smart, (int(game.seed or 0) * 4 + pn) & (2**63 - 1), None)
+            self.bot.trade = self.trade
             # pieces placed before the mirror started: earlier seats' opening moves
             for rec in recs:
                 a = rec.action
@@ -606,10 +678,11 @@ class MctsPlayer(Player):
     heuristic search and the 1-ply trade policy on every other prompt. Tokens `uct`, `buct`, `vpi`; `uct2000` = 2,000
     playouts per decision."""
 
-    def __init__(self, color, policy, sims=None):
+    def __init__(self, color, policy, sims=None, prior=0.01, robust=False):
         super().__init__(color)
         self.policy = policy
         self.sims = sims
+        self.prior, self.robust = prior, robust
         self.mcts = None
 
     def reset_state(self):
@@ -621,7 +694,7 @@ class MctsPlayer(Player):
 
         colors = list(game.state.colors)
         if self.mcts is None:
-            self.mcts = catan_engine.Mcts(self.policy, self.sims, 10, (int(game.seed or 0) * 4 + colors.index(self.color)) & (2**63 - 1))
+            self.mcts = catan_engine.Mcts(self.policy, self.sims, 10, (int(game.seed or 0) * 4 + colors.index(self.color)) & (2**63 - 1), self.prior, self.robust)
         rs, ctx = rb.rust_state(game)
         a = self.mcts.decide(rs)
         if a is None:
@@ -630,6 +703,41 @@ class MctsPlayer(Player):
 
     def __repr__(self):
         return f"MctsPlayer:{self.color.value}({self.policy},sims={self.sims})"
+
+
+class MctsJsPlayer(JsettlerPlayer):
+    """The thesis agents with the thesis' division of labour: the search owns the post-roll turn, the jSettler
+    (the port, SMART) does everything else -- opening, roll-or-knight, robber, discards, replies -- and its
+    negotiator's offers run before the search. Tokens `uctj`, `buctj`, `vpij` (`uctj2000` = 2,000 playouts).
+    A subclass of the port's player so the bridge feeds it the client's view like `jsrobot`."""
+
+    def __init__(self, color, policy, sims=None, prior=0.01, robust=False):
+        super().__init__(color, smart=True)
+        self.policy, self.sims, self.mcts = policy, sims, None
+        self.prior, self.robust = prior, robust
+
+    def reset_state(self):
+        super().reset_state()
+        self.mcts = None
+
+    def decide(self, game, playable_actions):
+        import catan_engine
+        import rust_bridge as rb
+
+        a = super().decide(game, playable_actions)  # keeps the port's trackers in step at every decision
+        s = game.state
+        if s.current_prompt.value != "PLAY_TURN" or not s.current_player_index == list(s.colors).index(self.color) \
+                or a.action_type == ActionType.OFFER_TRADE or len(playable_actions) == 1:
+            return a
+        colors = list(s.colors)
+        if self.mcts is None:
+            self.mcts = catan_engine.Mcts(self.policy, self.sims, 10, (int(game.seed or 0) * 4 + colors.index(self.color)) & (2**63 - 1), self.prior, self.robust)
+        rs, ctx = rb.rust_state(game)
+        c = self.mcts.search(rs)  # None before the roll or while a trade resolves: the port's action stands
+        return a if c is None else rb.uncanon(c, self.color, ctx, colors, state=s)
+
+    def __repr__(self):
+        return f"MctsJsPlayer:{self.color.value}({self.policy},sims={self.sims})"
 
 
 def make_player(spec, color):
@@ -644,14 +752,25 @@ def make_player(spec, color):
         return RustAlphaBetaPlayer(color)
     if spec.startswith("rab") and spec[3:].isdigit():
         return RustAlphaBetaPlayer(color, depth=int(spec[3:]))
-    m = re.fullmatch(r"drrl(\d*)(\+?)(?::([a-z]+))?", spec)  # drrl = the EUMAS 2018 agent over the Rust heuristic base, drrl32 = hidden 32, drrl+ = weights kept across games, drrl:blcw = literal readings
+    m = re.fullmatch(r"drrlj(s?)(\+?)(?::([a-z]+))?", spec)  # DRRL over the jSettler port (fast; drrljs = smart), the paper's base on the arena
+    if m:
+        p = DrrlPlayer(color, persist=bool(m.group(2)), variant=m.group(3) or "")
+        p.base = JsettlerPlayer(color, smart=bool(m.group(1)), trade=False)
+        return p
+    m = re.fullmatch(r"drrl(\d*)(\+?)(?::([a-z]+))?", spec)  # drrl = the EUMAS 2018 agent over the Rust heuristic base, drrl32 = hidden 32, drrl+ = weights kept across games, drrl:blcw = literal readings, r = replies always reject (Python side)
     if m:
         return DrrlPlayer(color, hidden=int(m.group(1)) if m.group(1) else None, persist=bool(m.group(2)), variant=m.group(3) or "")
+    m = re.fullmatch(r"ptrade(\d+)(u?)", spec)  # DRRL replication bound: k random paper offers a turn (u: one-for-one only), every reply rejected
+    if m:
+        return PaperTrader(color, int(m.group(1)), bool(m.group(2)))
     if spec in ("jsettler", "jsrobot", "jsdroid"):  # the JSettlers robot port: smart ("robot N") / fast ("droid N")
         return JsettlerPlayer(color, smart=spec != "jsdroid")
-    m = re.fullmatch(r"(uct|buct|vpi)(\d*)", spec)  # the thesis MCTS agents; uct2000 = 2,000 playouts per decision
+    # the thesis MCTS agents; uct2000 = 2,000 playouts per decision; j = over the jSettler port, as the thesis ran them;
+    # p<x> = Dirichlet prior x per VP value (BUCT/VPI, default 0.01 = mcts.rs PRIOR; p1 = the 2026-09 agents); v = most-visited final move
+    m = re.fullmatch(r"(uct|buct|vpi)(j?)(\d*)(?:p([0-9.]+))?(v?)", spec)
     if m:
-        return MctsPlayer(color, m.group(1), int(m.group(2)) if m.group(2) else None)
+        kw = dict(sims=int(m.group(3)) if m.group(3) else None, prior=float(m.group(4) or 0.01), robust=bool(m.group(5)))
+        return (MctsJsPlayer if m.group(2) else MctsPlayer)(color, m.group(1), **kw)
     if spec == "vf":
         return no_offers(ValueFunctionPlayer)(color)
     if spec == "wr":
@@ -678,9 +797,9 @@ def make_player(spec, color):
         from catanatron.players.playouts import GreedyPlayoutsPlayer
 
         return no_offers(GreedyPlayoutsPlayer)(color, num_playouts=int(m.group(1) or 25))
-    m = re.fullmatch(r"vnets(\d+)(?:w(\d+))?(?:a(\d+))?x?:(.+)", spec)  # vnets3x:<path> = the arena's vnets3x (trade search, net-judged replies), same token everywhere; vnets3w40a99x: shortlist 40, haggling (docs/FINDINGS.md 2026-09-30)
+    m = re.fullmatch(r"vnets(\d+)(?:w(\d+))?(?:a(\d+))?(?:c(\d+))?(?:n(\d))?x?:(.+)", spec)  # vnets3x:<path> = the arena's vnets3x (trade search, net-judged replies), same token everywhere; vnets3w40a99x: shortlist 40, haggling (docs/FINDINGS.md 2026-09-30)
     if m:
-        return ValueNetPlayer(color, m.group(4), trade_search=int(m.group(1)), offer_top=int(m.group(2) or 0), offer_any=int(m.group(3) or 0))
+        return ValueNetPlayer(color, m.group(6), trade_search=int(m.group(1)), offer_top=int(m.group(2) or 0), offer_any=int(m.group(3) or 0), offer_cap=int(m.group(4) or 0), offer_pm=int(m.group(5) or 0))
     m = re.fullmatch(r"vnet(\d?)(o?):(.+)", spec)  # vnet:<path> (depth 2), vnet3:<path> (depth 3), vnet3o:<path> (own-turn depth 3, see arena.VNET)
     if m:
         return ValueNetPlayer(color, m.group(3), depth=int(m.group(1) or 2), own_turn=bool(m.group(2)))

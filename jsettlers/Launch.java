@@ -23,6 +23,9 @@ public class Launch
             SOCServer.ROBOT_PARAMS_SMARTER = SOCServer.ROBOT_PARAMS_DEFAULT;
         else if (! mix.equals("default"))
             throw new IllegalArgumentException("bridge.mix must be smart, fast or default: " + mix);
+        // A game nobody can win (every seat hemmed in, dev deck empty) runs until expiry: 120 min by default, which
+        // stalls a bots-only series for two hours. -Dbridge.expire=<min> shortens it; an expired game writes no result.
+        soc.server.SOCGameListAtServer.GAME_TIME_EXPIRE_MINUTES = Integer.getInteger("bridge.expire", 120);
         SOCServer.main(args);
     }
 }

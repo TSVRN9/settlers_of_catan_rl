@@ -1,0 +1,1 @@
+vnets3a99x:checkpoints_value/v89w.pt: 883/1000 wins = 88.3%  Wilson 95% CI [86.2%, 90.1%]  vs alpha_beta

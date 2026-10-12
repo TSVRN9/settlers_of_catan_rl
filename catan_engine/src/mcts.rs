@@ -9,7 +9,7 @@
 //!   state's own RNG, until someone wins or the thesis' round cut-off: max(3, c - r) rounds for real
 //!   round r <= 20, max(3, c / 2) after (c = 10 was best);
 //! - the reward is the agent's VP scaled to [0, 1]; UCT backs up its mean, BUCT and VPI count it in a
-//!   Dirichlet over the 11 VP values (prior 1 each) whose mean and variance drive the selection rules:
+//!   Dirichlet over the 11 VP values (prior `PRIOR` each) whose mean and variance drive the selection rules:
 //!   UCT mean + 2 C_p sqrt(2 ln N / n) with C_p = 1 / sqrt 2; BUCT mean + sqrt(2 ln N) sigma (Tesauro's
 //!   second rule); VPI mean + myopic value of perfect information, the integral sampled through Gamma
 //!   draws (Dearden, Friedman & Russell 1998);
@@ -56,6 +56,10 @@ impl Policy {
 
 const K: usize = 11; // reward categories: 0..=10 VP
 const VPI_SAMPLES: usize = 16;
+/// BUCT / VPI Dirichlet prior per VP value. 1.0 (11 pseudo-counts, every young node pulled to a mean of 0.5 with a wide
+/// variance) cost VPI half its wins: 13.3% -> 35.3% vs 3 jSettler ports at 0.01, BUCT 40.0% -> 49.0% (docs/BENCHMARK.md
+/// 2026-10-11). The thesis leaves the prior open; 0.01 is the weakest prior measured and saturated (0.001: 32.3%).
+pub const PRIOR: f64 = 0.01;
 
 struct Node {
     state: State,
@@ -84,6 +88,8 @@ pub struct Mcts {
     pub lambda: f64,      // rollout policy (heuristic.rs decide_rollout) scored by the net: lambda net + (1 - lambda) playout
     pub roll_depth1: bool, // playouts by decide_heuristic(1) instead of decide_rollout's pruned depth 2 (~30x cheaper per decision)
     pub resample: bool,    // thesis agents: a dev-card buy is a leaf re-drawn at every visit instead of one draw kept forever
+    pub prior: f64,        // BUCT / VPI: the Dirichlet's prior pseudo-count per VP value (PRIOR)
+    pub robust: bool,      // the final move is the most visited root child instead of the best mean
 }
 
 fn splitmix(x: &mut u64) -> u64 {
@@ -98,8 +104,12 @@ fn uniform(x: &mut u64) -> f64 {
     (splitmix(x) >> 11) as f64 / (1u64 << 53) as f64
 }
 
-/// Gamma(shape >= 1, 1) by Marsaglia & Tsang.
+/// Gamma(shape, 1) by Marsaglia & Tsang (shape < 1 by their boost: Gamma(shape + 1) U^(1 / shape)).
 fn gamma(shape: f64, rng: &mut u64) -> f64 {
+    if shape < 1.0 {
+        let u = uniform(rng).max(1e-300);
+        return gamma(shape + 1.0, rng) * u.powf(1.0 / shape);
+    }
     let d = shape - 1.0 / 3.0;
     let c = 1.0 / (9.0 * d).sqrt();
     loop {
@@ -151,7 +161,7 @@ impl Node {
 
 impl Mcts {
     pub fn new(policy: Policy, sims: u32, cutoff: u32, seed: u64) -> Mcts {
-        Mcts { policy, sims, cutoff, rng: seed ^ 0x3C75_2016_0DEA_D0CE, playouts: 0, steps: 0, c: 2.0, max_backup: false, roll_rounds: 0, lambda: 1.0, roll_depth1: false, resample: false }
+        Mcts { policy, sims, cutoff, rng: seed ^ 0x3C75_2016_0DEA_D0CE, playouts: 0, steps: 0, c: 2.0, max_backup: false, roll_rounds: 0, lambda: 1.0, roll_depth1: false, resample: false, prior: PRIOR, robust: false }
     }
 
     /// The search owns a decision when it is the agent's post-roll main phase.
@@ -159,14 +169,14 @@ impl Mcts {
         s.current_player == p0 && s.prompt == Prompt::PlayTurn && s.players[p0].has_rolled && !s.is_resolving_trade && s.winner() < 0
     }
 
-    fn make_node(s: State, action: Option<Action>, p0: usize, rng: &mut u64) -> Node {
+    fn make_node(s: State, action: Option<Action>, p0: usize, rng: &mut u64, prior: f64) -> Node {
         let mut untried = if Mcts::owns(&s, p0) { s.search_actions() } else { vec![] };
         // expand in random order (the thesis picks untried actions arbitrarily)
         for i in (1..untried.len()).rev() {
             let j = (splitmix(rng) % (i as u64 + 1)) as usize;
             untried.swap(i, j);
         }
-        Node { state: s, action, untried, children: vec![], n: 0, sum: 0.0, alpha: [1.0; K], fixed: None, v: f64::NAN, net_v: f64::NAN, redraw: false }
+        Node { state: s, action, untried, children: vec![], n: 0, sum: 0.0, alpha: [prior; K], fixed: None, v: f64::NAN, net_v: f64::NAN, redraw: false }
     }
 
     fn rounds(&self, s: &State) -> u32 {
@@ -273,7 +283,7 @@ impl Mcts {
             return None;
         }
         let rounds = self.rounds(s);
-        let mut nodes = vec![Mcts::make_node(s.clone_light(), None, p0, &mut self.rng)]; // the search never reads the history
+        let mut nodes = vec![Mcts::make_node(s.clone_light(), None, p0, &mut self.rng, self.prior)]; // the search never reads the history
         if nodes[0].untried.len() == 1 {
             return nodes[0].untried.pop();
         }
@@ -288,7 +298,7 @@ impl Mcts {
                         let mut outs = nodes[cur].state.outcomes(a);
                         if outs.len() > 1 {
                             let v = outs.iter().map(|(t, p)| p * Mcts::net_leaf(t, p0, net, layout, &mut buf)).sum();
-                            let mut child = Mcts::make_node(outs.swap_remove(0).0, Some(a), p0, &mut self.rng);
+                            let mut child = Mcts::make_node(outs.swap_remove(0).0, Some(a), p0, &mut self.rng, self.prior);
                             child.untried.clear();
                             child.fixed = Some(v);
                             nodes.push(child);
@@ -303,7 +313,7 @@ impl Mcts {
                     if t.apply(a, None).is_err() {
                         continue;
                     }
-                    let mut child = Mcts::make_node(t, Some(a), p0, &mut self.rng);
+                    let mut child = Mcts::make_node(t, Some(a), p0, &mut self.rng, self.prior);
                     if self.resample && net.is_none() && a == Action::BuyDev {
                         child.untried.clear();
                         child.redraw = true;
@@ -378,6 +388,7 @@ impl Mcts {
             return None;
         }
         let best = match self.policy {
+            _ if self.robust => best_by(&root.children, |c| nodes[c].n as f64, &mut self.rng),
             Policy::Uct => {
                 let mb = self.max_backup;
                 best_by(&root.children, |c| nodes[c].value(mb), &mut self.rng)
@@ -522,6 +533,10 @@ mod tests {
         node.alpha[10] += 9.0;
         let (mu, var) = node.dirichlet();
         assert!(mu > 0.7 && var > 0.0 && var < 0.05, "{mu} {var}");
+        // the small-prior path: Gamma(shape < 1) by the boost has mean `shape`
+        let mut rng = 9u64;
+        let mean = (0..200_000).map(|_| gamma(0.05, &mut rng)).sum::<f64>() / 200_000.0;
+        assert!((mean - 0.05).abs() < 0.003, "{mean}");
         let mut m = Mcts::new(Policy::Uct, 30, 10, 2);
         let mut steps = 0;
         while s.winner() < 0 && steps < 3000 {

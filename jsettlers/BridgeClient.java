@@ -14,7 +14,10 @@ import java.io.IOException;
 import soc.baseclient.ServerConnectInfo;
 import soc.game.SOCGame;
 import soc.game.SOCPlayer;
+import soc.message.SOCAcceptOffer;
+import soc.message.SOCBankTrade;
 import soc.message.SOCGameState;
+import soc.message.SOCMakeOffer;
 import soc.message.SOCMessage;
 import soc.robot.SOCRobotBrain;
 import soc.robot.SOCRobotClient;
@@ -54,6 +57,44 @@ public class BridgeClient extends SOCRobotClient
         rbclass = BridgeClient.class.getName();
     }
 
+    /**
+     * Per game, per seat: offers announced (counter-offers included), player trades taken part in, bank/port trades;
+     * appended to the result line after the names (docs/BENCHMARK.md DRRL replication: trade volume).
+     */
+    private final java.util.Map<String, int[]> tally = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private int[] tally(String ga)
+    {
+        return tally.computeIfAbsent(ga, k -> new int[12]);
+    }
+
+    @Override
+    public void treat(SOCMessage mes)
+    {
+        if (mes instanceof SOCMakeOffer)
+        {
+            SOCMakeOffer m = (SOCMakeOffer) mes;
+            tally(m.getGame())[m.getOffer().getFrom()]++;
+        }
+        else if (mes instanceof SOCAcceptOffer)
+        {
+            SOCAcceptOffer m = (SOCAcceptOffer) mes;
+            if (m.getOfferingNumber() >= 0 && m.getAcceptingNumber() >= 0)
+            {
+                int[] t = tally(m.getGame());
+                t[4 + m.getOfferingNumber()]++;
+                t[4 + m.getAcceptingNumber()]++;
+            }
+        }
+        else if (mes instanceof SOCBankTrade)
+        {
+            SOCBankTrade m = (SOCBankTrade) mes;
+            if (m.getPlayerNumber() >= 0)
+                tally(m.getGame())[8 + m.getPlayerNumber()]++;
+        }
+        super.treat(mes);
+    }
+
     synchronized BridgeBrain.Decider decider() throws IOException
     {
         if (decider == null)
@@ -65,7 +106,7 @@ public class BridgeClient extends SOCRobotClient
      * The result line, written when the game-over state arrives: the stats message that follows is queued
      * to the brain, which this method's superclass kills first, so under load it is never seen. Scores are
      * the client's totals (exact for us; opponents' hidden VP cards may be missing), the winner is the
-     * player whose turn it is. Format: {@code game ourPn winnerPn score0..3 name0..3}.
+     * player whose turn it is. Format: {@code game ourPn winnerPn score0..3 name0..3 rounds offers0..3 trades0..3 bank0..3}.
      */
     @Override
     protected void handleGAMESTATE(SOCGameState mes)
@@ -81,6 +122,10 @@ public class BridgeClient extends SOCRobotClient
                     sb.append(' ').append(ga.isSeatVacant(pn) ? 0 : ga.getPlayer(pn).getTotalVP());
                 for (int pn = 0; pn < ga.maxPlayers; ++pn)
                     sb.append(' ').append(ga.isSeatVacant(pn) ? "-" : ga.getPlayer(pn).getName().replace(' ', '_'));
+                sb.append(' ').append(ga.getRoundCount());
+                for (int v : tally(ga.getName()))
+                    sb.append(' ').append(v);
+                tally.remove(ga.getName());
                 System.err.println("bridge result: " + sb);
                 try (FileWriter w = new FileWriter(RESULTS, true))
                 {

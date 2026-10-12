@@ -28,7 +28,7 @@ import numpy as np
 import torch
 from catanatron import Game
 from catanatron.gym.envs.action_space import to_action_space
-from catanatron.models.player import Color
+from catanatron.models.player import Color, RandomPlayer
 from catanatron.players.minimax import AlphaBetaPlayer
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.weighted_random import WeightedRandomPlayer
@@ -41,6 +41,8 @@ OPPONENTS = {  # trade-aware (value_net.py): AlphaBeta offers via the 1-ply poli
     "weighted_random": no_offers(WeightedRandomPlayer),
     "value_function": no_offers(ValueFunctionPlayer),
     "alpha_beta": TradingAlphaBetaPlayer,
+    "random": no_offers(RandomPlayer),  # the thesis' shared baseline: JSettlers 90%, UCT 72-74% vs 3 random (docs/BENCHMARK.md)
+    "jsrobot": lambda color: make_player("jsrobot", color),  # the thesis' own setting: an agent vs 3 jSettlers (the port, SMART)
     "rab": None,  # Rust AlphaBeta, arena only (see evaluate): the fast proxy gate; the reported gate stays alpha_beta
 }
 

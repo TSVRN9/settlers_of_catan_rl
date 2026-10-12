@@ -26,6 +26,7 @@ victory points are the public ones, the dev deck is a seeded shuffle of the card
 
 import argparse
 import json
+import os
 import random
 import sys
 import traceback
@@ -129,6 +130,7 @@ class Server:
         self.token = token
         self.player = None
         self.map = None
+        self.games = 0  # boards seen: with PORT, the per-game salt for players that seed from the game (DrrlPlayer)
 
     # ---- the board, once per game ----
     def board(self, msg):
@@ -138,6 +140,10 @@ class Server:
         self.inv_hex = {v: k for k, v in self.hm.items()}
         self.n = msg["n"]
         self.our = msg["ourPn"]
+        self.games += 1
+        # every rebuilt Game has seed 0, so a player seeding from it would draw one of four networks (one per seat)
+        # all series long; the salt makes each game's draw fresh and keeps it reproducible per port and game index
+        self.salt = int(os.environ.get("PORT", "0")) * 100_000 + self.games
         self.colors = list(Game([Seat(c) for c in COLORS[: self.n]], seed=0, catan_map=self.map).state.colors)  # seat -> colour, fixed by the seed
         if self.player is not None:  # one server plays a sequence of games, in different seats
             self.player.color = self.colors[self.our]
@@ -262,6 +268,8 @@ class Server:
 
     # ---- one decision ----
     def decide(self, msg):
+        if self.token == "stock":  # the stock SOCRobotBrain decides every hook (BridgeBrain falls back on ERROR): the baseline seat
+            return "ERROR stock"
         prompt = msg["prompt"]
         game, colors = self.game(msg["state"], prompt, msg)
         if self.player is None:
@@ -271,6 +279,8 @@ class Server:
             self.player.bridge = True  # a DrrlPlayer may answer an offer with a counter-offer here
             if hasattr(self.player, "pieces_log"):  # the jsettler port's trackers follow the client's piece log
                 self.player.node_js = [self.inv_node[i] for i in range(54)]
+        if hasattr(self.player, "seed_salt"):
+            self.player.seed_salt = self.salt
         if hasattr(self.player, "pieces_log"):
             self.player.pieces_log = msg["state"]["pieces"]
         if hasattr(self.player, "views"):  # the client's SOCPlayer.getResources() per seat, unknown included
