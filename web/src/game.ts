@@ -264,6 +264,10 @@ async function advance(action: Canon, at: View): Promise<boolean> {
   // Never drag the app back out of the lineup: leaving a game mid-turn is allowed, and the
   // apply that was already in flight must not undo it.
   set((cur) => {
+    // A new deal while this was in flight: deal() empties `frames` first, and these readings were queued ahead
+    // of its newGame, so the worker answered them as current (EngineClient stamps the epoch at post, not at
+    // call). Closing a frame on an empty list made one with no view, and the header's roundOf crashed on it.
+    if (cur.view !== res.view || !cur.frames.length) return {};
     const open = cur.frames[cur.frames.length - 1];
     const closed: Frame = { ...open, seat, action, outcome: res.outcome };
     return { evals: ev, evalsOther: other, status: "idle",

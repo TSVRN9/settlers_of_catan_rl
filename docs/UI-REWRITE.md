@@ -913,11 +913,51 @@ below 1000px `App.tsx` renders `web/src/phone/` instead of the desktop stage —
 popover (Eval, Hidden information), opponents' chips, the board parked on a phone anchor, your row and
 hand, and a slab that is the Roll button, the build cards with their costs plus Trade/End, the last moves
 while others play, the opening supply, or game over. Pieces are dragged with `Carry`'s touch props
-(`snapPx` 24, `liftPx` 56, `keepOnMiss`). Phases not yet designed for the phone (discard, offers,
-Year of Plenty / Monopoly, the bank) fall back to a list of the position's legal actions; the lineup is
-the desktop's, put back into the flow. `web/tools/phone_check.mjs` plays a seated game in a headless
+(`snapPx` 24, `liftPx` 56, `keepOnMiss`). Phases not yet designed for the phone fell back to a list of
+the position's legal actions (Milestone 2 designs them, below); the lineup is the desktop's, put back
+into the flow. `web/tools/phone_check.mjs` plays a seated game in a headless
 Chromium at a phone size and checks the board never moves, drag and near miss, and Roll.
 `web/design/phone/frames.html` (served by `pnpm dev`) shows the site at 390×844, 375×667 and 360×780.
+
+Milestone 2 (`docs/superpowers/plans/2026-10-12-phone-m2-turn.md`) gives every other phase of a turn its own slab, so
+the fallback list is reached in normal play by nothing:
+
+- **Discard on a 7.**
+  - Tap hand cards into the slots; tap a filled slot to take one back; filling the last slot by hand commits.
+  - Suggest (Eval on) fills the slots with `suggest_discards` and doesn't commit: the button then reads Discard.
+  - Chosen cards group by resource. Empty slots collapse into one counted slot when they can't all fit at 44px.
+- **An offer to you,** or a counter to yours.
+  - The cards change hands, and with Eval on you see what accepting does to you and to the offerer
+    (`accepted_readings`, which respects Hidden information).
+  - Ignore <seat> / Decline / Counter / Accept. Counter opens the builder on the offer turned round.
+  - The cards it asks for lift in your hand.
+- **Your offer.**
+  - Trade opens one row of five signed tokens: a hand tap gives (−n, the card lifts); a token tap takes a given
+    card back or asks for one more (+n, cycling to 3).
+  - One row, not the spec's two, because two 44px rows plus buttons don't fit a short phone's 126px slab.
+  - Bank k:1 / Port k:1 appears only when the draft is exactly a legal maritime trade.
+  - Answers hang under the chips. An accepting seat gets a Trade button in the slab, and its badge is tappable too.
+  - Withdraw is enabled only at `DECIDE_ACCEPTEES`; the engine has no withdraw while bots answer.
+- **Development cards.**
+  - The pile spreads into the slab at full size.
+  - Knight and Road Building play on a tap, and the robber or roads are then in hand.
+  - Year of Plenty and Monopoly take the slab as a pick (`devpick.ts`, shared with the desktop tray).
+- **Robber.** Carry's victim chips work on touch; `snapPx` 24 gives them a 48px catch.
+- **Bot turns.**
+  - The move list holds the moves since you last moved, with a piece, dice or card icon per row, and scrolls inside
+    the slab.
+  - A tap on the board sets `hurry` (beats clamp to 120ms) until you are asked something.
+
+The two wasm exports are read-only; the engine's rules are unchanged:
+- `State::accepted` plays accept → the others decline → confirm on a clone, so the trade is logged and the public
+  readings stay consistent.
+- `suggest_discards` decides on a shadow engine.
+
+`phone_check` now drives the game from Node:
+- **Raw touch for taps.** CDP's `synthesizeTapGesture` never fires `click` in the headless shell, which is what
+  M1's "touch sends no click" really was.
+- **A steered policy** that buys dev cards and hoards to 9 cards, so 7s cost a discard.
+- **A probe registry** that fails on any probe that never ran or reported not ok, over up to `GAMES` games.
 
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
