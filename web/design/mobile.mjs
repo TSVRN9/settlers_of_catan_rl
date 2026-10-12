@@ -1,3 +1,4 @@
+// SUPERSEDED 2026-10-12 by web/design/phone/ and docs/superpowers/specs/2026-10-11-mobile-ui-design.md.
 // web/design/mobile.mjs — phone-width artboards for the four remaining views.
 // Shares board.mjs's rendering (board(), spine(), doc(), tokens, palette, fonts, corner
 // cuts) with the desktop set, so a phone artboard reads as the same product. What's new is

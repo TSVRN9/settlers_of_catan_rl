@@ -8,7 +8,7 @@
 //
 // Its own layer, laid exactly over the board with the same viewBox, because it re-renders on
 // every pointer move and the board underneath — tiles, lattice, tokens — should not.
-import { useEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import type { Canon, MapView, View } from "../engine";
 import { actionKey, label } from "../labels";
 import type { Heat, Held } from "../waiting";
@@ -78,9 +78,18 @@ export interface CarryProps {
   onRobTile: (tile: number | null) => void;
   onDrop: () => void;
   onClickCarry: () => void;
+  /** Touch (the phone): the least snap radius in screen px, whatever the board's scale — a fingertip, not a
+   *  cursor. */
+  snapPx?: number;
+  /** Touch: while dragging, the piece and the point it snaps from ride this many px above the finger, so
+   *  the finger never hides where it would land. A tap places where it lands. */
+  liftPx?: number;
+  /** Touch: a drag let go among the places but on none of them keeps the piece in hand rather than
+   *  putting it back. */
+  keepOnMiss?: boolean;
 }
 
-export default function Carry({ map, view, legal, seat, held, robTile, heat, reveal, onPlace, onRobTile, onDrop, onClickCarry }: CarryProps) {
+export default function Carry({ map, view, legal, seat, held, robTile, heat, reveal, onPlace, onRobTile, onDrop, onClickCarry, snapPx = 0, liftPx = 0, keepOnMiss = false }: CarryProps) {
   const svg = useRef<SVGSVGElement>(null);
   const [ptr, setPtr] = useState<{ cx: number; cy: number } | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
@@ -131,15 +140,18 @@ export default function Carry({ map, view, legal, seat, held, robTile, heat, rev
     return () => removeEventListener("pointermove", move);
   }, [held]);
 
-  const toBoard = (cx: number, cy: number) => {
+  /** `lift`: a dragged piece's point, `liftPx` above the pointer. */
+  const toBoard = (cx: number, cy: number, lift = false) => {
     const m = svg.current?.getScreenCTM();
     if (!m) return null;
-    const p = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+    const p = new DOMPoint(cx, cy - (lift ? liftPx : 0)).matrixTransform(m.inverse());
     return [p.x, p.y] as const;
   };
-  const at = ptr ? toBoard(ptr.cx, ptr.cy) : null;
+  const at = ptr ? toBoard(ptr.cx, ptr.cy, !!held?.drag) : null;
 
-  const radius = (sp: Spot) => (sp.victim != null ? SNAP.victim : sp.tile != null ? SNAP.tile : sp.edge ? SNAP.edge : SNAP.node);
+  /** Screen px per board unit, for radii that must be a fingertip wide whatever the board's scale. */
+  const pxPerUnit = () => { const b = svg.current?.getBoundingClientRect(); return b && b.width ? b.width / VIEWBOX.w : 1; };
+  const radius = (sp: Spot) => Math.max(sp.victim != null ? SNAP.victim : sp.tile != null ? SNAP.tile : sp.edge ? SNAP.edge : SNAP.node, snapPx / pxPerUnit());
   /** How far a point is from a spot: an edge's nearest point, anything else its centre. */
   const dist = (sp: Spot, p: readonly [number, number]) => {
     if (!sp.edge) return Math.hypot(sp.x - p[0], sp.y - p[1]);
@@ -192,25 +204,46 @@ export default function Carry({ map, view, legal, seat, held, robTile, heat, rev
     const up = (e: PointerEvent) => {
       dragEnded.current = true;
       setTimeout(() => { dragEnded.current = false; });
-      if (Math.hypot(e.clientX - held.x0, e.clientY - held.y0) < 6) { onClickCarry(); return; }
-      const hit = snapAt(toBoard(e.clientX, e.clientY));
-      if (hit) place(hit); else onDrop();
+      // A finger wobbles more than a mouse: on touch a tap may travel 10px and still be a tap.
+      if (Math.hypot(e.clientX - held.x0, e.clientY - held.y0) < (snapPx ? 10 : 6)) { onClickCarry(); return; }
+      const p = toBoard(e.clientX, e.clientY, true);
+      const hit = snapAt(p);
+      if (hit) place(hit);
+      // Kept in hand, it stays where it was let go — lifted — or the preview would drop onto the spot under
+      // the finger and look placed.
+      else if (keepOnMiss && amongSpots(p)) { setPtr({ cx: e.clientX, cy: e.clientY - liftPx }); onClickCarry(); }
+      else onDrop();
     };
+    // A system gesture can take the pointer mid-drag; the piece goes back rather than staying mid-drag.
+    const cancel = () => onDrop();
     addEventListener("pointerup", up);
-    return () => removeEventListener("pointerup", up);
+    addEventListener("pointercancel", cancel);
+    return () => { removeEventListener("pointerup", up); removeEventListener("pointercancel", cancel); };
   });
 
   // Where the click landed, not where the pointer last moved: a tap, or a click with no move
   // before it, has no pointermove to go on — reading the last one placed pieces in the wrong
   // spot or dropped them.
-  const onClick = (e: MouseEvent) => {
-    if (!held || dragEnded.current) return;
-    setPtr({ cx: e.clientX, cy: e.clientY });
-    const p = toBoard(e.clientX, e.clientY);
+  const tapAt = (cx: number, cy: number) => {
+    if (!held) return;
+    setPtr({ cx, cy });
+    const p = toBoard(cx, cy);
     const hit = snapAt(p);
     if (hit) place(hit);
     else if (robTile != null) onRobTile(null);
     else if (!held.auto && !amongSpots(p)) onDrop();
+  };
+  // A touch places on the finger's lift, not on a click: browsers may drop or delay the click after a touch
+  // (headless Chromium sends none at all), and the click that does follow is then ignored.
+  const touchedAt = useRef(0);
+  const onPointerUp = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (!held || held.drag || e.pointerType === "mouse") return;
+    touchedAt.current = Date.now();
+    tapAt(e.clientX, e.clientY);
+  };
+  const onClick = (e: MouseEvent) => {
+    if (!held || dragEnded.current || Date.now() - touchedAt.current < 700) return;
+    tapAt(e.clientX, e.clientY);
   };
 
   if (!held && !reveal) return null;
@@ -238,7 +271,7 @@ export default function Carry({ map, view, legal, seat, held, robTile, heat, rev
   return (
     <>
       <svg ref={svg} className={`carry${held ? " holding" : ""}${held?.drag ? " dragging" : ""}`}
-           viewBox={`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`} onClick={onClick}
+           viewBox={`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`} onClick={onClick} onPointerUp={onPointerUp}
            aria-label={held ? "Places for the piece in hand" : undefined}>
         {/* the board answers the hand: every socket swells with the pointer's nearness */}
         {spots.map((sp) => {
@@ -312,7 +345,7 @@ export default function Carry({ map, view, legal, seat, held, robTile, heat, rev
       {held && ptr && !near && robTile == null && (!held.auto || overBoard(ptr)) && (
         <svg className="afloat" viewBox="-22 -22 44 44" aria-hidden="true"
              // Sized inline: the board layer's own `svg { width: 100% }` would otherwise win.
-             style={{ left: ptr.cx - 22 * k, top: ptr.cy - 22 * k, width: 44 * k, height: 44 * k }}>
+             style={{ left: ptr.cx - 22 * k, top: ptr.cy - (held.drag ? liftPx : 0) - 22 * k, width: 44 * k, height: 44 * k }}>
           {held.kind === "robber" ? <g transform="translate(0,8)"><RobberShape /></g>
             // Held level, an angle no edge on the board has, so a road in hand never passes for
             // one already set down.

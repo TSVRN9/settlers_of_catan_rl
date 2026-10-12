@@ -906,6 +906,19 @@ touching it.
 
 ## Phones (2026-09-09)
 
+**Superseded 2026-10-12** by `docs/superpowers/specs/2026-10-11-mobile-ui-design.md` (mockups:
+`web/design/phone/`, `node <file>.mjs`). The four-tab layout below predates the play-feel pass and was
+redesigned from scratch. Milestone 1 (`docs/superpowers/plans/2026-10-12-phone-m1-shell.md`) is built:
+below 1000px `App.tsx` renders `web/src/phone/` instead of the desktop stage — top bar with the Eval
+popover (Eval, Hidden information), opponents' chips, the board parked on a phone anchor, your row and
+hand, and a slab that is the Roll button, the build cards with their costs plus Trade/End, the last moves
+while others play, the opening supply, or game over. Pieces are dragged with `Carry`'s touch props
+(`snapPx` 24, `liftPx` 56, `keepOnMiss`). Phases not yet designed for the phone (discard, offers,
+Year of Plenty / Monopoly, the bank) fall back to a list of the position's legal actions; the lineup is
+the desktop's, put back into the flow. `web/tools/phone_check.mjs` plays a seated game in a headless
+Chromium at a phone size and checks the board never moves, drag and near miss, and Roll.
+`web/design/phone/frames.html` (served by `pnpm dev`) shows the site at 390×844, 375×667 and 360×780.
+
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
 there is no phone artboard for prose to drift from: the "artboard is the spec" rule (recorded

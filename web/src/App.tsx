@@ -19,6 +19,8 @@ import * as keys from "./keys";
 import * as route from "./route";
 import { currentView, playing, set, useApp } from "./store";
 import { heat, held, waiting } from "./waiting";
+import Phone from "./phone/Phone";
+import { usePhone } from "./phone/usePhone";
 
 /** The views that put something other than the live position on the board (the Table only
  *  while the stands look back at a step). */
@@ -59,6 +61,9 @@ export default function App() {
   }, []);
 
   const s = useApp();
+  // Below the desktop's width the phone tree takes over (phone/Phone.tsx); same store, same game.
+  const phone = usePhone();
+  if (phone) return <><Phone /><div className="sr" role="status" aria-live="polite">{s.error ?? ""}</div></>;
   const view = currentView(s);
   const setup = s.phase === "lineup";
   // A view reads the override only while it owns it, so leaving one analysis view for
@@ -124,17 +129,6 @@ export default function App() {
             blur wrapper above already covers the case where the board itself must be hidden. */}
         {!setup && waiting(s)?.kind === "discard" && <Discard />}
         <Handoff />
-      </div>
-
-      {/* No artboard exists below 1024, so the app says so rather than inventing a layout. */}
-      <div className="narrow">
-        <div>
-          <div className="d" style={{ fontSize: 21 }}>The board needs a wider window</div>
-          <div className="cap" style={{ marginTop: 8, maxWidth: 300 }}>
-            Four seats, nineteen tiles and a value net's reading of all of it. About a
-            thousand pixels across is the least it can be shown in.
-          </div>
-        </div>
       </div>
 
       <div className="sr" role="status" aria-live="polite">{s.error ?? ""}</div>

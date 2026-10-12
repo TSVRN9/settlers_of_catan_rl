@@ -42,6 +42,9 @@ export interface State {
    *  viewer could know. Per viewer, remembered across visits; locked off while two people share
    *  the screen mid-game (`hiddenLocked`). */
   showHidden: boolean;
+  /** The phone's Eval switch: readings on screen during play. Off hides bars, percentages, swings and
+   *  Suggest; `evaluateAll` still fills `frames`, so the review after the game is complete. */
+  evalShown: boolean;
   advice: Decision | null;
   last: Canon | null;
 
@@ -132,6 +135,7 @@ const initial: State = {
   evals: [],
   evalsOther: [],
   showHidden: rememberedHidden(),
+  evalShown: rememberedFlag("evalShown", true),
   advice: null,
   last: null,
   hover: null,
@@ -199,7 +203,14 @@ export const playing = (s: State) => s.lineup[s.human]?.kind === "human";
 export const you = (s: State) => (playing(s) ? s.human : -1);
 
 /** The viewer's last "Hidden information" choice (per browser; a private window reads false). */
-export function rememberedHidden() { try { return localStorage.getItem("showHidden") === "1"; } catch { return false; } }
+export function rememberedFlag(key: string, fallback: boolean) {
+  try { const v = localStorage.getItem(key); return v == null ? fallback : v === "1"; } catch { return fallback; }
+}
+export function rememberedHidden() { return rememberedFlag("showHidden", false); }
+export function setEvalShown(on: boolean) {
+  try { localStorage.setItem("evalShown", on ? "1" : "0"); } catch { /* private window */ }
+  set({ evalShown: on });
+}
 
 /** Whose public reading is shown (readings.ts). */
 export const viewer = (s: Pick<State, "lineup">) => viewerOf(s.lineup);
