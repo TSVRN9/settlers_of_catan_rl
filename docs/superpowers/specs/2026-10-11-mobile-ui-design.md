@@ -85,7 +85,7 @@ themselves; nothing truncates.
 | Your offer | Give / Get: two rows of the five resource tokens with counts | Tapping hand cards gives them (they lift), tapping a resource asks for one. Bank k:1 and port buttons appear only when that exact maritime trade is legal (`bankFor`). Answers hang under each chip as they arrive; tap an accepting seat to trade; Withdraw. |
 | Dev cards | Knight: dragged out of the fan, it becomes the robber. Year of Plenty / Monopoly: the card takes the slab with the five resources as the choice. | Tap works for cards with no target. |
 | Another seat's turn | The move list: newest on top, each row seat, piece, what, and that seat's swing (Eval on) | The acting chip lifts; each row lands as its piece lands. Tap the board to hurry the bots. |
-| Game over | The result: winner, your place, the game's curve with your line bold, final VP (VP cards face up); Rematch / Review | |
+| Game over | The result: winner, your place, the game's curve with your line bold, final VP (VP cards face up); Rematch / Review | Built (M3) with Lineup in Review's place until Milestone 6; the curve shows with Eval off too. |
 
 ## Pass and play
 
@@ -187,7 +187,7 @@ as a faint piece tagged "Best", rows for both with the margin, one coach line un
 
 ## Lineup
 
-The wordmark; the board with "New board"; one row per seat (colour bar, occupant, its
+The wordmark; the board, with "New board" (built in the bottom row beside Play: the board takes no pointer); one row per seat (colour bar, occupant, its
 `BOT_INFO` sub), each opening a picker sheet that lists every occupant with its sub and measured
 win rate against three stock jSettlers (the bot cards' `measured` figures); the Eval switch;
 Play. Pass and play is implied by a second person seat. With no person seated, Play becomes

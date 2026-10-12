@@ -3,8 +3,9 @@
 // does not strand the turn; a build card picks up from the keyboard and from a shaky tap; a cancelled
 // touch drops the piece; a drag onto a spot builds; a drag let go among the spots but on none keeps the
 // piece in hand without showing it snapped elsewhere; every button is at least 44px; the Roll slab rolls;
-// the board's box never moves; nothing scrolls sideways; the game reaches its end. Screenshots land in
-// the given directory.
+// the board's box never moves; nothing scrolls sideways; the game reaches its end; Milestone 2's phases of a
+// turn and Milestone 3's opening on touch, result, Rematch, lineup (resume, the seat sheet) and a watched game
+// each run once; no uncaught page error. Screenshots land in the given directory.
 //
 //   pnpm dev   (in another shell)
 //   node web/tools/phone_check.mjs [width] [height] [outDir]
@@ -44,6 +45,9 @@ const run = async (fn, arg) => {
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
   return r.result.value;
 };
+const pageErrors = [];
+ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); if (m.method === "Runtime.exceptionThrown") pageErrors.push((m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text).slice(0, 300)); });
+await cdp("Runtime.enable");
 const shot = async (name) => { const r = await cdp("Page.captureScreenshot", { format: "png" }); writeFileSync(path.join(OUT, `${W}x${H}-${name}.png`), Buffer.from(r.data, "base64")); };
 
 
@@ -146,7 +150,8 @@ result.tapPlaced = { before, after: afterTap.roads, carry: afterTap.carry };
 // box, small buttons, sideways scroll, and Milestone 2's probes, each run the first time its phase comes up.
 // The person's moves follow a steered heuristic (buy development cards; hold cards until 9 so a seven costs a
 // discard) so the phases come up; up to GAMES games are played until every probe in NEED has run.
-const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore"];
+const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore",
+              "opening", "gameOver", "rematch", "lineup", "watch"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -184,7 +189,34 @@ for (let i = 0; i < 40000; i++) {
   if (i % 10 === 0) { const c = await checks(); if (!boxes.has(c.box)) boxes.set(c.box, s.prompt); c.small.forEach((x) => small.add(x)); if (c.over) overflowX++; }
   if (s.winner >= 0) {
     games++; winner = s.winner;
-    const missing = NEED.filter((k) => probes[k] == null);
+    // Milestone 3: the first ending is looked at, then Rematch is tapped and the rematch is the next game.
+    if (probes.gameOver == null) {
+      await sleep(1500);
+      const c = await checks();
+      const x = await run(() => {
+        const e = document.querySelector(".ph-result"), s = window.__app.get();
+        if (!e) return null;
+        return { rows: e.querySelectorAll(".row").length, n: s.view.n, place: !!e.querySelector(".pl"), personWon: s.view.winner === s.human,
+                 curve: !!e.querySelector(".curve"), fits: e.scrollHeight <= e.clientHeight + 1 };
+      });
+      await shot("over");
+      probe("gameOver", { ...x, box: boxes.has(c.box), ok: !!x && x.rows === x.n && x.place === !x.personWon && x.curve && x.fits && boxes.has(c.box) });
+      const seed = await run(() => window.__app.get().seed);
+      const r = await rect(".ph-rematch");
+      let y = null;
+      if (r) {
+        await tap(r[0] + r[2] / 2, r[1] + r[3] / 2);
+        for (let k = 0; k < 40; k++) {
+          await sleep(100);
+          y = await run((seed) => { const s = window.__app.get(); return { phase: s.phase, steps: s.view.steps, same: s.seed === seed, winner: s.view.winner }; }, seed);
+          if (y.phase === "playing" && y.winner < 0 && y.steps < 3) break;
+        }
+      }
+      probe("rematch", { ...y, ok: !!y && y.phase === "playing" && y.same && y.winner < 0 && y.steps < 3 });
+      if (games >= GAMES) break;
+      continue;
+    }
+    const missing = NEED.filter((k) => probes[k] == null && !["lineup", "watch"].includes(k));
     if (!missing.length || games >= GAMES) break;
     await run(async (seed) => { window.__app.set({ seed }); await window.__app.start(); }, 1000 + games * 7919);
     await sleep(2500);
@@ -205,6 +237,26 @@ for (let i = 0; i < 40000; i++) {
     await sleep(40); continue;
   }
   modes.add((await checks()).mode);
+  // The opening on touch: the draft order is in the top bar, the supply holds the piece, and a tap on a legal
+  // corner puts the settlement there.
+  if (s.opening && probes.opening == null && s.legal.some((a) => a[0] === "BUILD_SETTLEMENT")) {
+    await sleep(600);
+    const d = await run(() => ({ cells: document.querySelectorAll(".ph-draft i").length, now: document.querySelectorAll(".ph-draft i.now").length,
+                                 supply: !!document.querySelector(".ph-supply"), n: window.__app.get().view.n }));
+    const xy = await run(async () => {
+      const g = await import("/src/board/geometry.ts"), s = window.__app.get();
+      const a = s.legal.find((x) => x[0] === "BUILD_SETTLEMENT");
+      const p = new DOMPoint(...g.nodeXY(a[1])).matrixTransform(document.querySelector(".carry").getScreenCTM());
+      return { at: [p.x, p.y], node: a[1] };
+    });
+    await shot("opening");
+    await tap(...xy.at);
+    const mineAt = () => run((n) => { const s = window.__app.get(); return s.view.owner[n] === s.human; }, xy.node);
+    for (let k = 0; k < 30 && !(await mineAt()); k++) await sleep(100);
+    const placed = await mineAt();
+    probe("opening", { ...d, placed, ok: d.cells === 2 * d.n && d.now === 1 && d.supply && placed });
+    continue;
+  }
   if (roll == null && s.legal.some((a) => a[0] === "ROLL")) {
     await sleep(600);
     const b = s.steps;
@@ -396,7 +448,47 @@ for (let i = 0; i < 40000; i++) {
 }
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 await shot("end");
+
+// Milestone 3's lineup: back to it, a new game, back again and resume at the same step; a seat changed through its
+// sheet; then nobody seated, and Play watches.
+try {
+  const tapQ = async (q) => {
+    const r = await run((q) => { const e = document.querySelector(q); if (!e) return null; e.scrollIntoView({ block: "nearest" }); const b = e.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }, q);
+    if (!r) return false;
+    await tap(...r); await sleep(800); return true;
+  };
+  const L = () => run(() => {
+    const s = window.__app.get(), sh = document.querySelector(".ph-sheet")?.getBoundingClientRect();
+    return { phase: s.phase, steps: s.view?.steps, kinds: s.lineup.map((b) => b.kind), sheet: !!sh, sheetIn: !sh || sh.bottom <= innerHeight + 1,
+             resume: !!document.querySelector(".ph-resume"), chips: document.querySelectorAll(".ph-chip").length, n: s.lineup.length,
+             hand: !!document.querySelector(".ph-hand, .ph-you") };
+  });
+  await tapQ(".ph-back");
+  (await checks()).small.forEach((x) => small.add(x));
+  await shot("lineup");
+  await tapQ(".ph-play"); await sleep(4000);
+  await tapQ(".ph-back");
+  const behind = await L();
+  await tapQ(".ph-resume"); await sleep(300);
+  const resumed = await L();
+  await tapQ(".ph-back");
+  const seat = behind.kinds.findIndex((k) => k !== "human");
+  await tapQ(`.ph-seatrow[data-seat="${seat}"]`);
+  const sheet = await L();
+  (await checks()).small.forEach((x) => small.add(x));
+  await shot("sheet");
+  await tapQ('.ph-pickrow[data-kind="random"]');
+  const picked = await L();
+  probe("lineup", { behind: behind.resume, resumed: resumed.phase === "playing" && resumed.steps === behind.steps, sheet: sheet.sheet && sheet.sheetIn, picked: picked.kinds[seat],
+                    ok: behind.phase === "lineup" && behind.resume && resumed.phase === "playing" && resumed.steps === behind.steps && sheet.sheet && sheet.sheetIn && !picked.sheet && picked.kinds[seat] === "random" });
+  for (const [i, k] of picked.kinds.entries()) if (k === "human") { await tapQ(`.ph-seatrow[data-seat="${i}"]`); await tapQ('.ph-pickrow[data-kind="heuristic"]'); }
+  await tapQ(".ph-play"); await sleep(4000);
+  const w = await L();
+  await shot("watch");
+  probe("watch", { ...w, ok: w.phase === "playing" && w.kinds.every((k) => k !== "human") && w.chips === w.n && !w.hand });
+} catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 const missing = NEED.filter((k) => probes[k] == null);
+if (pageErrors.length) result.error = (result.error ? result.error + " | " : "") + pageErrors.join(" | ");
 const failed = Object.entries(probes).filter(([, v]) => v && v.ok === false).map(([k]) => k);
 // Every phase of a turn has its own slab since Milestone 2: the person never meets the fallback list.
 if (modes.has("ph-list")) failed.push("fallback-list");

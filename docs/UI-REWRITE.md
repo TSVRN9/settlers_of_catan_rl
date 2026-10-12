@@ -959,6 +959,33 @@ The two wasm exports are read-only; the engine's rules are unchanged:
 - **A steered policy** that buys dev cards and hoards to 9 cards, so 7s cost a discard.
 - **A probe registry** that fails on any probe that never ran or reported not ok, over up to `GAMES` games.
 
+Milestone 3 (`docs/superpowers/plans/2026-10-12-phone-m3-lineup.md`) starts and ends a game on the phone's own screens:
+
+- **The lineup** (`phone/Lineup.tsx`).
+  - The wordmark and the board. One row per seat, each opening a bottom sheet of every occupant with its measured
+    win rate against three stock jSettlers (from `BOT_INFO.measured`), "Take <seat> out", and "Add a seat".
+  - Then Eval, New board and Play. Play reads Watch with nobody seated, and New game with a game left behind,
+    which "Back to the game" resumes at the same step.
+  - The seat edits and the deal-on-change effect are shared with the desktop lineup (`views/Lineup.tsx` exports).
+  - Departures from the H1 artboard: New board sits in the bottom row rather than on the board, which takes no
+    pointer and sits outside the thumb zone. There's no seed field: New board picks a random seed.
+- **The opening.** The snake order is a row of squares in the top bar: placed turns faded, the current one bigger.
+  The supply shows a next piece only when one follows.
+- **Game over** (`phone/Result.tsx`).
+  - The result covers the seated block, so the board doesn't move. The You row and the hand stay laid out
+    underneath, hidden.
+  - It shows who won, your place (`phone/standings.ts`: ties share a place, and "You tied for second" comes from
+    `labels.placeText`), every seat's chance over the game with your line bold (shown with Eval off too, since the
+    game is over), and the final points with the VP cards face up.
+  - Rematch replays the same seed and lineup. Lineup stands where Review will go in Milestone 6.
+- **Watching on a phone**, until Milestone 5 designs it: no seat's hand, every seat as a chip (two rows of two), the
+  move list.
+  - The phone reads frames only up to the playhead (`usePhone.seen`). The worker plays a watched game ahead of the
+    playhead, so before this fix the move list and the top bar's dice showed moves that hadn't been shown yet.
+
+`phone_check` adds probes for the opening on touch, the result fitting its block, Rematch, the lineup (resume, the
+seat sheet) and a watched game, and it now fails on any uncaught page error.
+
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
 there is no phone artboard for prose to drift from: the "artboard is the spec" rule (recorded
