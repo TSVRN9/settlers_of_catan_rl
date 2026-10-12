@@ -230,9 +230,11 @@
 .ph-result .curve { flex: 1 1 0; min-height: 24px; width: 100%; background: var(--color-paper); }
 .ph-result:not(.cover) .curve { flex: 0 0 56px; }
 .ph-result .rows { display: grid; grid-template-columns: 1fr; flex: 0 0 auto; }
-@media (max-height: 699px) { .ph-result .rows { grid-template-columns: 1fr 1fr; column-gap: 18px; } }
+@media (max-height: 699px) { .ph-result .rows { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; } }
 .ph-result .row { height: 30px; display: flex; align-items: center; gap: 9px; min-width: 0; }
 .ph-result .row .sw { width: 9px; height: 9px; flex: 0 0 9px; }
 .ph-result .row .nm { font: 600 14px var(--font-sans); }
-.ph-result .row .vpc { display: inline-flex; gap: 2px; }
+/* VP cards overlap like a held fan, so four of them still leave the score its room. */
+.ph-result .row .vpc { display: inline-flex; min-width: 0; }
+.ph-result .row .vpc > * + * { margin-left: -14px; }
 .ph-result .row .vp { margin-left: auto; font-size: 22px; line-height: 1; }

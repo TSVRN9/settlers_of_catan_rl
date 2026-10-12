@@ -9,7 +9,7 @@ import Picker from "./Picker";
 import Tex from "./Tex";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
-import { get, set, useApp, type State } from "../store";
+import { get, playing, set, useApp, type State } from "../store";
 
 const MAX = 4, MIN = 2;
 
@@ -21,9 +21,12 @@ export const humanFor = (lineup: BotSpec[], prefer: number) => {
   return found >= 0 ? found : Math.min(prefer, lineup.length - 1);
 };
 
-/** A game left behind the lineup, still in play on the board it was dealt: it can be gone back to, and
- *  starting says it would be a new one. */
-export const behind = (s: State) => !!s.view && s.view.steps > 0 && s.view.winner < 0 && !!s.dealt && s.dealt.seed === s.seed && s.dealt.n === s.lineup.length;
+/** A game left behind the lineup, still in play on the board it was dealt and with the seats it was dealt for: it
+ *  can be gone back to, and starting says it would be a new one. Only a seated game: a watched one's run was
+ *  aborted on the way out (`toLineup` → `stopWatching`), so its playhead would wait for frames that never come;
+ *  and a seat changed since would hand the game to someone it was not dealt to. */
+export const behind = (s: State) => !!s.view && s.view.steps > 0 && s.view.winner < 0 && !!s.dealt && s.dealt.seed === s.seed && s.dealt.n === s.lineup.length
+  && s.dealt.kinds === s.lineup.map((b) => b.kind).join() && playing(s);
 
 /** The board behind the lineup is dealt for this seed and this many seats. A finished game with the same seed
  *  stays on screen as it ended; starting re-deals it. */

@@ -966,6 +966,12 @@ Milestone 3 (`docs/superpowers/plans/2026-10-12-phone-m3-lineup.md`) starts and 
     win rate against three stock jSettlers (from `BOT_INFO.measured`), "Take <seat> out", and "Add a seat".
   - Then Eval, New board and Play. Play reads Watch with nobody seated, and New game with a game left behind,
     which "Back to the game" resumes at the same step.
+  - Only a seated game, still with the seats it was dealt for, can be gone back to. This is `behind()`, on desktop
+    too; `dealt` now records the occupants.
+    - A watched game can't be resumed: `toLineup` aborts the worker's run, so a resumed playhead would wait forever
+      on frames that never come.
+    - A seat changed in the meantime would hand the game to someone it wasn't dealt to. Your own seat turned into a
+      bot used to freeze the game on resume.
   - The seat edits and the deal-on-change effect are shared with the desktop lineup (`views/Lineup.tsx` exports).
   - Departures from the H1 artboard: New board sits in the bottom row rather than on the board, which takes no
     pointer and sits outside the thumb zone. There's no seed field: New board picks a random seed.
@@ -980,6 +986,8 @@ Milestone 3 (`docs/superpowers/plans/2026-10-12-phone-m3-lineup.md`) starts and 
   - Rematch replays the same seed and lineup. Lineup stands where Review will go in Milestone 6.
 - **Watching on a phone**, until Milestone 5 designs it: no seat's hand, every seat as a chip (two rows of two), the
   move list.
+  - The move list runs back through the game (`sinceTurn` with seat −1). Stopping at the nominal seat's turn
+    emptied the list for that seat's whole turn.
   - The phone reads frames only up to the playhead (`usePhone.seen`). The worker plays a watched game ahead of the
     playhead, so before this fix the move list and the top bar's dice showed moves that hadn't been shown yet.
 

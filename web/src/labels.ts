@@ -241,11 +241,11 @@ export function fmtDelta(d: number) {
  *  off `current_trade[10]` while a trade is live rather than flickering onto every responder. */
 export function turnSeat(v: View) { return v.is_resolving_trade ? v.current_trade[10] : v.current_player; }
 
-/** A seat by name, or "You" when it is the seat the reader is playing from. `you` is -1
- *  when nobody is seated, so a watched game never says "You". */
 export const ORDINAL = ["first", "second", "third", "fourth"];
 /** Your place at the end (phone/standings.ts `places`). */
 export function placeText(place: number, tied: boolean) { return `You ${tied ? "tied for" : "came"} ${ORDINAL[place - 1]}`; }
+/** A seat by name, or "You" when it is the seat the reader is playing from. `you` is -1
+ *  when nobody is seated, so a watched game never says "You". */
 export function who(seat: number, you: number) { return seat === you ? "You" : SEAT_NAMES[seat]; }
 /** The same, mid-sentence. */
 export function whom(seat: number, you: number) { return seat === you ? "you" : SEAT_NAMES[seat]; }

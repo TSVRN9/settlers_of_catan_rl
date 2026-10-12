@@ -27,8 +27,8 @@ export interface State {
   seed: number;
   lineup: BotSpec[];
   human: number;
-  /** The seed and seat count the board behind the lineup was dealt for. */
-  dealt: { seed: number; n: number } | null;
+  /** The seed, seat count and occupants the board behind the lineup was dealt for. */
+  dealt: { seed: number; n: number; kinds: string } | null;
   /** The deal's reveal is running: tiles, numbers and ports arriving. */
   reveal: boolean;
 

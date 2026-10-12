@@ -337,7 +337,7 @@ function MoveIcon({ a, seat }: { a: Canon; seat: number }) {
 function Moves() {
   const s = useApp();
   const rows: { i: number; seat: number; a: Canon; text: string; d: number | null; dice: [number, number] | null }[] = [];
-  for (const i of sinceTurn(seen(s), s.human)) {
+  for (const i of sinceTurn(seen(s), you(s))) {   // watching, you(s) is -1: the newest moves, back through the game
     if (rows.length >= 24) break;
     const f = s.frames[i], row = rowAt(s.frames, i);
     if (!row || !f.action || !newsworthy(f.action) || !s.map) continue;

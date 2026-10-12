@@ -15,7 +15,8 @@ export interface SlabInput {
 }
 
 /** The frames to list under another seat's turn, newest first: every closed frame since the seated person's own
- *  turn ended, their answers inside other turns (a decline, a discard) included. The last frame is the live one. */
+ *  turn ended, their answers inside other turns (a decline, a discard) included. The last frame is the live one.
+ *  With nobody seated (`human` -1) it is every closed frame. */
 export function sinceTurn(frames: { seat: number; view: { current_turn: number } }[], human: number): number[] {
   const out: number[] = [];
   for (let i = frames.length - 2; i >= 0 && frames[i].view.current_turn !== human; i--) out.push(i);
@@ -52,6 +53,8 @@ const argv = (globalThis as { process?: { argv?: string[] } }).process?.argv;
 if (argv?.[1]?.endsWith("slab.ts")) {
   const assert = (c: unknown, m: string) => { if (!c) throw new Error(`slab self-check: ${m}`); };
   const base: SlabInput = { over: false, mine: true, opening: false, prompt: "PLAY_TURN", legal: [], handoff: false, offerOut: false, builder: false, sheet: null, roadBuilding: false };
+  { const fr = [0, 1, 2, 0, 1].map((t) => ({ seat: t, view: { current_turn: t } }));
+    assert(sinceTurn(fr, -1).join() === "3,2,1,0", "watching lists every closed frame, newest first"); }
   assert(slabMode({ ...base, legal: ["ROLL", "PLAY_KNIGHT_CARD"] }) === "roll", "before the roll");
   assert(slabMode({ ...base, legal: ["END_TURN", "BUILD_ROAD"] }) === "build", "main phase");
   assert(slabMode({ ...base, mine: false }) === "bots", "someone else's turn");

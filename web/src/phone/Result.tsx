@@ -14,11 +14,12 @@ export default function Result() {
   const s = useApp();
   const { btnH } = useMetrics();
   const v = s.view!;
-  const me = you(s);
+  const people = s.lineup.filter((b) => b.kind === "human").length;
+  // Two people at one phone: whoever held it last is not "you" to the other, so the result names every seat.
+  const me = people > 1 ? -1 : you(s);
   const vps = v.players.map((p) => p.actual_vp ?? p.vp);
   const pl = places(vps, v.winner);
   const order = vps.map((_, i) => i).sort((a, b) => pl[a] - pl[b] || a - b);
-  const people = s.lineup.filter((b) => b.kind === "human").length;
   const tied = me >= 0 && pl.some((p, j) => j !== me && p === pl[me]);
   const frames = seen(s);
   const last = frames.length - 1;
