@@ -60,7 +60,7 @@ export default function Slab() {
   const v = s.view!;
   const mine = playing(s) && v.current_player === s.human && v.winner < 0 && s.step == null;
   const legal = s.legal.map((a) => a[0]);
-  const mode = slabMode({ over: v.winner >= 0, mine, opening: v.initial_phase, prompt: v.prompt, legal, handoff: s.pendingHandoff != null });
+  const mode = slabMode({ over: v.winner >= 0, mine, opening: v.initial_phase, prompt: v.prompt, legal, handoff: s.pendingHandoff != null, offerOut: false, builder: false, sheet: null });
   const of = (k: string) => s.legal.find((a) => a[0] === k);
   const H = tileH + 10 + btnH;
 

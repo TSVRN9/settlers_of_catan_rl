@@ -4,7 +4,7 @@
 // other panels; the board itself stays visible and untouched behind it (its legal actions
 // during a discard are all `DISCARD_RESOURCE`, so nothing on it is clickable anyway).
 import { useState } from "react";
-import { act, live } from "../game";
+import { act, discardAll, live } from "../game";
 import Card from "../board/Card";
 import { useApp } from "../store";
 
@@ -28,10 +28,7 @@ export default function Discard() {
     setBusy(true);
     const counts = [0, 0, 0, 0, 0];
     for (const i of selected) counts[cards[i]]++;
-    // One card per action, so the position moves under this loop; `act` refusing one means the
-    // rest were chosen against a hand that no longer exists. Stop rather than discard blind.
-    outer: for (let r = 0; r < 5; r++)
-      for (let k = 0; k < counts[r]; k++) if (!await act(["DISCARD_RESOURCE", r, -1, -1])) break outer;
+    await discardAll(counts);
     setBusy(false);
   };
 

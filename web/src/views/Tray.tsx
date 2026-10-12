@@ -18,6 +18,7 @@ import { set, type State } from "../store";
 import Build from "./Build";
 import { DraftOrder, OpeningPieces } from "./Opening";
 import { held, waiting } from "../waiting";
+import { devChoices, devStep } from "../devpick";
 
 const NARROW = "(max-width: 1240px)";
 export const useNarrow = () => useSyncExternalStore(
@@ -94,28 +95,12 @@ function Devs({ devs, legal, gains, at, narrow }: { devs: number[]; legal: Canon
     if (dev === 1 || dev === 2) setPicking(picking?.dev === dev ? null : { dev, first: null });
     else { setPicking(null); void act(acts[0]); }
   };
-  // The resources the open card can still take, from its own legal actions.
-  const offered = (): number[] => {
-    if (!picking) return [];
-    const acts = plays(picking.dev);
-    if (picking.dev === 2) return [...new Set(acts.map((a) => a[1]))].sort();
-    // A pair is listed once, in either order, so the first pick may be either slot.
-    if (picking.first == null) return [...new Set(acts.flatMap((a) => (a[2] >= 0 ? [a[1], a[2]] : [a[1]])))].sort();
-    const f = picking.first;
-    return [...new Set(acts.filter((a) => (a[1] === f && a[2] >= 0) || a[2] === f).map((a) => (a[1] === f ? a[2] : a[1])))].sort();
-  };
+  const offered = (): number[] => (picking ? devChoices(picking.dev as 1 | 2, picking.first, legal) : []);
   const pick = (r: number) => {
     if (!picking) return;
-    const acts = plays(picking.dev);
-    if (picking.dev === 2) { setPicking(null); void act(acts.find((a) => a[1] === r)!); return; }
-    if (picking.first == null) {
-      const pair = acts.some((a) => (a[1] === r && a[2] >= 0) || a[2] === r);
-      if (pair) { setPicking({ dev: 1, first: r }); return; }
-      setPicking(null); void act(acts.find((a) => a[1] === r)!); return;
-    }
-    const f = picking.first;
-    setPicking(null);
-    void act(acts.find((a) => (a[1] === f && a[2] === r) || (a[1] === r && a[2] === f))!);
+    const step = devStep(picking.dev as 1 | 2, picking.first, r, legal);
+    if ("first" in step) { setPicking({ dev: picking.dev, first: step.first }); return; }
+    setPicking(null); void act(step.action);
   };
 
   const held = devs.map((n, i) => ({ n, i, gain: gains[i] || 0 })).filter((d) => d.n > 0 || d.gain < 0);

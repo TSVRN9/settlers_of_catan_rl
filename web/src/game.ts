@@ -227,6 +227,15 @@ export async function act(action: Canon): Promise<boolean> {
   }
 }
 
+/** A discard chosen whole and played one card per action (the engine's `DISCARD_RESOURCE`): the desktop's
+ *  panel and the phone's slots both end here. One refused means the rest were chosen against a hand that no
+ *  longer exists: stop rather than discard blind. */
+export async function discardAll(counts: number[]): Promise<boolean> {
+  for (let r = 0; r < 5; r++)
+    for (let k = 0; k < counts[r]; k++) if (!await act(["DISCARD_RESOURCE", r, -1, -1])) return false;
+  return true;
+}
+
 /** The one place anything is applied — `pump`, `act`, the offer builder, the discard panel and
  *  the board all arrive here. `at` is the position the action was chosen at; the apply carries
  *  its step count so the engine can refuse an action the game has moved past. That check cannot
