@@ -2,7 +2,7 @@
 // the top, the board, then you: your row, your hand and the slab whose job changes with the phase.
 import { useEffect } from "react";
 import BoardLayer from "../board/BoardLayer";
-import Lineup from "../views/Lineup";
+import PhoneLineup from "./Lineup";
 import { act } from "../game";
 import { playing, set, useApp, you } from "../store";
 import { held } from "../waiting";
@@ -24,14 +24,14 @@ export default function Phone() {
   const inHand = setup ? null : held(s);
   return (
     <div className="ph">
-      {!setup && s.view && <><TopBar /><Chips /></>}
+      {setup ? <div className="ph-word d">Catan RL</div> : s.view && <><TopBar /><Chips /></>}
       {/* A tap on the board hurries the bots until you are asked something (spec "Another seat's turn"). With a
           piece in hand the tap is Carry's, on its own layer above this. */}
       <div className="ph-board" onClick={() => { if (!setup && playing(s) && !mine && s.pendingHandoff == null && !s.hurry) set({ hurry: true }); }}>
         <div data-anchor="table" className="ph-anchor" />
       </div>
       {s.map && s.view && (
-        <BoardLayer view="table" dim={setup} map={s.map} gameView={s.view}
+        <BoardLayer view="table" map={s.map} gameView={s.view}
           carry={mine && inHand ? {
             map: s.map, view: s.view, legal: s.legal, seat: s.human, held: inHand, robTile: s.robTile, reveal: false,
             snapPx: 24, liftPx: 56, keepOnMiss: true,
@@ -42,7 +42,7 @@ export default function Phone() {
           hidePieces={s.reveal} dealing={s.reveal} />
       )}
       {!setup && s.map && s.view && s.step == null && <Fx frames={s.frames} at={Math.max(0, Math.min(s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), s.pendingHandoff)} />}
-      {setup ? <div className="ph-setup"><Lineup /></div> : <div className="ph-seat">{s.view && <>{/* Hidden, not removed, during a handoff: the next person must not see this hand, and the board must not move. */}{playing(s) && <div style={{ visibility: s.pendingHandoff == null ? undefined : "hidden" }}><YouRow /><Hand /></div>}<Slab /></>}</div>}
+      {setup ? <PhoneLineup /> : <div className="ph-seat">{s.view && <>{/* Hidden, not removed, during a handoff: the next person must not see this hand, and the board must not move. */}{playing(s) && <div style={{ visibility: s.pendingHandoff == null ? undefined : "hidden" }}><YouRow /><Hand /></div>}<Slab /></>}</div>}
     </div>
   );
 }

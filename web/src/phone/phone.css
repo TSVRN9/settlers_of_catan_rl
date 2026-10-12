@@ -13,11 +13,37 @@
    absolutely positioned box on --board-x/--board-y. */
 .ph .ph-anchor { position: static; transform: none; left: auto; top: auto;
                  width: min(100cqw, 100cqh * 1.04746); aspect-ratio: 511.56 / 488.4; }
-.ph-seat, .ph-setup { flex: 0 0 auto; padding: 0 var(--gut) 10px; }
-.ph-setup { max-height: 55dvh; overflow-y: auto; }
-/* Milestone 1 reuses the desktop lineup until Milestone 3's phone lineup: back into the flow, full width.
-   Its panels are placed by inline styles, hence !important. */
-.ph-setup > *, .ph-setup .dock-l { position: static !important; width: auto !important; left: auto !important; top: auto !important; margin-top: 12px; }
+.ph-seat { flex: 0 0 auto; padding: 0 var(--gut) 10px; }
+
+/* ── the lineup ── */
+.ph-word { flex: 0 0 44px; display: flex; align-items: center; padding: 0 var(--gut); font-size: 22px; }
+.ph-lineup { flex: 0 0 auto; padding: 6px var(--gut) 12px; display: flex; flex-direction: column; gap: 6px; }
+.ph-seatrow { height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border: 0; background: var(--color-paper);
+              color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.ph-seatrow > i { width: 12px; height: 30px; flex: 0 0 12px; }
+.ph-seatrow.add { opacity: .55; }
+.ph-seatrow .who, .ph-pickrow .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ph-seatrow b { font: 600 15px var(--font-sans); }
+.ph-seatrow small, .ph-pickrow small { font-size: 12px; color: var(--color-moss); }
+.ph-seatrow .chev { margin-left: auto; font-size: 22px; color: var(--color-moss); }
+.ph-lineup > .ph-btn { flex: 0 0 var(--btn-h); }
+.ph-lineup .ph-row { height: var(--btn-h); align-items: stretch; }
+.ph-switch { display: flex; align-items: center; gap: 8px; padding-right: 4px; font: 600 14px var(--font-sans); cursor: pointer; min-height: 44px; }
+.ph-scrim { position: absolute; inset: 0; z-index: 6; background: rgba(18, 33, 31, .28); display: flex; align-items: flex-end; }
+.ph-sheet { width: 100%; max-height: 82dvh; overflow-y: auto; background: var(--color-chalk); padding: 14px var(--gut) calc(14px + env(safe-area-inset-bottom));
+            display: flex; flex-direction: column; gap: 6px; box-shadow: 0 -10px 30px rgba(18, 33, 31, .2); animation: ph-rise var(--t-panel) var(--ease); }
+@keyframes ph-rise { from { translate: 0 100%; } }
+@media (prefers-reduced-motion: reduce) { .ph-sheet { animation: none; } }
+.ph-sheet .hd { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.ph-sheet .hd i { width: 12px; height: 24px; }
+.ph-sheet .hd .d { font-size: 22px; }
+.ph-sheet .hd .unit { margin-left: auto; font-size: 12px; color: var(--color-moss); }
+.ph-pickrow { min-height: 48px; flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 4px 12px; border: 0; background: var(--color-paper);
+              color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.ph-pickrow b { font: 600 14px var(--font-sans); }
+.ph-pickrow .num { margin-left: auto; font: 700 13px var(--font-sans); }
+.ph-pickrow.on { background: #fff; box-shadow: 0 4px 12px rgba(18, 33, 31, .12); }
+.ph-pickrow.out { color: var(--color-brick); font: 600 14px var(--font-sans); }
 
 /* ── top bar ── */
 /* Fixed height: the last roll arriving in it must not push the board down (min-height: 0 beats a flex
@@ -38,11 +64,11 @@
 .ph-pop { position: absolute; right: 0; top: 44px; z-index: 5; background: var(--color-paper); padding: 6px 12px;
           box-shadow: 0 10px 24px rgba(18,33,31,.18); display: flex; flex-direction: column; min-width: 210px; }
 .ph-pop label { height: 44px; display: flex; align-items: center; gap: 10px; font: 600 14px var(--font-sans); cursor: pointer; }
-.ph-pop input { appearance: none; margin: 0; position: relative; width: 34px; height: 20px; border-radius: 10px; background: var(--color-dust); flex: 0 0 34px; }
-.ph-pop input::before { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%;
+.ph-pop input, .ph-switch input { appearance: none; margin: 0; position: relative; width: 34px; height: 20px; border-radius: 10px; background: var(--color-dust); flex: 0 0 34px; }
+.ph-pop input::before, .ph-switch input::before { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%;
                         background: var(--color-chalk); transition: translate var(--t-feel) var(--ease); }
-.ph-pop input:checked { background: var(--color-pine); }
-.ph-pop input:checked::before { translate: 14px 0; }
+.ph-pop input:checked, .ph-switch input:checked { background: var(--color-pine); }
+.ph-pop input:checked::before, .ph-switch input:checked::before { translate: 14px 0; }
 
 /* ── the other seats ── */
 .ph-chips { flex: 0 0 auto; display: flex; gap: 8px; padding: 0 var(--gut); position: relative; z-index: 2; }

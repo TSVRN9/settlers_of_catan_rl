@@ -9,33 +9,52 @@ import Picker from "./Picker";
 import Tex from "./Tex";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
-import { set, useApp } from "../store";
+import { get, set, useApp, type State } from "../store";
 
 const MAX = 4, MIN = 2;
 
 /** `human` names the seat the readings are written from. It follows the first person at the
  *  table, or the seat just changed, or — with nobody seated — any real seat. */
-const humanFor = (lineup: BotSpec[], prefer: number) => {
+export const humanFor = (lineup: BotSpec[], prefer: number) => {
   if (lineup[prefer]?.kind === "human") return prefer;
   const found = lineup.findIndex((b) => b.kind === "human");
   return found >= 0 ? found : Math.min(prefer, lineup.length - 1);
 };
 
+/** A game left behind the lineup, still in play on the board it was dealt: it can be gone back to, and
+ *  starting says it would be a new one. */
+export const behind = (s: State) => !!s.view && s.view.steps > 0 && s.view.winner < 0 && !!s.dealt && s.dealt.seed === s.seed && s.dealt.n === s.lineup.length;
 
-export default function Lineup() {
+/** The board behind the lineup is dealt for this seed and this many seats. A finished game with the same seed
+ *  stays on screen as it ended; starting re-deals it. */
+export function useDealt() {
   const s = useApp();
   const n = s.lineup.length;
-  // A game left behind this panel, still in play on the board it was dealt: it can be
-  // gone back to, and Deal says it would be a new one.
-  const behind = !!s.view && s.view.steps > 0 && s.view.winner < 0 && !!s.dealt && s.dealt.seed === s.seed && s.dealt.n === n;
-
-  // The board behind is dealt for this seed and this many seats. A finished game with the
-  // same seed stays on screen as it ended; Deal re-deals it.
   useEffect(() => {
     const d = s.dealt;
     if (!d || d.seed !== s.seed || d.n !== n) void deal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.seed, n]);
+}
+
+export function setSeat(i: number, kind: BotKind) {
+  const lineup = get().lineup.map((b, j) => (j === i ? { ...b, kind } : b));
+  set({ lineup, human: humanFor(lineup, i) });
+}
+export function addSeat() {
+  const lineup: BotSpec[] = [...get().lineup, { kind: "heuristic", depth: 2 }];
+  set({ lineup, human: humanFor(lineup, get().human) });
+}
+export function removeSeat(i: number) {
+  const lineup = get().lineup.filter((_, j) => j !== i);
+  set({ lineup, human: humanFor(lineup, Math.min(get().human, lineup.length - 1)) });
+}
+
+export default function Lineup() {
+  const s = useApp();
+  const n = s.lineup.length;
+  const back = behind(s);
+  useDealt();
 
   // The seed field commits after a pause, so typing a five-digit number deals once.
   const [seedText, setSeedText] = useState(String(s.seed));
@@ -53,18 +72,6 @@ export default function Lineup() {
   const [open, setOpen] = useState<number | null>(null);
   const [info, setInfo] = useState<{ kind: BotKind; top: number } | null>(null);
 
-  const setSeat = (i: number, kind: BotKind) => {
-    const lineup = s.lineup.map((b, j) => (j === i ? { ...b, kind } : b));
-    set({ lineup, human: humanFor(lineup, i) });
-  };
-  const addSeat = () => {
-    const lineup: BotSpec[] = [...s.lineup, { kind: "heuristic", depth: 2 }];
-    set({ lineup, human: humanFor(lineup, s.human) });
-  };
-  const removeSeat = (i: number) => {
-    const lineup = s.lineup.filter((_, j) => j !== i);
-    set({ lineup, human: humanFor(lineup, Math.min(s.human, lineup.length - 1)) });
-  };
 
   return (
     <Dock name="lineup" side="l" style={{ position: "absolute", left: 34, top: 30, width: 352, zIndex: 1 }}>
@@ -112,9 +119,9 @@ export default function Lineup() {
 
       <button className="act go cut8" style={{ marginTop: 11, width: "100%" }} onClick={() => void start()}
               disabled={s.status === "thinking" && !s.map}>
-        {behind ? "Deal a new game" : "Deal"}
+        {back ? "Deal a new game" : "Deal"}
       </button>
-      {behind && (
+      {back && (
         <button className="act cut8 arrive" style={{ marginTop: 8, width: "100%" }} onClick={() => void resume()}>
           Back to the game, {roundOf(s.frames, s.view!).toLowerCase()}
         </button>
