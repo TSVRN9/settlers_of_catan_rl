@@ -27,7 +27,7 @@ export default function Phone() {
       {!setup && s.view && <><TopBar /><Chips /></>}
       {/* A tap on the board hurries the bots until you are asked something (spec "Another seat's turn"). With a
           piece in hand the tap is Carry's, on its own layer above this. */}
-      <div className="ph-board" onClick={() => { if (!setup && playing(s) && !mine && !s.hurry) set({ hurry: true }); }}>
+      <div className="ph-board" onClick={() => { if (!setup && playing(s) && !mine && s.pendingHandoff == null && !s.hurry) set({ hurry: true }); }}>
         <div data-anchor="table" className="ph-anchor" />
       </div>
       {s.map && s.view && (

@@ -176,7 +176,7 @@
 .ph-devsheet { flex: 1; min-height: 0; display: flex; align-items: flex-end; justify-content: center; gap: 8px; }
 .ph-devcard { border: 0; padding: 0; background: none; transition: translate var(--t-feel) var(--ease), opacity var(--t-feel) var(--ease); }
 .ph-devcard:not(:disabled) { translate: 0 -8px; cursor: pointer; filter: drop-shadow(0 8px 10px rgba(18,33,31,.22)); }
-.ph-devcard:disabled { opacity: .45; }
+.ph-devcard:disabled, .ph-devcard.vp { opacity: .45; }
 .ph-pick { background: #fff; box-shadow: 0 8px 18px rgba(18,33,31,.14); display: flex; flex-direction: column; padding: 0 12px 8px; }
 .ph-pick-head { flex: 0 0 44px; display: flex; align-items: center; gap: 8px; }
 .ph-pick-head .ph-back { margin-left: -12px; }

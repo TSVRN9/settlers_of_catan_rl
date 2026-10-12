@@ -10,6 +10,16 @@ export interface SlabInput {
   builder: boolean;
   /** The dev pile spread into the slab, or a Year of Plenty / Monopoly choosing (`store.devSheet`). */
   sheet: "devs" | "pick" | null;
+  /** Road Building's free roads are in hand (`view.is_road_building`). */
+  roadBuilding: boolean;
+}
+
+/** The frames to list under another seat's turn, newest first: every closed frame since the seated person's own
+ *  turn ended, their answers inside other turns (a decline, a discard) included. The last frame is the live one. */
+export function sinceTurn(frames: { seat: number; view: { current_turn: number } }[], human: number): number[] {
+  const out: number[] = [];
+  for (let i = frames.length - 2; i >= 0 && frames[i].view.current_turn !== human; i--) out.push(i);
+  return out;
 }
 
 /** Whose eyes the narration and the card flights are for: yours, except while the phone is between two
@@ -28,7 +38,7 @@ export function slabMode(x: SlabInput): SlabMode {
   if (x.prompt === "DISCARD") return "discard";
   // An offer to you, or a counter to yours; Counter opens the builder on it, turned round.
   if (x.prompt === "DECIDE_TRADE") return x.builder && x.legal.includes("OFFER_TRADE") ? "builder" : "offer-in";
-  if (x.prompt === "MOVE_ROBBER") return "build";        // Carry holds the robber; the build cards sink
+  if (x.prompt === "MOVE_ROBBER" || x.roadBuilding) return "build";   // Carry holds the robber or the free roads; the cards sink
   if (x.prompt !== "PLAY_TURN") return "fallback";
   if (x.sheet === "pick" && x.legal.some((k) => k === "PLAY_YEAR_OF_PLENTY" || k === "PLAY_MONOPOLY")) return "pick";
   if (x.sheet === "devs") return "devs";
@@ -41,7 +51,7 @@ export function slabMode(x: SlabInput): SlabMode {
 const argv = (globalThis as { process?: { argv?: string[] } }).process?.argv;
 if (argv?.[1]?.endsWith("slab.ts")) {
   const assert = (c: unknown, m: string) => { if (!c) throw new Error(`slab self-check: ${m}`); };
-  const base: SlabInput = { over: false, mine: true, opening: false, prompt: "PLAY_TURN", legal: [], handoff: false, offerOut: false, builder: false, sheet: null };
+  const base: SlabInput = { over: false, mine: true, opening: false, prompt: "PLAY_TURN", legal: [], handoff: false, offerOut: false, builder: false, sheet: null, roadBuilding: false };
   assert(slabMode({ ...base, legal: ["ROLL", "PLAY_KNIGHT_CARD"] }) === "roll", "before the roll");
   assert(slabMode({ ...base, legal: ["END_TURN", "BUILD_ROAD"] }) === "build", "main phase");
   assert(slabMode({ ...base, mine: false }) === "bots", "someone else's turn");
@@ -65,6 +75,13 @@ if (argv?.[1]?.endsWith("slab.ts")) {
   assert(slabMode({ ...base, mine: false, builder: true, sheet: "devs" }) === "bots", "stale selections ignored");
   assert(slabMode({ ...base, prompt: "DISCARD", legal: ["DISCARD_RESOURCE"], builder: true }) === "discard", "a discard beats a stale builder");
   assert(slabMode({ ...base, prompt: "MOVE_ROBBER", legal: ["MOVE_ROBBER"], sheet: "devs" }) === "build", "the robber in hand beats the sheet");
+  // Road Building: its free roads are in hand and BUILD_ROAD is all that's legal (no END_TURN): the build slab, sunk.
+  assert(slabMode({ ...base, legal: ["BUILD_ROAD"], roadBuilding: true }) === "build", "road building");
+  // The move list: everything since the seated person's own turn, including their answers inside a bot's turn.
+  const fr = (seat: number, turn: number) => ({ seat, view: { current_turn: turn } });
+  const frames = [fr(1, 1), fr(1, 1), fr(2, 2), fr(1, 2), fr(2, 2), fr(3, 3), fr(3, 3)];
+  assert(JSON.stringify(sinceTurn(frames, 1)) === "[5,4,3,2]", `since your turn, your answers included: ${JSON.stringify(sinceTurn(frames, 1))}`);
+  assert(JSON.stringify(sinceTurn([fr(2, 2)], 1)) === "[]", "the live frame alone is not a move");
   assert(slabMode({ ...base, over: true, mine: false }) === "over", "game over");
   // During a handoff the screen is between two people: narrate and fly cards as a spectator would see them.
   assert(viewerNow(1, 2) === -1, "a handoff hides the last person's cards");

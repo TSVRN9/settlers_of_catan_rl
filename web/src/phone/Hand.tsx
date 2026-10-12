@@ -41,9 +41,9 @@ export function YouRow() {
 }
 
 /** One resource's stack: a button while the phase takes cards off the hand (the builder, a discard). */
-function Stack({ r, tap, style, children }: { r: number; tap: ((r: number) => void) | null; style: CSSProperties; children: ReactNode }) {
+function Stack({ r, tap, verb, style, children }: { r: number; tap: ((r: number) => void) | null; verb: string; style: CSSProperties; children: ReactNode }) {
   return tap
-    ? <button data-res={r} className="ph-stack tap" style={style} onClick={() => tap(r)} aria-label={RESOURCES[r]}>{children}</button>
+    ? <button data-res={r} className="ph-stack tap" style={style} onClick={() => tap(r)} aria-label={`${verb} one ${RESOURCES[r].toLowerCase()}`}>{children}</button>
     : <span data-res={r} className="ph-stack" style={style}>{children}</span>;
 }
 
@@ -74,7 +74,7 @@ export function Hand() {
         const need = cost[r], up = Math.min(need, have), short = need - up, rest = have - up;
         const shown = Math.min(rest, DEEP);
         return (
-          <Stack key={r} r={r} tap={tap} style={{ width: cw, height: ch, marginTop: Math.max(Math.min(have, DEEP) - 1, 0) * STEP }}>
+          <Stack key={r} r={r} tap={tap} verb={mode === "discard" ? "Discard" : "Give"} style={{ width: cw, height: ch, marginTop: Math.max(Math.min(have, DEEP) - 1, 0) * STEP }}>
             {Array.from({ length: shown }, (_, i) => (
               <span key={i} className="ph-card" style={{ top: -(shown - 1 - i) * STEP, filter: i < shown - 1 ? "brightness(.93)" : undefined }}>
                 <Card resource={r} count={i === shown - 1 ? rest : undefined} width={cw} height={ch} />

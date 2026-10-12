@@ -2,7 +2,7 @@
 // Milestone 1 designs the roll, building and someone else's turn; every other position falls back to a list
 // of its legal actions, so a whole game can be played on a phone before those phases get their own design.
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
-import { act, confirmHandoff, discardAll, live, toLineup } from "../game";
+import { act, confirmHandoff, live, toLineup } from "../game";
 import Card from "../board/Card";
 import { newsworthy, narrate } from "../coach";
 import { SEAT_FILL } from "../board/palette";
@@ -15,18 +15,26 @@ import { held } from "../waiting";
 import { Die } from "../views/Tray";
 import { PieceIcon } from "../views/Build";
 import BuildCards, { Token } from "./BuildCards";
-import { slabMode, viewerNow, type SlabMode } from "./slab";
+import { sinceTurn, slabMode, viewerNow, type SlabMode } from "./slab";
 import { useMetrics } from "./usePhone";
 import type { Canon, Evaluation, View } from "../engine";
 
 const SETTLE_MS = 400;
 
-/** The discard slots played, one card per action (`discardAll`); the slots empty whatever happens. */
+/** The discard slots played, one card per action; the slots empty whatever happens. */
 let discarding = false;
 async function commitDiscard(pick: number[]) {
   if (discarding) return;
   discarding = true;
-  try { await discardAll(inSlots(pick)); } finally { discarding = false; set({ discardPick: [] }); }
+  try {
+    // One card per action (game.discardAll's loop), each slot emptied as its card lands, so the hand, which
+    // subtracts the slots, never counts a card twice. A refused one stops the rest.
+    for (const r of [...pick].sort((a, b) => a - b)) {
+      if (!await act(["DISCARD_RESOURCE", r, -1, -1])) break;
+      const cur = get().discardPick, i = cur.indexOf(r);
+      if (i >= 0) set({ discardPick: cur.filter((_, k) => k !== i) });
+    }
+  } finally { discarding = false; set({ discardPick: [] }); }
 }
 
 /** A tap on a hand stack during a discard: that resource into the next free slot. Filling the last slot by
@@ -62,8 +70,8 @@ function DiscardSlab() {
     set({ discardPick: pick.filter((_, k) => k !== i) });
   };
   const suggest = async () => {
-    const picks = await live.suggestDiscards("vnet", 2);
-    if (get().view?.prompt === "DISCARD" && !discarding) set({ discardPick: picks.map((a) => a[1]) });
+    const picks = await live.suggestDiscards("vnet", 2).catch((e) => { console.error("suggest", e); return null; });
+    if (picks && get().view?.prompt === "DISCARD" && !discarding) set({ discardPick: picks.map((a) => a[1]) });
   };
   return (
     <div className="ph-discard-slab">
@@ -142,8 +150,6 @@ function OfferIn() {
 }
 
 const ZERO = [0, 0, 0, 0, 0];
-/** packBundle gives each resource five bits (labels.ts); nineteen is the deck. */
-const CAP = 19;
 
 /** Your offer, built: one row of the five resources. A tap on a hand card gives it (it lifts, and its token
  *  reads −n); a tap on a token takes a given card back, or else asks for one more of it (+n, up to 3, then
@@ -158,7 +164,7 @@ function Builder() {
   const draft = (g: number[], w: number[]) => set({ offerDraft: { give: g, want: w } });
   const tapToken = (r: number) => {
     if (give[r] > 0) { draft(give.map((n, i) => (i === r ? n - 1 : n)), want); return; }
-    const next = want[r] >= Math.min(3, CAP) ? 0 : want[r] + 1;
+    const next = want[r] >= 3 ? 0 : want[r] + 1;
     draft(give, want.map((n, i) => (i === r ? next : n)));
   };
   const ok = s.legal.some((a) => a[0] === "OFFER_TRADE") && canOffer(give, want, hand, v.spent_offers);
@@ -174,7 +180,7 @@ function Builder() {
             const n = give[r] ? -give[r] : want[r];
             return (
               <button key={r} className="ph-tokbtn" onClick={() => tapToken(r)}
-                      aria-label={give[r] ? `Give one less ${RESOURCES[r].toLowerCase()}` : `Ask for ${want[r] >= 3 ? "none" : "one more"} ${RESOURCES[r].toLowerCase()}`}>
+                      aria-label={give[r] ? `Give one less ${RESOURCES[r].toLowerCase()}` : want[r] >= 3 ? `Ask for no ${RESOURCES[r].toLowerCase()}` : `Ask for one more ${RESOURCES[r].toLowerCase()}`}>
                 <Token r={r} have={n !== 0 || hand[r] > 0} w={26} />
                 {n !== 0 && <span className={`n num ${n < 0 ? "give" : "get"}`}>{n < 0 ? `−${-n}` : `+${n}`}</span>}
               </button>
@@ -241,11 +247,11 @@ function DevSheet() {
   return (
     <div className="ph-devsheet-slab">
       <div className="ph-devsheet">
-        {devs.map((n, k) => n > 0 && (
-          <button key={k} className="ph-devcard" disabled={!play(k)} onClick={() => press(k)} aria-label={`Play ${DEV_CARDS[k]}`}>
-            <Card dev={k} count={n > 1 ? n : undefined} width={cw} height={ch} />
-          </button>
-        ))}
+        {devs.map((n, k) => n > 0 && (PLAY_DEV[k] == null
+          ? <span key={k} className="ph-devcard vp"><Card dev={k} count={n > 1 ? n : undefined} width={cw} height={ch} /></span>
+          : <button key={k} className="ph-devcard" disabled={!play(k)} onClick={() => press(k)} aria-label={`Play ${DEV_CARDS[k]}`}>
+              <Card dev={k} count={n > 1 ? n : undefined} width={cw} height={ch} />
+            </button>))}
       </div>
       <div className="ph-row" style={{ height: btnH }}>
         <button className="ph-btn cut8" onClick={() => set({ devSheet: null })}>Back</button>
@@ -302,7 +308,7 @@ export function useSlabMode(): SlabMode {
   const offerOut = live && v.is_resolving_trade && v.current_trade[10] === s.human && v.current_turn === s.human;
   return slabMode({ over: v.winner >= 0, mine, opening: v.initial_phase, prompt: v.prompt, legal: s.legal.map((a) => a[0]),
                     handoff: s.pendingHandoff != null, offerOut, builder: s.offering,
-                    sheet: s.devSheet == null ? null : s.devSheet.dev == null ? "devs" : "pick" });
+                    sheet: s.devSheet == null ? null : s.devSheet.dev == null ? "devs" : "pick", roadBuilding: v.is_road_building });
 }
 
 /** Every action of a position as a button: the fallback, and the list a Trade or a dev card opens. */
@@ -331,9 +337,9 @@ function MoveIcon({ a, seat }: { a: Canon; seat: number }) {
 function Moves() {
   const s = useApp();
   const rows: { i: number; seat: number; a: Canon; text: string; d: number | null; dice: [number, number] | null }[] = [];
-  for (let i = s.frames.length - 2; i >= 0 && rows.length < 24; i--) {
+  for (const i of sinceTurn(s.frames, s.human)) {
+    if (rows.length >= 24) break;
     const f = s.frames[i], row = rowAt(s.frames, i);
-    if (f.seat === s.human && rows.length) break;
     if (!row || !f.action || !newsworthy(f.action) || !s.map) continue;
     const a = f.evals[f.seat]?.win, b = s.frames[i + 1].evals[f.seat]?.win;
     rows.push({ i, seat: f.seat, a: f.action, text: narrate(row, s.map, viewerNow(you(s), s.pendingHandoff)), d: a != null && b != null ? b - a : null,
@@ -391,7 +397,7 @@ export default function Slab() {
         const end = of("END_TURN");
         return (
           <div className="ph-build-slab">
-            <BuildCards sunk={v.prompt === "MOVE_ROBBER"} />
+            <BuildCards sunk={v.prompt === "MOVE_ROBBER" || v.is_road_building} />
             <div className="ph-row" style={{ height: btnH }}>
               <button className="ph-btn cut8" disabled={!trades} onClick={() => set({ offering: true, offerDraft: { give: ZERO, want: ZERO } })}>Trade</button>
               <button className="ph-btn go cut8" disabled={!end} onClick={() => end && void act(end)}>End turn</button>

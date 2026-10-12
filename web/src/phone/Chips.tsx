@@ -30,7 +30,7 @@ export default function Chips() {
             const confirm = s.legal.find((x) => x[0] === "CONFIRM_TRADE" && x[1] === i);
             return (
               <span key={i}>
-                {confirm ? <button className="badge yes cut5" onClick={() => void act(confirm)}>{ANSWER.yes}</button>
+                {confirm ? <button className="badge yes cut5" onClick={() => void act(confirm)} aria-label={`Trade with ${SEAT_NAMES[i]}`}>{ANSWER.yes}</button>
                   : <span className={`badge cut5 ${a ?? "wait"}`}>{a ? ANSWER[a] : "···"}</span>}
               </span>
             );

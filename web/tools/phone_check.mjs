@@ -326,9 +326,22 @@ for (let i = 0; i < 40000; i++) {
   // Development cards: the pile spreads into the slab; a Year of Plenty or Monopoly picks there.
   const playable = (k) => s.legal.some((a) => a[0] === k);
   const yopOrMono = playable("PLAY_YEAR_OF_PLENTY") || playable("PLAY_MONOPOLY");
+  // Road Building: played from the sheet, its free roads in hand, the build slab sunk (not the fallback list).
+  if (s.prompt === "PLAY_TURN" && playable("PLAY_ROAD_BUILDING") && probes.roadBuilding == null) {
+    await sleep(600);
+    await tapSel(".ph-devs"); await sleep(600);   // past the slab's 400ms tap guard
+    const i = await run(() => { const st = window.__app.get(); return st.view.players[st.human].devs.slice(0, 3).filter((n) => n > 0).length; });
+    const at = await run((i) => { const b = document.querySelectorAll(".ph-devcard")[i]; if (!b) return null; const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }, i);
+    if (at) await tap(...at);
+    await sleep(900);
+    const x = await run(() => ({ rb: window.__app.get().view.is_road_building, slab: document.querySelector(".ph-slab")?.firstElementChild?.className ?? "" }));
+    await shot("road-building");
+    probe("roadBuilding", { ...x, ok: x.rb && x.slab.startsWith("ph-build-slab") });
+    continue;
+  }
   if (s.prompt === "PLAY_TURN" && s.devs.some((n) => n > 0) && !s.resolving && (probes.devSheet == null || (yopOrMono && probes.pick == null))) {
     await sleep(600);
-    await tapSel(".ph-devs"); await sleep(300);
+    await tapSel(".ph-devs"); await sleep(600);
     const cards = await run(() => [...document.querySelectorAll(".ph-devcard")].map((b) => !b.disabled));
     probe("devSheet", { cards: cards.length, playable: cards.filter(Boolean).length, ok: cards.length > 0 });
     await shot("devs");
@@ -385,6 +398,8 @@ for (let i = 0; i < 40000; i++) {
 await shot("end");
 const missing = NEED.filter((k) => probes[k] == null);
 const failed = Object.entries(probes).filter(([, v]) => v && v.ok === false).map(([k]) => k);
+// Every phase of a turn has its own slab since Milestone 2: the person never meets the fallback list.
+if (modes.has("ph-list")) failed.push("fallback-list");
 console.log(JSON.stringify({ ...result, roll, tapThrough, overflowX, winner, games, boxes: [...boxes].map(([k, v]) => `${v} ${k}`), modes: [...modes], small: [...small], probes, missing, failed }, null, 1));
 process.exitCode = missing.length || failed.length || result.error ? 1 : 0;
 ws.close();
