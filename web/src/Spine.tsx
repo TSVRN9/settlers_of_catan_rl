@@ -8,7 +8,8 @@ import { SEAT_NAMES } from "./labels";
 import { SEAT_FILL } from "./board/palette";
 import { to, toRoot } from "./route";
 import { openGameAnalysis } from "./review";
-import { currentView, useApp, type ViewName } from "./store";
+import { currentView, hiddenLocked, playing, useApp, type ViewName } from "./store";
+import { setShowHidden } from "./game";
 import { waiting } from "./waiting";
 
 const REVIEW = new Set<ViewName>(["game", "move"]);
@@ -25,7 +26,10 @@ export default function Spine() {
   const s = useApp();
   // At the setup there is nothing in progress to report, even though the last game's final
   // position is still on screen behind it.
-  const w = s.phase === "lineup" ? null : waiting(s);
+  // Seated at the live Table, the tray says it beside the controls that answer it; the spine
+  // carries it everywhere else — looking back, or three views deep — which is how a seven or an
+  // offer still reaches you.
+  const w = s.phase === "lineup" || (playing(s) && currentView(s) === "table" && s.step == null && s.view?.winner! < 0) ? null : waiting(s);
   const seat = w ? w.seat : s.human;
 
   return (
@@ -65,6 +69,15 @@ export default function Spine() {
             <span className="sr">{`, ${SEAT_NAMES[seat]}`}</span>
           </span>
         )
+      )}
+
+      {/* Readings are what you could know unless this is on; never mid-game with two people at
+          one screen, where it would show one the other's hand. */}
+      {s.view && s.phase !== "lineup" && !hiddenLocked(s) && (
+        <label className="hide-sw">
+          <input type="checkbox" role="switch" checked={s.showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
+          Hidden information
+        </label>
       )}
     </div>
   );

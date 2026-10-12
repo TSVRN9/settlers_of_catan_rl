@@ -1,7 +1,7 @@
 // Hotseat's gate: whichever seat is now on move stays covered — board and hand alike — until
 // its own player taps through. `App.tsx` renders this on top of a blurred stage, for any view.
 import { confirmHandoff } from "../game";
-import { SEAT_NAMES } from "../labels";
+import { SEAT_NAMES, roundOf } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import { useApp } from "../store";
 
@@ -21,7 +21,7 @@ export default function Handoff() {
           <button className="act go cut8" onClick={confirmHandoff} autoFocus>
             I am {SEAT_NAMES[seat]} — show the board
           </button>
-          <span className="num cap" style={{ marginLeft: "auto", fontSize: 12 }}>turn {s.view.num_turns}</span>
+          <span className="num cap" style={{ marginLeft: "auto", fontSize: 12 }}>{roundOf(s.frames, s.view)}</span>
         </div>
       </div>
     </div>

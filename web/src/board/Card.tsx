@@ -59,8 +59,9 @@ export default function Card({ resource = 0, dev, count, width, height, rotate, 
         // (Discard's own cards) dims more to mean "not chosen" — two different questions,
         // so `selected` only enters into it when the card can actually be clicked.
         opacity: dim ? 0.4 : onClick && !selected ? 0.5 : 1,
-        boxShadow: selected ? "inset 0 0 0 3px var(--color-pine)" : undefined,
-        transform: rotate ? `rotate(${rotate}deg)` : undefined,
+        // Chosen is pulled up out of the row, the way a card is drawn from a hand — never ringed.
+        transform: [rotate ? `rotate(${rotate}deg)` : "", selected ? "translateY(-12px)" : ""].join(" ").trim() || undefined,
+        transition: "transform var(--t-feel) var(--ease), opacity var(--t-feel) var(--ease), translate var(--t-feel) var(--ease)",
         transformOrigin: "bottom center",
       }}
     >

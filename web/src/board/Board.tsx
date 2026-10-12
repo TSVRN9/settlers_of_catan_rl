@@ -188,6 +188,17 @@ export default function Board({ map, view, highlight, litTiles, hidePieces, deal
 
       {!hidePieces && (
         <g className="pieces">
+          {/* A road's shadow, the plinth's counterpart: a road on a tile of its own colour — grey
+              on ore, red on brick — is separated from it by the shade it casts, not an outline.
+              The road's own width, offset down, so only its fall shows and never a rim. */}
+          {EDGES.map((_, e) => {
+            const owner = view.road_owner[e];
+            if (owner < 0) return null;
+            const [x1, y1] = nodeXY(EDGES[e][0]), [x2, y2] = nodeXY(EDGES[e][1]);
+            const fresh = since ? since.road_owner[e] !== owner : false;
+            return <line key={`rs${e}`} className={fresh ? "pc new" : "pc"} x1={x1} y1={y1 + 1.8} x2={x2} y2={y2 + 1.8}
+                         stroke={C.pine} strokeOpacity="0.24" strokeWidth="5.4" strokeLinecap="round" />;
+          })}
           {/* Roads run the whole edge with round caps, so a chain fuses into one line. */}
           {EDGES.map((_, e) => {
             const owner = view.road_owner[e];

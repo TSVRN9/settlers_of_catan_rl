@@ -5,13 +5,13 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { isStale } from "../engine";
 import type { Attribution, LuckRoll, PlayerView } from "../engine";
-import { fmtDelta, fmtPct, vpCards, who, whom, whose } from "../labels";
+import { fmtDelta, fmtPct, roundOf, vpCards, who, whom, whose } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import Dock from "../Dock";
 import { groupText, narrate, num } from "../coach";
 import { deciding, pointOfNoReturn, worstLuckWindow } from "../deciding";
 import { attributionAt, events, luckRolls, luckTotals, openMoveAnalysis, rowAt, stopAutoplay, tilesForGroup, toggleAutoplay } from "../review";
-import { get, set, useApp, you } from "../store";
+import { get, set, useApp, viewer, you } from "../store";
 
 // SPLIT also fixes where "The position now" row starts, which the CSS board anchor
 // ([data-anchor="game"], index.css) is tuned to sit right at the top of — moving SPLIT
@@ -89,14 +89,17 @@ export default function Game() {
   }, [over, frames.length]);
 
   const mover = frame?.seat ?? 0;
+  // What the net leans on is read from the mover's own hand, so for anyone else's move it shows
+  // their hidden cards: only with Hidden information on.
+  const sealed = !s.showHidden && mover !== viewer(s);
 
   useEffect(() => {
     setAttr(null);
     setLit(null);
-    if (step == null || !frame) return;
+    if (step == null || !frame || sealed) return;
     void attributionAt(step, mover).then((a) => { if (get().step === step) setAttr(a); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, sealed]);
 
   useEffect(() => {
     if (!frame || !map) { set({ boardOverride: null }); return; }
@@ -119,6 +122,10 @@ export default function Game() {
   const last = frames.length - 1;
   const ev = events(frames, me);
   const moments = deciding(frames);
+  // The chart's ceiling: four seats sit near 25% most of a game, so a fixed 0-100 axis left
+  // every line in its bottom third. It is 50 until a reading passes that, then the whole range.
+  const top = Math.max(...frames.flatMap((f) => f.evals.map((e) => e?.win ?? 0))) > 0.5 ? 1 : 0.5;
+  const Y = (w: number) => 100 - (100 * w) / top;
   // Threshold-free, and null in the 15% of games where the last lead change is the winning move.
   const ponr = pointOfNoReturn(frames, frames[last].view.winner);
   function swingAt(i: number, seat: number) {
@@ -240,15 +247,15 @@ export default function Game() {
 
         <div style={{ display: "flex", gap: 8, marginTop: 10, flex: 1, minHeight: 0 }}>
           <div className="cap num" style={{ width: 26, flex: "0 0 26px", height: chartH, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 10.5, textAlign: "right", lineHeight: 1 }}>
-            {[100, 75, 50, 25, 0].map((p) => <span key={p}>{p}</span>)}
+            {[1, 0.75, 0.5, 0.25, 0].map((q) => <span key={q} style={{ visibility: q === 0.75 || q === 0.25 ? "hidden" : undefined }}>{Math.round(top * q * 100)}</span>)}
           </div>
           <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
             <svg ref={svgRef} viewBox={`0 0 ${Math.max(1, last)} 100`} preserveAspectRatio="none" width="100%"
                  style={{ display: "block", flex: 1, minHeight: 0, cursor: "col-resize", touchAction: "none" }}
                  onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => setHover(null)}>
               {[0, 25, 50, 75, 100].map((p) => (
-                <line key={p} x1={0} x2={last} y1={100 - p} y2={100 - p} stroke="var(--color-dust)" strokeWidth={p === 50 ? 1.5 : 1}
-                      strokeDasharray={p === 50 ? "3 3" : undefined} vectorEffect="non-scaling-stroke" />
+                <line key={p} x1={0} x2={last} y1={100 - p} y2={100 - p} stroke="var(--color-dust)" strokeWidth={Math.abs(top * p - 50) < 1 ? 1.5 : 1}
+                      strokeDasharray={Math.abs(top * p - 50) < 1 ? "3 3" : undefined} vectorEffect="non-scaling-stroke" />
               ))}
               {band && <rect x={band[0]} y={0} width={Math.max(0.5, band[1] - band[0])} height={100} fill="var(--color-wheat)" opacity={0.18} />}
               {/* The stretch where the dice were worst to one seat: five rolls, not the maximum
@@ -263,8 +270,8 @@ export default function Game() {
                   `non-scaling-stroke` fixes width only — so "4 3" scales with
                   the chart's height. The dot is an ellipse for the same reason: a circle would not be one. */}
               {moments.map((m) => {
-                const y0 = 100 - 100 * (frames[m.step].evals[m.seat]?.win ?? 0.5);
-                const y1 = 100 - 100 * (frames[m.step + 1].evals[m.seat]?.win ?? 0.5);
+                const y0 = Y(frames[m.step].evals[m.seat]?.win ?? 0.5);
+                const y1 = Y(frames[m.step + 1].evals[m.seat]?.win ?? 0.5);
                 const on = step === m.step || lift === m.step;
                 return (
                   <g key={`d${m.step}`}>
@@ -291,7 +298,7 @@ export default function Game() {
               {frame.view.players.map((_, seat) => (
                 <polyline key={seat} fill="none" stroke={SEAT_FILL[seat]} strokeWidth={seat === me ? 2.4 : 1.5}
                           opacity={seat === me || me < 0 ? 1 : 0.65} vectorEffect="non-scaling-stroke" strokeLinejoin="round"
-                          points={frames.map((f, i) => `${i},${100 - 100 * (f.evals[seat]?.win ?? 0.5)}`).join(" ")} />
+                          points={frames.map((f, i) => `${i},${Y(f.evals[seat]?.win ?? 0.5)}`).join(" ")} />
               ))}
               <line x1={step} x2={step} y1={0} y2={100} stroke="var(--color-pine)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
             </svg>
@@ -338,7 +345,7 @@ export default function Game() {
                     {runText.paid && <><br />{runText.paid}</>}
                   </div>
                 )}
-                <div className="cap" style={{ color: "var(--color-dust)", fontSize: 11.5 }}>Step {hover}, turn {hf.view.num_turns}, {who(hf.seat, me)} to move</div>
+                <div className="cap" style={{ color: "var(--color-dust)", fontSize: 11.5 }}>Step {hover}, {roundOf(frames, hf.view).toLowerCase()}, {who(hf.seat, me)} to move</div>
                 {hf.view.players.map((p, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                     <i style={{ width: 7, height: 7, borderRadius: "50%", background: SEAT_FILL[i] }} />
@@ -360,7 +367,7 @@ export default function Game() {
         <div className="cut8" style={{ marginTop: 6, background: "var(--color-tint)", padding: "7px 11px", fontSize: 12.5, lineHeight: 1.4, display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ flex: 1 }}>
             {nowRow
-              ? <>At this step {narrate(nowRow, map, me).replace(/^./, (c) => c.toLowerCase())} — worth <b className="num">{fmtDelta(nowDelta)}</b> to {whom(mover, me)}.</>
+              ? <>At this step {narrate(nowRow, map, me).replace(/\.$/, "").replace(/^You /, "you ")}, worth <b className="num">{fmtDelta(nowDelta)}</b> to {whom(mover, me)}.</>
               : frame.view.winner >= 0 ? <>The game ends here: {who(frame.view.winner, me)} won.</> : <>This is the live position, {whom(mover, me)} to move.</>}
           </span>
           {nowRow && (
@@ -378,7 +385,7 @@ export default function Game() {
         </span>
       </Dock>
 
-      <Dock name="game-lean" side="b" className="cut" style={{ position: "absolute", left: 490, right: 396, top: SPLIT, bottom: 26, ...paper, overflowY: "auto" }}>
+      {!sealed && <Dock name="game-lean" side="b" className="cut" style={{ position: "absolute", left: 490, right: 396, top: SPLIT, bottom: 26, ...paper, overflowY: "auto" }}>
         <div className="d" style={{ fontSize: 15 }}>What the net is leaning on</div>
         <div className="cap" style={{ fontSize: 12, marginTop: 4 }}>
           What {whose(mover, me)} reading would lose without each: green carries {mover === me ? "you" : "them"}, red works against {mover === me ? "you" : "them"}.
@@ -393,7 +400,7 @@ export default function Game() {
                    onMouseEnter={() => setLit({ group: a.group, seat: absSeat(a) })}
                    onMouseLeave={() => setLit((g) => (g?.group === a.group ? null : g))}
                    style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12.5, cursor: "default", background: on ? "var(--color-tint)" : undefined, padding: "3px 6px", margin: "0 -6px" }}>
-                <span style={{ width: 150, flex: "0 0 150px", fontWeight: on ? 600 : 400 }}>{groupText(a, mover, n, me)}</span>
+                <span style={{ width: 150, flex: "0 0 150px", fontWeight: on ? 600 : 400 }}>{groupText(a, mover, n, me).replace(/^./, (c) => c.toUpperCase())}</span>
                 <span style={{ position: "relative", flex: 1, height: 8, background: "var(--color-dust)" }}>
                   <span style={{ position: "absolute", left: "50%", top: -2, bottom: -2, width: 1.5, background: "var(--color-pine)" }} />
                   <span className="track" style={{
@@ -408,7 +415,7 @@ export default function Game() {
             );
           })}
         </div>
-      </Dock>
+      </Dock>}
 
       <Dock name="game-turns" side="r" className="cut" style={{ position: "absolute", right: 30, bottom: 26, width: 356, top: SPLIT, ...paper, overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
@@ -416,7 +423,7 @@ export default function Game() {
         </div>
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
           {moments.length === 0 && (
-            <div className="cap" style={{ fontSize: 12.5 }}>No single move decided this one.</div>
+            <div className="cap" style={{ fontSize: 12.5 }}>{over ? "No single move decided this one." : "No move has swung it yet."}</div>
           )}
           {moments.map((m) => {
             const row = rowAt(frames, m.step);

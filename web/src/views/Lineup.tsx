@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BotKind, BotSpec } from "../engine";
 import { deal, resume, start } from "../game";
-import { BOT_INFO, BOT_NAMES, BOT_SHORT, SEAT_NAMES } from "../labels";
+import { BOT_INFO, BOT_NAMES, BOT_SHORT, SEAT_NAMES, roundOf } from "../labels";
 import Picker from "./Picker";
 import Tex from "./Tex";
 import { SEAT_FILL } from "../board/palette";
@@ -117,7 +117,7 @@ export default function Lineup() {
       </button>
       {behind && (
         <button className="act cut8 arrive" style={{ marginTop: 8, width: "100%" }} onClick={() => void resume()}>
-          Back to the game — turn {s.view!.num_turns}
+          Back to the game, {roundOf(s.frames, s.view!).toLowerCase()}
         </button>
       )}
 

@@ -6,7 +6,7 @@
 // Pure functions over the engine's own views. The self-check at the bottom runs with
 // `node --experimental-strip-types src/coach.ts`.
 import type { Attribution, Canon, MapView, View } from "./engine";
-import { GROUP as GROUP_TITLES, RESOURCES, canOffer, maritimeFor, SEAT_NAMES, cornerName, edgeName, fmtDelta, fmtPct, rows, tileText, tilesAt, unpackBundle, who, whom, whose } from "./labels.ts";
+import { GROUP as GROUP_TITLES, RESOURCES, bankFor, canOffer, roundOf, SEAT_NAMES, cornerName, edgeName, fmtDelta, fmtPct, rows, tileText, tilesAt, unpackBundle, who, whom, whose } from "./labels.ts";
 
 export interface Ctx { map: MapView; view: View; /** whose move is being weighed */ seat: number; /** the reader's seat, or -1 */ you: number }
 export interface Row { seat: number; action: Canon; outcome: [number, number] | null; gains: number[][] }
@@ -325,8 +325,29 @@ export function offerAnswers(frames: { seat: number; action: Canon | null; view:
   return { give: unpackBundle(give), get: unpackBundle(get), answers, open };
 }
 
-/** Rows worth a line of commentary. Ending a turn is not news. */
+/** Rows worth a line of commentary. Ending a turn is not news, and neither is each seat's answer
+ *  to an offer on its own line — the offer's line carries what became of it (`offerFate`). */
 export const newsworthy = (a: Canon) => a[0] !== "END_TURN";
+export const isAnswer = (a: Canon) => a[0] === "ACCEPT_TRADE" || a[0] === "REJECT_TRADE";
+
+/** A row's line in the log: its narration, and for an offer nobody took, that it went nowhere —
+ *  one that was taken is followed by the trade's own line. */
+export function logLine(row: Row, map: MapView, you: number, frames: { seat: number; action: Canon | null }[], i: number): string {
+  const text = narrate(row, map, you);
+  return row.action[0] === "OFFER_TRADE" && offerFate(frames, i) === "refused" ? `${text} Nobody took it.` : text;
+}
+
+/** What became of the offer made at frame `i`: taken (the trade's own line says so), withdrawn,
+ *  answered with a counter, refused all round, or still going round the table. */
+export function offerFate(frames: { seat: number; action: Canon | null }[], i: number): "traded" | "withdrawn" | "countered" | "refused" | "open" {
+  let j = i + 1;
+  while (j < frames.length && frames[j].action && isAnswer(frames[j].action!)) j++;
+  const a = frames[j]?.action;
+  if (!a) return "open";
+  if (a[0] === "CONFIRM_TRADE") return "traded";
+  if (a[0] === "CANCEL_TRADE") return "withdrawn";
+  return a[0] === "OFFER_TRADE" && frames[j].seat !== frames[i].seat ? "countered" : "refused";
+}
 
 const GROUP: Record<string, string> = {
   hand: "hand", production: "production", buildings: "settlements and cities", roads: "roads",
@@ -549,13 +570,20 @@ if (argv?.[1]?.endsWith("coach.ts")) {
   assert(!canOffer(bundle(1, 0, 0, 0, 0), bundle(0, 0, 0, 0, 1), myHand, refused), "already refused this turn");
   assert(canOffer(bundle(1, 0, 0, 0, 0), bundle(0, 1, 0, 0, 0), myHand, refused), "a different offer still stands");
 
-  // The builder's bank button: the engine's rate, and an action only at exactly that many cards.
-  const sea: Canon[] = [["MARITIME_TRADE", 0, 4, 4], ["MARITIME_TRADE", 0, 2, 4], ["MARITIME_TRADE", 1, 4, 4]];
-  assert(maritimeFor(bundle(2, 0, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea)?.action?.join() === "MARITIME_TRADE,0,2,4", "port rate wins");
-  assert(maritimeFor(bundle(3, 0, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea)?.action === null, "wrong count, no action");
-  assert(maritimeFor(bundle(0, 4, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea)?.rate === 4, "4:1");
-  assert(maritimeFor(bundle(2, 0, 0, 0, 0), bundle(0, 0, 0, 1, 0), sea) === null, "no such trade");
-  assert(maritimeFor(bundle(2, 1, 0, 0, 0), bundle(0, 0, 0, 0, 1), sea) === null, "two resources is not a bank trade");
+  // The trade panel's bank row: one way per resource, at its best rate, cheapest first.
+  const sea: Canon[] = [["MARITIME_TRADE", 0, 4, 4], ["MARITIME_TRADE", 0, 2, 4], ["MARITIME_TRADE", 1, 4, 4], ["MARITIME_TRADE", 1, 4, 3]];
+  assert(bankFor(bundle(0, 0, 0, 0, 1), sea).map((a) => a.join()).join("|") === "MARITIME_TRADE,0,2,4|MARITIME_TRADE,1,4,4", "port rate wins, one per resource");
+  assert(bankFor(bundle(0, 0, 0, 0, 2), sea).length === 0, "two cards is not a bank trade");
+  assert(bankFor(bundle(0, 0, 0, 1, 1), sea).length === 0, "two kinds is not a bank trade");
+  assert(bankFor(bundle(0, 0, 1, 0, 0), sea).length === 0, "nothing pays for sheep");
+
+  // The table counts rounds from the first roll; the opening is its own phase.
+  {
+    const at = (num_turns: number, initial_phase: boolean) => ({ view: { num_turns, initial_phase, n: 4 } as View });
+    const run = [at(0, true), at(7, true), at(8, false), at(11, false), at(12, false)];
+    assert(roundOf(run, run[1].view) === "Opening", "opening");
+    assert(roundOf(run, run[2].view) === "Round 1" && roundOf(run, run[3].view) === "Round 1" && roundOf(run, run[4].view) === "Round 2", "rounds");
+  }
 
   // A roll's cards come off the tiles that paid them, and a robbed tile pays nothing.
   {
@@ -590,5 +618,13 @@ if (argv?.[1]?.endsWith("coach.ts")) {
   const acc = evidence(["ACCEPT_TRADE", -1, -1, -1], tctx);
   assert(acc.includes("a wheat") && acc.includes("a wood and a brick"), `accept evidence: ${acc}`);
   assert(questions([], tctx, [0.25, 0.25, 0.25, 0.25]).some((x) => x.q === "What does the offer cost me?"), "trade chip");
+
+  // An offer's fate is read past its answers to whatever the offerer did next.
+  const f = (seat: number, k: string | null) => ({ seat, action: k ? [k, -1, -1, -1] as Canon : null });
+  const offerRun = [f(0, "OFFER_TRADE"), f(1, "REJECT_TRADE"), f(2, "REJECT_TRADE")];
+  assert(offerFate([...offerRun, f(0, "END_TURN"), f(1, null)], 0) === "refused", "fate refused");
+  assert(offerFate([...offerRun, f(0, "CONFIRM_TRADE"), f(0, null)], 0) === "traded", "fate traded");
+  assert(offerFate([...offerRun, f(0, null)], 0) === "open", "fate open");
+  assert(offerFate([f(0, "OFFER_TRADE"), f(1, "OFFER_TRADE"), f(0, null)], 0) === "countered", "fate countered");
   console.log("coach self-check ok");
 }

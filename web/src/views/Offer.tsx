@@ -1,4 +1,5 @@
-// Offering a trade, built rather than picked from a list.
+// Offering a trade, built rather than picked from a list — in a panel beside the board, not over
+// it, since what you want is usually read off the board. The cards are the controls.
 //
 // The engine enumerates only its 20-bundle catalogue — one or two cards a side — which is
 // why `legal` carries a couple of hundred OFFER_TRADE actions and why the old panel was a
@@ -14,8 +15,9 @@ import { useState } from "react";
 import type { Canon } from "../engine";
 import { act } from "../game";
 import Card from "../board/Card";
-import { RESOURCES, SEAT_NAMES, bundleText, canOffer, maritimeFor, packBundle } from "../labels";
+import { RESOURCES, SEAT_NAMES, bankFor, bundleText, canOffer, packBundle } from "../labels";
 import { set, useApp } from "../store";
+import { useNarrow } from "./Tray";
 
 const ZERO = [0, 0, 0, 0, 0];
 /** What a bundle can carry: `packBundle` gives each resource five bits and masks with 31
@@ -33,6 +35,7 @@ export default function Offer() {
     counter ? counter.slice(5, 10).map((n, r) => Math.min(n, v!.players[s.human].hand[r])) : ZERO);
   const [want, setWant] = useState<number[]>(() => (counter ? counter.slice(0, 5) : ZERO));
   const [busy, setBusy] = useState(false);
+  const narrow = useNarrow();
   if (!v) return null;
 
   const hand = v.players[s.human].hand;
@@ -50,8 +53,6 @@ export default function Offer() {
     side === "give" ? give[r] < hand[r] && want[r] === 0 : give[r] === 0 && want[r] < CAP;
 
   const ok = s.legal.some((a) => a[0] === "OFFER_TRADE") && canOffer(give, want, hand, v.spent_offers);
-  // The same cards can go to the bank instead, at the engine's rate for that resource.
-  const bank = maritimeFor(give, want, s.legal);
   const spent = give.some(Boolean) && want.some(Boolean) && !ok
     && !give.some((c, i) => c > hand[i]) && !give.some((c, i) => c > 0 && want[i] > 0);
 
@@ -66,56 +67,58 @@ export default function Offer() {
     if (await act(a)) close(); else setBusy(false);
   };
 
+  // The bank, for exactly one card of one kind: every resource you could pay for it with.
+  const bankWays = bankFor(want, s.legal);
+
+  // A card is the control: pressing it adds one. The less-one sits under it only once there is
+  // one to take back, and the row keeps its height either way.
   const row = (side: "give" | "want", counts: number[]) => (
-    <div style={{ display: "flex", gap: 10 }}>
+    <div style={{ display: "flex", gap: 6 }}>
       {counts.map((n, r) => (
-        <div key={r} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-          <Card resource={r} count={n} width={62} height={84} dim={n === 0} />
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <button className="act cut8" aria-label={`One less ${RESOURCES[r].toLowerCase()}`}
-                    style={{ height: 24, width: 24, padding: 0, fontSize: 14 }}
-                    disabled={busy || n === 0} onClick={() => bump(side, r, -1)}>−</button>
-            <button className="act cut8" aria-label={`One more ${RESOURCES[r].toLowerCase()}`}
-                    style={{ height: 24, width: 24, padding: 0, fontSize: 14 }}
-                    disabled={busy || !canAdd(side, r)} onClick={() => bump(side, r, +1)}>+</button>
-          </div>
-          {side === "give" && <span className="cap" style={{ fontSize: 11 }}>{hand[r]} held</span>}
+        <div key={r} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <button className={`pick${n > 0 ? " in" : ""}`} disabled={busy || !canAdd(side, r)} onClick={() => bump(side, r, +1)}
+                  aria-label={`One more ${RESOURCES[r].toLowerCase()}${side === "give" ? `, ${hand[r]} held` : ""}`}>
+            <Card resource={r} count={n} width={narrow ? 40 : 48} height={narrow ? 54 : 64} dim={side === "give" ? hand[r] === 0 : false} />
+          </button>
+          <button className="less" aria-label={`One less ${RESOURCES[r].toLowerCase()}`}
+                  style={{ visibility: n > 0 ? "visible" : "hidden" }} disabled={busy || n === 0}
+                  onClick={() => bump(side, r, -1)}>−</button>
         </div>
       ))}
     </div>
   );
 
   return (
-    <div className="modal arrive">
-      <div className="cut arrive dock-t" style={{ background: "var(--color-paper)", padding: "20px 22px" }}>
-        <div className="d" style={{ fontSize: 20 }}>{counter ? `Counter ${SEAT_NAMES[counter[10]]}` : "Trade"}</div>
+    <div className="cut arrive dock-r deal trade-build" role="group" aria-label={counter ? `Counter ${SEAT_NAMES[counter[10]]}` : "Trade"}>
+      <div style={{ display: "flex", alignItems: "baseline" }}>
+        <span className="d" style={{ fontSize: 17, flex: 1 }}>{counter ? `Counter ${SEAT_NAMES[counter[10]]}` : "Trade"}</span>
+        <button className="cap" style={{ background: "none", border: 0, cursor: "pointer", fontSize: 12, padding: 0 }}
+                disabled={busy} onClick={close}>Close</button>
+      </div>
 
-        <div style={{ display: "flex", gap: 26, marginTop: 16, alignItems: "flex-start" }}>
-          <div>
-            <div className="cap" style={{ marginBottom: 8 }}>You give</div>
-            {row("give", give)}
-          </div>
-          <div>
-            <div className="cap" style={{ marginBottom: 8 }}>You want</div>
-            {row("want", want)}
-          </div>
-        </div>
+      <div className="cap" style={{ marginTop: 8, marginBottom: 5 }}>You give</div>
+      {row("give", give)}
+      <div className="cap" style={{ marginTop: 6, marginBottom: 5 }}>You get</div>
+      {row("want", want)}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
-          <span style={{ font: "600 13.5px var(--font-sans)", flex: 1 }}>
-            {give.some(Boolean) || want.some(Boolean)
-              ? `${bundleText(give)} for ${bundleText(want)}`
-              : "Nothing offered yet."}
-            {spent && <span className="cap" style={{ marginLeft: 8, color: "var(--color-warn)" }}>already refused this turn</span>}
-          </span>
-          {bank && (
-            <button className="act cut8" disabled={busy || !bank.action} onClick={() => void toBank(bank.action!)}>
-              Bank {bank.rate}:1
+      {bankWays.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+          <span style={{ font: "600 12.5px var(--font-sans)", marginRight: 2 }}>From the bank for</span>
+          {bankWays.map((a) => (
+            <button key={a[1]} className="act cut8" style={{ height: 30, fontSize: 12.5, padding: "0 10px" }}
+                    disabled={busy} onClick={() => void toBank(a)}>
+              {a[2]} {RESOURCES[a[1]].toLowerCase()}
             </button>
-          )}
-          <button className="act go cut8" disabled={busy || !ok} onClick={() => void offer()}>Offer it</button>
-          <button className="act cut8" disabled={busy} onClick={close}>Back</button>
+          ))}
         </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+        <span style={{ font: "600 12.5px var(--font-sans)", flex: 1, lineHeight: 1.35 }}>
+          {give.some(Boolean) && want.some(Boolean) ? `${bundleText(give)} for ${bundleText(want)}` : ""}
+          {spent && <span className="cap" style={{ display: "block", fontSize: 11.5, color: "var(--color-warn)" }}>already refused this turn</span>}
+        </span>
+        <button className="act go cut8" disabled={busy || !ok} onClick={() => void offer()}>Offer it</button>
       </div>
     </div>
   );

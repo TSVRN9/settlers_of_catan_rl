@@ -10,6 +10,7 @@
 // a subscription graph.
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
+import { viewer as viewerOf } from "./readings";
 import type { BotSpec, Canon, Decision, Evaluation, Frame, MapView, View } from "./engine";
 
 export type ViewName = "table" | "futures" | "move" | "game";
@@ -35,6 +36,12 @@ export interface State {
   view: View | null;
   legal: Canon[];
   evals: Evaluation[];
+  /** The reading `evals` is not showing: see `Frame.evalsOther`. */
+  evalsOther: Evaluation[];
+  /** "Hidden information": readings computed from every seat's own hand instead of what the
+   *  viewer could know. Per viewer, remembered across visits; locked off while two people share
+   *  the screen mid-game (`hiddenLocked`). */
+  showHidden: boolean;
   advice: Decision | null;
   last: Canon | null;
 
@@ -123,6 +130,8 @@ const initial: State = {
   view: null,
   legal: [],
   evals: [],
+  evalsOther: [],
+  showHidden: rememberedHidden(),
   advice: null,
   last: null,
   hover: null,
@@ -188,6 +197,15 @@ export const playing = (s: State) => s.lineup[s.human]?.kind === "human";
 
 /** The seat "you" is written from, or -1 when nobody is seated. */
 export const you = (s: State) => (playing(s) ? s.human : -1);
+
+/** The viewer's last "Hidden information" choice (per browser; a private window reads false). */
+export function rememberedHidden() { try { return localStorage.getItem("showHidden") === "1"; } catch { return false; } }
+
+/** Whose public reading is shown (readings.ts). */
+export const viewer = (s: Pick<State, "lineup">) => viewerOf(s.lineup);
+
+/** Hidden information would show one person the other's hand: off while a shared game is live. */
+export const hiddenLocked = (s: State) => s.lineup.filter((p) => p.kind === "human").length > 1 && s.phase === "playing";
 
 /** The view being shown: the last crumb. */
 export const currentView = (s: State): ViewName => s.crumbs[s.crumbs.length - 1] ?? "table";

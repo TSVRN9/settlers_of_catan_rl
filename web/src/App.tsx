@@ -12,9 +12,9 @@ import Game from "./views/Game";
 import Move from "./views/Move";
 import Handoff from "./views/Handoff";
 import Discard from "./views/Discard";
-import Offer from "./views/Offer";
 import Spine, { NAME } from "./Spine";
 import { act, toLineup } from "./game";
+import { roundOf } from "./labels";
 import * as keys from "./keys";
 import * as route from "./route";
 import { currentView, playing, set, useApp } from "./store";
@@ -35,16 +35,16 @@ function Head() {
   const shown = view === "table" && s.step != null ? s.frames[s.step]?.view ?? s.view : s.view;
   // The engine counts every seat's turn, the opening's placements included, so "Turn 6" was the
   // first roll of a four-seat game. The head counts rounds of the table from the first roll.
-  const first = s.frames.find((f) => !f.view.initial_phase)?.view.num_turns ?? shown.num_turns;
-  const title = view !== "table" ? NAME[view] : shown.initial_phase ? "Opening"
-    : `Round ${Math.floor((shown.num_turns - first) / shown.n) + 1}`;
+  const title = view !== "table" ? NAME[view] : roundOf(s.frames, shown);
   const back = view === "table" ? toLineup : route.pop;
+  // The title names the screen; only the chevron leaves it — a headline that took you out of a
+  // game in progress was a trap.
   return (
-    <button className="head" style={{ viewTransitionName: "head" } as CSSProperties} onClick={back}
-            title={view === "table" ? "Back to the lineup" : "Back"}>
-      <span className="chev" aria-hidden="true">‹</span>
-      <span className="d">{title}</span>
-    </button>
+    <div className="head" style={{ viewTransitionName: "head" } as CSSProperties}>
+      <button className="chev" onClick={back} aria-label={view === "table" ? "Back to the lineup" : "Back"}
+              title={view === "table" ? "Back to the lineup" : "Back"}>‹</button>
+      <h1 className="d">{title}</h1>
+    </div>
   );
 }
 
@@ -123,7 +123,6 @@ export default function App() {
             board (the artboard's own point: "the board stays visible behind it"); Handoff's
             blur wrapper above already covers the case where the board itself must be hidden. */}
         {!setup && waiting(s)?.kind === "discard" && <Discard />}
-        {!setup && s.offering && <Offer />}
         <Handoff />
       </div>
 

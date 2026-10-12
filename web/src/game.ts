@@ -5,9 +5,10 @@
 // `apply` and `evaluateAll` deadlocked the loop until the next `start()`. Here the loop is
 // one `async while` with a `try/finally` that always releases, and staleness is the engine
 // client's epoch rather than a counter kept in a component.
-import { EngineClient, isStale, type Canon, type Evaluation, type Frame, type View } from "./engine";
+import { EngineClient, isStale, type Canon, type Evaluation, type Frame, type Readings, type View } from "./engine";
 import { resetReview } from "./review";
-import { get, playing, set, transition, type Pace } from "./store";
+import { orient, swap } from "./readings";
+import { get, playing, rememberedHidden, set, transition, viewer, type Pace } from "./store";
 
 /** The live game's engine. Review holds its own client, because the worker frees its wasm
  *  engine on every `new` — one shared client is how Play and Watch used to destroy each
@@ -39,8 +40,21 @@ const beat = (forced: boolean) => {
 };
 
 /** A live position as a frame: the last of `store.frames` until an action closes it. */
-const frame = (view: View, evals: Evaluation[]): Frame =>
-  ({ step: view.steps, view, seat: view.current_player, action: null, outcome: null, decision: null, evals, attribution: null });
+const frame = (view: View, evals: Evaluation[], evalsOther: Evaluation[] = []): Frame =>
+  ({ step: view.steps, view, seat: view.current_player, action: null, outcome: null, decision: null, evals, evalsOther, attribution: null });
+
+/** Both readings, ordered the way the "Hidden information" switch shows them. */
+const shown = (r: Readings) => orient(r, get().showHidden);
+
+/** The "Hidden information" switch: swaps every frame's two readings, so everything that reads
+ *  `evals` (the ring, the curves, the deciding marks) follows it without knowing it exists. */
+export function setShowHidden(on: boolean, remember = true) {
+  if (remember) { try { localStorage.setItem("showHidden", on ? "1" : "0"); } catch { /* private window */ } }
+  if (get().showHidden === on) return;
+  set((cur) => ({
+    showHidden: on, ...swap({ evals: cur.evals, evalsOther: cur.evalsOther }), frames: cur.frames.map(swap),
+  }));
+}
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -58,7 +72,10 @@ export async function deal() {
   resetReview();
   stopWatching();
   set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, hover: null, carry: null, robTile: null, mark: null,
-        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], frames: [], mutedSeat: null, mutedTurn: null });
+        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], mutedSeat: null, mutedTurn: null });
+  // Two people at one screen: the game starts with the hidden cards hidden, whatever this viewer
+  // last chose; that choice is not overwritten, so it is back for the next game.
+  setShowHidden(s.lineup.filter((p) => p.kind === "human").length > 1 ? false : rememberedHidden(), false);
   try {
     const g = await live.newGame(seed, n);
     // A game has an address, so it can be linked and a reload keeps the board. The play
@@ -67,8 +84,8 @@ export async function deal() {
     // The reveal only happens now: `reveal` has to be set in the same breath as the map,
     // or the board it animates does not exist yet to carry the class.
     set({ map: g.map, view: g.view, legal: g.legal, dealt: { seed, n }, reveal: !reduced(), status: "idle", frames: [frame(g.view, [])] });
-    const ev = await live.evaluateAll();
-    set((cur) => ({ evals: ev, frames: cur.frames.length ? [{ ...cur.frames[0], evals: ev }] : [frame(g.view, ev)] }));
+    const [ev, other] = shown(await live.evaluateAll(viewer(get())));
+    set((cur) => ({ evals: ev, evalsOther: other, frames: cur.frames.length ? [{ ...cur.frames[0], evals: ev, evalsOther: other }] : [frame(g.view, ev, other)] }));
     if (!reduced()) setTimeout(() => { if (get().map === g.map) set({ reveal: false }); }, DEAL_MS);
   } catch (e) {
     if (!isStale(e)) set({ status: "idle", error: String(e) });
@@ -120,7 +137,7 @@ function show(i: number) {
   if (!f) return;
   const last = s.frames.length - 1;
   const done = last > 0 && s.frames[last].action === null && f.view.winner >= 0;
-  set({ view: f.view, evals: f.evals, legal: [], step: null, phase: done ? "over" : "playing", status: "idle" });
+  set({ view: f.view, evals: f.evals, evalsOther: f.evalsOther, legal: [], step: null, phase: done ? "over" : "playing", status: "idle" });
 }
 
 function stopTimer() { if (timer != null) { clearInterval(timer); timer = null; } }
@@ -142,7 +159,9 @@ async function watch() {
   try {
     await live.run(s.seed, s.lineup, (batch) => {
       if (runToken !== token) return;
-      set((cur) => ({ frames: [...cur.frames.slice(0, batch[0].step), ...batch], status: "idle" }));
+      // The worker sends public first; turn a batch round if the switch shows hidden.
+      const turned = get().showHidden ? batch.map(swap) : batch;
+      set((cur) => ({ frames: [...cur.frames.slice(0, batch[0].step), ...turned], status: "idle" }));
     });
   } catch (e) {
     if (!isStale(e)) { console.error(e); set({ status: "idle", error: String(e) }); }
@@ -230,14 +249,14 @@ async function advance(action: Canon, at: View): Promise<boolean> {
   }
   // `offering` clears here rather than above, so a dropped offer leaves the builder open.
   set({ view: res.view, legal: res.legal, last: action, offering: false });
-  const ev = await live.evaluateAll();
+  const [ev, other] = shown(await live.evaluateAll(viewer(get())));
   // Never drag the app back out of the lineup: leaving a game mid-turn is allowed, and the
   // apply that was already in flight must not undo it.
   set((cur) => {
     const open = cur.frames[cur.frames.length - 1];
     const closed: Frame = { ...open, seat, action, outcome: res.outcome };
-    return { evals: ev, status: "idle",
-             frames: [...cur.frames.slice(0, -1), closed, frame(res.view, ev)],
+    return { evals: ev, evalsOther: other, status: "idle",
+             frames: [...cur.frames.slice(0, -1), closed, frame(res.view, ev, other)],
              phase: cur.phase === "lineup" ? "lineup" : res.view.winner >= 0 ? "over" : "playing" };
   });
   return true;

@@ -612,6 +612,202 @@ Two agents played the reworked Table and reported back.
 - **Bots still make offers as often as their policy does.** "Ignore X this turn" is the
   answer for now.
 
+### Desktop audit (2026-10-11)
+
+I played seed 373476 at 1512×801 and measured the layout at 1920×1080. The walk covered the
+opening, bot offers, a 7 with the robber and a steal, a 4:1 bank trade, and a dev-card buy, with
+the analysis column and "The whole game" open. Not walked: placing from a build card, discarding,
+playing a dev card, sending or countering an offer, the end of a game, and the stands.
+Most severe first.
+
+1. **Bot offers are most of the game.** The vnet seat (`vnets3w40x`) made 8 offers in one turn
+   and 3 in another; the heuristic seats made 2 each. 90 steps covered about two rounds, and
+   most of a person's clicks were Decline. FINDINGS' offer counts (median 0, p90 3) came from
+   four v89w bots. Offers it predicts will be *accepted* aren't capped, so against a person who
+   refuses them it walks down its whole shortlist. Fixing this means changing bot behaviour (a
+   per-turn cap on refused offers at the site, or answering offers in a batch), so it is a
+   decision, not polish.
+2. **Your controls are spread across the screen.**
+   - At 1512 wide: the hand is at x 30–350, the build cards at 740–1030, and Trade / dice /
+     End turn at 1055–1365.
+   - What to do now is a 13 px pill in the top-right corner, and an incoming offer docks at the
+     right middle.
+   - Each turn the eye crosses about 1300 px and back.
+   - Proposal: one tray centred under the board (hand, build cards, dice / End turn), with the
+     prompt beside the dice and an incoming offer above the hand cards it would take.
+3. **The board is small.**
+   - At 1920×1080 the board's SVG is 692 px wide (36% of the width), and the island inside it
+     is about 410 px. The faint sea grid fills the rest.
+   - There is about 240 px of dead space above the board, and a column of it to the right
+     when analysis is closed.
+   - Proposal: crop the view box to the island and ports, and size the board from the height
+     left over after the tray.
+4. **The trade builder is a form.**
+   - It is a modal with 20 steppers, and its backdrop hides the board.
+   - A 4:1 bank trade took 7 clicks.
+   - "Bank 4:1" doesn't fill in the rate; it stays grey until you count to 4 yourself.
+   - "Offer it" stays the primary button even when the terms are a bank rate.
+   - Proposal: build offers by pressing your hand cards forward, and give each resource you
+     hold at a bank or port rate a one-press trade. Keep the board visible.
+5. **The seat rail jumps, and the left column is mostly empty.**
+   - The on-move row grows a two-line `.said` slot, so every row below moves about 35 px each
+     turn. That slot repeats the newest log line word for word.
+   - Between the rail (ends at y≈230) and the log (starts at y≈580) there is about 350 px of
+     nothing.
+   - Public information is missing during play: knights played, road length, dev cards held,
+     and who holds Longest Road / Largest Army.
+6. **The opening shows the wrong things.**
+   - Five zero resource cards sit at full size.
+   - The draft order is 180 px wide, far above the board, and White's icons nearly vanish on
+     the paper.
+   - Your four opening pieces sit about 350 px right of the board's centre.
+7. **Sockets are hard to see.**
+   - At rest, legal corners are pale 3–4 px dots; the sizing by worth is barely visible.
+   - With the pointer on the settlement just placed, all three road sockets swell to full
+     roads, and they look already built.
+8. **Robbing.**
+   - The victims' buildings get translucent seat-colour discs, which read as halos (check
+     against the no-halo rule).
+   - The card counts that decide whom to rob are only in the rail, far away.
+   - The roll overlay sits on the centre tiles for the length of the roll hold, including
+     tiles that are producing.
+   - Before a roll, the Roll button shows the previous roll's faces.
+9. **White is nearly invisible.** White roads on ore and wheat tiles, and White's draft icons,
+   almost disappear against the paper.
+10. **Analysis.**
+    - The win ring overlaps the build cards at 801 px tall.
+    - The coach column is cut off at the top.
+    - An incoming offer stacks under the coach's chat buttons.
+    - On "The whole game":
+      - "The position now" sits on top of a board that is clipped on the left.
+      - The win chart's 0–100 axis leaves lines in the 0–40 band.
+      - "Where the game turned" says "No single move decided this one." mid-game.
+      - Copy: "At this step white declined the offer. — worth −1.5 to White." and "your pieces
+        still in the box".
+    - The live game keeps running behind analysis (a "Red offers you a trade" pill) with no way
+      to answer there.
+11. **The build cards are cut off at the bottom of the window** at 801 px tall.
+    - Their supply counts (13 / 3 / 4) are small and unlabelled.
+    - The cost pips are 6 px rings, and the cards you can't build look identical.
+12. **The page title is the back button.** "Round 2" goes to the lineup. The game waits behind
+    it, but nothing about a headline says it leaves the game.
+
+### The desktop pass (2026-10-11)
+
+Built from the audit above in cycles of change, render, critique and correct. The renders were at
+1920×910, 1512×801, 1440×900, 1280×800 and 1024×700, using iframes for the sizes the window
+couldn't reach.
+
+**Played live:**
+- the opening;
+- rolls and a seven;
+- robbing with two victims;
+- a bank trade from the panel;
+- your own offer through to "Nobody took it.";
+- countering a bot's offer, then Esc back to it;
+- clicking a road from a building card onto the board, pressed near the edge's end;
+- dragging a road from its card onto the board;
+- looking back while an offer waits;
+- the stands;
+- the whole-game view.
+
+**Faked with `__app.set`** (layout, not flow): the seated game-over, the Year of Plenty picker,
+the discard modal, and building cards standing ready.
+
+**Layout (items 2, 3, 5, 6).**
+- **Board size.** Seated, the board fills the band between the timeline and the tray (`--band`,
+  with `--board-w` at 1.2× the band). It also fits the width between two columns that are always
+  reserved:
+  - the seats and the log on the left (`--rail-r`);
+  - the column for what is asked of you on the right (`--ask-w` / `--ask-r`).
+
+  Reserving the right column means an offer arriving never moves the board. The board is centred
+  when the window has room, and otherwise slides left only as far as it must.
+- **When the ring is out** (analysis open, or the game over), the board shrinks until the ring
+  fits the same band. The rule keys on `[data-ring]:not(.off)`, not on the coach column, which
+  isn't mounted once the game is over.
+- **The tray** is a three-column grid centred under the board (`--tray-x`), so the hand sits
+  under it: building cards to the left, the turn to the right.
+  - The turn column is a status line ("Your turn", "Move the robber", "Red is thinking"), then
+    Trade, the dice and End turn.
+  - Seated at the Table, the spine no longer repeats the status line.
+- **The left column** is the seat rail with the log directly under it, filling down to the tray.
+  - The two-line "said" slot is gone: it repeated the log's top line, and it made the rail jump
+    every turn.
+  - Every row now carries a face-up line: knights played, longest road, development cards held.
+    The holder of Largest Army or Longest Road has that figure drawn on an inked chip, as the
+    card it is. The line is hidden in the opening, where it would be all noughts.
+- **The opening.**
+  - The building cards give way to the draft order, drawn larger. The grey seat's icons are a
+    shade deeper off the board, where no plinth separates them from the chalk.
+  - The hand is hidden until your second settlement pays out.
+  - The opening piece you are holding leaves a trace in its slot rather than a hole.
+- **The odds of a seven** moved from the top-left corner (where they pushed the rail down) to a
+  line over the hand.
+- **Offers and the trade builder** sit in the right column, just above the turn controls. The
+  first try docked them against the island's edge, but at 1440×900 that left 234 px for a
+  294 px panel, so the column is now reserved instead.
+
+**Trading (item 4).**
+- **The builder** is a panel, not a modal, so the board stays visible.
+- **The cards are the controls.** Pressing a card adds one, a small minus appears under a card
+  once it has any, and a card with some in stands up.
+- **Bank trades.** Asking for exactly one card lists every bank or port way to pay for it at its
+  best rate ("From the bank for 4 sheep"), so a 4:1 trade is three presses: Trade, the card,
+  the bank.
+  - `bankFor` in labels.ts replaced `maritimeFor`; its asserts are in coach.ts's self-check.
+- **Readable buttons and cards.** Plain buttons on paper panels are tinted so they read as
+  pressable, and cards on paper cast a shadow.
+
+**Log (item 1, mitigation only).**
+- An offer's answers no longer get a line each. The offer's own line says "Nobody took it." when
+  that was its fate (`offerFate` / `logLine` in coach.ts, with asserts), and a taken offer is
+  followed by the trade's line.
+- **The offer storm is fixed in the bot, not the UI.** `vnets3w40x` made 8 offers in one turn against a person who
+  refuses. The site bot is now `vnets3w40c2x` (`wasm.rs VNET_OFFER_CAP`): no offers once two were refused that turn,
+  checked in `tools/smoke.mjs`. It costs strength (−9 points against three ports, docs/FINDINGS.md 2026-10-11), taken
+  on purpose: repeated offers only pay against bot partners.
+
+**The board and the hand-held piece (items 7, 8, 9).**
+- **Sockets at rest** are as strong as their worth, squared: the few places worth having are
+  plain to see, and the many poor ones stay faint.
+- **Road sockets** are stubs that stop short of both corners and stay thinner than a built road.
+- **Edge snapping** measures to the edge's nearest point, not its middle, so a press anywhere
+  along a road takes it.
+- **A near miss** (a press among the sockets that hits none) keeps the piece in hand rather than
+  putting it back.
+- **A road in hand** floats level, an angle no edge has; it used to float at an edge's angle and
+  looked already built.
+- **Robbing.** A victim is a chip in its colour over its building, carrying its card count — the
+  rail's swatch, not a halo.
+- **Road shadows.** Roads now cast a shadow: the road's own width, offset down, the plinth's
+  counterpart. It separates grey on ore and red on brick without a rim.
+  - This is a departure from `web/design/board.mjs`, which should take the same shadow.
+- **The dice** live in the tray's dice slot, or by the transport in the stands, and tumble
+  there. The board-centre overlay that covered the producing tiles is gone. The Roll button's
+  dice are blank until thrown.
+- **Chosen cards** (discarding, Year of Plenty) are lifted out of the row instead of ringed.
+
+**Smaller.**
+- **The title.** The page title is a heading. Only its chevron leaves the game.
+- **Rounds everywhere.** The table counts rounds everywhere (`roundOf` in labels.ts, with
+  asserts): the head, the strip, the lineup's way back, the ending, the hotseat curtain and the
+  whole-game hover.
+- **The whole game.**
+  - The win chart's ceiling is 50 until a reading passes it.
+  - The step line no longer lowercases a seat's name or leaves ". —" behind.
+  - The lean list's own rows are capitalised.
+  - The turning-points panel says "No move has swung it yet." while the game is live.
+- **Building cards** show their supply only when two or fewer are left.
+
+**Still open.**
+- Capping the bots' offers per turn (audit item 1), a decision for the owner.
+- The coach column's thread is clipped at its top.
+- The live game keeps running behind the analysis views.
+- Middle-dot strings in corner names and the lineup chips.
+- The site build was checked with `vite build` only. `pnpm build` runs wasm-pack over a
+  `catan_engine/` with uncommitted engine work in it.
+
 ## Milestones
 
 ### M0 — groundwork

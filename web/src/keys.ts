@@ -31,11 +31,12 @@ export function install() {
     const stands = s.phase !== "lineup" && !playing(s);
 
     // Esc puts down what is in hand first — the robber's victim question, then the piece picked
-    // up — and only then goes back a page.
+    // up, then a trade being put together — and only then goes back a page.
     if (e.key === "Escape") {
       e.preventDefault();
       if (s.robTile != null) set({ robTile: null });
       else if (s.carry) set({ carry: null });
+      else if (s.offering) set({ offering: false });
       else pop();
       return;
     }

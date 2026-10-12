@@ -38,7 +38,7 @@ assert.equal(map.ports.length, 9);
 }
 
 const bots = ["vnet", "heuristic", "random", "heuristic"];
-let steps = 0, tVnet = 0, nVnet = 0, maxLeaves = 0;
+let steps = 0, tVnet = 0, nVnet = 0, maxLeaves = 0, tPublic = 0;
 while (eng.winner() < 0 && eng.num_turns() < 1000) {
   const seat = eng.current_player();
   const legal = JSON.parse(eng.legal_actions());
@@ -71,6 +71,22 @@ half.load_net(new Uint8Array(weights), meta.hidden);
 assert.equal(half.has_net(), true);
 assert.equal(JSON.parse(half.evaluate_all()).length, 4, "a reloaded replay evaluates");
 
+// Public win chances (public.rs): evaluate_all's shape; the viewer's own seat is its exact reading; the same position
+// reads the same in the live game's replay and in a second replay (the deals are seeded from the game, not the call).
+{
+  const spec = JSON.parse(half.evaluate_all_public(-1, 4));
+  assert.equal(spec.length, 4);
+  for (const r of spec) assert.ok(r.win >= 0 && r.win <= 1 && r.vps.length === 4 && Number.isFinite(r.turns_left), "public reading shape");
+  for (let v = 0; v < 4; v++) {
+    const pub = JSON.parse(half.evaluate_all_public(v, 4));
+    assert.deepEqual(pub[v], JSON.parse(half.evaluate(v)), `viewer ${v} reads its own seat exactly`);
+  }
+  const other = pkg.Engine.replay(record, Math.floor(steps / 2));
+  other.load_net(new Uint8Array(weights), meta.hidden);
+  assert.equal(other.evaluate_all_public(1, 4), half.evaluate_all_public(1, 4), "same position, same public reading");
+  assert.equal(eng.evaluate_all_public(-1, 4), eng.evaluate_all(), "a finished game reads as evaluate_all");
+}
+
 // The site keeps every step's view as the game is played (store.frames) and repositions its
 // review engine with `Engine.replay(record, step)` for the ladder and attribution at one step.
 // This walks the record forward with `apply()` and checks it lands on the live game's own final
@@ -82,6 +98,11 @@ assert.equal(JSON.parse(half.evaluate_all()).length, 4, "a reloaded replay evalu
   let frameCount = 0;
   for (const [action] of rec.log) {
     JSON.parse(e2.evaluate_all());   // a frame carries the evals of the position before its action
+    // the live game (outcomes drawn) and its review (outcomes forced, so a different deck order and RNG) agree
+    if (frameCount === Math.floor(steps / 2)) assert.equal(e2.evaluate_all_public(1, 4), half.evaluate_all_public(1, 4), "live and review read the same");
+    const t0 = performance.now();
+    JSON.parse(e2.evaluate_all_public(-1, 4));
+    tPublic += performance.now() - t0;
     e2.apply(JSON.stringify(action));
     frameCount++;
   }
@@ -135,5 +156,26 @@ for (const n of [2, 3]) {
   assert.equal(JSON.parse(e.attribution(0)).length > 0, true, `${n}-seat attribution`);
 }
 
-console.log(`smoke ok: geometry + replay-net + 2/3-seat games checked; seed ${seed}, ${steps} steps, ${view.num_turns} turns, winner seat ${view.winner}, ` +
-  `vnet ${nVnet} decisions avg ${(tVnet / Math.max(nVnet, 1)).toFixed(1)} ms (max leaves ${maxLeaves})`);
+// The site's net bot stops offering once two offers were refused in a turn (wasm.rs VNET_OFFER_CAP): a table that
+// refuses everything, as a person often does, sees at most two offers a turn from it.
+let capOffers = 0;
+{
+  const e = new pkg.Engine(seed + 7, 4);
+  e.load_net(new Uint8Array(weights), meta.hidden);
+  const perTurn = new Map();
+  while (e.winner() < 0 && e.num_turns() < 1000) {
+    const seat = e.current_player();
+    const legal = JSON.parse(e.legal_actions());
+    const reject = legal.find((a) => a[0] === "REJECT_TRADE");
+    const a = seat !== 0 && reject ? reject : JSON.parse(e.decide(seat === 0 ? "vnet" : "heuristic", 2)).action;
+    if (seat === 0 && a[0] === "OFFER_TRADE") perTurn.set(e.num_turns(), (perTurn.get(e.num_turns()) ?? 0) + 1);
+    e.apply(JSON.stringify(a));
+  }
+  capOffers = [...perTurn.values()].reduce((x, y) => x + y, 0);
+  assert.ok(capOffers > 0, "the net bot offered at least once, so the cap was exercised");
+  assert.ok(Math.max(...perTurn.values()) <= 2, `at most two refused offers a turn, got ${Math.max(...perTurn.values())}`);
+}
+
+console.log(`smoke ok: geometry + replay-net + 2/3-seat games + offer cap (${capOffers} refused offers) checked; seed ${seed}, ${steps} steps, ${view.num_turns} turns, winner seat ${view.winner}, ` +
+  `vnet ${nVnet} decisions avg ${(tVnet / Math.max(nVnet, 1)).toFixed(1)} ms (max leaves ${maxLeaves}), ` +
+  `evaluate_all_public(-1, 4) avg ${(tPublic / steps).toFixed(2)} ms`);

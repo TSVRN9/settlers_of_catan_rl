@@ -2,7 +2,7 @@
 // The wasm Engine lives here so search never blocks the UI. One engine per worker.
 import init, { Engine } from "./engine/catan_engine.js";
 import wasmUrl from "./engine/catan_engine_bg.wasm?url";
-import type { Attribution, BotKind, BotSpec, Canon, Decision, Evaluation, Frame, GameRecord, LuckRoll, MapView, Request, View } from "./engine";
+import type { Attribution, BotKind, BotSpec, Canon, Decision, Evaluation, Frame, GameRecord, LuckRoll, MapView, Readings, Request, View } from "./engine";
 
 let ready: Promise<{ weights: Uint8Array; hidden: number }> | null = null;
 let engine: Engine | null = null;
@@ -62,6 +62,11 @@ function need() {
 const view = (e: Engine) => JSON.parse(e.view()) as View;
 const legal = (e: Engine) => JSON.parse(e.legal_actions()) as Canon[];
 const evalAll = (e: Engine) => JSON.parse(e.evaluate_all()) as Evaluation[];
+/** Deals per public reading: 0.62 ms in wasm, 1.3% of readings more than 2 points off a 256-deal
+ *  reference (K=4 is 0.28 ms and 4.9%; docs/FINDINGS.md 2026-10-12). */
+const PUBLIC_K = 16;
+const readings = (e: Engine, viewer: number): Readings =>
+  ({ pub: JSON.parse(e.evaluate_all_public(viewer, PUBLIC_K)) as Evaluation[], full: evalAll(e) });
 
 function decide(e: Engine, bot: BotKind, depth: number, full: boolean): Decision {
   if (bot === "human") throw new Error("a human seat has no bot");
@@ -91,7 +96,7 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
     case "decide":
       return decide(need(), req.bot, req.depth, !!req.full);
     case "evaluateAll":
-      return evalAll(need());
+      return readings(need(), req.viewer);
     case "attribution":
       return JSON.parse(need().attribution(req.seat)) as Attribution[];
     case "preview":
@@ -163,10 +168,11 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
         const bot = req.bots[seat];
         const forced = acts.length === 1;
         const decision = forced ? { bot: bot.kind, action: acts[0], value: null, root: [], leaves: 0, ms: 0 } as Decision : decide(e, bot.kind, bot.depth, false);
-        const evals = evalAll(e);
+        // A watched game has no seat of its own: the spectator's reading.
+        const r = readings(e, -1);
         const attribution = forced ? null : (JSON.parse(e.attribution(seat)) as Attribution[]);
         const outcome = JSON.parse(e.apply(JSON.stringify(decision.action))) as [number, number];
-        const f: Frame = { step, view: v, seat, action: decision.action, outcome, decision, evals, attribution };
+        const f: Frame = { step, view: v, seat, action: decision.action, outcome, decision, evals: r.pub, evalsOther: r.full, attribution };
         frames.push(f);
         batch.push(f);
         step++;
@@ -181,7 +187,7 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
         }
       }
       const v = view(e);
-      const last: Frame = { step, view: v, seat: v.current_player, action: null, outcome: null, decision: null, evals: evalAll(e), attribution: null };
+      const last: Frame = { step, view: v, seat: v.current_player, action: null, outcome: null, decision: null, ...(({ pub, full }) => ({ evals: pub, evalsOther: full }))(readings(e, -1)), attribution: null };
       frames.push(last);
       batch.push(last);
       post(batch);

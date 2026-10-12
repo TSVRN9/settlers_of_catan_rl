@@ -13,11 +13,16 @@ import { RES_FILL, SEAT_FILL } from "../board/palette";
 
 interface Props {
   players: PlayerView[]; you: number; open: boolean; row?: boolean; current?: number;
-  /** The newest thing the seat on move did, under its own row while its turn lasts. */
-  said?: { seat: number; text: string } | null;
+  /** The face-up line; off in the opening, where every figure on it is a nought. */
+  stats?: boolean;
 }
 
-export default function Seats({ players, you, open, row = false, current, said }: Props) {
+/** The three things that lie face up in front of a seat, as marks sized for an 11px line. */
+const KNIGHT = <svg width="9" height="10" viewBox="5 3 22 26" aria-hidden="true"><path d="M16 3 L27 7.5 V15.5 C27 22 22 26.5 16 29 C10 26.5 5 22 5 15.5 V7.5 Z" fill="currentColor" /></svg>;
+const ROAD = <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true"><line x1="1.5" y1="6.5" x2="10.5" y2="1.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>;
+const DEV = <svg width="8" height="11" viewBox="0 0 8 11" aria-hidden="true"><rect x="0.5" y="0.5" width="7" height="10" rx="1" fill="currentColor" /></svg>;
+
+export default function Seats({ players, you, open, row = false, current, stats = true }: Props) {
   return (
     <div style={row ? { display: "flex", gap: 22 } : undefined}>
       {players.map((p, i) => {
@@ -40,20 +45,21 @@ export default function Seats({ players, you, open, row = false, current, said }
               <span className="d num" style={{ fontSize: 15, marginLeft: 6 }}>{p.hand.reduce((a, b) => a + b, 0)}</span>
               <span className="cap" style={{ fontSize: 11 }}>cards</span>
             </div>
-            {/* Longest road / largest army: public information, so it gets its own quiet line
-                rather than the hidden hand-line's gate — and no line at all for the seats
-                (most of them, most of the game) holding neither. */}
-            {(p.has_road || p.has_army) && (
-              <div className="cap" style={{ display: "flex", gap: 10, marginLeft: 18, fontSize: 10.5 }}>
-                {p.has_road && <span>{p.longest_road_length} road</span>}
-                {p.has_army && <span>{p.played[0] ?? 0} army</span>}
-              </div>
-            )}
-            {/* The seat on move keeps a fixed two-line slot for what it just did, so the rail
-                moves once a turn, when the turn passes, never on every move inside it. */}
-            {said !== undefined && onMove && !own && (
-              <div className="said">{said?.seat === i && <span key={said.text} className="line">{said.text}</span>}</div>
-            )}
+            {/* What lies face up in front of the seat, on every row so the rail never changes
+                height: the race for Largest Army and Longest Road is read here, and the holder
+                of either has it drawn as the card it is. */}
+            {stats && (() => {
+              const knights = p.played[0] ?? 0, devs = p.devs.reduce((a, b) => a + b, 0);
+              return (
+                <div className="stats num">
+                  <span className={`stat${p.has_army ? " held" : ""}`} title={p.has_army ? "Largest Army" : "Knights played"}
+                        aria-label={`${knights} knights played${p.has_army ? ", Largest Army" : ""}`}>{KNIGHT}{knights}</span>
+                  <span className={`stat${p.has_road ? " held" : ""}`} title={p.has_road ? "Longest Road" : "Longest road"}
+                        aria-label={`longest road ${p.longest_road_length}${p.has_road ? ", Longest Road" : ""}`}>{ROAD}{p.longest_road_length}</span>
+                  <span className="stat" title="Development cards in hand" aria-label={`${devs} development cards in hand`}>{DEV}{devs}</span>
+                </div>
+              );
+            })()}
             {/* Always mounted, opened by a class: a row that is conditionally rendered can
                 animate in at best, and never out. */}
             <div className={`hand-line${open ? " open" : ""}`}>

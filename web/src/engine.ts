@@ -29,7 +29,14 @@ export interface Attribution { group: string; seat: number; delta: number }
 export interface Frame {
   step: number; view: View; seat: number; action: Canon | null; outcome: [number, number] | null;
   decision: Decision | null; evals: Evaluation[]; attribution: Attribution[] | null;
+  /** The other reading of the same position: `evals` is whichever the "Hidden information"
+   *  switch shows (public by default), and the switch swaps the two (game.ts `setShowHidden`). */
+  evalsOther: Evaluation[];
 }
+/** Both readings of one position: `pub` is what `viewer` could know (wasm `evaluate_all_public`,
+ *  the other seats' hidden cards dealt K ways; docs/FINDINGS.md 2026-10-12), `full` reads every
+ *  seat from its own hand, which shows anyone else an opponent's VP cards. */
+export interface Readings { pub: Evaluation[]; full: Evaluation[] }
 export interface GameRecord { seed: number; n: number; log: [Canon, [number, number]][] }
 /** Per-seat dice luck at one ROLL step: what the roll that happened was worth against the average
  *  over all eleven sums, weighted by their 36ths. Mean-zero per seat by construction, but a
@@ -40,7 +47,7 @@ export type Request =
   | { op: "new"; seed: number; n: number }
   | { op: "apply"; action: Canon; steps?: number }
   | { op: "decide"; bot: BotKind; depth: number; full?: boolean }
-  | { op: "evaluateAll" }
+  | { op: "evaluateAll"; viewer: number }
   | { op: "attribution"; seat: number }
   | { op: "preview"; action: Canon }
   | { op: "run"; seed: number; bots: BotSpec[]; maxSteps: number }
@@ -120,7 +127,8 @@ export class EngineClient {
   /** `full` skips a bot's own 1-ply trade policy even for a trade prompt, for the ranked
    *  search the coach's reading needs instead of the bare action a bot decides with. */
   decide(bot: BotKind, depth: number, full = false) { return this.call<Decision>({ op: "decide", bot, depth, full }); }
-  evaluateAll() { return this.call<Evaluation[]>({ op: "evaluateAll" }); }
+  /** `viewer` is the seat the public reading is for, -1 for a spectator. */
+  evaluateAll(viewer: number) { return this.call<Readings>({ op: "evaluateAll", viewer }); }
   attribution(seat: number) { return this.call<Attribution[]>({ op: "attribution", seat }); }
   /** The view after `action`, without touching the live game — for showing several hypotheticals at once. */
   preview(action: Canon) { return this.call<View>({ op: "preview", action }); }

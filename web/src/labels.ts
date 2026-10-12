@@ -54,18 +54,27 @@ export function canOffer(give: number[], get: number[], hand: number[], spent: n
   return !spent.some((k) => key.every((c, i) => k[i] === c));
 }
 
-/** The bank's side of the builder: one resource given, one card wanted. Returns the rate the
- *  engine offers for that resource (port or 4:1) and, when the give side is exactly that many,
- *  the MARITIME_TRADE that does it. Read off `legal` rather than the ports, so the rate is the
- *  engine's and the button can never raise an error. */
-export function maritimeFor(give: number[], get: number[], legal: Canon[]): { rate: number; action: Canon | null } | null {
-  const gives = give.flatMap((n, r) => (n > 0 ? [r] : [])), gets = get.flatMap((n, r) => (n > 0 ? [r] : []));
-  if (gives.length !== 1 || gets.length !== 1 || get[gets[0]] !== 1) return null;
-  const [r, z] = [gives[0], gets[0]];
-  const ways = legal.filter((a) => a[0] === "MARITIME_TRADE" && a[1] === r && a[3] === z);
-  if (!ways.length) return null;
-  const rate = Math.min(...ways.map((a) => a[2]));
-  return { rate, action: give[r] === rate ? ways.find((a) => a[2] === rate)! : null };
+/** The bank's side of the trade panel: for exactly one card of one kind, every resource you can
+ *  pay for it with, each at your best rate (a port's, or four). Read off `legal` rather than the
+ *  ports, so the rate is the engine's and the button can never raise an error. */
+export function bankFor(get: number[], legal: Canon[]): Canon[] {
+  const gets = get.flatMap((n, r) => (n > 0 ? [r] : []));
+  if (gets.length !== 1 || get[gets[0]] !== 1) return [];
+  const best: Canon[] = [];
+  for (const a of legal) {
+    if (a[0] !== "MARITIME_TRADE" || a[3] !== gets[0]) continue;
+    const i = best.findIndex((b) => b[1] === a[1]);
+    if (i < 0) best.push(a); else if (a[2] < best[i][2]) best[i] = a;
+  }
+  return best.sort((a, b) => a[2] - b[2] || a[1] - b[1]);
+}
+
+/** The table's own count: "Opening", then rounds from the first roll. The engine's `num_turns`
+ *  counts every seat's turn, the opening's placements included, so "turn 6" was a first roll. */
+export function roundOf(frames: { view: View }[], v: View): string {
+  if (v.initial_phase) return "Opening";
+  const first = frames.find((f) => !f.view.initial_phase)?.view.num_turns ?? v.num_turns;
+  return `Round ${Math.floor((v.num_turns - first) / v.n) + 1}`;
 }
 
 export function actionKey(a: Canon) { return a.join(":"); }
@@ -173,14 +182,14 @@ export const BOT_INFO: Record<BotKind, { sub: string; what: string; how: string;
   vnet: {
     sub: "search",
     what: "The same search with the evaluator replaced by a learned win-probability net.",
-    how: "v89w: a value net $V_\\theta(s) \\approx P(\\text{win} \\mid s)$ trained expert-iteration style on self-play rollouts played by this same search, read at every leaf of the depth-2 expectimax. Of the 40 offers it scores, its three best acceptable ones are searched alongside its other moves, a partner's reply predicted with AlphaBeta's $v$; replies to others' offers use the 1-ply policy over $V_\\theta$.",
-    measured: "72.5% of 1,000 games against three stock jSettlers",
+    how: "v89w: a value net $V_\\theta(s) \\approx P(\\text{win} \\mid s)$ trained expert-iteration style on self-play rollouts played by this same search, read at every leaf of the depth-2 expectimax. Of the 40 offers it scores, its three best acceptable ones are searched alongside its other moves, a partner's reply predicted with AlphaBeta's $v$, and it stops offering once two are refused in a turn; replies to others' offers use the 1-ply policy over $V_\\theta$.",
+    measured: "67.0% of 1,000 games against three stock jSettlers",
   },
   drrl: {
     sub: "trades by DRRL",
     what: "The EUMAS 2018 agent: a learned trade layer over a fixed base.",
     how: "72 heads (70 offers, accept, reject), one LSTM cell per head over a 154-int state, $Q^i = \\sigma(h^i \\cdot \\theta^i)$; online SGD after every decision towards $r + \\gamma \\max_{a'} Q(a')$ with $r = k\\,\\Delta\\mathrm{VP}$ on a gain and $-k\\,\\mathrm{VP}$ otherwise, $k = 0.01$, learning rate $0.0023$; weights fresh each game. Every prompt that is not an offer or a reply goes to the heuristic search.",
-    measured: "5.0% of 100 games against three stock jSettlers",
+    measured: "7.6% of 500 games against three stock jSettlers",
   },
   jsrobot: {
     sub: "SOCRobotBrain, smart",
@@ -204,13 +213,13 @@ export const BOT_INFO: Record<BotKind, { sub: string; what: string; how: string;
     sub: "MCTS · 5,000 playouts",
     what: "The same search with Bayesian UCT selection.",
     how: "Backups keep a Dirichlet count per node; selection takes $\\arg\\max_a\\, \\mu_a + \\sqrt{2 \\ln N}\\, \\sigma_a$ over the posterior (Tesauro's second rule). Playouts, reward and delegation as UCT.",
-    measured: "25.0% of 100 games against three stock jSettlers",
+    measured: "39.8% of 500 games against three stock jSettlers",
   },
   vpi: {
     sub: "MCTS · 1,500 playouts",
     what: "The same search choosing by value of perfect information.",
     how: "Myopic value of perfect information over the Dirichlet posteriors, sampled through Gamma draws; picks $\\arg\\max_a\\, \\mathbb{E}[q_a] + \\mathrm{VPI}(a)$. Playouts, reward and delegation as UCT, on a third of the budget.",
-    measured: "11.0% of 100 games against three stock jSettlers",
+    measured: "21.8% of 500 games against three stock jSettlers",
   },
 };
 export const BOT_SHORT: Record<string, string> = { human: "You", random: "Random", heuristic: "Heuristic search", vnet: "Value-net search", drrl: "DRRL", jsrobot: "jSettler", jsdroid: "jSettler fast", uct: "UCT", buct: "BUCT", vpi: "VPI" };

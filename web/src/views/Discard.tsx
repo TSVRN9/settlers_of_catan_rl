@@ -49,12 +49,12 @@ export default function Discard() {
 
   return (
     <div className="modal arrive">
-      <div className="cut arrive dock-t" style={{ width: modalW, background: "var(--color-paper)", padding: "20px 22px" }}>
+      <div className="cut arrive dock-t deal" style={{ width: modalW, background: "var(--color-paper)", padding: "20px 22px" }}>
         <div style={{ display: "flex", alignItems: "baseline" }}>
           <span className="d" style={{ fontSize: 20 }}>Choose {need} to lose</span>
           <span className="num cap" style={{ marginLeft: "auto", fontSize: 12 }}>{selected.size} of {need} chosen</span>
         </div>
-        <div style={{ display: "flex", gap, marginTop: 14 }}>
+        <div style={{ display: "flex", gap, marginTop: 26 }}>
           {cards.map((r, i) => (
             <Card key={i} resource={r} width={cardW} height={cardH}
                   selected={selected.has(i)} disabled={busy} onClick={() => toggle(i)} />
