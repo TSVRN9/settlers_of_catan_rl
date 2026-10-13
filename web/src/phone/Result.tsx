@@ -5,10 +5,11 @@
 import { useEffect, useState } from "react";
 import Card from "../board/Card";
 import { SEAT_FILL } from "../board/palette";
-import { rewatch, shareLink, start, toLineup } from "../game";
+import { openReview, rewatch, shareLink, start } from "../game";
 import { BOT_SHORT, placeText, roundOf, who } from "../labels";
 import { playing, useApp, you } from "../store";
 import Curve, { seatInk } from "./Curve";
+import { pucks } from "../deciding";
 import { places } from "./standings";
 import { seen, useMetrics } from "./usePhone";
 
@@ -51,7 +52,7 @@ export default function Result() {
         {watched ? <span className="num rd">{roundOf(frames, v)}</span>
           : people === 1 && me !== v.winner && <span className="pl">{placeText(pl[me], tied)}</span>}
       </div>
-      <Curve className="curve" frames={frames} at={last} upto={last} bold={me >= 0 ? me : v.winner} />
+      <Curve className="curve" frames={frames} at={last} upto={last} bold={me >= 0 ? me : v.winner} pucks={pucks(frames, v.winner)} />
       <div className="rows">
         {order.map((i) => (
           <div key={i} className="row">
@@ -64,11 +65,11 @@ export default function Result() {
         ))}
       </div>
       <div className="ph-row" style={{ height: btnH }}>
-        <button className="ph-btn cut8" onClick={toLineup}>Lineup</button>
         <button className="ph-btn ph-share cut8" disabled={!url} onClick={onShare}>{copied ? "Copied" : "Share"}</button>
         {watched
-          ? <button className="ph-btn go ph-rewatch cut8" onClick={rewatch}>Watch</button>
-          : <button className="ph-btn go ph-rematch cut8" onClick={() => void start()}>Rematch</button>}
+          ? <button className="ph-btn ph-rewatch cut8" onClick={rewatch}>Watch</button>
+          : <button className="ph-btn ph-rematch cut8" onClick={() => void start()}>Rematch</button>}
+        <button className="ph-btn go ph-toreview cut8" onClick={() => openReview()}>Review</button>
       </div>
     </div>
   );

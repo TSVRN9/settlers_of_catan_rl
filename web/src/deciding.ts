@@ -52,6 +52,15 @@ export function deciding(frames: Step[], n = 5, floor = FLOOR): Mark[] {
   return marks.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, n);
 }
 
+export interface Puck { step: number; seat: number; letter: string }
+/** The curve's lettered pucks (spec "The review"): the deciding marks as A, B, C… in game order, each on the seat
+ *  whose chance it moved, and W on the winning move once there is a winner. */
+export function pucks(frames: Step[], winner: number): Puck[] {
+  const out = deciding(frames).sort((a, b) => a.step - b.step).map((m, k) => ({ step: m.step, seat: m.seat, letter: String.fromCharCode(65 + k) }));
+  if (winner >= 0 && frames.length >= 2) out.push({ step: frames.length - 2, seat: winner, letter: "W" });
+  return out;
+}
+
 /** The step after which the winner never trailed again — threshold-free, and exactly one mark.
  *  It leaves a median 31% of the game still to run and sits at only the ~84th percentile of that
  *  game's own swings, so it is usually an ordinary step in a drift: it agrees with the biggest
@@ -135,6 +144,10 @@ if (argv?.[1]?.endsWith("deciding.ts")) {
   assert(deciding(fx, 5, 0.16).length === 2, "the floor must drop the 0.15s");
   assert(deciding(fx, 5, 0.99).length === 0, "an unreachable floor yields nothing");
   assert(deciding([f([0.5, 0.5], A("BUILD_ROAD"))]).length === 0, "no ROLL means no clean set");
+  // The curve's pucks: the marks lettered in game order, then W on the winning move for the winner.
+  const pk = pucks(fx, 0);
+  assert(pk.map((p) => p.letter).join("") === "ABCDEW" && pk.map((p) => p.step).join() === "3,5,6,7,8,9", `pucks: ${JSON.stringify(pk)}`);
+  assert(pk[5].seat === 0 && pucks(fx, -1).every((p) => p.letter !== "W"), "W is the winner's, and only once there is one");
 
   // Seat 1 leads, seat 0 takes over at t=5 and wins. dwell 2 keeps the fixture short.
   const curve: number[][] = [

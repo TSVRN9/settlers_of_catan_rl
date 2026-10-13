@@ -12,6 +12,8 @@ import { Hand, YouRow } from "./Hand";
 import Slab from "./Slab";
 import Result from "./Result";
 import Watch from "./Watch";
+import Review, { ReviewBar, reviewBoard } from "./Review";
+import GradeTag from "./GradeTag";
 import Cover, { useCover } from "./Cover";
 import { letGo } from "./pass";
 import Fx from "../views/Fx";
@@ -27,7 +29,9 @@ export default function Phone() {
   const mine = !setup && playing(s) && s.view?.current_player === s.human && s.view.winner < 0 && s.step == null;
   const inHand = setup ? null : held(s);
   const over = !setup && !!s.view && s.view.winner >= 0;
-  const watching = !setup && !playing(s);
+  const reviewing = !setup && s.review && !!s.view;
+  const watching = !setup && (!playing(s) || reviewing);
+  const rb = reviewing ? reviewBoard(s) : null;
   const cover = useCover();                  // null at the lineup: only a game in play is covered
   // The phone is between people the moment a cover rises: from then on every person's decision, the last holder's
   // own included, comes through a cover until someone taps Show hand.
@@ -41,14 +45,14 @@ export default function Phone() {
     <div className="ph">
       {/* Watching, nobody sits at the bottom: the seats are the standings there, not chips. A shared game still
           loading shows the wordmark. */}
-      {setup || !s.view ? <div className="ph-word d">Catan RL</div> : <><TopBar />{!watching && <Chips />}</>}
+      {setup || !s.view ? <div className="ph-word d">Catan RL</div> : reviewing ? <ReviewBar /> : <><TopBar />{!watching && <Chips />}</>}
       {/* A tap on the board hurries the bots until you are asked something (spec "Another seat's turn"). With a
           piece in hand the tap is Carry's, on its own layer above this. */}
       <div className="ph-board" onClick={() => { if (!setup && playing(s) && !mine && s.pendingHandoff == null && !s.hurry) set({ hurry: true }); }}>
         <div data-anchor="table" className="ph-anchor" />
       </div>
       {s.map && s.view && (
-        <BoardLayer view="table" map={s.map} gameView={shown(s).view!}
+        <BoardLayer view="table" map={s.map} gameView={shown(s).view!} since={rb?.since} ghost={rb?.ghost} ghostSeat={rb?.ghostSeat}
           carry={mine && inHand && !cover ? {
             map: s.map, view: s.view, legal: s.legal, seat: s.human, held: inHand, robTile: s.robTile, reveal: false,
             snapPx: 24, liftPx: 56, keepOnMiss: true,
@@ -59,7 +63,9 @@ export default function Phone() {
           hidePieces={s.reveal} dealing={s.reveal} />
       )}
       {!setup && s.map && s.view && <Fx frames={s.frames} at={Math.max(0, Math.min(s.step ?? s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), cover?.seat ?? s.pendingHandoff)} />}
+      {!setup && !reviewing && s.view && <GradeTag covered={!!cover || s.pendingHandoff != null} />}
       {setup ? <PhoneLineup />
+        : reviewing ? <div className="ph-seat ph-watch"><Review /></div>
         : watching ? <div className="ph-seat ph-watch">{s.view && <><Watch />{over && <Result />}</>}</div>
         : <div className="ph-seat">{s.view && <>
           {/* Hidden, not removed, during a handoff (the next person must not see this hand) and under the result:

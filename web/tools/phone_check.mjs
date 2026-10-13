@@ -155,7 +155,8 @@ const failed_extra = [];
 const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore",
               "opening", "gameOver", "rematch", "lineup", "watch",
               "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover",
-              "scrub", "live", "watchEnd", "share", "filmPeople", "badLink"];
+              "scrub", "live", "watchEnd", "share", "filmPeople", "badLink",
+              "gradeLive", "review", "reviewSeat", "reviewMove", "reviewBack", "stepLink"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -449,6 +450,20 @@ for (let i = 0; i < 40000; i++) {
     continue;
   }
   await policy();
+  // Milestone 6: a person's piece set down gets its grade beside it, before anything else moves.
+  if (probes.gradeLive == null) {
+    const mine = await run(() => { const s = window.__app.get(), f = s.frames[s.frames.length - 2];
+      return f && f.seat === s.human && /^(BUILD_|MOVE_ROBBER)/.test(f.action?.[0] ?? "") && s.evalShown ? s.frames.length - 2 : null; });
+    if (mine != null) {
+      let tag = null;
+      for (let k = 0; k < 40 && tag == null; k++) {
+        await sleep(100);
+        tag = await run((i) => (window.__app.get().frames.length - 2 !== i ? "moved" : document.querySelector(".ph-gradetag")?.textContent ?? null), mine);
+      }
+      const g = await run((i) => window.__app.get().grades[i]?.grade ?? null, mine);
+      if (tag && tag !== "moved") { await shot("gradetag"); probe("gradeLive", { step: mine, tag, g, ok: tag === g }); }
+    }
+  }
 }
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 await shot("end");
@@ -624,6 +639,29 @@ try {
   await tapQ(".ph-share"); await sleep(600);
   const shared = await T();
   const sync = await run(() => window.__sync);
+  // Milestone 6: the review of the watched game: the winner's grades counted, the decisive moves lettered and listed,
+  // the seat switched, a move opened, then back to the result.
+  await tapQ(".ph-toreview"); await sleep(1500);
+  for (let k = 0; k < 40 && (await run(() => Object.keys(window.__app.get().grades).length)) < 10; k++) await sleep(500);
+  const rv = await run(() => { const s = window.__app.get(); return { review: s.review, seat: s.reviewSeat, winner: s.frames[s.frames.length - 1].view.winner,
+    tally: [...document.querySelectorAll(".ph-tally .num")].map((e) => +e.textContent), keys: document.querySelectorAll(".ph-key").length,
+    pucks: document.querySelectorAll(".ph-review .curvebox .puck").length, seatBtn: !!document.querySelector(".ph-seatpick") }; });
+  probe("review", { ...rv, ok: rv.review && rv.tally.reduce((a, b) => a + b, 0) >= 10 && rv.keys > 0 && rv.pucks > 0 });
+  await shot("review");
+  (await checks()).small.forEach((x) => small.add(x));
+  await tapQ(".ph-seatpick"); await sleep(300);
+  const seat2 = await run(() => window.__app.get().reviewSeat);
+  probe("reviewSeat", { from: rv.seat, to: seat2, ok: rv.seat === rv.winner && rv.seatBtn && seat2 === (rv.seat + 1) % 4 });
+  await tapQ(".ph-key"); await sleep(900);
+  const mv = await run(() => ({ step: window.__app.get().step, row: !!document.querySelector(".ph-review .ph-newest"),
+    fits: (() => { const e = document.querySelector(".ph-watch"); return e.scrollHeight <= e.clientHeight + 1; })() }));
+  probe("reviewMove", { ...mv, ok: mv.step != null && mv.row && mv.fits });
+  await shot("review-move");
+  (await checks()).small.forEach((x) => small.add(x));
+  const stepLink = await run(async (st) => (await import("/src/game.ts")).shareLink(st), mv.step);
+  await tapQ(".ph-back"); await sleep(400); await tapQ(".ph-back"); await sleep(700);
+  const rb = await run(() => { const s = window.__app.get(); return { review: s.review, step: s.step, phase: s.phase, result: !!document.querySelector(".ph-result") }; });
+  probe("reviewBack", { ...rb, ok: !rb.review && rb.step == null && rb.phase === "over" && rb.result });
   const link = shared.hash.startsWith("#/r/") ? (await run(() => location.href)) : null;
   if (link) {
     await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
@@ -639,6 +677,11 @@ try {
     // Watched from the start, the pace is there to change (Live only once scrubbed back).
     const pace = await run(() => !!document.querySelector(".ph-pace:not(.ph-live)"));
     probe("filmPeople", { phase: film.phase, at: film.at, hand: film.hand, cover: film.cover, chips: film.chips, pace, ok: pace && film.film === "named" && film.phase === "playing" && film.at > 0 && !film.hand && !film.cover && film.chips === 0 });
+    // A link to one move opens the review at that move, cold.
+    await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
+    await cdp("Page.navigate", { url: stepLink }); await sleep(5000);
+    const sl = await run(() => { const s = window.__app.get(); return { review: s.review, step: s.step, film: s.film }; });
+    probe("stepLink", { ...sl, want: mv.step, ok: sl.review && sl.step === mv.step && sl.film === "named" });
   } else probe("share", { hash: shared.hash, ok: false });
   await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
   await cdp("Page.navigate", { url: URL_ + "#/r/AAAAzzzz" }); await sleep(4000);

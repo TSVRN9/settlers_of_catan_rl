@@ -5,16 +5,21 @@
 import { useRef } from "react";
 import { SEAT_FILL, SEAT_LO } from "../board/palette";
 import type { Frame } from "../engine";
+import type { Puck } from "../deciding";
 
 /** A seat's colour as ink on paper: White's own grey is too pale for a line or a number, so it takes its shade. */
 export const seatInk = (seat: number) => (seat === 3 ? SEAT_LO[3] : SEAT_FILL[seat]);
 
-export default function Curve({ frames, at, upto, bold = -1, points = false, onSeek, className }: {
+export default function Curve({ frames, at, upto, bold = -1, points = false, onSeek, className, pucks, ponr }: {
   frames: Frame[]; at: number; upto: number; bold?: number; points?: boolean; onSeek?: (step: number) => void; className?: string;
+  /** The decisive moves, lettered, and W (`deciding.pucks`); only those already reached are drawn. */
+  pucks?: Puck[];
+  /** The step after which the winner never trailed again: a dashed line. */
+  ponr?: number | null;
 }) {
-  const box = useRef<SVGSVGElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const end = Math.min(upto, frames.length - 1);
-  if (end < 1) return <div className={className} />;
+  if (end < 1) return <div className={`curvebox ${className ?? ""}`} />;
   const n = frames[0].view.players.length;
   const head = Math.min(at, end);
   // Points are the public ones: a spectator doesn't see a victory-point card until the game ends.
@@ -30,14 +35,24 @@ export default function Curve({ frames, at, upto, bold = -1, points = false, onS
     const r = box.current!.getBoundingClientRect();
     onSeek!(Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * end));
   };
+  const pct = (x: number) => `${(100 * x).toFixed(3)}%`;
+  // The lines stretch with the box (steps by share), so the round things on them sit in a layer of their own.
   return (
-    <svg ref={box} className={className} viewBox={`0 0 ${end} 1`} preserveAspectRatio="none" role="img"
-         aria-label={points ? "Each seat's points over the game" : "Each seat's chance over the game"}
+    <div className={`curvebox ${className ?? ""}`}
          onPointerDown={onSeek && ((e) => { e.currentTarget.setPointerCapture(e.pointerId); seek(e); })}
          onPointerMove={onSeek && ((e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) seek(e); })}>
-      {Array.from({ length: n }, (_, seat) => (seat === bold ? null : line(seat)))}
-      {bold >= 0 && line(bold)}
-      {onSeek && <line x1={head} x2={head} y1={0} y2={1} stroke="var(--color-pine)" strokeWidth={1.6} vectorEffect="non-scaling-stroke" />}
-    </svg>
+      <div ref={box} className="in">
+      <svg viewBox={`0 0 ${end} 1`} preserveAspectRatio="none" role="img"
+           aria-label={points ? "Each seat's points over the game" : "Each seat's chance over the game"}>
+        {Array.from({ length: n }, (_, seat) => (seat === bold ? null : line(seat)))}
+        {bold >= 0 && line(bold)}
+        {onSeek && <line x1={head} x2={head} y1={0} y2={1} stroke="var(--color-pine)" strokeWidth={1.6} vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {ponr != null && ponr <= end && <i className="ponr" style={{ left: pct(ponr / end) }} />}
+      {pucks?.filter((p) => p.step <= end).map((p) => (
+        <b key={p.letter} className="puck" style={{ left: pct(p.step / end), top: pct(y(frames[p.step], p.seat)), background: seatInk(p.seat) }}>{p.letter}</b>
+      ))}
+      </div>
+    </div>
   );
 }

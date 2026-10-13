@@ -6,6 +6,8 @@ import { BOT_SHORT, SEAT_NAMES } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import { useApp, type Pace } from "../store";
 import Curve, { seatInk } from "./Curve";
+import { useMemo } from "react";
+import { pucks } from "../deciding";
 import { MoveLine, moveRow, type MoveRow } from "./Slab";
 import { sinceTurn } from "./slab";
 import { pct, seen } from "./usePhone";
@@ -23,13 +25,15 @@ export default function Watch() {
   const at = v.steps, upto = Math.max(at, s.seenTo);
   let row: MoveRow | null = null;
   for (const i of sinceTurn(seen(s), -1)) { row = s.map && moveRow(s.frames, i, s.map, -1); if (row) break; }
+  // The decisive moves so far, lettered: only of what has been seen, so they can't give the game away.
+  const marks = useMemo(() => (s.evalShown ? pucks(s.frames.slice(0, upto + 1), -1) : []), [s.frames, upto, s.evalShown]);
   const vps = v.players.map((p) => p.vp);
   const top = Math.max(...vps), lead = vps.filter((x) => x === top).length === 1;
   const kind = (i: number) => (s.film === "unnamed" ? "" : s.lineup[i]?.kind === "human" ? "Person" : BOT_SHORT[s.lineup[i]?.kind ?? ""] ?? "");
   return (
     <div className="ph-watching" inert={v.winner >= 0}>
       <div className="ph-move new cut5 ph-newest">{row && <MoveLine key={row.i} r={row} ev={s.evalShown} />}</div>
-      <Curve className="ph-curve cut5" frames={s.frames} at={at} upto={upto} points={!s.evalShown} onSeek={(i) => seek(Math.min(i, upto))} />
+      <Curve className="ph-curve cut5" frames={s.frames} at={at} upto={upto} points={!s.evalShown} onSeek={(i) => seek(Math.min(i, upto))} pucks={marks} />
       <div className="ph-transport">
         <button className="ph-btn ph-tbtn cut8" aria-label="Back one move" disabled={at === 0} onClick={() => seek(at - 1)}><Glyph d={PREV} /></button>
         <button className="ph-btn go ph-tbtn wide cut8" aria-label={s.paused ? "Play" : "Pause"} disabled={s.paused && !!s.film && !s.frames[at + 1]} onClick={togglePause}><Glyph d={s.paused ? PLAY : PAUSE} /></button>

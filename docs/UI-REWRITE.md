@@ -1120,6 +1120,49 @@ Milestone 5 (`docs/superpowers/plans/2026-10-12-phone-m5-watch.md`) is watching 
   - Leaving a link for the lineup rewrites the address, and going back to an open link keeps its playhead.
   - The desktop lineup says when a link is broken.
 
+Milestone 6 (`docs/superpowers/plans/2026-10-13-phone-m6-review.md`) is grades and the review:
+
+- **The scale was measured first.** It ran 216 games, about 74,000 decisions (`docs/FINDINGS.md`, "Move grades").
+  - A grade is the best root value minus the played move's, in the value net's ranked root.
+  - `web/src/grade.ts` (checked) bands it: Best under 0.01, Good, Inaccuracy from 0.05, Mistake from 0.08, Blunder
+    from 0.15.
+  - A move the root never ranked, such as an offer, gets no grade, never a default one.
+- **Live grades.** `game.act` queues `review.gradeAt` for every person's move with Eval on. It runs on the review
+  worker, off the game loop.
+  - `phone/GradeTag.tsx` puts the word beside a placed piece or the robber, in the grade's colour. It shows only
+    while that move is the last one played (`grade.showLive`), and never under a cover or a handoff.
+  - Grades are kept in `store.grades` for the review either way.
+- **The review** (`phone/Review.tsx`) is a phone mode (`store.review`), not a route. Its playhead is `step`, a
+  position; the move discussed is the one that led to it. It keeps the board's box and the watch block.
+  - **The overview:**
+    - the curve with the reviewed seat bold;
+    - the decisive moves lettered A, B, C and so on, then W (`deciding.pucks`, checked);
+    - the point of no return dashed;
+    - the five grades counted for the seat;
+    - the decisive moves as rows, each opening its move.
+  - **At a move:**
+    - the move with its grade;
+    - the best move's row, with how far it was over yours, and a ghost on the board in the mover's colour
+      (`Board` `ghostSeat`);
+    - one coach line (`gap` when the move wasn't Best, `evidence` when it was);
+    - the curve as the scrubber;
+    - ‹ ›, and Next key move: the next lettered move, or the next of the seat's moves graded Inaccuracy or worse.
+  - **Grading:** the reviewed seat's moves are graded in order on the review worker, about 7 seconds for a
+    110-move seat, and the counts fill in as they arrive.
+  - **The seat:** yours when exactly one person sat; otherwise the winner. A seat button in the top bar steps through
+    the seats.
+  - **Share** in the review links to the move on screen (`#/r/<code>/<step>`), which opens the review there, cold.
+  - **Nothing is cut:** rows wrap and the block scrolls inside itself.
+- **The result** has Share, Rematch or Watch, and Review. The way to the lineup is the top bar's ‹.
+- **Pucks** now show on the result's curve, and on the watch curve with Eval on, but only for what has been seen.
+- **`phone_check`** adds probes for:
+  - a live grade tag;
+  - the review's counts, pucks and rows;
+  - the seat switch;
+  - a move opened, fitting its block;
+  - back to the result;
+  - a link to one move opened cold.
+
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
 there is no phone artboard for prose to drift from: the "artboard is the spec" rule (recorded

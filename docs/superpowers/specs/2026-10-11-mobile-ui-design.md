@@ -170,6 +170,8 @@ The words (Best, Good, Inaccuracy, Mistake, Blunder) and their thresholds are no
 they are measured first over a few hundred games' worth of margins, the way `FLOOR` was, and
 recorded in `docs/FINDINGS.md`. The search sees the full state, so a grade can reward a move
 whose merit depended on hidden cards; the review says what was best, not what was knowable.
+Built (M6): the bands are Best under 0.01, Good, Inaccuracy from 0.05, Mistake from 0.08, and Blunder from 0.15
+(`docs/FINDINGS.md` 2026-10-13, 216 games). Offers are not graded, because the root ranks only three of them.
 
 **The review.** A smaller board on top; the curve with your line bold, the decisive moves as
 lettered pucks (`deciding()`), the winning move as W, and the point of no return as a dashed
@@ -177,7 +179,11 @@ line (`pointOfNoReturn`); your grades counted; the decisive moves as rows, each 
 board at that moment. **At a graded move:** the played move lifted on the board, the best move
 as a faint piece tagged "Best", rows for both with the margin, one coach line under them
 (`gap()`/`evidence()` from `coach.ts`, the only sentence on the phone), step controls and
-"Next key move".
+"Next key move". Built (M6):
+- The review keeps the board's size rather than the mockup's smaller board: one footprint with watching. The rows
+  scroll inside the block.
+- Without a single person seated, the reviewed seat is the winner, and a top-bar button steps through the seats.
+- Share in the review links to the move on screen.
 
 ## Sound and haptics
 
