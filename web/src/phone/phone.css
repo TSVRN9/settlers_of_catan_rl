@@ -320,3 +320,6 @@
 .ph-review .ph-newest { flex: 0 0 auto; min-height: 40px; padding-top: 6px; padding-bottom: 6px; }
 .ph-review .ph-move .tx, .ph-keys .ph-move .tx { display: block; -webkit-line-clamp: unset; }
 .ph-review .ph-keys { flex: 1 0 auto; }
+
+/* ── the lineup's switches: Eval, Sound and (where the phone can buzz) Haptics ── */
+.ph-switches { justify-content: flex-start; gap: 18px; }

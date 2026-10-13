@@ -46,6 +46,9 @@ export interface State {
   /** The phone's Eval switch: readings on screen during play. Off hides bars, percentages, swings and
    *  Suggest; `evaluateAll` still fills `frames`, so the review after the game is complete. */
   evalShown: boolean;
+  /** The table's sounds and the phone's buzzes (sfx.ts), per viewer. */
+  sound: boolean;
+  haptics: boolean;
   advice: Decision | null;
   last: Canon | null;
 
@@ -173,6 +176,8 @@ const initial: State = {
   evalsOther: [],
   showHidden: rememberedHidden(),
   evalShown: rememberedFlag("evalShown", true),
+  sound: rememberedFlag("sound", true),
+  haptics: rememberedFlag("haptics", true),
   advice: null,
   last: null,
   hover: null,
@@ -263,6 +268,15 @@ export function rememberedFlag(key: string, fallback: boolean) {
   try { const v = localStorage.getItem(key); return v == null ? fallback : v === "1"; } catch { return fallback; }
 }
 export function rememberedHidden() { return rememberedFlag("showHidden", false); }
+export function setSound(on: boolean) {
+  try { localStorage.setItem("sound", on ? "1" : "0"); } catch { /* private window */ }
+  set({ sound: on });
+}
+export function setHaptics(on: boolean) {
+  try { localStorage.setItem("haptics", on ? "1" : "0"); } catch { /* private window */ }
+  set({ haptics: on });
+}
+
 export function setEvalShown(on: boolean) {
   try { localStorage.setItem("evalShown", on ? "1" : "0"); } catch { /* private window */ }
   set({ evalShown: on });

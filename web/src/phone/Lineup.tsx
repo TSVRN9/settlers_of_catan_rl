@@ -5,7 +5,7 @@ import { useState } from "react";
 import { resume, start } from "../game";
 import { BOT_INFO, BOT_SHORT, SEAT_NAMES } from "../labels";
 import { SEAT_FILL } from "../board/palette";
-import { set, setEvalShown, useApp } from "../store";
+import { set, setEvalShown, setHaptics, setSound, useApp } from "../store";
 import { KINDS, sub } from "../views/Picker";
 import { addSeat, behind, removeSeat, setSeat, useDealt } from "../views/Lineup";
 
@@ -37,8 +37,15 @@ export default function PhoneLineup() {
         </button>
       )}
       {back && <button className="ph-btn go ph-resume cut8" onClick={() => void resume()}>Back to the game</button>}
-      <div className="ph-row">
+      <div className="ph-row ph-switches">
         <label className="ph-switch"><input type="checkbox" role="switch" checked={s.evalShown} onChange={(e) => setEvalShown(e.target.checked)} />Eval</label>
+        <label className="ph-switch"><input type="checkbox" role="switch" checked={s.sound} onChange={(e) => setSound(e.target.checked)} />Sound</label>
+        {/* iOS has no vibration at all: no switch for what can't happen. */}
+        {typeof navigator !== "undefined" && "vibrate" in navigator && (
+          <label className="ph-switch"><input type="checkbox" role="switch" checked={s.haptics} onChange={(e) => setHaptics(e.target.checked)} />Haptics</label>
+        )}
+      </div>
+      <div className="ph-row">
         <button className="ph-btn cut8" onClick={() => set({ seed: Math.floor(Math.random() * 1e6) })}>New board</button>
         <button className={`ph-btn ph-play cut8${back ? "" : " go"}`} disabled={s.status === "thinking" && !s.map} onClick={() => void start()}>
           {back ? "New game" : people ? "Play" : "Watch"}
