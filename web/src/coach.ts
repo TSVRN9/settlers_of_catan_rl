@@ -263,7 +263,9 @@ export function narrate(row: Row, map: MapView, you: number): string {
     case "PLAY_KNIGHT_CARD": return `${W} played a knight.`;
     case "MOVE_ROBBER": {
       const tile = map.tiles[x];
-      const took = row.outcome && row.outcome[0] >= 0 && y >= 0 ? ` and took ${aRes(row.outcome[0])} from ${whom(y, you)}` : y >= 0 ? ` but found ${whom(y, you)} empty-handed` : "";
+      // Which card it was is the thief's and the victim's to know; anyone else hears only that a card went.
+      const knows = you === row.seat || you === y;
+      const took = row.outcome && row.outcome[0] >= 0 && y >= 0 ? ` and took ${knows ? aRes(row.outcome[0]) : "a card"} from ${whom(y, you)}` : y >= 0 ? ` but found ${whom(y, you)} empty-handed` : "";
       return `${W} moved the robber onto the ${tileText(tile)}${took}.`;
     }
     case "DISCARD_RESOURCE": return `${W} discarded ${aRes(x)}.`;
@@ -491,6 +493,13 @@ if (argv?.[1]?.endsWith("coach.ts")) {
   assert(seven === "Orange rolled a seven.", seven);
   const rob = narrate({ seat: 2, action: ["MOVE_ROBBER", 0, 1, -1], outcome: [4, -1], gains: [] }, map, 1);
   assert(rob === "Orange moved the robber onto the 8 wood and took an ore from you.", rob);
+  // What was stolen is the thief's and the victim's to know; anyone else hears only that a card went.
+  const robSeen = narrate({ seat: 2, action: ["MOVE_ROBBER", 0, 1, -1], outcome: [4, -1], gains: [] }, map, 3);
+  assert(robSeen === "Orange moved the robber onto the 8 wood and took a card from Blue.", robSeen);
+  const robSpectator = narrate({ seat: 2, action: ["MOVE_ROBBER", 0, 1, -1], outcome: [4, -1], gains: [] }, map, -1);
+  assert(robSpectator === "Orange moved the robber onto the 8 wood and took a card from Blue.", robSpectator);
+  const robThief = narrate({ seat: 2, action: ["MOVE_ROBBER", 0, 1, -1], outcome: [4, -1], gains: [] }, map, 2);
+  assert(robThief === "You moved the robber onto the 8 wood and took an ore from Blue.", robThief);
   const l = lean([{ group: "pieces", seat: 0, delta: -0.187 }, { group: "hand", seat: 0, delta: 0.02 }], ctx);
   assert(l === "Your pieces still in the box are doing most of the work here: −18.7 without them.", `lean: ${l}`);
   const l1 = lean([{ group: "hand", seat: 0, delta: -0.1 }], ctx);

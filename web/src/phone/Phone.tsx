@@ -12,6 +12,7 @@ import { Hand, YouRow } from "./Hand";
 import Slab from "./Slab";
 import Result from "./Result";
 import Cover, { useCover } from "./Cover";
+import { sinceActed } from "./pass";
 import Fx from "../views/Fx";
 import { viewerNow } from "./slab";
 import "./phone.css";
@@ -28,7 +29,14 @@ export default function Phone() {
   const cover = useCover();                  // null at the lineup: only a game in play is covered
   // The phone is between people the moment a cover rises: from then on every person's decision, the last holder's
   // own included, comes through a cover until someone taps Show hand.
-  useEffect(() => { if (cover && s.holder != null) set({ holder: null }); }, [cover?.seat, s.holder]);  // eslint-disable-line react-hooks/exhaustive-deps
+  // Where the holder let go is where their next replay starts: after their own last move, whatever is played for
+  // them (a declined offer) once it has left their hands.
+  useEffect(() => {
+    if (!cover || s.holder == null) return;
+    const gaveUp = [...s.gaveUp];
+    gaveUp[s.holder] = sinceActed(s.frames, s.holder)[0] ?? s.frames.length - 1;
+    set({ holder: null, gaveUp });
+  }, [cover?.seat, s.holder]);  // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="ph">
       {setup ? <div className="ph-word d">Catan RL</div> : s.view && <><TopBar /><Chips /></>}
@@ -53,7 +61,7 @@ export default function Phone() {
         {/* Hidden, not removed, during a handoff (the next person must not see this hand) and under the result:
             either way the board must not move. */}
         {playing(s) && <div style={{ visibility: s.pendingHandoff == null && !over && !cover ? undefined : "hidden" }}><YouRow /><Hand /></div>}
-        <div inert={!!cover}><Slab /></div>
+        <div inert={!!cover} style={{ visibility: cover ? "hidden" : undefined }}><Slab /></div>
         {over && <Result />}
         {cover && !over && <Cover cover={cover} />}
       </>)}</div>}

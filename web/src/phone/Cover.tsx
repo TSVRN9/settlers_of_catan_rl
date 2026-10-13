@@ -8,7 +8,7 @@ import { SEAT_FILL } from "../board/palette";
 import { confirmHandoff } from "../game";
 import { coverHead, SEAT_NAMES } from "../labels";
 import { get, set, useApp } from "../store";
-import { coverFor, sinceActed, type Cover as CoverState } from "./pass";
+import { coverFor, sinceHeld, type Cover as CoverState } from "./pass";
 import { moveRow, MoveLine, type MoveRow } from "./Slab";
 import { useMetrics } from "./usePhone";
 
@@ -27,7 +27,7 @@ export default function Cover({ cover }: { cover: NonNullable<CoverState> }) {
   const v = s.view!, seat = cover.seat, replay = cover.mode === "replay";
   // A replay: the moves since this seat last acted, growing as the bots play on. An answer: this turn's moves, the
   // cause among them, with nothing to replay.
-  const idx = replay ? sinceActed(s.frames, seat) : (() => {
+  const idx = replay ? sinceHeld(s.frames, s.gaveUp[seat]) : (() => {
     const out: number[] = [];
     for (let i = s.frames.length - 2; i >= 0 && s.frames[i].view.current_turn === v.current_turn; i--) out.unshift(i);
     return out;
@@ -36,11 +36,13 @@ export default function Cover({ cover }: { cover: NonNullable<CoverState> }) {
   const first = rows[0]?.i;
   const playable = replay && rows.length > 0;
 
-  // Start from just before the first move whenever the cover is for someone new; leave the present on the way out.
+  // Start from just before the first move once per cover — as soon as there is a move, which at the game's start comes
+  // after the cover rises (rows only grow, so `playable` turns true once) — and leave the present on the way out.
   useEffect(() => {
-    if (playable) set({ step: first });
+    if (!playable) return;
+    set({ step: first });
     return () => set({ step: null });
-  }, [seat, replay]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seat, cover.mode, playable]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Each beat plays the next row's move: the board goes to just after it (the unlisted moves between ride along), and
   // past the last row the replay is the present.

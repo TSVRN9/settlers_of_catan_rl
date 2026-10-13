@@ -9,6 +9,7 @@ import { EngineClient, isStale, type Canon, type Evaluation, type Frame, type Re
 import { resetReview } from "./review";
 import { orient, swap } from "./readings";
 import { get, playing, rememberedHidden, set, transition, viewer, type Pace } from "./store";
+import { autoDecline } from "./phone/pass";
 
 /** The live game's engine. Review holds its own client, because the worker frees its wasm
  *  engine on every `new` — one shared client is how Play and Watch used to destroy each
@@ -74,7 +75,7 @@ export async function deal() {
   resetReview();
   stopWatching();
   set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, hover: null, carry: null, robTile: null, mark: null,
-        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], holder: null, mutedSeat: null, mutedTurn: null });
+        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], holder: null, gaveUp: [], mutedSeat: null, mutedBy: null, mutedTurn: null });
   // Two people at one screen: the game starts with the hidden cards hidden, whatever this viewer
   // last chose; that choice is not overwritten, so it is back for the next game.
   setShowHidden(s.lineup.filter((p) => p.kind === "human").length > 1 ? false : rememberedHidden(), false);
@@ -114,7 +115,7 @@ export function toLineup() {
   stopWatching();
   transition(() => set({ phase: "lineup", pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, advice: null, status: "idle", crumbs: ["table"], step: null,
                           boardOverride: null, pendingHandoff: null, paused: false, hover: null, carry: null, robTile: null, mark: null,
-                          mutedSeat: null, mutedTurn: null }));
+                          mutedSeat: null, mutedBy: null, mutedTurn: null }));
 }
 
 /** Hotseat's own gate: the seat waiting in `pendingHandoff` has looked away from whoever was
@@ -309,18 +310,17 @@ export async function pump(once = false) {
       // ended turns before they had seen the card they drew. Every other forced move plays
       // itself, because there is nothing to decide.
       const forced = s.legal.length === 1 && !(spec.kind === "human" && (s.legal[0][0] === "ROLL" || s.legal[0][0] === "END_TURN"));
-      // A trade offered to the seated person: answer it for them, silently, when it can't be
-      // afforded or when they've muted this bot for its turn — it never reaches the panel.
-      // Any person seat, not only the seated one: in pass and play an offer nobody could take would otherwise pass the
-      // phone for an answer with one choice. The mute is the seated person's own.
+      // A bot's trade offered to a person they can't take, or from a bot they muted this turn, is
+      // answered for them and never reaches the panel, nor in pass and play the phone (phone/pass.ts).
       if (v.prompt === "DECIDE_TRADE" && spec.kind === "human") {
         const give = [5, 6, 7, 8, 9].map((i) => v.current_trade[i]);
         const hand = v.players[seat].hand;
-        const cannotAfford = give.some((n, i) => hand[i] < n);
+        const from = v.current_trade[10];
         // `num_turns`, not `current_turn` — that is the seat on move, so a mute keyed on it never
         // expired and silently declined that seat's offers for the rest of the game.
-        const muted = seat === s.human && v.current_trade[10] === s.mutedSeat && v.num_turns === s.mutedTurn;
-        if (cannotAfford || muted) {
+        if (autoDecline({ responder: seat, offerer: from, offererIsPerson: s.lineup[from]?.kind === "human",
+                          cannotAfford: give.some((n, i) => hand[i] < n), turn: v.num_turns,
+                          mute: s.mutedSeat != null && s.mutedBy != null && s.mutedTurn != null ? { seat: s.mutedSeat, by: s.mutedBy, turn: s.mutedTurn } : null })) {
           if (!await advance(["REJECT_TRADE", -1, -1, -1], v)) return;
           continue;
         }

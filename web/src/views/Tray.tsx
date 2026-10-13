@@ -14,7 +14,7 @@ import { offerAnswers } from "../coach";
 import { RESOURCES, SEAT_NAMES, tradeText } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import Card from "../board/Card";
-import { set, type State } from "../store";
+import { get, set, type State } from "../store";
 import Build from "./Build";
 import { DraftOrder, OpeningPieces } from "./Opening";
 import { held, waiting } from "../waiting";
@@ -171,7 +171,7 @@ export function TradeOffer({ v, legal }: { v: View; legal: Canon[] }) {
       </div>
       {reject && (
         <button className="cap" style={{ background: "none", border: 0, cursor: "pointer", fontSize: 11.5, padding: 0, marginTop: 9 }}
-                onClick={() => { set({ mutedSeat: from, mutedTurn: v.num_turns }); void act(reject); }}>
+                onClick={() => { set({ mutedSeat: from, mutedBy: get().human, mutedTurn: v.num_turns }); void act(reject); }}>
           Ignore {SEAT_NAMES[from]} this turn
         </button>
       )}

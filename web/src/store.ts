@@ -127,7 +127,11 @@ export interface State {
   /** Pass and play on a phone: the person holding it, who last tapped Show hand; null while it is between people,
    *  when every person's decision comes through a cover (phone/pass.ts). */
   holder: number | null;
+  /** Per seat, the frame its next pass-and-play replay starts at: where it last let the phone go. */
+  gaveUp: number[];
   mutedSeat: number | null;
+  /** Who set the mute: it is that person's alone. */
+  mutedBy: number | null;
   mutedTurn: number | null;
 }
 
@@ -177,7 +181,9 @@ const initial: State = {
   reviewPlaying: false,
   pendingHandoff: null,
   holder: null,
+  gaveUp: [],
   mutedSeat: null,
+  mutedBy: null,
   mutedTurn: null,
 };
 

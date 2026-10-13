@@ -140,7 +140,7 @@ function OfferIn() {
         )}
       </div>
       <div className="ph-row ph-answer" style={{ height: btnH }}>
-        {reject && <button className="ph-btn cut8" onClick={() => { set({ mutedSeat: from, mutedTurn: v.num_turns }); void act(reject); }}>Ignore {SEAT_NAMES[from]}</button>}
+        {reject && <button className="ph-btn cut8" onClick={() => { set({ mutedSeat: from, mutedBy: s.human, mutedTurn: v.num_turns }); void act(reject); }}>Ignore {SEAT_NAMES[from]}</button>}
         <button className="ph-btn cut8" disabled={!reject} onClick={() => reject && void act(reject)}>Decline</button>
         {counter && <button className="ph-btn cut8" onClick={() => set({ offering: true, offerDraft: turnedRound(v, s.human) })}>Counter</button>}
         <button className="ph-btn go cut8" disabled={!accept} onClick={() => accept && void act(accept)}>Accept</button>

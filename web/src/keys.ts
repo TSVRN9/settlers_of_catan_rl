@@ -26,7 +26,8 @@ export function install() {
     const s = get();
     // A handoff is a tap, never a key — Esc or Space reaching through it would let one
     // player's keyboard act on the seat now waiting behind the curtain.
-    if (s.pendingHandoff != null) return;
+    // The phone's pass-and-play cover is the same: the phone is between people.
+    if (s.pendingHandoff != null || document.querySelector(".ph-cover")) return;
     const review = REVIEW.has(currentView(s));
     const stands = s.phase !== "lineup" && !playing(s);
 

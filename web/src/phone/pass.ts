@@ -38,13 +38,33 @@ export function coverFor(v: PassView, person: boolean[], holder: number | null):
   return { seat, mode: v.current_player === seat && v.current_turn !== seat ? "answer" : "replay" };
 }
 
-/** What the cover replays for `seat`: every closed frame after the last one it acted in (the last frame is live). */
+/** Every closed frame after the last one `seat` acted in (the last frame is live): taken when a person lets the phone
+ *  go, it is where their next replay starts. */
 export function sinceActed(frames: { seat: number; action: unknown }[], seat: number): number[] {
   let from = 0;
   for (let i = frames.length - 2; i >= 0; i--) if (frames[i].seat === seat && frames[i].action != null) { from = i + 1; break; }
   const out: number[] = [];
   for (let i = from; i < frames.length - 1; i++) out.push(i);
   return out;
+}
+
+/** What a cover replays: every closed frame from where its seat let the phone go (`from`, first index after its own
+ *  last move then; undefined if it never held the phone). Moves made for it since — an offer it couldn't afford,
+ *  declined for it — don't move the start. */
+export function sinceHeld(frames: unknown[], from: number | undefined): number[] {
+  const out: number[] = [];
+  for (let i = from ?? 0; i < frames.length - 1; i++) out.push(i);
+  return out;
+}
+
+/** Whether an offer to a person is answered for them, silently: a bot's offer they can't afford, or one from a bot they
+ *  muted this turn themselves. Never a person's offer — the instant refusal would tell the offerer the other is short,
+ *  and passing the phone to answer costs nothing — and never on someone else's mute. */
+export function autoDecline(o: { responder: number; offerer: number; offererIsPerson: boolean; cannotAfford: boolean;
+                                  mute: { seat: number; by: number; turn: number } | null; turn: number }): boolean {
+  if (o.offererIsPerson) return false;
+  const muted = !!o.mute && o.mute.by === o.responder && o.mute.seat === o.offerer && o.mute.turn === o.turn;
+  return o.cannotAfford || muted;
 }
 
 const argv = (globalThis as { process?: { argv?: string[] } }).process?.argv;
@@ -75,5 +95,19 @@ if (argv?.[1]?.endsWith("pass.ts")) {
   eq(nextPerson(game({ current_player: 3, current_turn: 3 }), [false, false, false, false]), -1, "nobody");
   eq(sinceActed([{ seat: 0, action: 1 }, { seat: 1, action: 1 }, { seat: 2, action: 1 }, { seat: 3, action: null }], 1), [2], "after Blue's last move");
   eq(sinceActed([{ seat: 0, action: 1 }, { seat: 2, action: 1 }, { seat: 3, action: null }], 1), [0, 1], "never acted: from the start");
+  // Orange gave the phone up at frame 2; a bot's offer she couldn't afford was declined for her at frame 4. Her replay
+  // still starts where she let go, not after the decline she never chose.
+  const fr = [0, 2, 3, 2, 2, 1, 0].map((seat, i) => ({ seat, action: i < 6 ? 1 : null }));
+  eq(sinceHeld(fr, 2), [2, 3, 4, 5], "replay from where the phone was let go");
+  eq(sinceHeld(fr, undefined), [0, 1, 2, 3, 4, 5], "never held: from the start");
+  eq(sinceActed(fr.slice(0, 3), 2), [], "the point of letting go: after the holder's own last move");
+  // An offer to a person is answered for them only when it is a bot's and they can't afford it, or they muted that bot
+  // this turn; a person's offer always reaches the other person, and one person's mute is not another's.
+  const o = { responder: 2, offerer: 3, offererIsPerson: false, cannotAfford: false, mute: { seat: 3, by: 2, turn: 7 }, turn: 7 };
+  assert(autoDecline({ ...o, cannotAfford: true, mute: null }), "a bot's offer she can't afford");
+  assert(!autoDecline({ ...o, offerer: 1, offererIsPerson: true, cannotAfford: true, mute: null }), "a person's offer reaches her even short");
+  assert(autoDecline(o), "she muted this bot this turn");
+  assert(!autoDecline({ ...o, mute: { seat: 3, by: 1, turn: 7 } }), "Blue's mute is not Orange's");
+  assert(!autoDecline({ ...o, turn: 8 }), "the mute is for one turn");
   console.log("pass self-check ok");
 }

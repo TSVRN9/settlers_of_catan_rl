@@ -1012,8 +1012,10 @@ Milestone 4 (`docs/superpowers/plans/2026-10-12-phone-m4-pass.md`) is pass and p
   and `Carry` off. The opening's auto-held settlement would otherwise take a board tap meant for nothing.
   - **What's on it:** the name, why the phone is passed mid-turn ("Discard 4", "Offer from Orange"), a strip and the
     rows (44px buttons that scroll inside the cover), ↺, and Show hand.
-  - **What it replays:** the moves since that seat last acted (`sinceActed`), one listed move a second. Unlisted
-    moves ride along in the jump.
+  - **What it replays:** the moves since that seat last let the phone go, one listed move a second. Unlisted moves
+    ride along in the jump.
+    - The start is recorded when the holder lets go (`gaveUp`, after their own last move). A move made for them
+      afterwards, such as an offer declined for them, doesn't cut their replay short.
   - **Mid-turn answers:** an answer cover lists the turn so far and replays nothing. The person who's handed the
     phone back gets a replay cover for the answers.
   - **Re-seating:** the chips sit for the cover's seat. The You row carries the seat's name. Narration and flights
@@ -1021,8 +1023,14 @@ Milestone 4 (`docs/superpowers/plans/2026-10-12-phone-m4-pass.md`) is pass and p
 - **The replay is the look-back `step` used as a playhead.** On the phone, the board, the chips, the top bar, `Fx`
   and `seen()` follow `shown(s)` (store). Bots keep playing under it, and their moves join the replay.
   - `Fx` now animates only forward steps, on desktop too. A seek back used to replay the move before it.
-- **Shared fix.** `pump` declines an offer that a person can't afford for every person seat, not just the seated
-  one, so pass and play never hands the phone over for an answer with one choice.
+- **Shared fixes** (desktop too):
+  - **Auto-decline** (`pass.autoDecline`). An offer to any person is answered for them only when it's a bot's and
+    they can't afford it, or when they muted that bot this turn themselves. A person's offer always reaches the
+    other person: an instant refusal would tell the offerer the other is short.
+  - **The mute** records who set it (`mutedBy`).
+  - **Steal narration.** It names the stolen card only to the thief and the victim (`coach.narrate`). Everyone
+    else, including the desktop log and a bot turn's move list, hears "took a card from Blue".
+  - **Keys.** None act through a cover.
 - **`phone_check`** plays up to two pass-and-play games and counts `leak`, which must be 0: a hand or a live control
   showing while a cover is up. Its probes:
   - the cover, re-seated and fitting its block;
