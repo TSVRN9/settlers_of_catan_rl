@@ -238,3 +238,21 @@
 .ph-result .row .vpc { display: inline-flex; min-width: 0; }
 .ph-result .row .vpc > * + * { margin-left: -14px; }
 .ph-result .row .vp { margin-left: auto; font-size: 22px; line-height: 1; }
+
+/* ── pass and play: the cover ── */
+.ph-cover { position: absolute; inset: 0 var(--gut) 10px; z-index: 3; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 8px;
+            animation: ph-drop var(--t-feel) var(--ease); }
+@keyframes ph-drop { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ph-cover { animation: none; } }
+.ph-cover .hd { display: flex; align-items: baseline; gap: 12px; flex: 0 0 auto; }
+.ph-cover .nm { font-size: 34px; line-height: 1; }
+.ph-cover .why { font: 600 15px var(--font-sans); }
+.ph-cover .strip { display: flex; gap: 4px; flex: 0 0 auto; }
+.ph-cover .strip i { flex: 1; height: 4px; background: currentColor; opacity: .3; transition: opacity var(--t-feel) var(--ease); }
+.ph-cover .strip i.on { opacity: 1; }
+.ph-cover .rows { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+.ph-cover-row { min-height: 44px; border: 0; width: 100%; text-align: left; color: var(--color-pine); font: inherit; cursor: pointer;
+                background: rgba(247, 248, 244, .92); opacity: 1; }
+.ph-cover-row:disabled { cursor: default; }
+.ph-cover-row.next { opacity: .5; }
+.ph-cover .ph-replay { font-size: 22px; padding: 0; }

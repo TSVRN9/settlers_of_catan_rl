@@ -6,7 +6,7 @@ import type { CSSProperties, ReactNode } from "react";
 import Card from "../board/Card";
 import { SEAT_FILL } from "../board/palette";
 import { COST } from "../coach";
-import { DEV_CARDS, RESOURCES } from "../labels";
+import { DEV_CARDS, RESOURCES, SEAT_NAMES } from "../labels";
 import { act } from "../game";
 import { playing, set, useApp } from "../store";
 import { held, heldAction } from "../waiting";
@@ -30,7 +30,7 @@ export function YouRow() {
   return (
     <div className="ph-you" style={{ opacity: spending(s) ? 0 : 1 }}>
       <i className="sw" style={{ background: SEAT_FILL[s.human] }} />
-      <span className="nm">You</span>
+      <span className="nm">{s.lineup.filter((b) => b.kind === "human").length > 1 ? SEAT_NAMES[s.human] : "You"}</span>
       <span className="d num vp">{v.players[s.human].vp}</span>
       {s.evalShown && <>
         <div className="bar"><i style={{ width: `${(win ?? 0) * 100}%`, background: SEAT_FILL[s.human] }} /></div>

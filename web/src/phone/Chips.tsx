@@ -7,6 +7,7 @@ import { pct } from "./usePhone";
 import { playing, shown, useApp, you } from "../store";
 import { offerAnswers } from "../coach";
 import { act } from "../game";
+import { useCover } from "./Cover";
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
@@ -15,12 +16,15 @@ export default function Chips() {
   const { view, evals } = shown(s);
   const v = view!;
   const n = v.players.length;
-  // Watching, nobody sits at the bottom: every seat is a chip.
-  const seats = playing(s) ? Array.from({ length: n - 1 }, (_, k) => (s.human + 1 + k) % n) : Array.from({ length: n }, (_, k) => k);
+  // Pass and play re-seats the table for whoever the phone is going to: they sit at the bottom. Watching, nobody
+  // sits at the bottom: every seat is a chip.
+  const cover = useCover();
+  const me = cover?.seat ?? s.human;
+  const seats = playing(s) ? Array.from({ length: n - 1 }, (_, k) => (me + 1 + k) % n) : Array.from({ length: n }, (_, k) => k);
   const onMove = turnSeat(v);
   const prev = s.frames[v.steps - 1]?.view;
   // Your offer going round: each seat's answer, as it arrives, on open board under its chip.
-  const out = playing(s) && s.step == null && v.is_resolving_trade && v.current_trade[10] === s.human && v.current_turn === s.human
+  const out = playing(s) && s.step == null && !cover && v.is_resolving_trade && v.current_trade[10] === s.human && v.current_turn === s.human
     ? offerAnswers(s.frames, s.frames.length - 1, s.human) : null;
   const ANSWER = { yes: "Accepts", no: "No", counter: "Counters" } as const;
   return (
@@ -45,7 +49,7 @@ export default function Chips() {
         // A count that went up on this step turns green for a beat (no "+3": it would crowd the win figure).
         const gained = !!prev && cards > sum(prev.players[i].hand);
         const win = evals[i]?.win;
-        const cls = onMove === i ? " on" : onMove !== you(s) ? " off" : "";
+        const cls = onMove === i ? " on" : onMove !== (cover ? me : you(s)) ? " off" : "";
         return (
           <div key={i} data-seat={i} className={`ph-chip cut8${cls}`}>
             <div className="ph-chip-row">

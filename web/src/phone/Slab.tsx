@@ -2,7 +2,7 @@
 // Milestone 1 designs the roll, building and someone else's turn; every other position falls back to a list
 // of its legal actions, so a whole game can be played on a phone before those phases get their own design.
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
-import { act, confirmHandoff, live } from "../game";
+import { act, live } from "../game";
 import Card from "../board/Card";
 import { newsworthy, narrate } from "../coach";
 import { SEAT_FILL } from "../board/palette";
@@ -17,7 +17,7 @@ import { PieceIcon } from "../views/Build";
 import BuildCards, { Token } from "./BuildCards";
 import { sinceTurn, slabMode, viewerNow, type SlabMode } from "./slab";
 import { seen, useMetrics } from "./usePhone";
-import type { Canon, Evaluation, View } from "../engine";
+import type { Canon, Evaluation, Frame, MapView, View } from "../engine";
 
 const SETTLE_MS = 400;
 
@@ -332,29 +332,38 @@ function MoveIcon({ a, seat }: { a: Canon; seat: number }) {
   return null;
 }
 
+export interface MoveRow { i: number; seat: number; a: Canon; text: string; d: number | null; dice: [number, number] | null }
+/** Move `i` as a row, if it is worth one: its seat, the move, the narration for `viewer`, its swing for that seat. */
+export function moveRow(frames: Frame[], i: number, map: MapView, viewer: number): MoveRow | null {
+  const f = frames[i], next = frames[i + 1], row = rowAt(frames, i);
+  if (!row || !f?.action || !next || !newsworthy(f.action)) return null;
+  const a = f.evals[f.seat]?.win, b = next.evals[f.seat]?.win;
+  return { i, seat: f.seat, a: f.action, text: narrate(row, map, viewer), d: a != null && b != null ? b - a : null,
+           dice: f.action[0] === "ROLL" ? f.outcome : null };
+}
+/** A move row's insides: the seat, an icon (piece, dice, card), what it was, and with Eval on its swing. */
+export function MoveLine({ r, ev }: { r: MoveRow; ev: boolean }) {
+  return <>
+    <i className="sw" style={{ background: SEAT_FILL[r.seat] }} />
+    <span className="ic">{r.dice ? <><Die n={r.dice[0]} size={14} /><Die n={r.dice[1]} size={14} /></> : <MoveIcon a={r.a} seat={r.seat} />}</span>
+    <span className="tx">{r.text}</span>
+    {ev && r.d != null && Math.abs(r.d) >= 0.005 && <span className={`num dl ${r.d > 0 ? "up" : "dn"}`}>{fmtDelta(r.d)}</span>}
+  </>;
+}
+
 /** The moves since the seated person last moved, newest on top, scrolling inside the slab: each its seat, what
  *  it was (an icon, the narration) and, with Eval on, what it did to that seat's chance. */
 function Moves() {
   const s = useApp();
-  const rows: { i: number; seat: number; a: Canon; text: string; d: number | null; dice: [number, number] | null }[] = [];
+  const rows: MoveRow[] = [];
   for (const i of sinceTurn(seen(s), you(s))) {   // watching, you(s) is -1: the newest moves, back through the game
     if (rows.length >= 24) break;
-    const f = s.frames[i], row = rowAt(s.frames, i);
-    if (!row || !f.action || !newsworthy(f.action) || !s.map) continue;
-    const a = f.evals[f.seat]?.win, b = s.frames[i + 1].evals[f.seat]?.win;
-    rows.push({ i, seat: f.seat, a: f.action, text: narrate(row, s.map, viewerNow(you(s), s.pendingHandoff)), d: a != null && b != null ? b - a : null,
-                dice: f.action[0] === "ROLL" ? f.outcome : null });
+    const r = s.map && moveRow(s.frames, i, s.map, viewerNow(you(s), s.pendingHandoff));
+    if (r) rows.push(r);
   }
   return (
     <div className="ph-moves">
-      {rows.map((r, k) => (
-        <div key={r.i} className={`ph-move cut5${k ? "" : " new line"}`}>
-          <i className="sw" style={{ background: SEAT_FILL[r.seat] }} />
-          <span className="ic">{r.dice ? <><Die n={r.dice[0]} size={14} /><Die n={r.dice[1]} size={14} /></> : <MoveIcon a={r.a} seat={r.seat} />}</span>
-          <span className="tx">{r.text}</span>
-          {s.evalShown && r.d != null && Math.abs(r.d) >= 0.005 && <span className={`num dl ${r.d > 0 ? "up" : "dn"}`}>{fmtDelta(r.d)}</span>}
-        </div>
-      ))}
+      {rows.map((r, k) => <div key={r.i} className={`ph-move cut5${k ? "" : " new line"}`}><MoveLine r={r} ev={s.evalShown} /></div>)}
     </div>
   );
 }
@@ -421,11 +430,7 @@ export default function Slab() {
         return (
           <div className="ph-bots">
             <Moves />
-            {s.pendingHandoff != null && (
-              <button className="ph-btn go cut8" style={{ height: btnH }} onClick={confirmHandoff}>
-                {SEAT_NAMES[s.pendingHandoff]}: show hand
-              </button>
-            )}
+
           </div>
         );
       case "over":

@@ -11,6 +11,7 @@ import Chips from "./Chips";
 import { Hand, YouRow } from "./Hand";
 import Slab from "./Slab";
 import Result from "./Result";
+import Cover, { useCover } from "./Cover";
 import Fx from "../views/Fx";
 import { viewerNow } from "./slab";
 import "./phone.css";
@@ -24,6 +25,10 @@ export default function Phone() {
   const mine = !setup && playing(s) && s.view?.current_player === s.human && s.view.winner < 0 && s.step == null;
   const inHand = setup ? null : held(s);
   const over = !setup && !!s.view && s.view.winner >= 0;
+  const cover = useCover();                  // null at the lineup: only a game in play is covered
+  // The phone is between people the moment a cover rises: from then on every person's decision, the last holder's
+  // own included, comes through a cover until someone taps Show hand.
+  useEffect(() => { if (cover && s.holder != null) set({ holder: null }); }, [cover?.seat, s.holder]);  // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="ph">
       {setup ? <div className="ph-word d">Catan RL</div> : s.view && <><TopBar /><Chips /></>}
@@ -34,7 +39,7 @@ export default function Phone() {
       </div>
       {s.map && s.view && (
         <BoardLayer view="table" map={s.map} gameView={shown(s).view!}
-          carry={mine && inHand ? {
+          carry={mine && inHand && !cover ? {
             map: s.map, view: s.view, legal: s.legal, seat: s.human, held: inHand, robTile: s.robTile, reveal: false,
             snapPx: 24, liftPx: 56, keepOnMiss: true,
             onPlace: (a) => void act(a), onRobTile: (t) => set({ robTile: t }),
@@ -43,13 +48,14 @@ export default function Phone() {
           } : null}
           hidePieces={s.reveal} dealing={s.reveal} />
       )}
-      {!setup && s.map && s.view && <Fx frames={s.frames} at={Math.max(0, Math.min(s.step ?? s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), s.pendingHandoff)} />}
+      {!setup && s.map && s.view && <Fx frames={s.frames} at={Math.max(0, Math.min(s.step ?? s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), cover?.seat ?? s.pendingHandoff)} />}
       {setup ? <PhoneLineup /> : <div className="ph-seat">{s.view && (over && !playing(s) ? <Result /> : <>
         {/* Hidden, not removed, during a handoff (the next person must not see this hand) and under the result:
             either way the board must not move. */}
-        {playing(s) && <div style={{ visibility: s.pendingHandoff == null && !over ? undefined : "hidden" }}><YouRow /><Hand /></div>}
-        <Slab />
+        {playing(s) && <div style={{ visibility: s.pendingHandoff == null && !over && !cover ? undefined : "hidden" }}><YouRow /><Hand /></div>}
+        <div inert={!!cover}><Slab /></div>
         {over && <Result />}
+        {cover && !over && <Cover cover={cover} />}
       </>)}</div>}
     </div>
   );
