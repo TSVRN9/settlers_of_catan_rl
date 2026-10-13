@@ -74,7 +74,7 @@ export async function deal() {
   resetReview();
   stopWatching();
   set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, hover: null, carry: null, robTile: null, mark: null,
-        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], mutedSeat: null, mutedTurn: null });
+        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], holder: null, mutedSeat: null, mutedTurn: null });
   // Two people at one screen: the game starts with the hidden cards hidden, whatever this viewer
   // last chose; that choice is not overwritten, so it is back for the next game.
   setShowHidden(s.lineup.filter((p) => p.kind === "human").length > 1 ? false : rememberedHidden(), false);
@@ -311,13 +311,15 @@ export async function pump(once = false) {
       const forced = s.legal.length === 1 && !(spec.kind === "human" && (s.legal[0][0] === "ROLL" || s.legal[0][0] === "END_TURN"));
       // A trade offered to the seated person: answer it for them, silently, when it can't be
       // afforded or when they've muted this bot for its turn — it never reaches the panel.
-      if (v.prompt === "DECIDE_TRADE" && seat === s.human && spec.kind === "human") {
+      // Any person seat, not only the seated one: in pass and play an offer nobody could take would otherwise pass the
+      // phone for an answer with one choice. The mute is the seated person's own.
+      if (v.prompt === "DECIDE_TRADE" && spec.kind === "human") {
         const give = [5, 6, 7, 8, 9].map((i) => v.current_trade[i]);
-        const hand = v.players[s.human].hand;
+        const hand = v.players[seat].hand;
         const cannotAfford = give.some((n, i) => hand[i] < n);
         // `num_turns`, not `current_turn` — that is the seat on move, so a mute keyed on it never
         // expired and silently declined that seat's offers for the rest of the game.
-        const muted = v.current_trade[10] === s.mutedSeat && v.num_turns === s.mutedTurn;
+        const muted = seat === s.human && v.current_trade[10] === s.mutedSeat && v.num_turns === s.mutedTurn;
         if (cannotAfford || muted) {
           if (!await advance(["REJECT_TRADE", -1, -1, -1], v)) return;
           continue;

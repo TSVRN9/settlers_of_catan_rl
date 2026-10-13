@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import BoardLayer from "../board/BoardLayer";
 import PhoneLineup from "./Lineup";
 import { act } from "../game";
-import { playing, set, useApp, you } from "../store";
+import { playing, set, shown, useApp, you } from "../store";
 import { held } from "../waiting";
 import TopBar from "./TopBar";
 import Chips from "./Chips";
@@ -33,7 +33,7 @@ export default function Phone() {
         <div data-anchor="table" className="ph-anchor" />
       </div>
       {s.map && s.view && (
-        <BoardLayer view="table" map={s.map} gameView={s.view}
+        <BoardLayer view="table" map={s.map} gameView={shown(s).view!}
           carry={mine && inHand ? {
             map: s.map, view: s.view, legal: s.legal, seat: s.human, held: inHand, robTile: s.robTile, reveal: false,
             snapPx: 24, liftPx: 56, keepOnMiss: true,
@@ -43,7 +43,7 @@ export default function Phone() {
           } : null}
           hidePieces={s.reveal} dealing={s.reveal} />
       )}
-      {!setup && s.map && s.view && s.step == null && <Fx frames={s.frames} at={Math.max(0, Math.min(s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), s.pendingHandoff)} />}
+      {!setup && s.map && s.view && <Fx frames={s.frames} at={Math.max(0, Math.min(s.step ?? s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), s.pendingHandoff)} />}
       {setup ? <PhoneLineup /> : <div className="ph-seat">{s.view && (over && !playing(s) ? <Result /> : <>
         {/* Hidden, not removed, during a handoff (the next person must not see this hand) and under the result:
             either way the board must not move. */}

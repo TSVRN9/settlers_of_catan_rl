@@ -28,7 +28,13 @@ export default function Fx({ frames, at, map, you }: { frames: Frame[]; at: numb
   const latest = useRef({ frames, map, you });
   latest.current = { frames, map, you };
 
+  // Only a step forward is a move: seeking back (a replay restarting, the stands' scrubber) shows a position, it
+  // doesn't play the move before it again.
+  const last = useRef(at);
   useLayoutEffect(() => {
+    const back = at <= last.current;
+    last.current = at;
+    if (back) return;
     const { frames, map, you } = latest.current;
     const root = layer.current;
     const f = frames[at - 1], cur = frames[at];

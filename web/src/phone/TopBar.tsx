@@ -6,7 +6,7 @@ import { SEAT_NAMES, roundOf } from "../labels";
 import { SEAT_FILL } from "../board/palette";
 import { draft } from "../views/Opening";
 import type { View } from "../engine";
-import { hiddenLocked, setEvalShown, useApp } from "../store";
+import { hiddenLocked, setEvalShown, shown, useApp } from "../store";
 import { Thrown } from "../views/Tray";
 import { seen } from "./usePhone";
 
@@ -26,7 +26,7 @@ function Draft({ v }: { v: View }) {
 
 export default function TopBar() {
   const s = useApp();
-  const v = s.view!;
+  const v = shown(s).view!;
   const [open, setOpen] = useState(false);
   const pop = useRef<HTMLDivElement>(null);
   // A tap anywhere else closes it. (Not Esc: keys.ts owns Esc, and a phone rarely has one.)

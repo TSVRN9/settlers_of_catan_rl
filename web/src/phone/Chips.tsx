@@ -4,7 +4,7 @@
 import { SEAT_FILL } from "../board/palette";
 import { SEAT_NAMES, turnSeat } from "../labels";
 import { pct } from "./usePhone";
-import { playing, useApp, you } from "../store";
+import { playing, shown, useApp, you } from "../store";
 import { offerAnswers } from "../coach";
 import { act } from "../game";
 
@@ -12,7 +12,8 @@ const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
 export default function Chips() {
   const s = useApp();
-  const v = s.view!;
+  const { view, evals } = shown(s);
+  const v = view!;
   const n = v.players.length;
   // Watching, nobody sits at the bottom: every seat is a chip.
   const seats = playing(s) ? Array.from({ length: n - 1 }, (_, k) => (s.human + 1 + k) % n) : Array.from({ length: n }, (_, k) => k);
@@ -43,7 +44,7 @@ export default function Chips() {
         const cards = sum(p.hand), devs = sum(p.devs);
         // A count that went up on this step turns green for a beat (no "+3": it would crowd the win figure).
         const gained = !!prev && cards > sum(prev.players[i].hand);
-        const win = s.evals[i]?.win;
+        const win = evals[i]?.win;
         const cls = onMove === i ? " on" : onMove !== you(s) ? " off" : "";
         return (
           <div key={i} data-seat={i} className={`ph-chip cut8${cls}`}>

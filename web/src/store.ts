@@ -124,6 +124,9 @@ export interface State {
 
   /** "Ignore this bot's trades for its turn": the offering seat and the `num_turns` it was
    *  muted on. Expires by itself once the turn count moves past it — no separate clear needed. */
+  /** Pass and play on a phone: the person holding it, who last tapped Show hand; null while it is between people,
+   *  when every person's decision comes through a cover (phone/pass.ts). */
+  holder: number | null;
   mutedSeat: number | null;
   mutedTurn: number | null;
 }
@@ -173,6 +176,7 @@ const initial: State = {
   frames: [],
   reviewPlaying: false,
   pendingHandoff: null,
+  holder: null,
   mutedSeat: null,
   mutedTurn: null,
 };
@@ -212,6 +216,12 @@ export function transition(fn: () => void): Promise<void> {
 
 /** Whether a person is at the table at all. A lineup with nobody in it is legal — that is
  *  what watching is — and everything that would otherwise say "your turn" has to know. */
+/** The position on screen: a look-back step's (the phone's pass-and-play replay is one) or the live one. */
+export function shown(s: Pick<State, "step" | "frames" | "view" | "evals">) {
+  const f = s.step != null ? s.frames[s.step] : null;
+  return f ? { view: f.view, evals: f.evals } : { view: s.view, evals: s.evals };
+}
+
 export const playing = (s: State) => s.lineup[s.human]?.kind === "human";
 
 /** The seat "you" is written from, or -1 when nobody is seated. */
