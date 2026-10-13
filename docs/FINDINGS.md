@@ -3709,3 +3709,49 @@ dice roll, steal, dev-card draw or discard, is 525-542 bytes at the median (max 
 deflated base64url link (max 598). Legal lists reach ~250 actions (offers), so an index is sometimes two varint bytes.
 The phone spec (docs/superpowers/specs/2026-10-11-mobile-ui-design.md) uses the compact form. A person who trades a
 lot plays longer games than these bots; unmeasured.
+
+## 2026-10-13: move grades, the margin scale
+
+A grade on the phone is the margin between the best and the played move's value in the value net's ranked root,
+`decide_full("vnet", 2)`, in win chance (spec "Grades"). It was measured over 216 games, about 74,000 decisions with more
+than one legal action, with lineups rotating heuristic d2, jsrobot, random and vnet d2 (`web/tools/grade_margins.mjs`,
+summarised by `grade_margins_report.mjs`).
+
+- **Margins are small.**
+  - At the 99th percentile: heuristic .112, jsrobot .129, random .153.
+  - At the 99.9th: 0.19 to 0.25.
+  - vnet's own moves are exactly 0, except 8% of its trade answers: its 1-ply answer policy disagrees with the
+    depth-2 root, with p99 .029 and p99.9 .146.
+- **Per seat-game, the count of moves at or over a margin:**
+
+| margin ≥ | heuristic | jsrobot | random | vnet |
+|---|---|---|---|---|
+| 0.005 | 20.6 | 25.4 | 11.3 | 1.49 |
+| 0.01 | 17.5 | 21.8 | 9.0 | 1.02 |
+| 0.02 | 13.0 | 16.5 | 5.6 | 0.54 |
+| 0.05 | 5.1 | 7.0 | 2.4 | 0.13 |
+| 0.08 | 1.9 | 2.8 | 1.4 | 0.07 |
+| 0.10 | 1.1 | 1.6 | 1.2 | 0.05 |
+| 0.15 | 0.22 | 0.44 | 0.68 | 0.02 |
+| 0.20 | 0.06 | 0.17 | 0.31 | 0.00 |
+
+- **The bands (`web/src/grade.ts`):**
+  - **Best** is under 0.01. A decent bot makes about 20 moves a game between 0.005 and 0.01, which is the root's
+    own noise.
+  - **Good** is 0.01 to 0.05, **Inaccuracy** 0.05 to 0.08, **Mistake** 0.08 to 0.15, and **Blunder** 0.15 and up.
+  - That gives the heuristic search about 3 inaccuracies, 1.7 mistakes and 0.2 blunders a game, and jSettlers about
+    4, 2.4 and 0.4. Random blunders 0.7 times a game, most of them in the opening, where its p90 is .19.
+  - Only above about 0.15 does random separate from the decent bots by count. Below that it makes fewer large misses
+    than they do, because so many of its moves are cheap ones.
+- **Where the margins sit:**
+  - **Maritime trades** have the largest typical margins (heuristic p50 .020, p90 .097).
+  - **END_TURN** is a real choice (jsrobot p50 .019), so it is graded.
+  - **Trade answers** are 0 more than 90% of the time.
+  - **Rolls and discards** are tiny.
+- **Offers outside the root.** The root ranks only the search's three offers, so 58% of the heuristic's offers and
+  90% of jSettlers' are unranked. Offers are not graded. Every other category is always ranked.
+- **Outcome is not a check on the scale here.** Win rate by tercile of a seat's summed margin comes out inverted:
+  higher sums win more. Longer survival means more decisions, and vnet won 95% of these games. A lineup without vnet,
+  with per-decision means, would be the test.
+- **Cost:** `decide_full` in wasm (node) has a median of 2.1 ms, p90 13 ms, p99 239 ms and a max of 1.36 s. So a live
+  grade runs off the game loop on the review worker, and it is shown only if it arrives before the next move.
