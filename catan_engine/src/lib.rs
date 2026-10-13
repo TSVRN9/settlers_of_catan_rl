@@ -7,6 +7,7 @@ pub mod apply;
 pub mod arena;
 pub mod base_topology;
 pub mod board;
+pub mod compact;
 pub mod drrl;
 pub mod encode;
 pub mod heuristic;

@@ -7,13 +7,13 @@ use serde_json::{json, Value};
 use wasm_bindgen::prelude::*;
 
 use crate::actions::{from_canon, to_canon, Action, Canon};
+use crate::compact;
 use crate::apply::Outcome;
 use crate::drrl::{Drrl, Variant as DrrlVariant, N_IN as DRRL_N_IN};
 use crate::jsettler::brain::Jsettler;
 use crate::jsettler::dm::Params as JsParams;
 use crate::mcts::{Mcts, Policy};
 use crate::encode::Layout;
-use crate::map::Map;
 use crate::state::{Prompt, State};
 use crate::trade::Eval;
 use crate::valuenet::{ValueNet, N_HEADS};
@@ -63,6 +63,30 @@ fn err(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
 
+/// `record()`'s log: `[[action, [a, b]], ...]`.
+fn log_from_json(v: &Value) -> Result<Vec<(Action, Outcome)>, JsValue> {
+    let log = v["log"].as_array().ok_or("record.log")?;
+    log.iter()
+        .map(|entry| Ok((canon_from_json(&entry[0])?, (entry[1][0].as_i64().unwrap_or(-1) as i32, entry[1][1].as_i64().unwrap_or(-1) as i32))))
+        .collect()
+}
+
+/// A `record()` as the compact bytes of a shared link (compact.rs), with the browser's own sections.
+#[wasm_bindgen]
+pub fn record_to_compact(record: &str, sections: &[u8]) -> Result<Vec<u8>, JsValue> {
+    let v: Value = serde_json::from_str(record).map_err(err)?;
+    let seed = v["seed"].as_u64().ok_or("record.seed")? as u32;
+    let n = v["n"].as_u64().unwrap_or(4) as usize;
+    compact::encode(seed, n, sections, &log_from_json(&v)?, &layout()).map_err(err)
+}
+
+/// A shared link's bytes back as a `record()`, every step checked against the rules as it is replayed.
+#[wasm_bindgen]
+pub fn compact_to_record(bytes: &[u8]) -> Result<String, JsValue> {
+    let (seed, n, log) = compact::decode(bytes, &layout()).map_err(err)?;
+    Ok(json!({"seed": seed, "n": n, "log": log.iter().map(|(a, o)| json!([canon_json(*a), [o.0, o.1]])).collect::<Vec<_>>()}).to_string())
+}
+
 #[wasm_bindgen]
 pub struct Engine {
     state: State,
@@ -80,9 +104,7 @@ impl Engine {
     /// A fresh `n`-player game on a random BASE board from `seed`.
     #[wasm_bindgen(constructor)]
     pub fn new(seed: u32, n: usize) -> Engine {
-        let layout = layout();
-        let map = Arc::new(Map::generate(seed as u64, &layout));
-        let state = State::new(map, n, (seed as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x5851_F42D_4C95_7F2D, 10);
+        let state = compact::new_state(seed, n, &layout());
         Engine { state, seed, n, log: vec![], net: None, bot_rng: seed as u64 ^ 0xA5A5_5A5A_1234_8765, drrl: (0..n).map(|_| None).collect(), jsettlers: (0..n).map(|_| None).collect() }
     }
 
@@ -92,15 +114,23 @@ impl Engine {
         let seed = v["seed"].as_u64().ok_or("record.seed")? as u32;
         let n = v["n"].as_u64().unwrap_or(4) as usize;
         let mut e = Engine::new(seed, n);
-        let log = v["log"].as_array().ok_or("record.log")?;
+        let log = log_from_json(&v)?;
         let take = if steps < 0 { log.len() } else { (steps as usize).min(log.len()) };
-        for entry in &log[..take] {
-            let a = canon_from_json(&entry[0])?;
-            let o = (entry[1][0].as_i64().unwrap_or(-1) as i32, entry[1][1].as_i64().unwrap_or(-1) as i32);
+        for &(a, o) in &log[..take] {
             e.state.apply(a, Some(o)).map_err(err)?;
             e.log.push((a, o));
         }
         Ok(e)
+    }
+
+    /// Apply a canonical action with its random outcome forced (`[a, b]` as `apply` returns it): a recorded game
+    /// played back one step at a time. Returns the outcome.
+    pub fn apply_with(&mut self, action: &str, a: i32, b: i32) -> Result<String, JsValue> {
+        let v: Value = serde_json::from_str(action).map_err(err)?;
+        let act = canon_from_json(&v).map_err(err)?;
+        let o = self.state.apply(act, Some((a, b))).map_err(err)?;
+        self.log.push((act, o));
+        Ok(json!([o.0, o.1]).to_string())
     }
 
     /// Load exported value-net weights (tools/export_valuenet.py) so the `vnet` bot and the analysis calls work.
