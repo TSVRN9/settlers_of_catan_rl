@@ -16,11 +16,11 @@ export default function Chips() {
   const { view, evals } = shown(s);
   const v = view!;
   const n = v.players.length;
-  // Pass and play re-seats the table for whoever the phone is going to: they sit at the bottom. Watching, nobody
-  // sits at the bottom: every seat is a chip.
+  // Pass and play re-seats the table for whoever the phone is going to: they sit at the bottom. (Watching has no
+  // chips: the seats are the standings under the board.)
   const cover = useCover();
   const me = cover?.seat ?? s.human;
-  const seats = playing(s) ? Array.from({ length: n - 1 }, (_, k) => (me + 1 + k) % n) : Array.from({ length: n }, (_, k) => k);
+  const seats = Array.from({ length: n - 1 }, (_, k) => (me + 1 + k) % n);
   const onMove = turnSeat(v);
   const prev = s.frames[v.steps - 1]?.view;
   // Your offer going round: each seat's answer, as it arrives, on open board under its chip.
@@ -28,7 +28,7 @@ export default function Chips() {
     ? offerAnswers(s.frames, s.frames.length - 1, s.human) : null;
   const ANSWER = { yes: "Accepts", no: "No", counter: "Counters" } as const;
   return (
-    <div className={`ph-chips${playing(s) ? "" : " all"}`}>
+    <div className="ph-chips">
       {out && (
         <div className="ph-answers">
           {seats.map((i) => {

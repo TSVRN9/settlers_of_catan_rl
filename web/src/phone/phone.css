@@ -74,9 +74,6 @@
 .ph-chips { flex: 0 0 auto; display: flex; gap: 8px; padding: 0 var(--gut); position: relative; z-index: 2; }
 .ph-chip { flex: 1; min-width: 0; background: var(--color-paper); padding: 8px 10px 0; display: flex; flex-direction: column; gap: 3px;
            transition: opacity var(--t-panel) var(--ease), translate var(--t-panel) var(--ease), box-shadow var(--t-panel) var(--ease); }
-/* Watching, every seat is a chip: four abreast would cut the names, so two rows of two. */
-.ph-chips.all { flex-wrap: wrap; row-gap: 8px; }
-.ph-chips.all .ph-chip { flex: 1 1 calc(50% - 4px); }
 .ph-chip.on { background: #fff; translate: 0 -2px; box-shadow: 0 6px 14px rgba(18,33,31,.16); }
 .ph-chip.off { opacity: .55; }
 .ph-chip-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -228,9 +225,12 @@
 .ph-result .win { font-size: 30px; line-height: 1; white-space: nowrap; }
 .ph-result .pl { font: 600 14px var(--font-sans); white-space: nowrap; }
 .ph-result .curve { flex: 1 1 0; min-height: 24px; width: 100%; background: var(--color-paper); }
-.ph-result:not(.cover) .curve { flex: 0 0 56px; }
 .ph-result .rows { display: grid; grid-template-columns: 1fr; flex: 0 0 auto; }
-@media (max-height: 699px) { .ph-result .rows { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; } }
+@media (max-height: 699px) { .ph-result:not(.watched) .rows { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; } }
+@media (max-height: 699px) { .ph-result.watched .row { height: 26px; } }
+.ph-result.watched .row .nm { flex: 0 0 64px; }
+.ph-result .rd { font: 600 13px var(--font-sans); color: var(--color-moss); white-space: nowrap; }
+.ph-result .row .kd, .ph-standings .kd { font: 500 12px var(--font-sans); color: var(--color-moss); white-space: nowrap; }
 .ph-result .row { height: 30px; display: flex; align-items: center; gap: 9px; min-width: 0; }
 .ph-result .row .sw { width: 9px; height: 9px; flex: 0 0 9px; }
 .ph-result .row .nm { font: 600 14px var(--font-sans); }
@@ -256,3 +256,26 @@
 .ph-cover-row:disabled { cursor: default; }
 .ph-cover-row.next { opacity: .5; }
 .ph-cover .ph-replay { font-size: 22px; padding: 0; }
+
+/* ── watching: one fixed block under the board, whatever it shows (live, scrubbed, the result) ── */
+.ph { --watch-h: 312px; }
+@media (max-height: 699px) { .ph { --watch-h: 274px; } }
+.ph-seat.ph-watch { flex: 0 0 var(--watch-h); height: var(--watch-h); box-sizing: border-box; }
+.ph-watching { height: 100%; display: flex; flex-direction: column; gap: 8px; }
+.ph-newest { flex: 0 0 40px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
+.ph-newest .tx { -webkit-line-clamp: 2; }
+.ph-curve { display: block; flex: 0 0 74px; width: 100%; background: var(--color-paper); touch-action: none; cursor: ew-resize; }
+@media (max-height: 699px) { .ph-curve { flex-basis: 52px; } }
+.ph-transport { flex: 0 0 44px; display: flex; gap: 6px; align-items: center; }
+.ph-tbtn { flex: 0 0 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ph-tbtn.wide { flex-basis: 56px; }
+.ph-pace { flex: 0 0 auto; margin-left: auto; height: 44px; padding: 0 14px; }
+.ph-standings { flex: 0 0 auto; display: flex; flex-direction: column; }
+.ph-standings .row { height: 30px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+@media (max-height: 699px) { .ph-standings .row { height: 26px; } }
+.ph-standings .sw { width: 9px; height: 9px; flex: 0 0 9px; }
+.ph-standings .nm { font: 600 13px var(--font-sans); flex: 0 0 52px; }
+.ph-standings .kd { flex: 1; min-width: 0; }
+.ph-standings .pc { font: 600 12.5px var(--font-sans); flex: 0 0 38px; text-align: right; }
+.ph-standings .vp { font-size: 20px; line-height: 1; flex: 0 0 26px; text-align: right; }
+.ph-err { font: 600 14px var(--font-sans); color: #a5452b; padding: 2px 0 4px; }

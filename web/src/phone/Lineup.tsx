@@ -23,6 +23,7 @@ export default function PhoneLineup() {
   const close = () => setOpen(null);
   return (
     <div className="ph-lineup">
+      {s.linkBroken && <div className="ph-err" role="alert">That link isn't a game.</div>}
       {s.lineup.map((b, i) => (
         <button key={i} data-seat={i} className="ph-seatrow cut8" onClick={() => setOpen(i)} aria-label={`${SEAT_NAMES[i]}: ${name(b.kind)}`}>
           <i style={{ background: SEAT_FILL[i] }} />
