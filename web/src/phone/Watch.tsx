@@ -1,6 +1,8 @@
 // Watching (nobody seated, or a shared game played back): no hand, so the seats come to the bottom as standings.
 // Above them the newest move, the curve as the scrubber, and the transport (spec "Watching bots and shared links";
 // review.mjs A and B).
+import { useMemo } from "react";
+import { pointOfNoReturn, pucks as letter } from "../deciding";
 import { goLive, hold, seek, setPace, stepOnce, togglePause } from "../game";
 import { BOT_SHORT, SEAT_NAMES } from "../labels";
 import { SEAT_FILL } from "../board/palette";
@@ -20,7 +22,12 @@ const NEXT = "M3 2 L11 8 L3 14 Z M11.5 2 h2.5 v12 h-2.5 Z", PREV = "M13 2 L5 8 L
 export default function Watch() {
   const s = useApp();
   const v = s.view!;
-  const at = v.steps, upto = Math.max(at, s.seenTo);
+  // The whole game the worker has played so far, ahead of the playhead too; once it has its ending, the decisive moves
+  // and the point of no return as in the review (Eval on).
+  const at = v.steps, last = s.frames.length - 1;
+  const winner = last > 0 && s.frames[last].action === null ? s.frames[last].view.winner : -1;
+  const pk = useMemo(() => (winner >= 0 ? letter(s.frames, winner) : []), [s.frames, winner]);
+  const ponr = useMemo(() => pointOfNoReturn(s.frames, winner), [s.frames, winner]);
   let row: MoveRow | null = null;
   for (const i of sinceTurn(seen(s), -1)) { row = s.map && moveRow(s.frames, i, s.map, -1); if (row) break; }
   const vps = v.players.map((p) => p.vp);
@@ -29,7 +36,8 @@ export default function Watch() {
   return (
     <div className="ph-watching" inert={v.winner >= 0}>
       <div className="ph-move new cut5 ph-newest">{row && <MoveLine key={row.i} r={row} ev={s.evalShown} />}</div>
-      <Curve className="ph-curve cut5" frames={s.frames} at={at} upto={upto} points={!s.evalShown} onSeek={(i) => seek(Math.min(i, upto))} />
+      <Curve className="ph-curve cut5" frames={s.frames} at={at} upto={last} points={!s.evalShown} onSeek={seek}
+             pucks={s.evalShown ? pk : undefined} ponr={s.evalShown ? ponr : null} />
       <div className="ph-transport">
         <button className="ph-btn ph-tbtn cut8" aria-label="Back one move" disabled={at === 0} onClick={() => seek(at - 1)}><Glyph d={PREV} /></button>
         <button className="ph-btn go ph-tbtn wide cut8" aria-label={s.paused ? "Play" : "Pause"} disabled={s.paused && !!s.film && !s.frames[at + 1]} onClick={togglePause}><Glyph d={s.paused ? PLAY : PAUSE} /></button>

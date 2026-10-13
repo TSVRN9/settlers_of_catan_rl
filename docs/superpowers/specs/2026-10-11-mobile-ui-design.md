@@ -117,7 +117,9 @@ The board does not rotate. The seated row carries the seat's name, not "You".
 - **Watching** (no person seated): no hand, so the seats move to the bottom as a standings list
   (colour, name, bot kind, win chance, VP). Above it: the newest move, the curve, and a transport
   (step back, play/pause, step forward, speed or "Live"). The curve is the scrubber: drag to seek
-  (`game.seek`); after the playhead it is faint.
+  (`game.seek`), anywhere in the game. It draws the whole game the worker has played, ahead of the playhead
+  as clearly as behind it, and once the ending is in, the review's lettered decisive moves and point of no
+  return (Eval on). (User 2026-10-13; it was faint after the playhead and stopped at the furthest point seen.)
 - **A shared link, cold:** the result first ("Red won", the round), the curve, the final
   standings with the lineup, then Watch (from the start) and Review. A link to one move opens
   the review at that move. Unfinished games open in Watch at the end.

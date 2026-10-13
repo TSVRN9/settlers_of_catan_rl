@@ -1,7 +1,7 @@
 // The game as one picture: each seat's chance (or, with Eval off while watching, its points) at every step, drawn in
-// step x share units so the strokes stay thin however the box is stretched. Up to the playhead the lines are solid;
-// past it, as far as the game has already been seen, faint. With `onSeek` it is the scrubber: a drag puts the
-// playhead under the finger.
+// step x share units so the strokes stay thin however the box is stretched. The whole of what has been played is drawn,
+// either side of the playhead (user 2026-10-13: a watched game shows its course ahead). With `onSeek` it is the
+// scrubber: a drag puts the playhead under the finger.
 import { useRef } from "react";
 import { SEAT_FILL, SEAT_LO } from "../board/palette";
 import type { Frame } from "../engine";
@@ -27,8 +27,7 @@ export default function Curve({ frames, at, upto, bold = -1, points = false, onS
   const pts = (seat: number, a: number, b: number) => frames.slice(a, b + 1).map((f, k) => `${a + k},${y(f, seat).toFixed(4)}`).join(" ");
   const line = (seat: number) => (
     <g key={seat} stroke={seatInk(seat)} fill="none" strokeWidth={seat === bold ? 2.6 : bold >= 0 ? 1.4 : 1.8} opacity={bold >= 0 && seat !== bold ? 0.55 : 1}>
-      <polyline vectorEffect="non-scaling-stroke" strokeLinejoin="round" points={pts(seat, 0, head)} />
-      {head < end && <polyline vectorEffect="non-scaling-stroke" strokeLinejoin="round" opacity={0.3} points={pts(seat, head, end)} />}
+      <polyline vectorEffect="non-scaling-stroke" strokeLinejoin="round" points={pts(seat, 0, end)} />
     </g>
   );
   const seek = (e: React.PointerEvent) => {

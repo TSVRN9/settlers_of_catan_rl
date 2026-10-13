@@ -160,7 +160,7 @@ const failed_extra = [];
 const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore",
               "opening", "gameOver", "rematch", "lineup", "watch",
               "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover",
-              "scrub", "live", "watchEnd", "share", "filmPeople", "badLink",
+              "scrub", "live", "watchPucks", "watchEnd", "share", "filmPeople", "badLink",
               "gradeLive", "review", "reviewSeat", "reviewMove", "reviewBack", "stepLink", "reviewPlayed", "reviewPass",
               "sound", "haptics", "soundJump", "soundOff"];
 const GAMES = Number(process.env.GAMES ?? 3);
@@ -651,7 +651,8 @@ try {
     const vis = (q) => { const e = document.querySelector(q); return !!e && getComputedStyle(e).visibility !== "hidden" && e.getBoundingClientRect().height > 0; };
     return { phase: s.phase, film: s.film, at: s.view?.steps ?? null, seenTo: s.seenTo, frames: s.frames.length, paused: s.paused, winner: s.view?.winner ?? null,
              vp: s.view?.players.map((p) => p.actual_vp), box: b ? [b.x, b.y, b.width, b.height].map(Math.round).join() : null, live: !!document.querySelector(".ph-live"),
-             faint: document.querySelectorAll('.ph-curve polyline[opacity="0.3"]').length, result: !!document.querySelector(".ph-result"),
+             drawnTo: Math.max(-1, ...(document.querySelector(".ph-curve polyline")?.getAttribute("points") ?? "").split(" ").filter(Boolean).map((p) => +p.split(",")[0])),
+             pucks: document.querySelectorAll(".ph-curve .puck").length, done: s.frames.length > 1 && s.frames.at(-1)?.action === null, result: !!document.querySelector(".ph-result"),
              fits: (() => { const r = document.querySelector(".ph-result"); return r ? r.scrollHeight <= r.clientHeight + 1 : null; })(),
              hand: vis(".ph-hand") || vis(".ph-you"), cover: !!document.querySelector(".ph-cover"), chips: document.querySelectorAll(".ph-chip").length,
              err: document.querySelector(".ph-err")?.textContent ?? null, hash: location.hash };
@@ -659,10 +660,16 @@ try {
   await run(async () => { const a = window.__app; a.set({ seed: 999, lineup: [0, 1, 2, 3].map(() => ({ kind: "heuristic", depth: 1 })), pace: "normal" }); await a.start(); });
   let t = await T();
   for (let k = 0; k < 80 && t.seenTo < 24; k++) { await sleep(250); t = await T(); }
+  // The curve is the whole game the worker has played, ahead of the playhead too (user 2026-10-13); a tap a third of
+  // the way to the playhead's furthest point seeks there (the box's lines sit 6px in from its edges).
+  const ahead = await T();
   const c = await rect(".ph-curve");
-  await tap(c[0] + c[2] / 3, c[1] + c[3] / 2); await sleep(400);
+  const frac = Math.round(ahead.seenTo / 3) / (ahead.frames - 1);
+  await tap(c[0] + 6 + (c[2] - 12) * frac, c[1] + c[3] / 2); await sleep(400);
   const scrubbed = await T();
-  probe("scrub", { at: scrubbed.at, seenTo: scrubbed.seenTo, frames: scrubbed.frames, faint: scrubbed.faint, ok: scrubbed.paused && scrubbed.at < scrubbed.seenTo - 4 && Math.abs(scrubbed.at - Math.round(scrubbed.seenTo / 3)) <= 2 && scrubbed.faint > 0 && scrubbed.live });
+  const want = frac * (scrubbed.frames - 1);
+  probe("scrub", { at: scrubbed.at, want: Math.round(want), seenTo: scrubbed.seenTo, frames: [ahead.frames, scrubbed.frames], drawnTo: ahead.drawnTo,
+                   ok: scrubbed.paused && scrubbed.at < scrubbed.seenTo - 4 && Math.abs(scrubbed.at - want) <= 3 && ahead.drawnTo >= ahead.frames - 2 && ahead.drawnTo > ahead.seenTo + 4 && scrubbed.live });
   await shot("scrub");
   (await checks()).small.forEach((x) => small.add(x));
   // Live from a third of the way back is a jump forward across set-downs, which a spectator hears one by one: the
@@ -678,6 +685,12 @@ try {
   let s2 = s1;
   for (let k = 0; k < 40 && s2.n === s1.n; k++) { await sleep(250); s2 = await snd(); }
   probe("soundJump", { before: s0.n, jump: s1.n, after: s2.n, ok: s0.on && s1.n === s0.n && s2.n > s1.n });
+  // Once the worker has played the game out, the decisive moves are lettered on the curve while the playback is still
+  // short of them.
+  let full = await T();
+  for (let k = 0; k < 240 && !full.done; k++) { await sleep(250); full = await T(); }
+  probe("watchPucks", { done: full.done, at: full.at, frames: full.frames, pucks: full.pucks, ok: full.done && full.phase === "playing" && full.at < full.frames - 1 && full.pucks > 0 });
+  await shot("watch-ahead");
   await run(() => window.__app.set({ pace: "fast" }));
   for (let k = 0; k < 600 && (await T()).phase !== "over"; k++) await sleep(250);
   await sleep(600);
