@@ -994,6 +994,45 @@ Milestone 3 (`docs/superpowers/plans/2026-10-12-phone-m3-lineup.md`) starts and 
 `phone_check` adds probes for the opening on touch, the result fitting its block, Rematch, the lineup (resume, the
 seat sheet) and a watched game, and it now fails on any uncaught page error.
 
+Milestone 4 (`docs/superpowers/plans/2026-10-12-phone-m4-pass.md`) is pass and play:
+
+- **In transit.** The phone keeps `holder`: the person who last tapped Show hand, or null while the phone is between
+  people.
+  - `phone/pass.ts` (checked) decides whether a cover is up and for whom:
+    - **The next person to decide.** It's the player on move if a person. Otherwise it's the turn's seat if a person,
+      since the turn comes back to them. Otherwise it's the first person in the turns still to come, using the
+      snake in the opening; cyclic order is wrong in the snake's second round.
+    - **The mode.** `answer` is a decision inside someone else's turn. `replay` is everything else.
+  - Once a cover rises, `holder` goes null. Every person's decision, the last holder's own included, then comes
+    through a cover. Without this, a bot's 7 that makes the person who just played discard would open their hand to
+    whoever the phone was going to.
+  - `pump` still gates only on `seat !== human`. The phone layers `holder` on top, so the desktop's `Handoff` is
+    unchanged.
+- **The cover** (`phone/Cover.tsx`) sits over the seated block in the seat's colour, with the slab under it `inert`
+  and `Carry` off. The opening's auto-held settlement would otherwise take a board tap meant for nothing.
+  - **What's on it:** the name, why the phone is passed mid-turn ("Discard 4", "Offer from Orange"), a strip and the
+    rows (44px buttons that scroll inside the cover), ↺, and Show hand.
+  - **What it replays:** the moves since that seat last acted (`sinceActed`), one listed move a second. Unlisted
+    moves ride along in the jump.
+  - **Mid-turn answers:** an answer cover lists the turn so far and replays nothing. The person who's handed the
+    phone back gets a replay cover for the answers.
+  - **Re-seating:** the chips sit for the cover's seat. The You row carries the seat's name. Narration and flights
+    are a spectator's.
+- **The replay is the look-back `step` used as a playhead.** On the phone, the board, the chips, the top bar, `Fx`
+  and `seen()` follow `shown(s)` (store). Bots keep playing under it, and their moves join the replay.
+  - `Fx` now animates only forward steps, on desktop too. A seek back used to replay the move before it.
+- **Shared fix.** `pump` declines an offer that a person can't afford for every person seat, not just the seated
+  one, so pass and play never hands the phone over for an answer with one choice.
+- **`phone_check`** plays up to two pass-and-play games and counts `leak`, which must be 0: a hand or a live control
+  showing while a cover is up. Its probes:
+  - the cover, re-seated and fitting its block;
+  - the cover rising at once when a person's turn ends;
+  - a tap under the cover placing nothing;
+  - the replay walking to the present;
+  - a row jump and ↺;
+  - Show hand;
+  - an answer cover, then the hand back in the turn player's colour.
+
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
 there is no phone artboard for prose to drift from: the "artboard is the spec" rule (recorded

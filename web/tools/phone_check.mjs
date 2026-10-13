@@ -150,8 +150,10 @@ result.tapPlaced = { before, after: afterTap.roads, carry: afterTap.carry };
 // box, small buttons, sideways scroll, and Milestone 2's probes, each run the first time its phase comes up.
 // The person's moves follow a steered heuristic (buy development cards; hold cards until 9 so a seven costs a
 // discard) so the phases come up; up to GAMES games are played until every probe in NEED has run.
+const failed_extra = [];
 const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore",
-              "opening", "gameOver", "rematch", "lineup", "watch"];
+              "opening", "gameOver", "rematch", "lineup", "watch",
+              "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -487,11 +489,95 @@ try {
   await shot("watch");
   probe("watch", { ...w, ok: w.phase === "playing" && w.kinds.every((k) => k !== "human") && w.chips === w.n && !w.hand });
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
+
+// Milestone 4, pass and play: Blue and Orange are people, Red and White bots, up to 2 games. On every iteration no hand
+// may show while a cover is up and nothing under it may be live (`leak`); each cover is looked at, then Show hand.
+result.leak = 0;
+try {
+  const P = () => run(() => {
+    const s = window.__app.get(), v = s.view, c = document.querySelector(".ph-cover");
+    const vis = (q) => { const e = document.querySelector(q); return !!e && getComputedStyle(e).visibility !== "hidden" && e.getBoundingClientRect().height > 0; };
+    return { cover: c ? +c.dataset.seat : null, why: c?.querySelector(".why")?.textContent ?? "", rows: c ? c.querySelectorAll(".ph-cover-row").length : 0,
+             step: s.step, holder: s.holder, human: s.human, cur: v.current_player, turn: v.current_turn, prompt: v.prompt, status: s.status, winner: v.winner,
+             steps: v.steps, legal: s.legal, hand: vis(".ph-hand") || vis(".ph-you"), inert: !!document.querySelector(".ph-seat [inert]"),
+             chips: [...document.querySelectorAll(".ph-chip")].map((e) => +e.dataset.seat), you: document.querySelector(".ph-you .nm")?.textContent ?? null,
+             fits: c ? c.scrollHeight <= c.clientHeight + 1 : null };
+  });
+  const tapQ = async (q) => { const r = await rect(q); if (!r) return false; await tap(r[0] + r[2] / 2, r[1] + r[3] / 2); return true; };
+  const lineup = [{ kind: "heuristic", depth: 2 }, { kind: "human", depth: 2 }, { kind: "human", depth: 2 }, { kind: "heuristic", depth: 2 }];
+  let lastKey = null, answered = false;
+  for (let g = 0; g < 2 && ["cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack"].some((k) => probes[k] == null); g++) {
+    await run(async ({ lineup, seed }) => { const a = window.__app; a.set({ seed, lineup, human: 1 }); await a.start(); }, { lineup, seed: 4242 + g });
+    await sleep(2000);
+    for (let it = 0; it < 8000; it++) {
+      const x = await P();
+      if (x.winner >= 0) break;
+      if (x.cover != null) {
+        if (x.hand || !x.inert) result.leak++;
+        const key = `${x.cover}|${x.why}|${x.turn}`;
+        if (key !== lastKey) {
+          lastKey = key;
+          probe("cover", { seat: x.cover, chipsReseated: !x.chips.includes(x.cover), fits: x.fits, ok: !x.chips.includes(x.cover) && x.fits });
+          (await checks()).small.forEach((q) => small.add(q));
+          if (x.why) { if (probes.answer == null) { await shot("answer"); probe("answer", { seat: x.cover, why: x.why, ok: x.cover === x.cur && x.cover !== x.turn }); } answered = true; }
+          else if (answered) { probe("handBack", { seat: x.cover, turn: x.turn, ok: x.cover === x.turn }); answered = false; }
+          if (probes.replay == null && x.rows > 2) {
+            await sleep(200);
+            const seen = [(await P()).step];
+            for (let k = 0; k < 60; k++) { await sleep(250); const y = await P(); if (y.step !== seen[seen.length - 1]) seen.push(y.step); if (y.step == null) break; }
+            probe("replay", { steps: seen, ok: seen.filter((q) => q != null).length >= 2 && seen[seen.length - 1] == null });
+            await shot("replay");
+            const rowStep = await run(() => { const r = document.querySelectorAll(".ph-cover-row")[1]; return r ? r.getBoundingClientRect().top : null; });
+            if (rowStep != null) {
+              await tapQ(".ph-cover-row:nth-child(2)"); await sleep(120);
+              const jumped = (await P()).step;
+              await tapQ(".ph-replay"); await sleep(120);
+              const restarted = (await P()).step;
+              probe("jump", { jumped, restarted, ok: jumped != null && restarted != null && restarted < jumped });
+            }
+          }
+        }
+        // Under the cover the auto-held piece is not live. The game's first cover is the seated person's own: leave it up
+        // through the bots' placements into that person's opening turn, then a tap on a legal corner must place nothing.
+        if (probes.coveredInput == null && x.cover === x.human && x.steps < 20) {
+          if (!(x.cur === x.human && x.legal.some((a) => a[0] === "BUILD_SETTLEMENT"))) { await sleep(100); continue; }
+          const at = await run(async () => {
+            const g = await import("/src/board/geometry.ts"), s = window.__app.get(), a = s.legal.find((q) => q[0] === "BUILD_SETTLEMENT");
+            const p = new DOMPoint(...g.nodeXY(a[1])).matrixTransform(document.querySelector("#board-layer svg").getScreenCTM());
+            return [p.x, p.y];
+          });
+          await tap(...at); await sleep(600);
+          const y = await P();
+          probe("coveredInput", { cover: y.cover, ok: y.steps === x.steps && y.cover === x.cover });
+        }
+        await sleep(300);
+        await tapQ(".ph-showhand"); await sleep(500);
+        const y = await P();
+        if (y.cover == null) {
+          lastKey = null;
+          probe("showHand", { human: y.human, holder: y.holder, you: y.you, ok: y.human === x.cover && y.holder === x.cover && y.you === ["Red", "Blue", "Orange", "White"][x.cover] });
+        }
+        continue;
+      }
+      if (x.cur === x.human && x.status === "idle" && x.legal.length && x.holder === x.human) {
+        await policy();
+        const y = await P();
+        // A person's turn just ended and another person is next: the cover is up at once.
+        if (probes.coverFast == null && x.prompt === "PLAY_TURN" && y.turn !== x.turn) { await sleep(300); const z = await P(); probe("coverFast", { cover: z.cover, ok: z.cover != null && !z.hand }); }
+        continue;
+      }
+      await sleep(60);
+    }
+  }
+  await shot("pass-end");
+} catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
+if (result.leak) failed_extra.push("leak");
 const missing = NEED.filter((k) => probes[k] == null);
 if (pageErrors.length) result.error = (result.error ? result.error + " | " : "") + pageErrors.join(" | ");
 const failed = Object.entries(probes).filter(([, v]) => v && v.ok === false).map(([k]) => k);
 // Every phase of a turn has its own slab since Milestone 2: the person never meets the fallback list.
 if (modes.has("ph-list")) failed.push("fallback-list");
+failed.push(...failed_extra);
 console.log(JSON.stringify({ ...result, roll, tapThrough, overflowX, winner, games, boxes: [...boxes].map(([k, v]) => `${v} ${k}`), modes: [...modes], small: [...small], probes, missing, failed }, null, 1));
 process.exitCode = missing.length || failed.length || result.error ? 1 : 0;
 ws.close();

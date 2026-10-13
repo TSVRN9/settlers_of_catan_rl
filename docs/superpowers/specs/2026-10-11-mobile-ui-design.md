@@ -106,6 +106,8 @@ The board does not rotate. The seated row carries the seat's name, not "You".
 - **Mid-turn answers.** A discard, an offer or a steal that needs another person passes the
   phone for just that answer, under a cover saying why ("Discard 5", the roll), with nothing to
   replay; then a cover in the turn player's colour hands it back.
+- **Built (M4).** The cover rows are 44px buttons that scroll inside the cover, not 32px rows. The replay steps
+  from listed move to listed move. With two people, the first person to act also gets a cover at the game's start.
 - **Public only.** The replay never shows what the incoming person couldn't have seen: steals
   between two other seats fly face down, dev-card buys stay face down, `revealAll` is never
   used.
