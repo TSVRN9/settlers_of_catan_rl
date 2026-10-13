@@ -1107,6 +1107,18 @@ Milestone 5 (`docs/superpowers/plans/2026-10-12-phone-m5-watch.md`) is watching 
   - Share, then the link opened cold in a fresh page (same winner, points and frames);
   - a link with two people in it opening as a recording;
   - a garbled link.
+- **Review fixes:**
+  - An address of `#/r/` with no valid code now lands on the lineup with its error line. It used to leave a dead
+    page.
+  - Watch from the start resets `seenTo`, so the pace control is there and the curve grows with the playhead.
+  - Share makes its link as the result arrives, then shares inside the tap itself: share sheets and the clipboard
+    refuse a call made after an await. The `compact` op loads the wasm without the model.
+  - The decoder refuses an offer of more than 19 of a card.
+  - The golden test decodes a pinned fixture (`compact_golden_v1.bin`), so a change to the bots can't trip it.
+  - A link's search depth is clamped to 1-3.
+  - An opening link wins any deal or start in flight.
+  - Leaving a link for the lineup rewrites the address, and going back to an open link keeps its playhead.
+  - The desktop lineup says when a link is broken.
 
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because

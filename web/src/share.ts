@@ -4,8 +4,9 @@
 //   node --experimental-strip-types web/src/share.ts
 import type { BotKind, BotSpec } from "./engine";
 
-/** Occupants by id, part of the link format: append only. */
-export const KINDS: readonly BotKind[] = ["human", "random", "heuristic", "vnet", "drrl", "jsrobot", "jsdroid", "uct", "buct", "vpi"];
+/** Occupants by id, part of the link format: append only. A Record, so a new BotKind can't be shared without an id. */
+const KIND_ID: Record<BotKind, number> = { human: 0, random: 1, heuristic: 2, vnet: 3, drrl: 4, jsrobot: 5, jsdroid: 6, uct: 7, buct: 8, vpi: 9 };
+export const KINDS = Object.keys(KIND_ID).sort((a, b) => KIND_ID[a as BotKind] - KIND_ID[b as BotKind]) as BotKind[];
 /** No real game inflates past this (the longest measured is ~2 KB of steps). */
 export const MAX_BYTES = 64 * 1024;
 const VERSION = 1, SEATS = 1;
@@ -15,7 +16,7 @@ const varint = (x: number, out: number[]) => { while (x >= 0x80) { out.push((x &
 /** The seats section: per seat its occupant's id, its search depth and a settings string (empty: none yet). */
 export function seatsSection(lineup: BotSpec[]): Uint8Array {
   const body: number[] = [];
-  for (const b of lineup) body.push(Math.max(0, KINDS.indexOf(b.kind)), b.depth & 0xff, 0);
+  for (const b of lineup) body.push(KIND_ID[b.kind], b.depth & 0xff, 0);
   const out = [SEATS];
   varint(body.length, out);
   return Uint8Array.from([...out, ...body]);
@@ -40,7 +41,7 @@ export function readHeader(b: Uint8Array): { seed: number; n: number; seats: Bot
         const settings = num();                        // the settings string, unused so far (`at += num()` would
         at += settings;                                // read `at` before num() moves it)
         if (!kind) { out.length = 0; break; }
-        out.push({ kind, depth });
+        out.push({ kind, depth: Math.min(3, Math.max(1, depth)) });   // a link's depth is a search's cost: bounded
       }
       seats = out.length === n ? out : null;
     }
@@ -94,6 +95,8 @@ if (argv?.[1]?.endsWith("share.ts")) {
   assert(h.seed === 300 && h.n === 4, `seed and seats: ${JSON.stringify(h)}`);
   assert(JSON.stringify(h.seats) === JSON.stringify(lineup), `the seats round-trip past an unknown section: ${JSON.stringify(h.seats)}`);
   assert(readHeader(Uint8Array.from([1, 5, 3, 0])).seats === null, "no seats section: unnamed seats");
+  assert(readHeader(Uint8Array.from([1, 5, 2, 1, 6, 3, 255, 0, 2, 0, 0, 0])).seats?.[0].depth === 3, "a link's depth is bounded");
+  assert(KINDS[0] === "human" && KINDS[3] === "vnet" && KINDS.length === 10, "ids in order");
   assert(readHeader(Uint8Array.from([1, 5, 2, 1, 3, 99, 2, 0, 0])).seats === null, "an unknown occupant: unnamed seats");
   let threw = 0;
   for (const bad of [[2, 5, 4, 0], [1, 5, 4, 1, 40, 0], [1], [1, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01]]) {

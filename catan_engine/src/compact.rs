@@ -181,6 +181,10 @@ pub fn decode(bytes: &[u8], layout: &Layout) -> Result<(u32, usize, Vec<(Action,
             let mut get = [0u8; 5];
             for c in give.iter_mut().chain(get.iter_mut()) {
                 *c = r.byte()?;
+                // 19 of a resource is all the bank has; the canonical form packs a count in 5 bits.
+                if *c > 19 {
+                    return Err(format!("step {}: an offer of {c}, more cards than the game has", log.len()));
+                }
             }
             Action::OfferTrade { give, get }
         } else {
@@ -280,20 +284,29 @@ mod tests {
             *b ^= 0x5a;
         }
         assert!(decode(&garbled, &layout).is_err(), "garbled bytes");
+        // An offer past what any hand could hold (the canon packs 5 bits a count) is refused before the rules see it.
+        let legal0 = new_state(9, 4, &layout).playable_actions().len() as u8;
+        let big = decode(&[1, 9, 4, 0, legal0, 0, 0, 0, 0, 25, 1, 0, 0, 0, 0], &layout);
+        assert!(big.as_ref().is_err_and(|e| e.contains("more cards than")), "{big:?}");
         // A game run past its end, and a dev card the deck doesn't hold, are both refused.
         let mut long = bytes.clone();
         long.push(0);
         assert!(decode(&long, &layout).is_err(), "a step after the winner");
     }
 
-    /// The bytes of one fixed game. If this fails, the format changed — the legal-action order, the outcome bytes,
-    /// the map or the rules — and links made before the change no longer decode: bump VERSION.
+    /// One fixed game's bytes, as links made with version 1 carry them (`compact_golden_v1.bin`, written once by the
+    /// ignored test above). If this fails, the format moved under existing links — the legal-action order, the outcome
+    /// bytes, the map or the rules — and that is a VERSION bump. A change to the bots doesn't touch it.
     #[test]
     fn golden() {
         let layout = layout();
-        let (log, _) = play(2026, 4, true, &layout);
-        let bytes = encode(2026, 4, &[], &log, &layout).unwrap();
-        let hash = bytes.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
-        assert_eq!((bytes.len(), hash), (517, 4331054107153289632));
+        let bytes = include_bytes!("compact_golden_v1.bin");
+        let (seed, n, log) = decode(bytes, &layout).unwrap();
+        let hash = log.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, (a, o)| {
+            let (t, x, y, z) = crate::actions::to_canon(*a);
+            format!("{t}{x},{y},{z};{},{}", o.0, o.1).bytes().fold(h, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3))
+        });
+        assert_eq!((seed, n, log.len(), hash), (2026, 4, 410, 5108269858681490506));
+        assert_eq!(encode(seed, n, &[], &log, &layout).unwrap(), bytes.to_vec(), "the same game encodes to the same bytes");
     }
 }

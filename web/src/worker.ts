@@ -12,10 +12,14 @@ let epoch = 0;
 // `run` polls this at its batch boundary. Set out of band, ahead of the queue.
 let aborted = false;
 
+let compiled: Promise<unknown> | null = null;
+/** The wasm alone, for calls that hold no engine (a link's bytes): no model to fetch. */
+const wasm = () => (compiled ??= init({ module_or_path: wasmUrl }));
+
 function boot() {
   if (!ready) {
     ready = (async () => {
-      await init({ module_or_path: wasmUrl });
+      await wasm();
       const base = import.meta.env.BASE_URL;
       const meta = await (await fetch(`${base}models/v89w.json`)).json();
       const weights = new Uint8Array(await (await fetch(`${base}models/v89w.bin`)).arrayBuffer());
@@ -157,13 +161,14 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
       return out;
     }
     case "compact": {
-      await boot();
+      await wasm();
       return record_to_compact(req.record, req.sections);
     }
     case "film": {
       // A shared game played back: every step applied with its recorded outcome (the decoder has already checked each
       // against the rules), each frame given the spectator's readings, as a watched game's are. No decisions: nobody
       // searched here, and nothing reads them.
+      // ponytail: no abort point; the decoder caps a link at 5,000 steps, a few seconds of readings at worst.
       epoch++;
       await boot();
       const rec = JSON.parse(compact_to_record(req.bytes)) as GameRecord;

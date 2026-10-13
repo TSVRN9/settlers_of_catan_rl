@@ -32,7 +32,7 @@ export default function Watch() {
       <Curve className="ph-curve cut5" frames={s.frames} at={at} upto={upto} points={!s.evalShown} onSeek={(i) => seek(Math.min(i, upto))} />
       <div className="ph-transport">
         <button className="ph-btn ph-tbtn cut8" aria-label="Back one move" disabled={at === 0} onClick={() => seek(at - 1)}><Glyph d={PREV} /></button>
-        <button className="ph-btn go ph-tbtn wide cut8" aria-label={s.paused ? "Play" : "Pause"} onClick={togglePause}><Glyph d={s.paused ? PLAY : PAUSE} /></button>
+        <button className="ph-btn go ph-tbtn wide cut8" aria-label={s.paused ? "Play" : "Pause"} disabled={s.paused && !!s.film && !s.frames[at + 1]} onClick={togglePause}><Glyph d={s.paused ? PLAY : PAUSE} /></button>
         <button className="ph-btn ph-tbtn cut8" aria-label="Forward one move" disabled={!s.frames[at + 1]} onClick={() => { hold(); stepOnce(); }}><Glyph d={NEXT} /></button>
         {at < s.seenTo
           ? <button className="ph-btn ph-pace ph-live cut8" onClick={goLive}>Live</button>

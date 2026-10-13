@@ -2,7 +2,7 @@
 // place, the whole game's curve with your line bold, the final points with the VP cards face up — and Rematch, which
 // keeps the lineup and the board. It covers the block, which keeps its height, so the board does not move. A watched
 // or shared game's result names the round and each seat's occupant, and Watch plays it again from the start.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Card from "../board/Card";
 import { SEAT_FILL } from "../board/palette";
 import { rewatch, shareLink, start, toLineup } from "../game";
@@ -12,16 +12,6 @@ import Curve, { seatInk } from "./Curve";
 import { places } from "./standings";
 import { seen, useMetrics } from "./usePhone";
 
-/** The link in the address bar (so a reload reopens this game), then the phone's share sheet, or the clipboard. */
-async function share(): Promise<boolean> {
-  const url = await shareLink();
-  history.replaceState(history.state, "", url);
-  if (navigator.share) {
-    try { await navigator.share({ url }); } catch { /* dismissed */ }
-    return false;
-  }
-  try { await navigator.clipboard.writeText(url); return true; } catch { return false; }
-}
 
 export default function Result() {
   const s = useApp();
@@ -39,7 +29,21 @@ export default function Result() {
   const frames = seen(s);
   const last = frames.length - 1;
   const kind = (i: number) => (s.film === "unnamed" ? "" : s.lineup[i]?.kind === "human" ? "Person" : BOT_SHORT[s.lineup[i]?.kind ?? ""] ?? "");
-  const onShare = async () => { if (await share()) { setCopied(true); setTimeout(() => setCopied(false), 1500); } };
+  // The link is made as the result arrives, not on the tap: a share sheet or the clipboard only answers inside the tap
+  // itself, and making the link is a round trip to a worker.
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let on = true;
+    shareLink().then((u) => { if (on) setUrl(u); }, (e) => console.warn("no link for this game:", e));
+    return () => { on = false; };
+  }, [s.frames.length, s.seed]);
+  // The link goes in the address bar too, so a reload reopens this game; then the share sheet, or the clipboard.
+  const onShare = () => {
+    if (!url) return;
+    history.replaceState(history.state, "", url);
+    if (navigator.share) { navigator.share({ url }).catch(() => { /* dismissed */ }); return; }
+    navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }, () => { /* the address bar has it */ });
+  };
   return (
     <div className={`ph-result cover arrive${watched ? " watched" : ""}`}>
       <div className="hd">
@@ -61,7 +65,7 @@ export default function Result() {
       </div>
       <div className="ph-row" style={{ height: btnH }}>
         <button className="ph-btn cut8" onClick={toLineup}>Lineup</button>
-        <button className="ph-btn ph-share cut8" onClick={() => void onShare()}>{copied ? "Copied" : "Share"}</button>
+        <button className="ph-btn ph-share cut8" disabled={!url} onClick={onShare}>{copied ? "Copied" : "Share"}</button>
         {watched
           ? <button className="ph-btn go ph-rewatch cut8" onClick={rewatch}>Watch</button>
           : <button className="ph-btn go ph-rematch cut8" onClick={() => void start()}>Rematch</button>}

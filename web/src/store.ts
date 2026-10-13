@@ -262,7 +262,7 @@ export function setEvalShown(on: boolean) {
 export const viewer = (s: Pick<State, "lineup">) => viewerOf(s.lineup);
 
 /** Hidden information would show one person the other's hand: off while a shared game is live. */
-export const hiddenLocked = (s: State) => s.lineup.filter((p) => p.kind === "human").length > 1 && s.phase === "playing";
+export const hiddenLocked = (s: State) => !s.film && s.lineup.filter((p) => p.kind === "human").length > 1 && s.phase === "playing";
 
 /** The view being shown: the last crumb. */
 export const currentView = (s: State): ViewName => s.crumbs[s.crumbs.length - 1] ?? "table";

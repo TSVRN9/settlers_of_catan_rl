@@ -616,26 +616,37 @@ try {
   probe("watchEnd", { box: [during, ended.box], fits: ended.fits, ok: ended.phase === "over" && ended.result && ended.box === during && ended.fits });
   await shot("watch-over");
   (await checks()).small.forEach((x) => small.add(x));
+  // Share answers inside the tap (a share sheet or the clipboard refuses a call made after an await): a stub records
+  // whether it was called in the tap's own task.
+  await sleep(1500);
+  await run(() => { window.__inTap = false; window.__sync = null; addEventListener("click", () => { window.__inTap = true; setTimeout(() => { window.__inTap = false; }); }, true);
+                    navigator.share = async () => { window.__sync = window.__inTap; }; });
   await tapQ(".ph-share"); await sleep(600);
   const shared = await T();
+  const sync = await run(() => window.__sync);
   const link = shared.hash.startsWith("#/r/") ? (await run(() => location.href)) : null;
   if (link) {
     await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
     await cdp("Page.navigate", { url: link }); await sleep(5000);
     const cold = await T();
-    probe("share", { len: link.length, winner: [shared.winner, cold.winner], ok: cold.phase === "over" && cold.film === "named" && cold.winner === shared.winner && cold.vp.join() === shared.vp.join() && cold.frames === shared.frames && cold.result });
+    probe("share", { len: link.length, winner: [shared.winner, cold.winner], sync, ok: sync === true && cold.phase === "over" && cold.film === "named" && cold.winner === shared.winner && cold.vp.join() === shared.vp.join() && cold.frames === shared.frames && cold.result });
     await shot("cold");
     const people = await run(async () => { const a = window.__app; a.set({ lineup: [{ kind: "heuristic", depth: 1 }, { kind: "human", depth: 2 }, { kind: "human", depth: 2 }, { kind: "heuristic", depth: 1 }] }); return (await import("/src/game.ts")).shareLink(); });
     await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
     await cdp("Page.navigate", { url: people }); await sleep(5000);
     await tapQ(".ph-rewatch"); await sleep(1500);
     const film = await T();
-    probe("filmPeople", { phase: film.phase, at: film.at, hand: film.hand, cover: film.cover, chips: film.chips, ok: film.film === "named" && film.phase === "playing" && film.at > 0 && !film.hand && !film.cover && film.chips === 0 });
+    // Watched from the start, the pace is there to change (Live only once scrubbed back).
+    const pace = await run(() => !!document.querySelector(".ph-pace:not(.ph-live)"));
+    probe("filmPeople", { phase: film.phase, at: film.at, hand: film.hand, cover: film.cover, chips: film.chips, pace, ok: pace && film.film === "named" && film.phase === "playing" && film.at > 0 && !film.hand && !film.cover && film.chips === 0 });
   } else probe("share", { hash: shared.hash, ok: false });
   await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
   await cdp("Page.navigate", { url: URL_ + "#/r/AAAAzzzz" }); await sleep(4000);
   const bad = await T();
-  probe("badLink", { phase: bad.phase, err: bad.err, ok: bad.phase === "lineup" && !!bad.err && bad.film == null });
+  await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
+  await cdp("Page.navigate", { url: URL_ + "#/r/" }); await sleep(4000);
+  const empty = await T();
+  probe("badLink", { phase: [bad.phase, empty.phase], err: [bad.err, empty.err], ok: bad.phase === "lineup" && !!bad.err && bad.film == null && empty.phase === "lineup" && !!empty.err });
   await shot("badlink");
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 

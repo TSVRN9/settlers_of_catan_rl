@@ -83,6 +83,7 @@ export async function deal() {
   setShowHidden(s.lineup.filter((p) => p.kind === "human").length > 1 ? false : rememberedHidden(), false);
   try {
     const g = await live.newGame(seed, n);
+    if (get().film) return;                      // a shared game opened meanwhile: it owns the table now
     // A game has an address, so it can be linked and a reload keeps the board. The play
     // itself does not survive that reload — a seed reproduces the map, not the game.
     // (Not over a shared game that opened while this deal was in flight: its link stays in the address.)
@@ -104,11 +105,11 @@ export async function start() {
   const ready = s.dealt && s.dealt.seed === s.seed && s.dealt.n === s.lineup.length && s.map && s.view && s.view.steps === 0;
   if (!ready) {
     await deal();
-    if (get().error || !get().map) return;
+    if (get().error || !get().map || get().film) return;
   }
   await transition(() => set({ phase: "playing", crumbs: ["table"], step: null, paused: false, pending: null, offering: false, linkBroken: false }));
   if (get().reveal) await wait(DEAL_MS);          // let the board finish landing before anyone builds on it
-  if (get().phase !== "playing") return;
+  if (get().phase !== "playing" || get().film) return;
   if (playing(get())) void pump(); else void watch();
 }
 
@@ -116,6 +117,8 @@ export async function start() {
  *  every turn, so this is also how a game in progress is abandoned. */
 export function toLineup() {
   stopWatching();
+  // Off a shared game's address: a reload from the lineup is the lineup, not the link again.
+  if (location.hash.startsWith("#/r/")) history.replaceState({ crumbs: ["table"], step: null }, "", `#/g/${get().seed}`);
   // Whoever held the phone has let it go: back at the game, a cover rises for whoever is next, as it would mid-game.
   const { holder, frames, gaveUp } = get();
   transition(() => set({ phase: "lineup", pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, advice: null, status: "idle", crumbs: ["table"], step: null,
@@ -198,7 +201,7 @@ export function setPace(pace: Pace) { set({ pace }); if (timer != null) startTim
 export function goLive() { show(get().seenTo); set({ paused: false }); startTimer(); }
 
 /** A finished watched or shared game from its first move again: its frames are all here, so nothing is replayed. */
-export function rewatch() { show(0); set({ paused: false }); startTimer(); }
+export function rewatch() { set({ seenTo: 0 }); show(0); set({ paused: false }); startTimer(); }
 
 /** Holds the playback where it is: the stands' seek does this, and so does opening a review view,
  *  whose `step` the playhead would otherwise wipe every tick. */
@@ -377,7 +380,7 @@ export async function shareLink(): Promise<string> {
 /** Open a shared game: its frames rebuilt from the link and played back, held at the end (its result, if it ended).
  *  It is a recording, whoever sat in it (`film`), so no seat comes to life. A link that isn't a game lands on the
  *  lineup, which says so. */
-let opening: string | null = null;
+let opening: string | null = null, filmed: string | null = null;
 export async function openShared(code: string) {
   if (opening === code) return;                // StrictMode mounts twice; the first is already on it
   opening = code;
@@ -393,7 +396,8 @@ export async function openShared(code: string) {
     const lineup = head.seats ?? Array.from({ length: g.n }, () => ({ kind: "vnet" as const, depth: 2 }));
     const frames = get().showHidden ? g.frames.map(swap) : g.frames;
     set({ seed: g.seed, lineup, human: Math.max(0, lineup.findIndex((b) => b.kind === "human")), film: head.seats ? "named" : "unnamed",
-          map: g.map, frames, seenTo: frames.length - 1 });
+          map: g.map, frames, seenTo: frames.length - 1, reveal: false, legal: [], dealt: null });
+    filmed = code;
     show(frames.length - 1);
   } catch (e) {
     if (isStale(e)) return;
@@ -407,6 +411,8 @@ export async function openShared(code: string) {
 
 /** The address names a shared game (a link pasted into an open tab, or the page loaded on one). */
 export function openFromHash() {
-  const code = linkCode(location.hash);
-  if (code) void openShared(code);
+  if (!location.hash.startsWith("#/r/")) return;
+  const code = linkCode(location.hash) ?? "";      // "" is not a game: the lineup says so
+  if (get().film && filmed === code) return;       // back to the link already open: keep its playhead
+  void openShared(code);
 }

@@ -131,6 +131,7 @@ export default function Lineup() {
       )}
 
       {s.error && <div className="cap" style={{ marginTop: 12, color: "var(--color-warn)" }}>{s.error}</div>}
+      {s.linkBroken && <div className="cap" role="alert" style={{ marginTop: 12, color: "var(--color-warn)" }}>That link isn't a game.</div>}
 
       {info && (
         <div key={info.kind} className="cut8 arrive dock-l" style={{
