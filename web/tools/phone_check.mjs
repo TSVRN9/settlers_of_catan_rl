@@ -153,7 +153,7 @@ result.tapPlaced = { before, after: afterTap.roads, carry: afterTap.carry };
 const failed_extra = [];
 const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore",
               "opening", "gameOver", "rematch", "lineup", "watch",
-              "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack"];
+              "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -506,7 +506,7 @@ try {
   const tapQ = async (q) => { const r = await rect(q); if (!r) return false; await tap(r[0] + r[2] / 2, r[1] + r[3] / 2); return true; };
   const lineup = [{ kind: "heuristic", depth: 2 }, { kind: "human", depth: 2 }, { kind: "human", depth: 2 }, { kind: "heuristic", depth: 2 }];
   let lastKey = null, answered = false;
-  for (let g = 0; g < 2 && ["cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack"].some((k) => probes[k] == null); g++) {
+  for (let g = 0; g < 2 && ["cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover"].some((k) => probes[k] == null); g++) {
     await run(async ({ lineup, seed }) => { const a = window.__app; a.set({ seed, lineup, human: 1 }); await a.start(); }, { lineup, seed: 4242 + g });
     await sleep(2000);
     for (let it = 0; it < 8000; it++) {
@@ -556,6 +556,12 @@ try {
         if (y.cover == null) {
           lastKey = null;
           probe("showHand", { human: y.human, holder: y.holder, you: y.you, ok: y.human === x.cover && y.holder === x.cover && y.you === ["Red", "Blue", "Orange", "White"][x.cover] });
+        }
+        // Out to the lineup and back: whoever holds the phone has let it go, so a cover is up again.
+        if (y.cover == null && probes.resumeCover == null && probes.showHand) {
+          await tapQ(".ph-back"); await sleep(500); await tapQ(".ph-resume"); await sleep(800);
+          const z = await P();
+          probe("resumeCover", { cover: z.cover, holder: z.holder, ok: z.cover != null && z.holder == null && !z.hand });
         }
         continue;
       }

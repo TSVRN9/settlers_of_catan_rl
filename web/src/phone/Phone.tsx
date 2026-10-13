@@ -12,7 +12,7 @@ import { Hand, YouRow } from "./Hand";
 import Slab from "./Slab";
 import Result from "./Result";
 import Cover, { useCover } from "./Cover";
-import { sinceActed } from "./pass";
+import { letGo } from "./pass";
 import Fx from "../views/Fx";
 import { viewerNow } from "./slab";
 import "./phone.css";
@@ -33,9 +33,7 @@ export default function Phone() {
   // them (a declined offer) once it has left their hands.
   useEffect(() => {
     if (!cover || s.holder == null) return;
-    const gaveUp = [...s.gaveUp];
-    gaveUp[s.holder] = sinceActed(s.frames, s.holder)[0] ?? s.frames.length - 1;
-    set({ holder: null, gaveUp });
+    set({ holder: null, gaveUp: letGo(s.frames, s.holder, s.gaveUp) });
   }, [cover?.seat, s.holder]);  // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="ph">

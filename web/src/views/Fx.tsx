@@ -8,7 +8,7 @@
 // between the boxes of things already on screen ([data-tile], [data-seat], [data-res]).
 import { useLayoutEffect, useRef } from "react";
 import type { Frame, MapView } from "../engine";
-import { production } from "../coach";
+import { flies, production } from "../coach";
 import { RES_FILL } from "../board/palette";
 
 const EASE = "cubic-bezier(.2, .7, .2, 1)";
@@ -29,13 +29,13 @@ export default function Fx({ frames, at, map, you }: { frames: Frame[]; at: numb
   latest.current = { frames, map, you };
 
   // Only a step forward is a move: seeking back (a replay restarting, the stands' scrubber) shows a position, it
-  // doesn't play the move before it again.
+  // doesn't play the move before it again; and a jump forward past listed moves (a tapped row) shows one too.
   const last = useRef(at);
   useLayoutEffect(() => {
-    const back = at <= last.current;
+    const from = last.current;
     last.current = at;
-    if (back) return;
     const { frames, map, you } = latest.current;
+    if (!flies(frames, from, at)) return;
     const root = layer.current;
     const f = frames[at - 1], cur = frames[at];
     if (!root || !f || !cur || !f.action || matchMedia("(prefers-reduced-motion: reduce)").matches) return;

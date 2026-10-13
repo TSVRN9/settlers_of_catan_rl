@@ -48,6 +48,14 @@ export function sinceActed(frames: { seat: number; action: unknown }[], seat: nu
   return out;
 }
 
+/** The phone leaves `holder`'s hands (a cover rises, or the game goes back to the lineup): `gaveUp` with where their
+ *  next replay starts, after their own last move, whatever is played for them once it has left their hands. */
+export function letGo(frames: { seat: number; action: unknown }[], holder: number, gaveUp: number[]): number[] {
+  const out = [...gaveUp];
+  out[holder] = sinceActed(frames, holder)[0] ?? frames.length - 1;
+  return out;
+}
+
 /** What a cover replays: every closed frame from where its seat let the phone go (`from`, first index after its own
  *  last move then; undefined if it never held the phone). Moves made for it since — an offer it couldn't afford,
  *  declined for it — don't move the start. */
@@ -101,6 +109,7 @@ if (argv?.[1]?.endsWith("pass.ts")) {
   eq(sinceHeld(fr, 2), [2, 3, 4, 5], "replay from where the phone was let go");
   eq(sinceHeld(fr, undefined), [0, 1, 2, 3, 4, 5], "never held: from the start");
   eq(sinceActed(fr.slice(0, 3), 2), [], "the point of letting go: after the holder's own last move");
+  eq(letGo([{ seat: 0, action: 1 }, { seat: 1, action: 1 }, { seat: 2, action: 1 }, { seat: 3, action: null }], 1, [5, 9]), [5, 2], "let go after Blue's own move");
   // An offer to a person is answered for them only when it is a bot's and they can't afford it, or they muted that bot
   // this turn; a person's offer always reaches the other person, and one person's mute is not another's.
   const o = { responder: 2, offerer: 3, offererIsPerson: false, cannotAfford: false, mute: { seat: 3, by: 2, turn: 7 }, turn: 7 };

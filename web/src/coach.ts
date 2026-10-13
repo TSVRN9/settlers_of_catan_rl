@@ -330,6 +330,14 @@ export function offerAnswers(frames: { seat: number; action: Canon | null; view:
 /** Rows worth a line of commentary. Ending a turn is not news, and neither is each seat's answer
  *  to an offer on its own line — the offer's line carries what became of it (`offerFate`). */
 export const newsworthy = (a: Canon) => a[0] !== "END_TURN";
+/** Whether a jump of the playhead from `from` to `to` plays the move it lands after (`frames[to - 1]`): only going
+ *  forward over no listed move. A replay's beat steps over unlisted moves and still plays its own; a tap that jumps
+ *  past listed moves shows a position, and flying the move before it would put the wrong move in the air. */
+export function flies(frames: { action: Canon | null }[], from: number, to: number): boolean {
+  if (to <= from) return false;
+  for (let k = from; k < to - 1; k++) { const a = frames[k]?.action; if (a && newsworthy(a)) return false; }
+  return true;
+}
 export const isAnswer = (a: Canon) => a[0] === "ACCEPT_TRADE" || a[0] === "REJECT_TRADE";
 
 /** A row's line in the log: its narration, and for an offer nobody took, that it went nowhere —
@@ -635,5 +643,12 @@ if (argv?.[1]?.endsWith("coach.ts")) {
   assert(offerFate([...offerRun, f(0, "CONFIRM_TRADE"), f(0, null)], 0) === "traded", "fate traded");
   assert(offerFate([...offerRun, f(0, null)], 0) === "open", "fate open");
   assert(offerFate([f(0, "OFFER_TRADE"), f(1, "OFFER_TRADE"), f(0, null)], 0) === "countered", "fate countered");
+
+  // A jump flies the move it lands after only if it skipped no listed move on the way.
+  const run = [f(0, "ROLL"), f(0, "END_TURN"), f(1, "ROLL"), f(1, "BUILD_ROAD"), f(1, null)];
+  assert(flies(run, 0, 1), "one step flies");
+  assert(flies(run, 1, 3), "a beat over an unlisted move flies");
+  assert(!flies(run, 0, 4), "a jump over listed moves flies nothing");
+  assert(!flies(run, 3, 3) && !flies(run, 3, 2), "standing still or going back flies nothing");
   console.log("coach self-check ok");
 }

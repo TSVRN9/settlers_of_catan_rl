@@ -9,7 +9,7 @@ import { EngineClient, isStale, type Canon, type Evaluation, type Frame, type Re
 import { resetReview } from "./review";
 import { orient, swap } from "./readings";
 import { get, playing, rememberedHidden, set, transition, viewer, type Pace } from "./store";
-import { autoDecline } from "./phone/pass";
+import { autoDecline, letGo } from "./phone/pass";
 
 /** The live game's engine. Review holds its own client, because the worker frees its wasm
  *  engine on every `new` — one shared client is how Play and Watch used to destroy each
@@ -113,9 +113,11 @@ export async function start() {
  *  every turn, so this is also how a game in progress is abandoned. */
 export function toLineup() {
   stopWatching();
+  // Whoever held the phone has let it go: back at the game, a cover rises for whoever is next, as it would mid-game.
+  const { holder, frames, gaveUp } = get();
   transition(() => set({ phase: "lineup", pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, advice: null, status: "idle", crumbs: ["table"], step: null,
                           boardOverride: null, pendingHandoff: null, paused: false, hover: null, carry: null, robTile: null, mark: null,
-                          mutedSeat: null, mutedBy: null, mutedTurn: null }));
+                          mutedSeat: null, mutedBy: null, mutedTurn: null, holder: null, gaveUp: holder == null ? gaveUp : letGo(frames, holder, gaveUp) }));
 }
 
 /** Hotseat's own gate: the seat waiting in `pendingHandoff` has looked away from whoever was
