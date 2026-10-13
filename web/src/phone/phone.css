@@ -1,7 +1,9 @@
 /* The phone (docs/superpowers/specs/2026-10-11-mobile-ui-design.md). One column, no page scroll: the top
    bar, the opponents, the board taking whatever height is left, and the seated block. `.ph` is the board
    anchor's offsetParent and #board-layer's containing block, so nothing between them is positioned. */
-.ph { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+/* clip, not hidden: a hidden box still scrolls to show a focused element (the seat sheet's selected row, below the
+   screen while the sheet rises), and the whole board flew up and back. */
+.ph { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: clip;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       background: var(--color-chalk); box-sizing: border-box;
       --cw: 50px; --ch: 68px; --tile-h: 84px; --btn-h: 50px; --gut: 16px; }

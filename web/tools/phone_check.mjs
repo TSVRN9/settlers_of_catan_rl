@@ -521,14 +521,20 @@ try {
   const resumed = await L();
   await tapQ(".ph-back");
   const seat = behind.kinds.findIndex((k) => k !== "human");
+  // The board's box on every animation frame while the sheet rises and a seat is picked: the sheet's selected row,
+  // focused below the screen, once scrolled the whole shell up and back.
+  await run(() => { window.__boxes = new Set(); window.__tracing = true;
+    const tick = () => { const b = document.querySelector("#board-layer svg")?.getBoundingClientRect(); window.__boxes.add(b ? `${b.x.toFixed(1)},${b.y.toFixed(1)},${b.width.toFixed(1)}` : "none"); if (window.__tracing) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick); });
   await tapQ(`.ph-seatrow[data-seat="${seat}"]`);
   const sheet = await L();
   (await checks()).small.forEach((x) => small.add(x));
   await shot("sheet");
   await tapQ('.ph-pickrow[data-kind="random"]');
   const picked = await L();
-  probe("lineup", { behind: behind.resume, resumed: resumed.phase === "playing" && resumed.steps === behind.steps, sheet: sheet.sheet && sheet.sheetIn, picked: picked.kinds[seat],
-                    ok: behind.phase === "lineup" && behind.resume && resumed.phase === "playing" && resumed.steps === behind.steps && sheet.sheet && sheet.sheetIn && !picked.sheet && picked.kinds[seat] === "random" });
+  const boxes = await run(() => { window.__tracing = false; return [...window.__boxes]; });
+  probe("lineup", { behind: behind.resume, resumed: resumed.phase === "playing" && resumed.steps === behind.steps, sheet: sheet.sheet && sheet.sheetIn, picked: picked.kinds[seat], boxes: boxes.slice(0, 4),
+                    ok: behind.phase === "lineup" && behind.resume && resumed.phase === "playing" && resumed.steps === behind.steps && sheet.sheet && sheet.sheetIn && !picked.sheet && picked.kinds[seat] === "random" && boxes.length === 1 });
   for (const [i, k] of picked.kinds.entries()) if (k === "human") { await tapQ(`.ph-seatrow[data-seat="${i}"]`); await tapQ('.ph-pickrow[data-kind="heuristic"]'); }
   await tapQ(".ph-play"); await sleep(4000);
   const w = await L();

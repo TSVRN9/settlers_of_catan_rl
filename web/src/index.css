@@ -379,7 +379,7 @@ body {
 .track > i { transition: width var(--t-board) var(--ease); }
 
 
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Reduced motion is the same layout with the travel removed — one block, not a second
    code path. Things still change; they just arrive where they are going. */

@@ -61,7 +61,8 @@ export default function PhoneLineup() {
             {KINDS.map((k) => {
               const on = s.lineup[open]?.kind === k;
               return (
-                <button key={k} data-kind={k} className={`ph-pickrow cut5${on ? " on" : ""}`} autoFocus={on} aria-pressed={on}
+                <button key={k} data-kind={k} className={`ph-pickrow cut5${on ? " on" : ""}`} aria-pressed={on}
+                        ref={on ? (el) => el?.focus({ preventScroll: true }) : undefined}
                         onClick={() => { setSeat(open, k); close(); }}>
                   <span className="who"><b>{k === "human" ? "Person" : BOT_SHORT[k]}</b>{k !== "human" && <small>{sub({ kind: k, depth: s.lineup[open].depth })}</small>}</span>
                   <span className="num">{rate(k)}</span>
