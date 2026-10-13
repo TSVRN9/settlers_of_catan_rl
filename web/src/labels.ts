@@ -241,6 +241,10 @@ export function fmtDelta(d: number) {
  *  off `current_trade[10]` while a trade is live rather than flickering onto every responder. */
 export function turnSeat(v: View) { return v.is_resolving_trade ? v.current_trade[10] : v.current_player; }
 
+/** Why the phone is being passed mid-turn: what the cover asks of its seat. */
+export function coverHead(v: { prompt: string; discard_counts: number[]; current_trade: number[] }, seat: number) {
+  return v.prompt === "DISCARD" ? `Discard ${v.discard_counts[seat]}` : v.prompt === "DECIDE_TRADE" ? `Offer from ${SEAT_NAMES[v.current_trade[10]]}` : "";
+}
 export const ORDINAL = ["first", "second", "third", "fourth"];
 /** Your place at the end (phone/standings.ts `places`). */
 export function placeText(place: number, tied: boolean) { return `You ${tied ? "tied for" : "came"} ${ORDINAL[place - 1]}`; }

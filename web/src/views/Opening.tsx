@@ -9,13 +9,8 @@ import type { View } from "../engine";
 import { SEAT_NAMES } from "../labels";
 import { PieceIcon } from "./Build";
 
-/** Settlements down so far, and whose turn in the snake it is (its index in the 2n order). */
-export function draft(v: View) {
-  const placed = v.owner.filter((o) => o >= 0).length;
-  // A seat that has put its settlement down and owes the road is still on its own turn.
-  const roadOwed = v.road_owner.filter((o) => o >= 0).length < placed;
-  return { placed, turn: roadOwed ? placed - 1 : placed };
-}
+export { draft } from "../phone/pass";
+import { draft } from "../phone/pass";
 
 export function DraftOrder({ v, you }: { v: View; you: number }) {
   const n = v.n;
