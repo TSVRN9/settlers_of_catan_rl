@@ -121,6 +121,12 @@ The board does not rotate. The seated row carries the seat's name, not "You".
 - **A shared link, cold:** the result first ("Red won", the round), the curve, the final
   standings with the lineup, then Watch (from the start) and Review. A link to one move opens
   the review at that move. Unfinished games open in Watch at the end.
+- **Built (M5).**
+  - The cold open keeps the top bar rather than the mockup's wordmark row, so its footprint is the same as watching.
+  - Lineup stands in Review's place until Milestone 6.
+  - Every result has Share. It puts the link in the address bar, then opens the share sheet or copies it.
+  - The pace reads Slow, Normal or Fast; the paces aren't multiples of each other.
+  - The lettered pucks on the curve and links to one move come with the review (Milestone 6).
 
 ## Analysis woven into play
 
@@ -275,3 +281,9 @@ approved, that section gets a pointer here and the old artboards are marked supe
     (`CompressionStream`). The legal-action order is part of the format, so a change to it bumps
     the version byte. One Rust test round-trips games through it against `record()`.
   - A person who trades a lot makes longer games than these bots; unmeasured.
+  - Built (M5, `catan_engine/src/compact.rs`, `web/src/share.ts`):
+    - A discard carries no outcome byte, since its resource is in the action. A robber move always carries one,
+      0 for no steal.
+    - An offer outside the legal list (a person's 3-for-1) is written as the list's length followed by its 10 counts.
+    - The wasm exports are `record_to_compact`, `compact_to_record` (the same JSON as `record()`) and
+      `Engine::apply_with`, rather than `replay_compact`: every consumer takes the JSON record.

@@ -5,7 +5,8 @@
 // piece in hand without showing it snapped elsewhere; every button is at least 44px; the Roll slab rolls;
 // the board's box never moves; nothing scrolls sideways; the game reaches its end; Milestone 2's phases of a
 // turn and Milestone 3's opening on touch, result, Rematch, lineup (resume, the seat sheet) and a watched game
-// each run once; no uncaught page error. Screenshots land in the given directory.
+// each run once; Milestone 4's pass and play; Milestone 5's watching (scrub, Live, the ending in the same block) and
+// shared links (opened cold, with people in them, garbled); no uncaught page error. Screenshots land in the given directory.
 //
 //   pnpm dev   (in another shell)
 //   node web/tools/phone_check.mjs [width] [height] [outDir]
@@ -153,7 +154,8 @@ result.tapPlaced = { before, after: afterTap.roads, carry: afterTap.carry };
 const failed_extra = [];
 const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", "pick", "robberVictim", "moveIcons", "counterIgnore",
               "opening", "gameOver", "rematch", "lineup", "watch",
-              "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover"];
+              "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover",
+              "scrub", "live", "watchEnd", "share", "filmPeople", "badLink"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -463,6 +465,7 @@ try {
     const s = window.__app.get(), sh = document.querySelector(".ph-sheet")?.getBoundingClientRect();
     return { phase: s.phase, steps: s.view?.steps, kinds: s.lineup.map((b) => b.kind), sheet: !!sh, sheetIn: !sh || sh.bottom <= innerHeight + 1,
              resume: !!document.querySelector(".ph-resume"), chips: document.querySelectorAll(".ph-chip").length, n: s.lineup.length,
+             rows: document.querySelectorAll(".ph-standings .row").length, curve: !!document.querySelector(".ph-curve"), transport: document.querySelectorAll(".ph-transport button").length,
              hand: !!document.querySelector(".ph-hand, .ph-you") };
   });
   await tapQ(".ph-back");
@@ -487,7 +490,8 @@ try {
   await tapQ(".ph-play"); await sleep(4000);
   const w = await L();
   await shot("watch");
-  probe("watch", { ...w, ok: w.phase === "playing" && w.kinds.every((k) => k !== "human") && w.chips === w.n && !w.hand });
+  // Milestone 5: watching, the seats are the standings under the board; no chips, no hand.
+  probe("watch", { ...w, ok: w.phase === "playing" && w.kinds.every((k) => k !== "human") && w.chips === 0 && w.rows === w.n && w.curve && w.transport === 4 && !w.hand });
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 
 // Milestone 4, pass and play: Blue and Orange are people, Red and White bots, up to 2 games. On every iteration no hand
@@ -577,6 +581,64 @@ try {
   }
   await shot("pass-end");
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
+// Milestone 5: a watched game (fast bots) scrubbed back and brought live, its ending in the same block, its link opened
+// cold in a fresh page; the same game's link with two people in it opens as a recording; a garbled link lands on the
+// lineup and says so.
+try {
+  const tapQ = async (q) => { const r = await rect(q); if (!r) return false; await tap(r[0] + r[2] / 2, r[1] + r[3] / 2); return true; };
+  const T = () => run(() => {
+    const s = window.__app.get(), b = document.querySelector("#board-layer svg")?.getBoundingClientRect();
+    const vis = (q) => { const e = document.querySelector(q); return !!e && getComputedStyle(e).visibility !== "hidden" && e.getBoundingClientRect().height > 0; };
+    return { phase: s.phase, film: s.film, at: s.view?.steps ?? null, seenTo: s.seenTo, frames: s.frames.length, paused: s.paused, winner: s.view?.winner ?? null,
+             vp: s.view?.players.map((p) => p.actual_vp), box: b ? [b.x, b.y, b.width, b.height].map(Math.round).join() : null, live: !!document.querySelector(".ph-live"),
+             faint: document.querySelectorAll('.ph-curve polyline[opacity="0.3"]').length, result: !!document.querySelector(".ph-result"),
+             fits: (() => { const r = document.querySelector(".ph-result"); return r ? r.scrollHeight <= r.clientHeight + 1 : null; })(),
+             hand: vis(".ph-hand") || vis(".ph-you"), cover: !!document.querySelector(".ph-cover"), chips: document.querySelectorAll(".ph-chip").length,
+             err: document.querySelector(".ph-err")?.textContent ?? null, hash: location.hash };
+  });
+  await run(async () => { const a = window.__app; a.set({ seed: 999, lineup: [0, 1, 2, 3].map(() => ({ kind: "heuristic", depth: 1 })), pace: "normal" }); await a.start(); });
+  let t = await T();
+  for (let k = 0; k < 80 && t.seenTo < 24; k++) { await sleep(250); t = await T(); }
+  const c = await rect(".ph-curve");
+  await tap(c[0] + c[2] / 3, c[1] + c[3] / 2); await sleep(400);
+  const scrubbed = await T();
+  probe("scrub", { at: scrubbed.at, seenTo: scrubbed.seenTo, frames: scrubbed.frames, faint: scrubbed.faint, ok: scrubbed.paused && scrubbed.at < scrubbed.seenTo - 4 && Math.abs(scrubbed.at - Math.round(scrubbed.seenTo / 3)) <= 2 && scrubbed.faint > 0 && scrubbed.live });
+  await shot("scrub");
+  (await checks()).small.forEach((x) => small.add(x));
+  const r = await rect(".ph-live"); await tap(r[0] + r[2] / 2, r[1] + r[3] / 2); await sleep(300);
+  const lived = await T();
+  probe("live", { at: lived.at, seenTo: scrubbed.seenTo, ok: !lived.paused && lived.at >= scrubbed.seenTo && !lived.live });
+  const during = lived.box;
+  await run(() => window.__app.set({ pace: "fast" }));
+  for (let k = 0; k < 600 && (await T()).phase !== "over"; k++) await sleep(250);
+  await sleep(600);
+  const ended = await T();
+  probe("watchEnd", { box: [during, ended.box], fits: ended.fits, ok: ended.phase === "over" && ended.result && ended.box === during && ended.fits });
+  await shot("watch-over");
+  (await checks()).small.forEach((x) => small.add(x));
+  await tapQ(".ph-share"); await sleep(600);
+  const shared = await T();
+  const link = shared.hash.startsWith("#/r/") ? (await run(() => location.href)) : null;
+  if (link) {
+    await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
+    await cdp("Page.navigate", { url: link }); await sleep(5000);
+    const cold = await T();
+    probe("share", { len: link.length, winner: [shared.winner, cold.winner], ok: cold.phase === "over" && cold.film === "named" && cold.winner === shared.winner && cold.vp.join() === shared.vp.join() && cold.frames === shared.frames && cold.result });
+    await shot("cold");
+    const people = await run(async () => { const a = window.__app; a.set({ lineup: [{ kind: "heuristic", depth: 1 }, { kind: "human", depth: 2 }, { kind: "human", depth: 2 }, { kind: "heuristic", depth: 1 }] }); return (await import("/src/game.ts")).shareLink(); });
+    await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
+    await cdp("Page.navigate", { url: people }); await sleep(5000);
+    await tapQ(".ph-rewatch"); await sleep(1500);
+    const film = await T();
+    probe("filmPeople", { phase: film.phase, at: film.at, hand: film.hand, cover: film.cover, chips: film.chips, ok: film.film === "named" && film.phase === "playing" && film.at > 0 && !film.hand && !film.cover && film.chips === 0 });
+  } else probe("share", { hash: shared.hash, ok: false });
+  await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
+  await cdp("Page.navigate", { url: URL_ + "#/r/AAAAzzzz" }); await sleep(4000);
+  const bad = await T();
+  probe("badLink", { phase: bad.phase, err: bad.err, ok: bad.phase === "lineup" && !!bad.err && bad.film == null });
+  await shot("badlink");
+} catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
+
 if (result.leak) failed_extra.push("leak");
 const missing = NEED.filter((k) => probes[k] == null);
 if (pageErrors.length) result.error = (result.error ? result.error + " | " : "") + pageErrors.join(" | ");

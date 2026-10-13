@@ -984,7 +984,7 @@ Milestone 3 (`docs/superpowers/plans/2026-10-12-phone-m3-lineup.md`) starts and 
     `labels.placeText`), every seat's chance over the game with your line bold (shown with Eval off too, since the
     game is over), and the final points with the VP cards face up.
   - Rematch replays the same seed and lineup. Lineup stands where Review will go in Milestone 6.
-- **Watching on a phone**, until Milestone 5 designs it: no seat's hand, every seat as a chip (two rows of two), the
+- **Watching on a phone**, until Milestone 5 designed it (below): no seat's hand, every seat as a chip (two rows of two), the
   move list.
   - The move list runs back through the game (`sinceTurn` with seat −1). Stopping at the nominal seat's turn
     emptied the list for that seat's whole turn.
@@ -1040,6 +1040,73 @@ Milestone 4 (`docs/superpowers/plans/2026-10-12-phone-m4-pass.md`) is pass and p
   - a row jump and ↺;
   - Show hand;
   - an answer cover, then the hand back in the turn player's colour.
+
+M4's two leftovers, fixed with M5:
+
+- **Going back to the lineup lets go of the phone.** `toLineup` records `gaveUp` and sets `holder` to null (`pass.letGo`,
+  shared with the cover), so Back to the game raises a cover. Before, the last holder's hand showed to whoever picked
+  the phone up.
+- **A jump flies only what it lands after.** `coach.flies` (checked) lets `Fx` fly `frames[to-1]` after a jump only if
+  no listed move lies between the two positions. A replay's beat steps over unlisted moves and still flies its own;
+  a tapped row, or a scrub, shows a position. Before, it flew the move before the tapped one.
+
+Milestone 5 (`docs/superpowers/plans/2026-10-12-phone-m5-watch.md`) is watching and shared links:
+
+- **Watching has its own block** (`phone/Watch.tsx`), fixed at `--watch-h` (312px; 274 below 700 tall). There are
+  no chips: the seats are standings under the board, in seat order, with the occupant, the chance (Eval on) and the
+  public points. Above them:
+  - the newest move;
+  - the curve (`phone/Curve.tsx`, shared with the result) as the scrubber;
+  - the transport: back one, play/pause, forward one, and the pace, or Live once scrubbed back.
+- **The curve's faint part is what has been seen, not what exists.** The worker plays ahead of the playhead. `seenTo`
+  is the furthest the playhead has been: `show()` raises it, and `deal()` resets it. The curve is drawn to `seenTo`,
+  faint past the playhead, and Live returns there (`game.goLive`). Drawing to `frames.length` would bring back M3's
+  spoiler.
+- **Eval off,** the curve draws each seat's public points. Standings read `vp`, not `actual_vp`, so a spectator never
+  sees a hidden VP card before the end.
+- **The result takes the same block,** so the board doesn't move when a watched game ends. A watched or shared
+  game's result names the round and each occupant, and Watch plays the frames again (`game.rewatch`). Every result
+  has Share:
+  - the link goes into the address bar, so a reload reopens the game;
+  - then `navigator.share`, or the clipboard ("Copied").
+- **White's ink** is `SEAT_LO[3]` for text and curve lines: its fill is too pale on paper.
+- **Shared links.** `catan_engine/src/compact.rs` holds the format (spec "Open questions"):
+  - version 1: the seed and seat count, then TLV sections ending with tag 0;
+  - per step, the index in `playable_actions()`, or that list's length as an escape followed by the give and get
+    counts. A person's 3-for-1 offer isn't in the list, whose bundles hold at most two cards;
+  - an outcome byte for a roll, a dev card draw and a robber move. A discard names its resource in the action.
+
+  Decoding replays every step through `State::apply` and returns an error on anything else:
+  - truncation;
+  - an index past the list;
+  - a card not in the deck;
+  - a step after the winner;
+  - more than 5,000 steps.
+
+  A golden test pins one game's bytes, so a change to the legal order fails loudly and forces a version bump.
+  `Engine::new` builds its state through `compact::new_state`, so a link and its game can't disagree.
+- **The browser side.** `web/src/share.ts` (checked):
+  - the seats section (an occupant id, the depth, and an empty settings string);
+  - the header reader;
+  - deflate-raw and base64url, with inflating capped at 64 KB.
+
+  The models section (tag 2) is defined in the spec but not written: the site has one model.
+  A finished bot game's link is about 370-420 characters.
+- **A shared game is a recording.**
+  - The worker's `film` op applies the decoded log with its outcomes forced (`Engine::apply_with`). It gives each
+    frame the spectator's readings and no decisions.
+  - `store.film` makes `playing()` false, so a link with people in it never seats one: no hand, no cover, no `pump`.
+  - On a `#/r/` address, the store starts in phase `over`, so the lineup never mounts and deals. `deal()` doesn't
+    overwrite a `#/r/` address.
+  - On a desktop, a link opens in the stands at the end.
+  - A link that isn't a game lands on the lineup, which says so (`store.linkBroken`, cleared by `start()`).
+- **`phone_check`** adds probes for:
+  - the watch screen;
+  - a scrub, then Live;
+  - the ending in the same block, with the board box unchanged;
+  - Share, then the link opened cold in a fresh page (same winner, points and frames);
+  - a link with two people in it opening as a recording;
+  - a garbled link.
 
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
