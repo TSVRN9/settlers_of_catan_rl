@@ -14,6 +14,8 @@ import { gradeAt } from "../review";
 import { get, set, useApp, you } from "../store";
 import type { Frame, MapView } from "../engine";
 import Curve, { seatInk } from "./Curve";
+import { EvalControl } from "./TopBar";
+import { isStale } from "../engine";
 import { MoveLine, moveRow, type MoveRow } from "./Slab";
 
 /** A move as a row even when it isn't news (an END_TURN): the list's narration, else the action's own label. */
@@ -35,7 +37,10 @@ function useGrading(seat: number) {
         try {
           const g = await gradeAt(i);
           if (on && g) set((cur) => ({ grades: { ...cur.grades, [i]: g } }));
-        } catch { return; }
+        } catch (e) {
+          if (isStale(e)) return;                  // another game now: nothing left to grade here
+          console.warn("no grade for step", i, e);
+        }
       }
     })();
     return () => { on = false; };
@@ -47,13 +52,16 @@ export function ReviewBar() {
   const people = s.lineup.filter((b) => b.kind === "human").length;
   const choose = people !== 1 || !!s.film;     // nobody, or more than one, sat here as "you"
   const seat = s.reviewSeat ?? 0;
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let on = true; setUrl(null); shareLink(s.step).then((u) => { if (on) setUrl(u); }, () => {}); return () => { on = false; }; }, [s.step]);
+  // The game's link is made once; the move on screen is its last part.
+  const [base, setBase] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { let on = true; shareLink().then((u) => { if (on) setBase(u); }, () => {}); return () => { on = false; }; }, [s.frames.length]);
   const share = () => {
-    if (!url) return;
+    if (!base) return;
+    const url = s.step != null ? `${base}/${s.step}` : base;
     history.replaceState(history.state, "", url);
-    if (navigator.share) navigator.share({ url }).catch(() => {});
-    else navigator.clipboard?.writeText(url).catch(() => {});
+    if (navigator.share) { navigator.share({ url }).catch(() => {}); return; }
+    navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }, () => {});
   };
   return (
     <div className="ph-top">
@@ -63,12 +71,11 @@ export function ReviewBar() {
         {/* Whose game this review reads, when nobody (or more than one) sat as "you": a tap moves to the next seat. */}
         {choose && (
           <button className="ph-seatpick cut8" aria-label={`Reviewing ${SEAT_NAMES[seat]}: next seat`}
-                  onClick={() => set({ reviewSeat: (seat + 1) % s.view!.players.length })}>
-            <i style={{ background: SEAT_FILL[seat] }} />{SEAT_NAMES[seat]}
-          </button>
+                  style={{ background: SEAT_FILL[seat] }} onClick={() => set({ reviewSeat: (seat + 1) % s.view!.players.length })} />
         )}
       </span>
-      <button className="ph-btn ph-revshare cut8" disabled={!url} onClick={share}>Share</button>
+      <button className="ph-btn ph-revshare cut8" disabled={!base} onClick={share}>{copied ? "Copied" : "Share"}</button>
+      <EvalControl />
     </div>
   );
 }
@@ -81,7 +88,8 @@ export default function Review() {
   const winner = frames[last]?.view.winner ?? -1;
   const pk = useMemo(() => letter(frames, winner), [frames, winner]);
   const ponr = useMemo(() => pointOfNoReturn(frames, winner), [frames, winner]);
-  const viewer = you(s);
+  // Two people at one phone: the last holder is not "you" to the other, as on the result.
+  const viewer = s.lineup.filter((b) => b.kind === "human").length > 1 ? -1 : you(s);
   const map = s.map!;
   const step = s.step;
   const go = (p: number) => set({ step: Math.max(1, Math.min(last, p)) });
@@ -115,10 +123,10 @@ export default function Review() {
 
   const m = step - 1, f = frames[m];
   const r = rowFor(frames, m, map, viewer);
-  const g = s.grades[m];
+  const g = f.seat === seat ? s.grades[m] : undefined;
   const better = g && g.grade !== "Best" ? g.best : null;
   const ctx = { map, view: f.view, seat: f.seat, you: viewer };
-  const line = f.action && f.seat === seat ? (better ? gap(better, f.action, ctx) : evidence(f.action, ctx)) : "";
+  const line = f.action && g ? ((better && gap(better, f.action, ctx)) || evidence(f.action, ctx)) : "";
   // Next key move: the next decisive move, or the next of this seat's moves graded worse than Good.
   const keys = [...pk.map((p) => p.step), ...Object.entries(s.grades).filter(([, x]) => x.seat === seat && GRADES.indexOf(x.grade) >= 2).map(([i]) => +i)]
     .filter((i) => i > m).sort((a, b) => a - b);
@@ -132,7 +140,7 @@ export default function Review() {
         <div className="ph-move cut5 ph-newest ph-best">
           <MoveLine r={{ i: m, seat: f.seat, a: better, text: label(better, map), d: null, dice: null }} ev={false} />
           <span className="gr" style={{ color: GRADE_INK.Best }}>Best</span>
-          <span className="num over">+{(g!.margin * 100).toFixed(1)} over yours</span>
+          <span className="num over">+{(g!.margin * 100).toFixed(1)} over {f.seat === viewer ? "yours" : `${SEAT_NAMES[f.seat]}'s`}</span>
         </div>
       )}
       {line && <div className="ph-coach">{line}</div>}

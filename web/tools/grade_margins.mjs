@@ -29,8 +29,10 @@ for (let g = +first; g < +first + +games; g++) {
     if (legal.length > 1) {
       const init = !!JSON.parse(e.view()).initial_phase;
       const t0 = performance.now(), full = JSON.parse(e.decide_full("vnet", 2)), ms = performance.now() - t0;
-      const k = JSON.stringify(a), hit = full.root.find(([x]) => JSON.stringify(x) === k);
-      const best = Math.max(...full.root.map(([, v]) => v));
+      // Only valued root entries count, as in web/src/grade.ts margin().
+      const ranked = full.root.filter(([, v]) => v != null && Number.isFinite(v));
+      const k = JSON.stringify(a), hit = ranked.find(([x]) => JSON.stringify(x) === k);
+      const best = Math.max(...ranked.map(([, v]) => v));
       rows.push(JSON.stringify({ g, step, seat, bot: bots[seat], cat: cat(a[0], init), init, margin: hit ? best - hit[1] : null, ms, n: full.root.length }));
     }
     e.apply(JSON.stringify(a)); step++;

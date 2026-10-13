@@ -39,10 +39,26 @@ function record() {
 /** The game as a shared link's bytes (share.ts), built on this client: the live worker may be busy playing. */
 export const compactRecord = (sections: Uint8Array) => review.compact(record(), sections);
 
-async function positionAt(step: number) {
-  if (positioned === step) return;
-  await review.replay(record(), step);
-  positioned = step;
+/** Positioning the engine and asking it something are one step: two callers interleaved used to put the second
+ *  one's replay between the first one's replay and its search, and cache that position's answer under the first
+ *  step. So every positioned call runs alone, in order. And a call from before `resetReview` (another game) neither
+ *  moves `positioned` nor fills a cache: `gen` tells it the game it was for is gone. */
+let lane: Promise<unknown> = Promise.resolve();
+let gen = 0;
+function at<T>(step: number, ask: () => Promise<T>): Promise<{ gen: number; value: T }> {
+  const mine = gen;
+  const run = lane.then(async () => {
+    if (mine !== gen) throw new Error("stale");
+    if (positioned !== step) {
+      positioned = null;
+      await review.replay(record(), step);
+      if (mine !== gen) throw new Error("stale");
+      positioned = step;
+    }
+    return { gen: mine, value: await ask() };
+  });
+  lane = run.catch(() => undefined);
+  return run;
 }
 
 /** The ranked ladder at one step, from one bot's own search — fetched once per (step, bot)
@@ -51,9 +67,8 @@ export async function rankedAt(step: number, bot: BotKind = "vnet"): Promise<Dec
   const key = `${step}:${bot}`;
   const cached = rankedCache.get(key);
   if (cached) return cached;
-  await positionAt(step);
-  const d = await review.decide(bot, 2, true);
-  rankedCache.set(key, d);
+  const { gen: g, value: d } = await at(step, () => review.decide(bot, 2, true));
+  if (g === gen) rankedCache.set(key, d);
   return d;
 }
 
@@ -73,9 +88,8 @@ export async function attributionAt(step: number, seat: number): Promise<Attribu
   const key = step * 10 + seat;
   const cached = attrCache.get(key);
   if (cached) return cached;
-  await positionAt(step);
-  const a = await review.attribution(seat);
-  attrCache.set(key, a);
+  const { gen: g, value: a } = await at(step, () => review.attribution(seat));
+  if (g === gen) attrCache.set(key, a);
   return a;
 }
 
@@ -227,6 +241,7 @@ export function toggleAutoplay() {
 
 /** A new game invalidates every per-step cache of the old one — called from `game.ts`'s `deal()`. */
 export function resetReview() {
+  gen++;
   stopAutoplay();
   recordCache = null;
   positioned = null;

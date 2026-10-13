@@ -1154,9 +1154,23 @@ Milestone 6 (`docs/superpowers/plans/2026-10-13-phone-m6-review.md`) is grades a
   - **Share** in the review links to the move on screen (`#/r/<code>/<step>`), which opens the review there, cold.
   - **Nothing is cut:** rows wrap and the block scrolls inside itself.
 - **The result** has Share, Rematch or Watch, and Review. The way to the lineup is the top bar's ‹.
-- **Pucks** now show on the result's curve, and on the watch curve with Eval on, but only for what has been seen.
+- **Pucks** now show on the result's curve. They are left off the live watch curve: its top five reshuffled as
+  more of the game was seen. Two pucks close together step apart.
+- **Review fixes:**
+  - The review worker positions and asks as one exclusive unit (`review.ts` `at()`). Two overlapping grades used to
+    cache one step's ranking under another.
+  - A generation counter, bumped by `resetReview`, keeps an answer for a game that has gone out of the new game's
+    cache. A rematch keeps the seed, so before this it could inherit the old game's rankings.
+  - Grading and step links are the phone's only (`usePhone.isPhone`). The desktop's cold link stays on the result.
+  - The grade tag flips to the piece's left when its right would run off the screen, and re-measures on resize.
+  - A bad step part in a link opens the review's overview.
+  - In pass and play nobody reads as "You".
+  - The best-move row belongs to the reviewed seat only.
+  - The coach line falls back to `evidence` when `gap` has nothing to say.
+  - The review's top bar has Eval (shared `EvalControl`). The seat is a 44px swatch, and Share shows "Copied".
 - **`phone_check`** adds probes for:
-  - a live grade tag;
+  - a live grade tag, on screen;
+  - the review of a game you played, and of a pass-and-play game;
   - the review's counts, pucks and rows;
   - the seat switch;
   - a move opened, fitting its block;

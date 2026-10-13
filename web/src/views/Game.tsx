@@ -97,7 +97,7 @@ export default function Game() {
     setAttr(null);
     setLit(null);
     if (step == null || !frame || sealed) return;
-    void attributionAt(step, mover).then((a) => { if (get().step === step) setAttr(a); });
+    void attributionAt(step, mover).then((a) => { if (get().step === step) setAttr(a); }, () => { /* another game's */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, sealed]);
 

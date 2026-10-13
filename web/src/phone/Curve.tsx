@@ -49,8 +49,10 @@ export default function Curve({ frames, at, upto, bold = -1, points = false, onS
         {onSeek && <line x1={head} x2={head} y1={0} y2={1} stroke="var(--color-pine)" strokeWidth={1.6} vectorEffect="non-scaling-stroke" />}
       </svg>
       {ponr != null && ponr <= end && <i className="ponr" style={{ left: pct(ponr / end) }} />}
-      {pucks?.filter((p) => p.step <= end).map((p) => (
-        <b key={p.letter} className="puck" style={{ left: pct(p.step / end), top: pct(y(frames[p.step], p.seat)), background: seatInk(p.seat) }}>{p.letter}</b>
+      {/* Two pucks a few steps apart would sit on each other: the later one steps up a puck's height. */}
+      {pucks?.filter((p) => p.step <= end).map((p, k, all) => (
+        <b key={p.letter} className="puck" style={{ left: pct(p.step / end), top: pct(y(frames[p.step], p.seat)), background: seatInk(p.seat),
+                                                 translate: k > 0 && (p.step - all[k - 1].step) / end < 0.03 ? "0 -15px" : undefined }}>{p.letter}</b>
       ))}
       </div>
     </div>

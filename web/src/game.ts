@@ -11,6 +11,7 @@ import { fromCode, linkCode, readHeader, seatsSection, toCode } from "./share";
 import { orient, swap } from "./readings";
 import { get, playing, rememberedHidden, set, transition, viewer, type Pace } from "./store";
 import { autoDecline, letGo } from "./phone/pass";
+import { isPhone } from "./phone/usePhone";
 
 /** The live game's engine. Review holds its own client, because the worker frees its wasm
  *  engine on every `new` — one shared client is how Play and Watch used to destroy each
@@ -234,7 +235,7 @@ export async function act(action: Canon): Promise<boolean> {
   if (s.lineup[s.view.current_player].kind !== "human") return false;
   try {
     const landed = await advance(action, s.view);
-    if (landed && get().evalShown) void gradeLive(s.view.steps, action, s.seed);
+    if (landed && get().evalShown && isPhone()) void gradeLive(s.view.steps, action, s.seed);
     return landed;
   } catch (e) {
     if (!isStale(e)) { console.error(e); set({ status: "idle", error: String(e) }); }
@@ -414,7 +415,7 @@ export async function openShared(code: string, step: number | null = null) {
           map: g.map, frames, seenTo: frames.length - 1, reveal: false, legal: [], dealt: null });
     filmed = code;
     show(frames.length - 1);
-    if (step != null && step >= 1 && step < frames.length) openReview(step);   // a link to one move
+    if (step != null && isPhone()) openReview(step >= 1 && step < frames.length ? step : null);   // a link to one move
   } catch (e) {
     if (isStale(e)) return;
     console.warn("not a game link:", e);
@@ -429,10 +430,11 @@ export async function openShared(code: string, step: number | null = null) {
 export function openFromHash() {
   if (!location.hash.startsWith("#/r/")) return;
   const code = linkCode(location.hash) ?? "";      // "" is not a game: the lineup says so
-  const at = /^#\/r\/[A-Za-z0-9_-]+\/(\d+)$/.exec(location.hash);
-  const step = at ? Number(at[1]) : null;
+  // A step part names one move; one that isn't a step (or is past the game) opens the review's overview.
+  const part = /^#\/r\/[A-Za-z0-9_-]+\/(.*)$/.exec(location.hash)?.[1];
+  const step = part == null ? null : /^\d+$/.test(part) ? Number(part) : -1;
   if (get().film && filmed === code) {             // back to the link already open: keep its playhead
-    if (step != null && step >= 1 && step < get().frames.length) openReview(step);
+    if (step != null && isPhone()) openReview(step >= 1 && step < get().frames.length ? step : null);
     return;
   }
   void openShared(code, step);

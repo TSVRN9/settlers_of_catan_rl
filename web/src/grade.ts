@@ -9,7 +9,7 @@ export const GRADES: Grade[] = ["Best", "Good", "Inaccuracy", "Mistake", "Blunde
 export interface GradeMark { seat: number; margin: number; grade: Grade; best: Canon }
 
 /** The lower edge of each band below Best, in win chance (216 games, docs/FINDINGS.md "Move grades"). Under 0.01 is
- *  the search's own noise (a decent bot has ~20 such moves a game); per seat-game the heuristic search then has ~3
+ *  inside the evaluator's own inconsistency (residual sd 0.015, FINDINGS); per seat-game the heuristic search then has ~3
  *  inaccuracies, ~1.7 mistakes and ~0.2 blunders, jSettlers ~4 / 2.4 / 0.4, and random blunders 0.7 times a game. */
 export const BANDS = { good: 0.01, inaccuracy: 0.05, mistake: 0.08, blunder: 0.15 };
 

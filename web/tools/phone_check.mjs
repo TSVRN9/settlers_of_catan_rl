@@ -156,7 +156,7 @@ const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", 
               "opening", "gameOver", "rematch", "lineup", "watch",
               "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover",
               "scrub", "live", "watchEnd", "share", "filmPeople", "badLink",
-              "gradeLive", "review", "reviewSeat", "reviewMove", "reviewBack", "stepLink"];
+              "gradeLive", "review", "reviewSeat", "reviewMove", "reviewBack", "stepLink", "reviewPlayed", "reviewPass"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -206,6 +206,19 @@ for (let i = 0; i < 40000; i++) {
       });
       await shot("over");
       probe("gameOver", { ...x, box: boxes.has(c.box), ok: !!x && x.rows === x.n && x.place === !x.personWon && x.curve && x.fits && boxes.has(c.box) });
+      // Milestone 6: the review of a game you played: your seat, your moves graded, and back to the result.
+      const tv = await rect(".ph-toreview");
+      if (tv) {
+        await tap(tv[0] + tv[2] / 2, tv[1] + tv[3] / 2); await sleep(1500);
+        for (let k = 0; k < 40 && (await run(() => Object.values(window.__app.get().grades).filter((g) => g.seat === window.__app.get().human).length)) < 10; k++) await sleep(500);
+        const pr = await run(() => { const s = window.__app.get(); return { review: s.review, seat: s.reviewSeat, human: s.human, mine: Object.values(s.grades).filter((g) => g.seat === s.human).length,
+          others: Object.values(s.grades).filter((g) => g.seat !== s.human).length, seatBtn: !!document.querySelector(".ph-seatpick") }; });
+        await shot("review-played");
+        (await checks()).small.forEach((q) => small.add(q));
+        const back = await rect(".ph-back"); await tap(back[0] + back[2] / 2, back[1] + back[3] / 2); await sleep(700);
+        const res = await run(() => !window.__app.get().review && !!document.querySelector(".ph-result"));
+        probe("reviewPlayed", { ...pr, res, ok: pr.review && pr.seat === pr.human && pr.mine >= 10 && pr.others === 0 && !pr.seatBtn && res });
+      }
       const seed = await run(() => window.__app.get().seed);
       const r = await rect(".ph-rematch");
       let y = null;
@@ -459,6 +472,10 @@ for (let i = 0; i < 40000; i++) {
       for (let k = 0; k < 40 && tag == null; k++) {
         await sleep(100);
         tag = await run((i) => (window.__app.get().frames.length - 2 !== i ? "moved" : document.querySelector(".ph-gradetag")?.textContent ?? null), mine);
+        if (tag && tag !== "moved") {
+          const tr = await rect(".ph-gradetag");
+          if (!(tr && tr[0] >= 0 && tr[0] + tr[2] <= W + 0.5)) failed_extra.push("gradeTagOffScreen");
+        }
       }
       const g = await run((i) => window.__app.get().grades[i]?.grade ?? null, mine);
       if (tag && tag !== "moved") { await shot("gradetag"); probe("gradeLive", { step: mine, tag, g, ok: tag === g }); }
@@ -530,7 +547,18 @@ try {
     await sleep(2000);
     for (let it = 0; it < 8000; it++) {
       const x = await P();
-      if (x.winner >= 0) break;
+      if (x.winner >= 0) {
+        if (probes.reviewPass == null) {
+          await sleep(1500); await tapQ(".ph-toreview"); await sleep(2500);
+          await tapQ(".ph-key"); await sleep(900);
+          const rp = await run(() => { const s = window.__app.get(); return { review: s.review, seat: s.reviewSeat, winner: s.frames[s.frames.length - 1].view.winner,
+            you: /\bYou\b|\byour?\b/i.test(document.querySelector(".ph-review")?.innerText ?? ""), seatBtn: !!document.querySelector(".ph-seatpick") }; });
+          await shot("review-pass");
+          probe("reviewPass", { ...rp, ok: rp.review && rp.seat === rp.winner && !rp.you && rp.seatBtn });
+          await tapQ(".ph-back"); await sleep(300); await tapQ(".ph-back"); await sleep(300);
+        }
+        break;
+      }
       if (x.cover != null) {
         if (x.hand || !x.inert) result.leak++;
         const key = `${x.cover}|${x.why}|${x.turn}`;
@@ -651,10 +679,12 @@ try {
   (await checks()).small.forEach((x) => small.add(x));
   await tapQ(".ph-seatpick"); await sleep(300);
   const seat2 = await run(() => window.__app.get().reviewSeat);
-  probe("reviewSeat", { from: rv.seat, to: seat2, ok: rv.seat === rv.winner && rv.seatBtn && seat2 === (rv.seat + 1) % 4 });
+  let g2 = 0;
+  for (let k = 0; k < 40 && g2 < 10; k++) { await sleep(500); g2 = await run((q) => Object.values(window.__app.get().grades).filter((g) => g.seat === q).length, seat2); }
+  probe("reviewSeat", { from: rv.seat, to: seat2, graded: g2, ok: rv.seat === rv.winner && rv.seatBtn && seat2 === (rv.seat + 1) % 4 && g2 >= 10 });
   await tapQ(".ph-key"); await sleep(900);
   const mv = await run(() => ({ step: window.__app.get().step, row: !!document.querySelector(".ph-review .ph-newest"),
-    fits: (() => { const e = document.querySelector(".ph-watch"); return e.scrollHeight <= e.clientHeight + 1; })() }));
+    fits: [...document.querySelectorAll(".ph-review .tx, .ph-review .ph-coach")].every((e) => e.scrollHeight <= e.clientHeight + 1 && e.scrollWidth <= e.clientWidth + 1) }));
   probe("reviewMove", { ...mv, ok: mv.step != null && mv.row && mv.fits });
   await shot("review-move");
   (await checks()).small.forEach((x) => small.add(x));
@@ -681,7 +711,10 @@ try {
     await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
     await cdp("Page.navigate", { url: stepLink }); await sleep(5000);
     const sl = await run(() => { const s = window.__app.get(); return { review: s.review, step: s.step, film: s.film }; });
-    probe("stepLink", { ...sl, want: mv.step, ok: sl.review && sl.step === mv.step && sl.film === "named" });
+    await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
+    await cdp("Page.navigate", { url: stepLink.replace(/\/\d+$/, "/12x") }); await sleep(5000);
+    const so = await run(() => { const s = window.__app.get(); return { review: s.review, step: s.step }; });
+    probe("stepLink", { ...sl, want: mv.step, garbled: so, ok: sl.review && sl.step === mv.step && sl.film === "named" && so.review && so.step == null });
   } else probe("share", { hash: shared.hash, ok: false });
   await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
   await cdp("Page.navigate", { url: URL_ + "#/r/AAAAzzzz" }); await sleep(4000);

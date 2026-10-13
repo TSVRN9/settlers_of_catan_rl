@@ -293,11 +293,9 @@
 .ph-gradetag { position: fixed; z-index: 4; translate: 0 -50%; height: 22px; padding: 0 8px; display: inline-flex; align-items: center;
                color: #fff; font: 700 11.5px var(--font-sans); pointer-events: none; white-space: nowrap; }
 .ph-seats { margin-left: auto; display: inline-flex; }
-.ph-seatpick { min-width: 44px; height: 44px; border: 0; background: var(--color-paper); padding: 0 12px; display: inline-flex; align-items: center; gap: 7px;
-               font: 600 13.5px var(--font-sans); color: var(--color-pine); cursor: pointer; }
-.ph-seatpick i { width: 10px; height: 10px; }
+.ph-seatpick { width: 44px; height: 44px; border: 0; padding: 0; cursor: pointer; }
 .ph-revshare { margin-left: 6px; }
-.ph-revshare { flex: 0 0 auto; height: 44px; padding: 0 12px; margin-right: -6px; }
+.ph-revshare { flex: 0 0 auto; height: 44px; padding: 0 12px; }
 .ph-review { height: 100%; display: flex; flex-direction: column; gap: 6px; }
 .ph-review .ph-curve { flex-basis: 74px; }
 .ph-tally { flex: 0 0 46px; display: flex; gap: 5px; }

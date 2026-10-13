@@ -3736,8 +3736,9 @@ summarised by `grade_margins_report.mjs`).
 | 0.20 | 0.06 | 0.17 | 0.31 | 0.00 |
 
 - **The bands (`web/src/grade.ts`):**
-  - **Best** is under 0.01. A decent bot makes about 20 moves a game between 0.005 and 0.01, which is the root's
-    own noise.
+  - **Best** is under 0.01. That is inside the evaluator's own inconsistency (residual sd 0.015, "Deciding moves"
+    above), so smaller gaps aren't held against a move. The 0.005-0.01 band holds about 3 moves a game for the
+    heuristic and 3.6 for jSettlers. Noise itself was not measured here.
   - **Good** is 0.01 to 0.05, **Inaccuracy** 0.05 to 0.08, **Mistake** 0.08 to 0.15, and **Blunder** 0.15 and up.
   - That gives the heuristic search about 3 inaccuracies, 1.7 mistakes and 0.2 blunders a game, and jSettlers about
     4, 2.4 and 0.4. Random blunders 0.7 times a game, most of them in the opening, where its p90 is .19.

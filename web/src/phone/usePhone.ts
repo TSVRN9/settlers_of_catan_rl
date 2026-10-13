@@ -13,6 +13,8 @@ const query = (q: string) => {
   return () => useSyncExternalStore(subscribe, snap);
 };
 export const usePhone = query("(max-width: 999px)");
+/** The same question outside React: grades and the review are the phone's alone (the desktop shows neither). */
+export const isPhone = () => typeof matchMedia !== "undefined" && matchMedia("(max-width: 999px)").matches;
 
 /** The frames up to the position on screen. Seated they are all of them; watching, the worker has played ahead of
  *  the playhead, and the moves after it must not show; and a pass-and-play replay (`step`) is a playhead too. */

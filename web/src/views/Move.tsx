@@ -33,8 +33,8 @@ export default function Move() {
     setNet(null);
     setHeur(null);
     if (step == null) return;
-    void rankedAt(step, "vnet").then((d) => { if (get().step === step) setNet(d); });
-    void rankedAt(step, "heuristic").then((d) => { if (get().step === step) setHeur(d); });
+    void rankedAt(step, "vnet").then((d) => { if (get().step === step) setNet(d); }, () => { /* another game's */ });
+    void rankedAt(step, "heuristic").then((d) => { if (get().step === step) setHeur(d); }, () => { /* another game's */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
