@@ -59,6 +59,14 @@ pooled loop"). Diagnosed cause: rollout labels come from a policy weaker than th
 - **Policy prior for search (PPO or distilled).** Only if search earns it; MCTS with net values tied depth 2 at ~20x.
 - **MCTS with net leaves on the NPU.** The 20x cost was CPU leaves; unexplored at NPU prices. Tied in strength, so low prior.
 
+- **A search that doesn't see hidden cards** (2026-10-12, prompted by `pattssun/catan-rl`'s `determinize.py`). Our
+  search plays every seat from its real hand (FINDINGS), so its pool and jSettlers numbers include reading opponents'
+  hidden resources and development cards. Measure the honest version: at the root, deal the hidden cards K ways
+  consistent with the public record, the way the site's public readings do (`PUBLIC_K` = 16, `jsettler/view.rs` hand
+  views), and sum the root values. It's a fairness check on the headline first and a lever second. That repo's own
+  audit warns that K=2 x 100 sims ranked actions unrepeatably. Survey of the repo (1v1, Catanatron, no trading, loses
+  to WeightedRandom): nothing else in it is ahead of us, and it ships no weights to bridge.
+
 ## Strength: dead (don't re-run without a new reason)
 
 | Lever | Verdict | Where |
