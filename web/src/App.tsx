@@ -13,7 +13,7 @@ import Move from "./views/Move";
 import Handoff from "./views/Handoff";
 import Discard from "./views/Discard";
 import Spine, { NAME } from "./Spine";
-import { act, toLineup } from "./game";
+import { act, openFromHash, toLineup } from "./game";
 import { roundOf } from "./labels";
 import * as keys from "./keys";
 import * as route from "./route";
@@ -57,7 +57,10 @@ export default function App() {
     const offRoute = route.install();
     const offKeys = keys.install();
     route.sync();
-    return () => { offRoute(); offKeys(); };
+    // A shared game's link (`#/r/…`), on load or pasted into the open tab.
+    openFromHash();
+    addEventListener("hashchange", openFromHash);
+    return () => { offRoute(); offKeys(); removeEventListener("hashchange", openFromHash); };
   }, []);
 
   const s = useApp();

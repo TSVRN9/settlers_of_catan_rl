@@ -35,6 +35,9 @@ function record() {
   return recordCache.text;
 }
 
+/** The game as a shared link's bytes (share.ts), built on this client: the live worker may be busy playing. */
+export const compactRecord = (sections: Uint8Array) => review.compact(record(), sections);
+
 async function positionAt(step: number) {
   if (positioned === step) return;
   await review.replay(record(), step);

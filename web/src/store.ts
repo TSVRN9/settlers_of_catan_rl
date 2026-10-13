@@ -133,10 +133,22 @@ export interface State {
   /** Who set the mute: it is that person's alone. */
   mutedBy: number | null;
   mutedTurn: number | null;
+
+  /** A shared game (share.ts): a recording played back, never a game in play, whoever its seats were. "unnamed" when
+   *  the link carries no seats, so the standings don't name occupants it never said. */
+  film: "named" | "unnamed" | null;
+  /** A shared link that wasn't a game. Cleared by the next deal. */
+  linkBroken: boolean;
+  /** Watching: the furthest the playhead has been. The curve is drawn to here, faint past the playhead; Live comes
+   *  back here. The frames past it are the worker's lookahead and are never shown. */
+  seenTo: number;
 }
 
+// A shared link opens on its result, so the lineup (which would deal a board of its own) never mounts.
+const opening = typeof location !== "undefined" && location.hash.startsWith("#/r/");
+
 const initial: State = {
-  phase: "lineup",
+  phase: opening ? "over" : "lineup",
   seed: Math.floor(Math.random() * 1e6),
   lineup: [
     { kind: "vnet", depth: 2 },
@@ -185,6 +197,9 @@ const initial: State = {
   mutedSeat: null,
   mutedBy: null,
   mutedTurn: null,
+  film: opening ? "named" : null,
+  linkBroken: false,
+  seenTo: 0,
 };
 
 let state: State = initial;
@@ -228,7 +243,7 @@ export function shown(s: Pick<State, "step" | "frames" | "view" | "evals">) {
   return f ? { view: f.view, evals: f.evals } : { view: s.view, evals: s.evals };
 }
 
-export const playing = (s: State) => s.lineup[s.human]?.kind === "human";
+export const playing = (s: State) => !s.film && s.lineup[s.human]?.kind === "human";
 
 /** The seat "you" is written from, or -1 when nobody is seated. */
 export const you = (s: State) => (playing(s) ? s.human : -1);

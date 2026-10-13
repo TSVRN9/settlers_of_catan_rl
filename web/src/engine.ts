@@ -56,10 +56,13 @@ export type Request =
   | { op: "record" }
   | { op: "replay"; record: string; steps: number }
   | { op: "luck"; record: string }
+  | { op: "compact"; record: string; sections: Uint8Array }
+  | { op: "film"; bytes: Uint8Array }
   | { op: "abort" };
 
 export interface GameState { map: MapView; view: View; legal: Canon[] }
 export interface RunResult { map: MapView; frames: Frame[]; record: GameRecord }
+export interface FilmResult { map: MapView; frames: Frame[]; seed: number; n: number }
 
 type Msg = { id: number } & ({ ok: true; result: unknown } | { ok: false; error: string } | { progress: Frame[] });
 
@@ -150,6 +153,10 @@ export class EngineClient {
     this.epoch++;
     return this.call<RunResult>({ op: "run", seed, bots, maxSteps }, onProgress);
   }
+  /** A record (`record()`'s JSON) as a shared link's bytes, with the browser's sections (share.ts). Holds no engine. */
+  compact(record: string, sections: Uint8Array) { return this.call<Uint8Array>({ op: "compact", record, sections }); }
+  /** A shared link's bytes played back into frames, the spectator's readings on each, the engine left at the end. */
+  film(bytes: Uint8Array) { this.epoch++; return this.call<FilmResult>({ op: "film", bytes }); }
   /** Out of band, ahead of the queue: `run` is polling for exactly this. */
   abort() { if (this.worker) return this.post<null>({ op: "abort" }); return Promise.resolve(null); }
 

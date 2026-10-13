@@ -6,7 +6,8 @@
 // one `async while` with a `try/finally` that always releases, and staleness is the engine
 // client's epoch rather than a counter kept in a component.
 import { EngineClient, isStale, type Canon, type Evaluation, type Frame, type Readings, type View } from "./engine";
-import { resetReview } from "./review";
+import { compactRecord, resetReview } from "./review";
+import { fromCode, linkCode, readHeader, seatsSection, toCode } from "./share";
 import { orient, swap } from "./readings";
 import { get, playing, rememberedHidden, set, transition, viewer, type Pace } from "./store";
 import { autoDecline, letGo } from "./phone/pass";
@@ -75,7 +76,8 @@ export async function deal() {
   resetReview();
   stopWatching();
   set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, hover: null, carry: null, robTile: null, mark: null,
-        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], holder: null, gaveUp: [], mutedSeat: null, mutedBy: null, mutedTurn: null });
+        boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], holder: null, gaveUp: [], mutedSeat: null, mutedBy: null, mutedTurn: null,
+        film: null, seenTo: 0 });
   // Two people at one screen: the game starts with the hidden cards hidden, whatever this viewer
   // last chose; that choice is not overwritten, so it is back for the next game.
   setShowHidden(s.lineup.filter((p) => p.kind === "human").length > 1 ? false : rememberedHidden(), false);
@@ -83,7 +85,8 @@ export async function deal() {
     const g = await live.newGame(seed, n);
     // A game has an address, so it can be linked and a reload keeps the board. The play
     // itself does not survive that reload — a seed reproduces the map, not the game.
-    history.replaceState({ crumbs: ["table"], step: null }, "", `#/g/${seed}`);
+    // (Not over a shared game that opened while this deal was in flight: its link stays in the address.)
+    if (!get().film) history.replaceState({ crumbs: ["table"], step: null }, "", `#/g/${seed}`);
     // The reveal only happens now: `reveal` has to be set in the same breath as the map,
     // or the board it animates does not exist yet to carry the class.
     set({ map: g.map, view: g.view, legal: g.legal, dealt: { seed, n, kinds: s.lineup.map((b) => b.kind).join() }, reveal: !reduced(), status: "idle", frames: [frame(g.view, [])] });
@@ -103,7 +106,7 @@ export async function start() {
     await deal();
     if (get().error || !get().map) return;
   }
-  await transition(() => set({ phase: "playing", crumbs: ["table"], step: null, paused: false, pending: null, offering: false }));
+  await transition(() => set({ phase: "playing", crumbs: ["table"], step: null, paused: false, pending: null, offering: false, linkBroken: false }));
   if (get().reveal) await wait(DEAL_MS);          // let the board finish landing before anyone builds on it
   if (get().phase !== "playing") return;
   if (playing(get())) void pump(); else void watch();
@@ -142,7 +145,8 @@ function show(i: number) {
   if (!f) return;
   const last = s.frames.length - 1;
   const done = last > 0 && s.frames[last].action === null && f.view.winner >= 0;
-  set({ view: f.view, evals: f.evals, evalsOther: f.evalsOther, legal: [], step: null, phase: done ? "over" : "playing", status: "idle" });
+  set({ view: f.view, evals: f.evals, evalsOther: f.evalsOther, legal: [], step: null, phase: done ? "over" : "playing", status: "idle",
+        seenTo: Math.max(s.seenTo, i) });
 }
 
 function stopTimer() { if (timer != null) { clearInterval(timer); timer = null; } }
@@ -189,6 +193,12 @@ export function togglePause() {
 }
 export const stepOnce = () => { const s = get(); if (s.paused && s.view && s.frames[s.view.steps + 1]) show(s.view.steps + 1); };
 export function setPace(pace: Pace) { set({ pace }); if (timer != null) startTimer(); }
+
+/** Back to the furthest the playback had reached, playing on from there. */
+export function goLive() { show(get().seenTo); set({ paused: false }); startTimer(); }
+
+/** A finished watched or shared game from its first move again: its frames are all here, so nothing is replayed. */
+export function rewatch() { show(0); set({ paused: false }); startTimer(); }
 
 /** Holds the playback where it is: the stands' seek does this, and so does opening a review view,
  *  whose `step` the playhead would otherwise wipe every tick. */
@@ -356,3 +366,47 @@ export async function pump(once = false) {
 // an engine nobody else can see. Dev-only — a build has no HMR, which is why none of it shows up
 // under `pnpm preview` or headlessly.
 if (import.meta.hot) import.meta.hot.dispose(() => { stopWatching(); live.terminate(); });
+
+// ── shared links ──────────────────────────────────────────────────────────────────────
+/** This game as a link (share.ts): the engine's compact record with the lineup's seats, in the address's fragment. */
+export async function shareLink(): Promise<string> {
+  const bytes = await compactRecord(seatsSection(get().lineup));
+  return `${location.origin}${location.pathname}#/r/${await toCode(bytes)}`;
+}
+
+/** Open a shared game: its frames rebuilt from the link and played back, held at the end (its result, if it ended).
+ *  It is a recording, whoever sat in it (`film`), so no seat comes to life. A link that isn't a game lands on the
+ *  lineup, which says so. */
+let opening: string | null = null;
+export async function openShared(code: string) {
+  if (opening === code) return;                // StrictMode mounts twice; the first is already on it
+  opening = code;
+  stopWatching();
+  resetReview();
+  set({ phase: "over", film: "named", linkBroken: false, view: null, map: null, frames: [], evals: [], evalsOther: [], legal: [], dealt: null,
+        step: null, crumbs: ["table"], status: "thinking", error: null, paused: true, pendingHandoff: null, holder: null, gaveUp: [],
+        offering: false, pending: null, carry: null, devSheet: null, boardOverride: null });
+  try {
+    const bytes = await fromCode(code);
+    const head = readHeader(bytes);
+    const g = await live.film(bytes);
+    const lineup = head.seats ?? Array.from({ length: g.n }, () => ({ kind: "vnet" as const, depth: 2 }));
+    const frames = get().showHidden ? g.frames.map(swap) : g.frames;
+    set({ seed: g.seed, lineup, human: Math.max(0, lineup.findIndex((b) => b.kind === "human")), film: head.seats ? "named" : "unnamed",
+          map: g.map, frames, seenTo: frames.length - 1 });
+    show(frames.length - 1);
+  } catch (e) {
+    if (isStale(e)) return;
+    console.warn("not a game link:", e);
+    toLineup();
+    set({ film: null, linkBroken: true, frames: [], map: null, view: null, dealt: null });
+  } finally {
+    if (opening === code) opening = null;
+  }
+}
+
+/** The address names a shared game (a link pasted into an open tab, or the page loaded on one). */
+export function openFromHash() {
+  const code = linkCode(location.hash);
+  if (code) void openShared(code);
+}
