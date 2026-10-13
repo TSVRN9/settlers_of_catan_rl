@@ -6,7 +6,7 @@
 // one `async while` with a `try/finally` that always releases, and staleness is the engine
 // client's epoch rather than a counter kept in a component.
 import { EngineClient, isStale, type Canon, type Evaluation, type Frame, type Readings, type View } from "./engine";
-import { compactRecord, resetReview } from "./review";
+import { compactRecord, gradeAt, resetReview } from "./review";
 import { fromCode, linkCode, readHeader, seatsSection, toCode } from "./share";
 import { orient, swap } from "./readings";
 import { get, playing, rememberedHidden, set, transition, viewer, type Pace } from "./store";
@@ -77,7 +77,7 @@ export async function deal() {
   stopWatching();
   set({ status: "thinking", error: null, last: null, advice: null, step: null, crumbs: ["table"], pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, hover: null, carry: null, robTile: null, mark: null,
         boardOverride: null, pendingHandoff: null, coachThread: null, dealt: null, evals: [], evalsOther: [], frames: [], holder: null, gaveUp: [], mutedSeat: null, mutedBy: null, mutedTurn: null,
-        film: null, seenTo: 0 });
+        film: null, seenTo: 0, review: false, reviewSeat: null, grades: {} });
   // Two people at one screen: the game starts with the hidden cards hidden, whatever this viewer
   // last chose; that choice is not overwritten, so it is back for the next game.
   setShowHidden(s.lineup.filter((p) => p.kind === "human").length > 1 ? false : rememberedHidden(), false);
@@ -123,7 +123,7 @@ export function toLineup() {
   const { holder, frames, gaveUp } = get();
   transition(() => set({ phase: "lineup", pending: null, offering: false, offerDraft: { give: [0, 0, 0, 0, 0], want: [0, 0, 0, 0, 0] }, discardPick: [], devSheet: null, hurry: false, advice: null, status: "idle", crumbs: ["table"], step: null,
                           boardOverride: null, pendingHandoff: null, paused: false, hover: null, carry: null, robTile: null, mark: null,
-                          mutedSeat: null, mutedBy: null, mutedTurn: null, holder: null, gaveUp: holder == null ? gaveUp : letGo(frames, holder, gaveUp) }));
+                          mutedSeat: null, mutedBy: null, mutedTurn: null, review: false, holder: null, gaveUp: holder == null ? gaveUp : letGo(frames, holder, gaveUp) }));
 }
 
 /** Hotseat's own gate: the seat waiting in `pendingHandoff` has looked away from whoever was
@@ -233,7 +233,9 @@ export async function act(action: Canon): Promise<boolean> {
   if (!s.view || s.view.winner >= 0) return false;
   if (s.lineup[s.view.current_player].kind !== "human") return false;
   try {
-    return await advance(action, s.view);
+    const landed = await advance(action, s.view);
+    if (landed && get().evalShown) void gradeLive(s.view.steps, action, s.seed);
+    return landed;
   } catch (e) {
     if (!isStale(e)) { console.error(e); set({ status: "idle", error: String(e) }); }
     return false;
@@ -242,6 +244,19 @@ export async function act(action: Canon): Promise<boolean> {
     // thing that moves it. Returning before this is how a single rejected click used to kill the
     // table — pump's own catch abandons the loop, and `act` then refuses everything.
     void pump();
+  }
+}
+
+/** A person's move graded off the game loop, on the review client: kept for the review, and drawn beside its piece
+ *  if it arrives before the next move lands (phone/GradeTag.tsx). Dropped if the game it was for is gone. */
+async function gradeLive(step: number, action: Canon, seed: number) {
+  try {
+    const g = await gradeAt(step);
+    const now = get();
+    if (!g || now.seed !== seed || now.frames[step]?.action?.join() !== action.join()) return;
+    set((cur) => ({ grades: { ...cur.grades, [step]: g } }));
+  } catch (e) {
+    if (!isStale(e)) console.warn("no grade for step", step, e);
   }
 }
 
@@ -372,23 +387,23 @@ if (import.meta.hot) import.meta.hot.dispose(() => { stopWatching(); live.termin
 
 // ── shared links ──────────────────────────────────────────────────────────────────────
 /** This game as a link (share.ts): the engine's compact record with the lineup's seats, in the address's fragment. */
-export async function shareLink(): Promise<string> {
+export async function shareLink(step: number | null = null): Promise<string> {
   const bytes = await compactRecord(seatsSection(get().lineup));
-  return `${location.origin}${location.pathname}#/r/${await toCode(bytes)}`;
+  return `${location.origin}${location.pathname}#/r/${await toCode(bytes)}${step != null ? `/${step}` : ""}`;
 }
 
 /** Open a shared game: its frames rebuilt from the link and played back, held at the end (its result, if it ended).
  *  It is a recording, whoever sat in it (`film`), so no seat comes to life. A link that isn't a game lands on the
  *  lineup, which says so. */
 let opening: string | null = null, filmed: string | null = null;
-export async function openShared(code: string) {
+export async function openShared(code: string, step: number | null = null) {
   if (opening === code) return;                // StrictMode mounts twice; the first is already on it
   opening = code;
   stopWatching();
   resetReview();
   set({ phase: "over", film: "named", linkBroken: false, view: null, map: null, frames: [], evals: [], evalsOther: [], legal: [], dealt: null,
         step: null, crumbs: ["table"], status: "thinking", error: null, paused: true, pendingHandoff: null, holder: null, gaveUp: [],
-        offering: false, pending: null, carry: null, devSheet: null, boardOverride: null });
+        offering: false, pending: null, carry: null, devSheet: null, boardOverride: null, review: false, reviewSeat: null, grades: {} });
   try {
     const bytes = await fromCode(code);
     const head = readHeader(bytes);
@@ -399,6 +414,7 @@ export async function openShared(code: string) {
           map: g.map, frames, seenTo: frames.length - 1, reveal: false, legal: [], dealt: null });
     filmed = code;
     show(frames.length - 1);
+    if (step != null && step >= 1 && step < frames.length) openReview(step);   // a link to one move
   } catch (e) {
     if (isStale(e)) return;
     console.warn("not a game link:", e);
@@ -413,6 +429,24 @@ export async function openShared(code: string) {
 export function openFromHash() {
   if (!location.hash.startsWith("#/r/")) return;
   const code = linkCode(location.hash) ?? "";      // "" is not a game: the lineup says so
-  if (get().film && filmed === code) return;       // back to the link already open: keep its playhead
-  void openShared(code);
+  const at = /^#\/r\/[A-Za-z0-9_-]+\/(\d+)$/.exec(location.hash);
+  const step = at ? Number(at[1]) : null;
+  if (get().film && filmed === code) {             // back to the link already open: keep its playhead
+    if (step != null && step >= 1 && step < get().frames.length) openReview(step);
+    return;
+  }
+  void openShared(code, step);
 }
+
+// ── the review ────────────────────────────────────────────────────────────────────────
+/** Open the phone's review of the game on screen: at `step` (a position; the move shown is the one that led to it),
+ *  or the overview. Its seat is yours when one person sat at it, else the winner's until another is picked. */
+export function openReview(step: number | null = null) {
+  hold();
+  const s = get();
+  const people = s.lineup.filter((b) => b.kind === "human").length;
+  const winner = s.frames[s.frames.length - 1]?.view.winner ?? -1;
+  const seat = s.reviewSeat ?? (people === 1 && !s.film ? s.human : Math.max(0, winner));
+  set({ review: true, step, reviewSeat: seat });
+}
+export function closeReview() { set({ review: false, step: null }); }

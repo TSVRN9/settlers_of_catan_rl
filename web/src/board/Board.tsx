@@ -36,13 +36,16 @@ interface Props {
   /** A move shown before it is played — hovered in Futures — as the mover's own piece at
    *  half strength. */
   ghost?: Canon | null;
+  /** Whose the ghost is, when the position shown is after the mover's turn moved on (the review's best move). */
+  ghostSeat?: number;
   /** The position this one is a hypothetical from: pieces not in it are new, and land. */
   since?: View | null;
   /** The robber is in someone's hand: the one on the board fades to where it was standing. */
   robberLifted?: boolean;
 }
 
-export default function Board({ map, view, highlight, litTiles, hidePieces, dealing, ghost, since, robberLifted }: Props) {
+export default function Board({ map, view, highlight, litTiles, hidePieces, dealing, ghost, ghostSeat, since, robberLifted }: Props) {
+  const ghostBy = ghostSeat ?? view.current_player;
   const centres = useMemo(() => map.tiles.map((t) => tileCentre(t.nodes)), [map]);
 
   // The deal resolves outward from the middle, so a tile's --i is its rank by distance from
@@ -223,12 +226,12 @@ export default function Board({ map, view, highlight, litTiles, hidePieces, deal
           {/* a move before it is played: the mover's piece, at half strength */}
           {ghost && (ghost[0] === "BUILD_SETTLEMENT" || ghost[0] === "BUILD_CITY") && (() => {
             const [x, y] = nodeXY(ghost[1]);
-            return <g className="ghost" key={`g${actionKey(ghost)}`}>{Piece(ghost[0] === "BUILD_CITY" ? "city" : "set", view.current_player, x, y, "ghost", "pc")}</g>;
+            return <g className="ghost" key={`g${actionKey(ghost)}`}>{Piece(ghost[0] === "BUILD_CITY" ? "city" : "set", ghostBy, x, y, "ghost", "pc")}</g>;
           })()}
           {ghost && ghost[0] === "BUILD_ROAD" && (() => {
             const [a, b] = EDGES[ghost[1]];
             const [x1, y1] = nodeXY(a), [x2, y2] = nodeXY(b);
-            return <line className="ghost pc" key={`g${actionKey(ghost)}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={SEAT_FILL[view.current_player]} strokeWidth="5.4" strokeLinecap="round" />;
+            return <line className="ghost pc" key={`g${actionKey(ghost)}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={SEAT_FILL[ghostBy]} strokeWidth="5.4" strokeLinecap="round" />;
           })()}
           {ghost && ghost[0] === "MOVE_ROBBER" && map.tiles[ghost[1]] && (() => {
             const [x, y] = centres[ghost[1]];

@@ -27,6 +27,7 @@ interface Props {
   hidePieces?: boolean;
   dealing?: boolean;
   ghost?: Canon | null;
+  ghostSeat?: number;
   since?: View | null;
   /** The piece in hand and where it can go, laid over the board (Carry.tsx). */
   carry?: CarryProps | null;

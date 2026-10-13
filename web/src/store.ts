@@ -11,6 +11,7 @@
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { viewer as viewerOf } from "./readings";
+import type { GradeMark } from "./grade";
 import type { BotSpec, Canon, Decision, Evaluation, Frame, MapView, View } from "./engine";
 
 export type ViewName = "table" | "futures" | "move" | "game";
@@ -139,6 +140,12 @@ export interface State {
   film: "named" | "unnamed" | null;
   /** A shared link that wasn't a game. Cleared by the next deal. */
   linkBroken: boolean;
+  /** The phone's review of a finished game (phone/Review.tsx): `step` is its playhead, null for the overview. */
+  review: boolean;
+  /** Whose moves the review grades and draws bold: you, else the winner, else the seat picked. */
+  reviewSeat: number | null;
+  /** Grades by step (grade.ts): a person's moves as they are played (Eval on), the reviewed seat's in the review. */
+  grades: Record<number, GradeMark>;
   /** Watching: the furthest the playhead has been. The curve is drawn to here, faint past the playhead; Live comes
    *  back here. The frames past it are the worker's lookahead and are never shown. */
   seenTo: number;
@@ -200,6 +207,9 @@ const initial: State = {
   film: opening ? "named" : null,
   linkBroken: false,
   seenTo: 0,
+  review: false,
+  reviewSeat: null,
+  grades: {},
 };
 
 let state: State = initial;

@@ -11,6 +11,7 @@ import { EDGES } from "./board/geometry";
 import { num, type Row } from "./coach";
 import { RESOURCES, SEAT_NAMES, who, whose } from "./labels";
 import { hold } from "./game";
+import { bestOf, grade, graded, margin, type GradeMark } from "./grade";
 import { push } from "./route";
 import { get, playing, set } from "./store";
 
@@ -54,6 +55,16 @@ export async function rankedAt(step: number, bot: BotKind = "vnet"): Promise<Dec
   const d = await review.decide(bot, 2, true);
   rankedCache.set(key, d);
   return d;
+}
+
+/** The grade of the move played at `step` (grade.ts), from the value net's ranked root on this client: null for a
+ *  move with nothing to grade. */
+export async function gradeAt(step: number): Promise<GradeMark | null> {
+  const f = get().frames[step];
+  if (!f?.action || !graded(f.action)) return null;
+  const d = await rankedAt(step, "vnet");
+  const m = margin(d.root, f.action), best = bestOf(d.root);
+  return m == null || !best ? null : { seat: f.seat, margin: m, grade: grade(m), best };
 }
 
 /** Attribution at one step, for one seat — the "what the net is leaning on" panel's own
