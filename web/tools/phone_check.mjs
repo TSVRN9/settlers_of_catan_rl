@@ -156,7 +156,8 @@ const NEED = ["hurry", "discard", "offerIn", "builder", "offerOut", "devSheet", 
               "opening", "gameOver", "rematch", "lineup", "watch",
               "cover", "coverFast", "coveredInput", "replay", "jump", "showHand", "answer", "handBack", "resumeCover",
               "scrub", "live", "watchEnd", "share", "filmPeople", "badLink",
-              "gradeLive", "review", "reviewSeat", "reviewMove", "reviewBack", "stepLink", "reviewPlayed", "reviewPass"];
+              "gradeLive", "review", "reviewSeat", "reviewMove", "reviewBack", "stepLink", "reviewPlayed", "reviewPass",
+              "sound", "haptics", "soundJump", "soundOff"];
 const GAMES = Number(process.env.GAMES ?? 3);
 const probes = {};
 const probe = (k, v) => { if (probes[k] == null) probes[k] = v; };
@@ -206,6 +207,11 @@ for (let i = 0; i < 40000; i++) {
       });
       await shot("over");
       probe("gameOver", { ...x, box: boxes.has(c.box), ok: !!x && x.rows === x.n && x.place === !x.personWon && x.curve && x.fits && boxes.has(c.box) });
+      // Milestone 7: a whole game at your seat is heard: dice and their landing, set-downs, cards into your hand, your
+      // turn; and felt, where the phone can: the landing, a set-down, your turn.
+      const heard = await run(async () => { const m = await import("/src/sfx.ts"); return { cues: [...new Set(m.played.map((p) => p.cue))], buzz: m.buzzed.map((b) => JSON.stringify(b)) }; });
+      probe("sound", { cues: heard.cues, ok: ["dice", "land", "card", "turn"].every((c) => heard.cues.includes(c)) && heard.cues.some((c) => ["set", "road", "city"].includes(c)) });
+      probe("haptics", { buzz: [...new Set(heard.buzz)], ok: ["[12,40,12]", "[10,60,10]"].every((b) => heard.buzz.includes(b)) && (heard.buzz.includes("18") || heard.buzz.includes("8")) });
       // Milestone 6: the review of a game you played: your seat, your moves graded, and back to the result.
       const tv = await rect(".ph-toreview");
       if (tv) {
@@ -576,8 +582,11 @@ try {
             await shot("replay");
             const rowStep = await run(() => { const r = document.querySelectorAll(".ph-cover-row")[1]; return r ? r.getBoundingClientRect().top : null; });
             if (rowStep != null) {
+              const quiet0 = await run(async () => (await import("/src/sfx.ts")).heard.count);
               await tapQ(".ph-cover-row:nth-child(2)"); await sleep(120);
               const jumped = (await P()).step;
+              const quiet1 = await run(async () => (await import("/src/sfx.ts")).heard.count);
+              probe("soundJump", { before: quiet0, after: quiet1, ok: quiet1 === quiet0 });
               await tapQ(".ph-replay"); await sleep(120);
               const restarted = (await P()).step;
               probe("jump", { jumped, restarted, ok: jumped != null && restarted != null && restarted < jumped });
@@ -724,6 +733,17 @@ try {
   const empty = await T();
   probe("badLink", { phase: [bad.phase, empty.phase], err: [bad.err, empty.err], ok: bad.phase === "lineup" && !!bad.err && bad.film == null && empty.phase === "lineup" && !!empty.err });
   await shot("badlink");
+  await run(() => localStorage.setItem("sound", "0"));
+  await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
+  await cdp("Page.navigate", { url: URL_ }); await sleep(3500);
+  const b = await rect(".ph-board"); await tap(b[0] + b[2] / 2, b[1] + b[3] / 2); await sleep(300);
+  const off = await run(async () => { const m = await import("/src/sfx.ts"), sw = [...document.querySelectorAll(".ph-switches label")];
+    const snd = sw.find((l) => l.textContent === "Sound")?.querySelector("input");
+    return { unlocked: m.unlocked(), switches: sw.map((l) => l.textContent), soundChecked: snd?.checked ?? null }; });
+  probe("soundOff", { ...off, ok: !off.unlocked && off.soundChecked === false && off.switches.includes("Eval") && off.switches.includes("Sound") });
+  (await checks()).small.forEach((x) => small.add(x));
+  await shot("lineup-switches");
+  await run(() => localStorage.setItem("sound", "1"));
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 
 if (result.leak) failed_extra.push("leak");

@@ -196,6 +196,9 @@ as a faint piece tagged "Best", rows for both with the margin, one coach line un
 - **Haptics:** `navigator.vibrate` where it exists (Android Chrome); iOS Safari has none, so
   nothing depends on it. Snap 8ms, set down 18ms, dice land [12, 40, 12], robber 35ms, your
   turn [10, 60, 10], offer 15ms.
+- Built (M7, `web/src/sfx.ts`): the cues and buzzes as above. Your own roll's dice and landing play; a bot's roll is
+  heard only as the cards it sends to your hand. Card flicks are capped at six a step, and Haptics hides where
+  `navigator.vibrate` doesn't exist.
 - The Sound and Haptics switches live on the lineup screen. Reduced motion removes flights and
   tumbles; sounds and haptics stay.
 

@@ -14,6 +14,8 @@ import Result from "./Result";
 import Watch from "./Watch";
 import Review, { ReviewBar, reviewBoard } from "./Review";
 import GradeTag from "./GradeTag";
+import Sounds from "./Sounds";
+import { SNAP, play } from "../sfx";
 import Cover, { useCover } from "./Cover";
 import { letGo } from "./pass";
 import Fx from "../views/Fx";
@@ -59,10 +61,12 @@ export default function Phone() {
             onPlace: (a) => void act(a), onRobTile: (t) => set({ robTile: t }),
             onDrop: () => set({ carry: null }),
             onClickCarry: () => set((cur) => (cur.carry ? { carry: { ...cur.carry, drag: false } } : {})),
+            onSnap: () => play([SNAP], { sound: s.sound, haptics: s.haptics }),
           } : null}
           hidePieces={s.reveal} dealing={s.reveal} />
       )}
       {!setup && s.map && s.view && <Fx frames={s.frames} at={Math.max(0, Math.min(s.step ?? s.view.steps, s.frames.length - 1))} map={s.map} you={viewerNow(you(s), cover?.seat ?? s.pendingHandoff)} />}
+      {!setup && s.view && <Sounds you={viewerNow(you(s), cover?.seat ?? s.pendingHandoff)} />}
       {!setup && !reviewing && s.view && <GradeTag covered={!!cover || s.pendingHandoff != null} />}
       {setup ? <PhoneLineup />
         : reviewing ? <div className="ph-seat ph-watch"><Review /></div>

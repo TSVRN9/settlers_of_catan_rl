@@ -87,9 +87,11 @@ export interface CarryProps {
   /** Touch: a drag let go among the places but on none of them keeps the piece in hand rather than
    *  putting it back. */
   keepOnMiss?: boolean;
+  /** The piece in hand has just found a spot (the phone's snap tick). */
+  onSnap?: () => void;
 }
 
-export default function Carry({ map, view, legal, seat, held, robTile, heat, reveal, onPlace, onRobTile, onDrop, onClickCarry, snapPx = 0, liftPx = 0, keepOnMiss = false }: CarryProps) {
+export default function Carry({ map, view, legal, seat, held, robTile, heat, reveal, onPlace, onRobTile, onDrop, onClickCarry, snapPx = 0, liftPx = 0, keepOnMiss = false, onSnap }: CarryProps) {
   const svg = useRef<SVGSVGElement>(null);
   const [ptr, setPtr] = useState<{ cx: number; cy: number } | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
@@ -174,6 +176,9 @@ export default function Carry({ map, view, legal, seat, held, robTile, heat, rev
    *  near miss, not a decision to put the piece back. */
   const amongSpots = (p: readonly [number, number] | null) => !!p && spots.some((sp) => dist(sp, p) < REACH / 2);
   const near = !held ? null : focus ? spots.find((sp) => sp.key === focus) ?? null : snapAt(at);
+  // Each spot the piece settles on ticks once, as it arrives there.
+  const snapped = near?.key;
+  useEffect(() => { if (snapped != null) onSnap?.(); }, [snapped]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const place = (sp: Spot) => {
     setFocus(null);

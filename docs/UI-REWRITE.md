@@ -1177,6 +1177,31 @@ Milestone 6 (`docs/superpowers/plans/2026-10-13-phone-m6-review.md`) is grades a
   - back to the result;
   - a link to one move opened cold.
 
+Milestone 7 (`docs/superpowers/plans/2026-10-13-phone-m7-sound.md`) is sound and haptics:
+
+- **`web/src/sfx.ts`** has two halves:
+  - **`cuesFor(frame, next, you)`** (checked) decides what a step sounds like, for whom, and when.
+    - Your roll is the dice, then the landing at 500ms, then a flick per card into your hand from 760ms. These are
+      the card flights' own beats; a run is capped at six flicks and pitched by resource.
+    - Set-downs: a road is lighter than a settlement, and a city is heaviest.
+    - Your robber thuds.
+    - An offer to you is two soft notes; an answer to yours is a rising or a falling pair.
+    - The turn coming to you knocks; the end is a win or a loss.
+    - Another seat's move plays only its set-down, quieter. A spectator, or the viewer under a pass-and-play cover,
+      hears no cards arriving in anyone's hand.
+  - **A small Web Audio synth** (oscillators with exponential envelopes, and one noise buffer through a band-pass;
+    no assets) and `navigator.vibrate`, with the spec's patterns.
+- **`phone/Sounds.tsx`** plays a step when the playhead moves forward onto it, by `coach.flies`, so a scrub or a row
+  jump is silent. Nothing plays in the review.
+  - The AudioContext is made on the first tap, and only while Sound is on.
+  - `Carry`'s new optional `onSnap` gives the snap tick.
+- **The switches.** `store.sound` and `store.haptics` are remembered per viewer. Both switches sit on the lineup in
+  a row with Eval; Haptics only shows where `navigator.vibrate` exists, since iOS has none. Reduced motion keeps both.
+- **`phone_check`** adds probes:
+  - a seated game's cues (dice, landing, a set-down, a card, your turn) and its buzzes;
+  - a cover row jump playing nothing;
+  - with Sound off, no audio context and the switch unchecked.
+
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
 there is no phone artboard for prose to drift from: the "artboard is the spec" rule (recorded
