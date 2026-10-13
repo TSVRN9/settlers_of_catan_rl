@@ -1201,6 +1201,18 @@ Milestone 7 (`docs/superpowers/plans/2026-10-13-phone-m7-sound.md`) is sound and
   - a seated game's cues (dice, landing, a set-down, a card, your turn) and its buzzes;
   - a cover row jump playing nothing;
   - with Sound off, no audio context and the switch unchecked.
+- **Review fixes:**
+  - **Offers.** The offer chime and buzz come when the decision reaches you, whichever seat was asked first, and never
+    for an offer the game answers for you. `game.declinedFor` is shared with `pump`.
+  - **Your own offer** gets one falling pair when it dies, and a rising pair for each seat that takes it.
+  - **Steals.** A steal's flick isn't pitched: a phone's speaker is heard by the whole table.
+  - **Card timing.** Cards flick as they land, after their flight.
+  - **The audio context.** It's resumed on any later tap if the system suspended or interrupted it, and nothing is
+    scheduled into a stopped context, which would otherwise all sound at once on resume.
+  - **Pass and play.** The cover rising knocks: it is the next person's turn.
+  - **The snap tick.** A piece just picked up under a resting pointer doesn't tick.
+  - **Probes.** `soundJump` jumps forward across set-downs a spectator hears, and `soundOff` plays a seated game with
+    Sound off. Before, both could pass vacuously.
 
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because

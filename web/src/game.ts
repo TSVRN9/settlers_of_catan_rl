@@ -248,6 +248,19 @@ export async function act(action: Canon): Promise<boolean> {
   }
 }
 
+/** Whether the offer in front of `seat` (a person) is answered for them without ever reaching them: they can't afford
+ *  it, or they muted its bot this turn (phone/pass.ts `autoDecline`). `pump` declines it; the phone stays quiet. */
+export function declinedFor(s: ReturnType<typeof get>, v: View, seat: number): boolean {
+  const give = [5, 6, 7, 8, 9].map((i) => v.current_trade[i]);
+  const hand = v.players[seat]?.hand ?? [];
+  const from = v.current_trade[10];
+  // `num_turns`, not `current_turn` — that is the seat on move, so a mute keyed on it never
+  // expired and silently declined that seat's offers for the rest of the game.
+  return autoDecline({ responder: seat, offerer: from, offererIsPerson: s.lineup[from]?.kind === "human",
+                       cannotAfford: give.some((n, i) => hand[i] < n), turn: v.num_turns,
+                       mute: s.mutedSeat != null && s.mutedBy != null && s.mutedTurn != null ? { seat: s.mutedSeat, by: s.mutedBy, turn: s.mutedTurn } : null });
+}
+
 /** A person's move graded off the game loop, on the review client: kept for the review, and drawn beside its piece
  *  if it arrives before the next move lands (phone/GradeTag.tsx). Dropped if the game it was for is gone. */
 async function gradeLive(step: number, action: Canon, seed: number) {
@@ -344,14 +357,7 @@ export async function pump(once = false) {
       // A bot's trade offered to a person they can't take, or from a bot they muted this turn, is
       // answered for them and never reaches the panel, nor in pass and play the phone (phone/pass.ts).
       if (v.prompt === "DECIDE_TRADE" && spec.kind === "human") {
-        const give = [5, 6, 7, 8, 9].map((i) => v.current_trade[i]);
-        const hand = v.players[seat].hand;
-        const from = v.current_trade[10];
-        // `num_turns`, not `current_turn` — that is the seat on move, so a mute keyed on it never
-        // expired and silently declined that seat's offers for the rest of the game.
-        if (autoDecline({ responder: seat, offerer: from, offererIsPerson: s.lineup[from]?.kind === "human",
-                          cannotAfford: give.some((n, i) => hand[i] < n), turn: v.num_turns,
-                          mute: s.mutedSeat != null && s.mutedBy != null && s.mutedTurn != null ? { seat: s.mutedSeat, by: s.mutedBy, turn: s.mutedTurn } : null })) {
+        if (declinedFor(s, v, seat)) {
           if (!await advance(["REJECT_TRADE", -1, -1, -1], v)) return;
           continue;
         }

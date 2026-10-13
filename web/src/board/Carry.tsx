@@ -177,8 +177,13 @@ export default function Carry({ map, view, legal, seat, held, robTile, heat, rev
   const amongSpots = (p: readonly [number, number] | null) => !!p && spots.some((sp) => dist(sp, p) < REACH / 2);
   const near = !held ? null : focus ? spots.find((sp) => sp.key === focus) ?? null : snapAt(at);
   // Each spot the piece settles on ticks once, as it arrives there.
+  // A piece just picked up (the road after the opening settlement) under a resting pointer has found nothing yet.
   const snapped = near?.key;
-  useEffect(() => { if (snapped != null) onSnap?.(); }, [snapped]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const tickFor = useRef(held);
+  useEffect(() => {
+    if (tickFor.current === held && snapped != null) onSnap?.();
+    tickFor.current = held;
+  }, [snapped, held]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const place = (sp: Spot) => {
     setFocus(null);

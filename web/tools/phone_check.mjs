@@ -42,7 +42,12 @@ const pending = new Map();
 ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } });
 const cdp = (method, params = {}) => new Promise((res, rej) => { const i = ++id; pending.set(i, (m) => (m.error ? rej(new Error(m.error.message)) : res(m.result))); ws.send(JSON.stringify({ id: i, method, params })); });
 const run = async (fn, arg) => {
-  const r = await cdp("Runtime.evaluate", { expression: `(${fn})(${JSON.stringify(arg ?? null)})`, awaitPromise: true, returnByValue: true });
+  // A page that stops answering fails the check by name instead of hanging it until the outer timeout (a `drive`
+  // legitimately takes minutes).
+  let timer;
+  const r = await Promise.race([cdp("Runtime.evaluate", { expression: `(${fn})(${JSON.stringify(arg ?? null)})`, awaitPromise: true, returnByValue: true }),
+    new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`page did not answer in 10 min: ${String(fn).slice(0, 160)}`)), 600000); })])
+    .finally(() => clearTimeout(timer));
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
   return r.result.value;
 };
@@ -582,11 +587,8 @@ try {
             await shot("replay");
             const rowStep = await run(() => { const r = document.querySelectorAll(".ph-cover-row")[1]; return r ? r.getBoundingClientRect().top : null; });
             if (rowStep != null) {
-              const quiet0 = await run(async () => (await import("/src/sfx.ts")).heard.count);
               await tapQ(".ph-cover-row:nth-child(2)"); await sleep(120);
               const jumped = (await P()).step;
-              const quiet1 = await run(async () => (await import("/src/sfx.ts")).heard.count);
-              probe("soundJump", { before: quiet0, after: quiet1, ok: quiet1 === quiet0 });
               await tapQ(".ph-replay"); await sleep(120);
               const restarted = (await P()).step;
               probe("jump", { jumped, restarted, ok: jumped != null && restarted != null && restarted < jumped });
@@ -657,10 +659,19 @@ try {
   probe("scrub", { at: scrubbed.at, seenTo: scrubbed.seenTo, frames: scrubbed.frames, faint: scrubbed.faint, ok: scrubbed.paused && scrubbed.at < scrubbed.seenTo - 4 && Math.abs(scrubbed.at - Math.round(scrubbed.seenTo / 3)) <= 2 && scrubbed.faint > 0 && scrubbed.live });
   await shot("scrub");
   (await checks()).small.forEach((x) => small.add(x));
-  const r = await rect(".ph-live"); await tap(r[0] + r[2] / 2, r[1] + r[3] / 2); await sleep(300);
+  // Live from a third of the way back is a jump forward across set-downs, which a spectator hears one by one: the
+  // jump itself is silent (sfx `flies`), and the playback after it is not.
+  const snd = () => run(async () => { const m = await import("/src/sfx.ts"); return { n: m.heard.count, on: m.unlocked() }; });
+  const s0 = await snd();
+  const r = await rect(".ph-live"); await tap(r[0] + r[2] / 2, r[1] + r[3] / 2); await sleep(120);
+  const s1 = await snd();
+  await sleep(180);
   const lived = await T();
   probe("live", { at: lived.at, seenTo: scrubbed.seenTo, ok: !lived.paused && lived.at >= scrubbed.seenTo && !lived.live });
   const during = lived.box;
+  let s2 = s1;
+  for (let k = 0; k < 40 && s2.n === s1.n; k++) { await sleep(250); s2 = await snd(); }
+  probe("soundJump", { before: s0.n, jump: s1.n, after: s2.n, ok: s0.on && s1.n === s0.n && s2.n > s1.n });
   await run(() => window.__app.set({ pace: "fast" }));
   for (let k = 0; k < 600 && (await T()).phase !== "over"; k++) await sleep(250);
   await sleep(600);
@@ -733,16 +744,19 @@ try {
   const empty = await T();
   probe("badLink", { phase: [bad.phase, empty.phase], err: [bad.err, empty.err], ok: bad.phase === "lineup" && !!bad.err && bad.film == null && empty.phase === "lineup" && !!empty.err });
   await shot("badlink");
+  // Sound off (from the lineup's switch, remembered): a seated game with taps on it makes no context and plays nothing.
   await run(() => localStorage.setItem("sound", "0"));
   await cdp("Page.navigate", { url: "about:blank" }); await sleep(200);
   await cdp("Page.navigate", { url: URL_ }); await sleep(3500);
-  const b = await rect(".ph-board"); await tap(b[0] + b[2] / 2, b[1] + b[3] / 2); await sleep(300);
-  const off = await run(async () => { const m = await import("/src/sfx.ts"), sw = [...document.querySelectorAll(".ph-switches label")];
-    const snd = sw.find((l) => l.textContent === "Sound")?.querySelector("input");
-    return { unlocked: m.unlocked(), switches: sw.map((l) => l.textContent), soundChecked: snd?.checked ?? null }; });
-  probe("soundOff", { ...off, ok: !off.unlocked && off.soundChecked === false && off.switches.includes("Eval") && off.switches.includes("Sound") });
+  const sw = await run(() => { const sw = [...document.querySelectorAll(".ph-switches label")];
+    return { switches: sw.map((l) => l.textContent), soundChecked: sw.find((l) => l.textContent === "Sound")?.querySelector("input")?.checked ?? null }; });
   (await checks()).small.forEach((x) => small.add(x));
   await shot("lineup-switches");
+  await run(async () => { const a = window.__app; a.set({ seed: 77, lineup: [{ kind: "human", depth: 2 }, ...[1, 2, 3].map(() => ({ kind: "heuristic", depth: 1 }))], human: 0 }); await a.start(); });
+  await sleep(2500);
+  const b = await rect(".ph-top"); await tap(b[0] + b[2] / 2, b[1] + b[3] / 2); await sleep(1500);
+  const off = await run(async () => { const m = await import("/src/sfx.ts"); return { unlocked: m.unlocked(), heard: m.heard.count, steps: window.__app.get().view?.steps, playing: window.__app.get().phase }; });
+  probe("soundOff", { ...sw, ...off, ok: !off.unlocked && off.heard === 0 && off.playing === "playing" && sw.soundChecked === false && sw.switches.includes("Eval") && sw.switches.includes("Sound") });
   await run(() => localStorage.setItem("sound", "1"));
 } catch (e) { result.error = (result.error ? result.error + " | " : "") + String(e).slice(0, 300); }
 
