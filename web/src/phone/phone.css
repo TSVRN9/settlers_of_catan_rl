@@ -3,7 +3,7 @@
    anchor's offsetParent and #board-layer's containing block, so nothing between them is positioned. */
 /* clip, not hidden: a hidden box still scrolls to show a focused element (the seat sheet's selected row, below the
    screen while the sheet rises), and the whole board flew up and back. */
-.ph { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: clip;
+.ph { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overflow: clip;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       background: var(--color-chalk); box-sizing: border-box;
       --cw: 50px; --ch: 68px; --tile-h: 84px; --btn-h: 50px; --gut: 16px; }
@@ -103,6 +103,7 @@
 .ph-stack { position: relative; display: inline-block; flex: 0 0 auto; }
 .ph-card { position: absolute; left: 0; }
 .ph-stack.tap { border: 0; padding: 0; background: none; font: inherit; cursor: pointer; display: inline-block; }
+.ph-stack.tap:disabled { cursor: default; opacity: .45; }
 .ph-card .card:hover { translate: none; }
 .ph-card.empty { background: var(--color-dust); opacity: .45; top: 0; }
 .ph-card.lifted { filter: drop-shadow(0 8px 10px rgba(18,33,31,.22)); transition: top var(--t-feel) var(--ease); }
@@ -168,13 +169,15 @@
 
 /* ── an offer to you ── */
 .ph-offer-slab { display: flex; flex-direction: column; gap: 10px; }
-.ph-offer { flex: 1; min-height: 0; background: #fff; box-shadow: 0 8px 18px rgba(18,33,31,.14); display: flex; align-items: center; gap: 14px; padding: 6px 12px; }
+.ph-offer { flex: 1; min-height: 0; background: #fff; box-shadow: 0 8px 18px rgba(18,33,31,.14); display: flex; align-items: center; gap: 12px; padding: 6px 8px; }
 .ph-offer .side { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ph-offer .lab { font: 600 11.5px var(--font-sans); color: var(--color-moss); white-space: nowrap; }
-.ph-offer .cards { display: flex; align-items: flex-end; gap: 4px; }
+/* The cards size a side, not its label (which may run into the gap), so five kinds still fit at 360 wide. */
+.ph-offer .cards { display: flex; align-items: flex-end; min-width: 44px; }
+.ph-offer .side .lab { width: 0; overflow: visible; }
 .ph-tcard { flex: 0 0 auto; min-width: 44px; display: inline-flex; align-items: flex-end; justify-content: center; border: 0; padding: 0; background: none; cursor: pointer; }
 span.ph-tcard { cursor: default; }
-.ph-slot { display: block; background: var(--color-paper); }
+.ph-offer .ph-slot { display: block; background: var(--color-paper); opacity: 1; }
 .ph-offer .eff { margin-left: auto; display: grid; gap: 6px; }
 .ph-offer .eff > span { display: flex; align-items: center; gap: 8px; min-height: 16px; }
 .ph-offer .eff i { width: 9px; height: 9px; flex: 0 0 9px; }
@@ -183,7 +186,7 @@ span.ph-tcard { cursor: default; }
 
 /* ── your offer ── */
 /* The builder: your offer and Offer (or the bank's button) on top; the five resources to ask for and Back beneath. */
-.ph-builder-slab { display: grid; grid-template-columns: 1fr 84px; grid-template-rows: 1fr auto; gap: 6px; }
+.ph-builder-slab { display: grid; grid-template-columns: 1fr 72px; grid-template-rows: 1fr auto; gap: 6px; }
 .ph-builder-slab .ph-offer { min-width: 0; }
 .ph-builder-slab > .ph-btn { height: auto; min-height: 44px; }
 .ph-asks { display: flex; justify-content: space-between; min-width: 0; }
@@ -268,7 +271,8 @@ span.ph-tcard { cursor: default; }
 .ph-watching { height: 100%; display: flex; flex-direction: column; gap: 8px; }
 .ph-newest { flex: 0 0 40px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
 .ph-newest .tx { -webkit-line-clamp: 2; }
-.ph-curve { display: block; flex: 0 0 74px; width: 100%; background: var(--color-paper); touch-action: none; cursor: ew-resize; }
+/* pan-y: a sideways drag seeks, an upward swipe that starts on the curve still scrolls the review. */
+.ph-curve { display: block; flex: 0 0 74px; width: 100%; background: var(--color-paper); touch-action: pan-y; cursor: ew-resize; }
 @media (max-height: 699px) { .ph-curve { flex-basis: 52px; } }
 .ph-transport { flex: 0 0 44px; display: flex; gap: 6px; align-items: center; }
 .ph-tbtn { flex: 0 0 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }

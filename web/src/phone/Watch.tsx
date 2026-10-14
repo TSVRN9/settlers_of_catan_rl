@@ -36,7 +36,8 @@ export default function Watch() {
   return (
     <div className="ph-watching" inert={v.winner >= 0}>
       <div className="ph-move new cut5 ph-newest">{row && <MoveLine key={row.i} r={row} ev={s.evalShown} />}</div>
-      <Curve className="ph-curve cut5" frames={s.frames} at={at} upto={last} points={!s.evalShown} onSeek={seek}
+      {/* A drag stops short of a finished game's last frame, the ending: only playing or stepping forward lands there. */}
+      <Curve className="ph-curve cut5" frames={s.frames} at={at} upto={last} points={!s.evalShown} onSeek={(i) => seek(winner >= 0 ? Math.min(i, last - 1) : i)}
              pucks={s.evalShown ? pk : undefined} ponr={s.evalShown ? ponr : null} />
       <div className="ph-transport">
         <button className="ph-btn ph-tbtn cut8" aria-label="Back one move" disabled={at === 0} onClick={() => seek(at - 1)}><Glyph d={PREV} /></button>

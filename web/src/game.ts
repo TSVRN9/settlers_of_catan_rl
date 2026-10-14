@@ -71,6 +71,7 @@ const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** Deal the board the lineup is configuring: the seed's island, for this many seats, shown
  *  behind the lineup with the reveal. The game does not start; `start()` does that, and
  *  reuses this deal when nothing has changed. */
+let reveals = 0;
 export async function deal() {
   const s = get();
   const seed = s.seed, n = s.lineup.length;
@@ -92,11 +93,12 @@ export async function deal() {
     // The reveal only happens now: `reveal` has to be set in the same breath as the map,
     // or the board it animates does not exist yet to carry the class. Only a new island is revealed: a seat added or
     // taken out re-deals the same tiles, and dealing them again moved the whole board for nothing.
+    // A re-deal mid-reveal leaves that reveal running.
     const fresh = JSON.stringify(s.map?.tiles) !== JSON.stringify(g.map.tiles);
-    set({ map: g.map, view: g.view, legal: g.legal, dealt: { seed, n, kinds: s.lineup.map((b) => b.kind).join() }, reveal: fresh && !reduced(), status: "idle", frames: [frame(g.view, [])] });
+    set({ map: g.map, view: g.view, legal: g.legal, dealt: { seed, n, kinds: s.lineup.map((b) => b.kind).join() }, ...(fresh ? { reveal: !reduced() } : {}), status: "idle", frames: [frame(g.view, [])] });
     const [ev, other] = shown(await live.evaluateAll(viewer(get())));
     set((cur) => ({ evals: ev, evalsOther: other, frames: cur.frames.length ? [{ ...cur.frames[0], evals: ev, evalsOther: other }] : [frame(g.view, ev, other)] }));
-    if (fresh && !reduced()) setTimeout(() => { if (get().map === g.map) set({ reveal: false }); }, DEAL_MS);
+    if (fresh && !reduced()) { const id = ++reveals; setTimeout(() => { if (reveals === id) set({ reveal: false }); }, DEAL_MS); }
   } catch (e) {
     if (!isStale(e)) set({ status: "idle", error: String(e) });
   }
@@ -144,15 +146,15 @@ let runToken = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 
 /** Puts the playhead on frame `i`. The game is over only once the playhead is on the last
- *  frame of a finished run. */
-function show(i: number) {
+ *  frame of a finished run. `played`: the playback got here (and Live comes back here), not a seek. */
+function show(i: number, played = true) {
   const s = get();
   const f = s.frames[i];
   if (!f) return;
   const last = s.frames.length - 1;
   const done = last > 0 && s.frames[last].action === null && f.view.winner >= 0;
   set({ view: f.view, evals: f.evals, evalsOther: f.evalsOther, legal: [], step: null, phase: done ? "over" : "playing", status: "idle",
-        seenTo: Math.max(s.seenTo, i) });
+        seenTo: played ? Math.max(s.seenTo, i) : s.seenTo });
 }
 
 function stopTimer() { if (timer != null) { clearInterval(timer); timer = null; } }
@@ -211,13 +213,14 @@ export function rewatch() { set({ seenTo: 0 }); show(0); set({ paused: false });
 export function hold() { stopTimer(); set({ paused: true }); }
 
 /** Look at a step of the game. In the stands that is the playhead itself, held; at a seat it
- *  is a look back (`step`) while the live position stays where it is. */
+ *  is a look back (`step`) while the live position stays where it is. A seek is not playback: Live doesn't come
+ *  back to it. */
 export function seek(step: number) {
   const s = get();
   const last = s.frames.length - 1;
   if (last < 0) return;
   const at = Math.max(0, Math.min(last, step));
-  if (!playing(s)) { hold(); show(at); return; }
+  if (!playing(s)) { hold(); show(at, false); return; }
   set({ step: at >= last ? null : at, hover: null });
 }
 

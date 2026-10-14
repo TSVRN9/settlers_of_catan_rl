@@ -1,7 +1,7 @@
 // The lineup on a phone (spec "Lineup"; more.mjs H1/H2): the board above, one row per seat, each a tap from a
 // sheet of everyone who can sit there with its measured strength, then Eval, New board and Play. With nobody
 // seated Play is Watch; a game left behind can be gone back to.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { resume, start } from "../game";
 import { BOT_INFO, BOT_SHORT, SEAT_NAMES } from "../labels";
 import { SEAT_FILL } from "../board/palette";
@@ -16,6 +16,10 @@ export default function PhoneLineup() {
   const s = useApp();
   useDealt();
   const [open, setOpen] = useState<number | null>(null);
+  // The seat's current pick takes focus once, as the sheet opens; never again while it's open (a re-render would
+  // pull a keyboard back to it), and without scrolling (that moved the board).
+  const sel = useRef<HTMLButtonElement>(null);
+  useEffect(() => { sel.current?.focus({ preventScroll: true }); }, [open]);
   const n = s.lineup.length;
   const people = s.lineup.filter((b) => b.kind === "human").length;
   const back = behind(s);
@@ -65,8 +69,7 @@ export default function PhoneLineup() {
             {KINDS.map((k) => {
               const on = s.lineup[open]?.kind === k;
               return (
-                <button key={k} data-kind={k} className={`ph-pickrow cut5${on ? " on" : ""}`} aria-pressed={on}
-                        ref={on ? (el) => el?.focus({ preventScroll: true }) : undefined}
+                <button key={k} data-kind={k} className={`ph-pickrow cut5${on ? " on" : ""}`} aria-pressed={on} ref={on ? sel : undefined}
                         onClick={() => { setSeat(open, k); close(); }}>
                   <span className="who"><b>{k === "human" ? "Person" : BOT_SHORT[k]}</b>{k !== "human" && <small>{sub({ kind: k, depth: s.lineup[open].depth })}</small>}</span>
                   <span className="num">{rate(k)}</span>

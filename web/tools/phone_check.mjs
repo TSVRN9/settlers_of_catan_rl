@@ -318,12 +318,13 @@ for (let i = 0; i < 40000; i++) {
     if (slot) await tap(...slot);
     await sleep(150);
     const tookBack = suggested - (await pick());
+    const emptySlot = await run(() => { const e = document.querySelector(".ph-discard-slab .ph-slot:not(.full)"); return e ? getComputedStyle(e).backgroundColor : null; });
     const r = await run(() => { const s = window.__app.get(), h = s.view.players[s.human].hand; return h.findIndex((n, i) => n - s.discardPick.filter((p) => p === i).length > 0); });
     const st = await center(`.ph-stack[data-res="${r}"]`);
     if (st) await tap(...st);
     for (let k = 0; k < 60 && (await S()).prompt === "DISCARD" && (await S()).cur === s.human; k++) await sleep(100);
     const after = (await S()).hand.reduce((a, b) => a + b, 0);
-    probe("discard", { need, suggested, tookBack, lost: before - after, ok: before - after === need && suggested === need && tookBack === 1 });
+    probe("discard", { need, suggested, tookBack, emptySlot, lost: before - after, ok: before - after === need && suggested === need && tookBack === 1 && emptySlot === "rgb(201, 208, 194)" });
     continue;
   }
   const center = async (sel) => { const r = await rect(sel); return r && [r[0] + r[2] / 2, r[1] + r[3] / 2]; };
@@ -383,6 +384,12 @@ for (let i = 0; i < 40000; i++) {
     await tapSel(`.ph-stack[data-res="${most}"]`); await sleep(150);
     await tapSel(`.ph-asks .ph-tokbtn:nth-child(${none + 1})`); await sleep(150);
     const draft = await D(), shown = await B();
+    // Five kinds across both sides (the most there can be): every card a 44px target, none over another, all inside.
+    await run(() => window.__app.set({ offerDraft: { give: [1, 1, 1, 0, 0], want: [0, 0, 0, 1, 1] } })); await sleep(200);
+    const five = await run(() => { const box = document.querySelector(".ph-builder-slab .ph-offer").getBoundingClientRect();
+      const cs = [...document.querySelectorAll(".ph-builder-slab .ph-tcard")].map((c) => c.getBoundingClientRect());
+      return cs.length === 5 && cs.every((c, i) => c.width >= 44 && c.left >= box.left && c.right <= box.right && (i === 0 || c.left >= cs[i - 1].right - 0.5)); });
+    await run((d) => window.__app.set({ offerDraft: d }), draft); await sleep(200);
     // Back again from each side, then in again.
     await tapSel(".ph-builder-slab .side:nth-child(1) .ph-tcard"); await sleep(150);
     await tapSel(".ph-builder-slab .side:nth-child(2) .ph-tcard"); await sleep(150);
@@ -392,8 +399,8 @@ for (let i = 0; i < 40000; i++) {
     const enabled = await run(() => !document.querySelector(".ph-builder-slab .ph-btn.go")?.disabled);
     await shot("builder");
     await tapSel(".ph-builder-slab .ph-btn.go");
-    probe("builder", { open, draft, shown, emptied, enabled,
-                       ok: open && draft.give[most] === 1 && draft.want[none] === 1 && shown.sides.join() === "1,1" && shown.lifted === 0 && !shown.asks[most] && shown.asks[none]
+    probe("builder", { open, draft, shown, five, emptied, enabled,
+                       ok: open && five && draft.give[most] === 1 && draft.want[none] === 1 && shown.sides.join() === "1,1" && shown.lifted === 0 && !shown.asks[most] && shown.asks[none]
                            && emptied.give.every((n) => n === 0) && emptied.want.every((n) => n === 0) && enabled });
     let sawOut = false, badges = 0, traded = false, withdrew = false;
     for (let k = 0; k < 200; k++) {
@@ -541,6 +548,10 @@ try {
     requestAnimationFrame(tick); });
   await tapQ(`.ph-seatrow[data-seat="${seat}"]`);
   const sheet = await L();
+  // The pick takes focus as the sheet opens, once: focus moved to another row stays there through a re-render.
+  const kept = await run(async () => { const on = document.querySelector(".ph-pickrow.on"), was = document.activeElement === on;
+    const other = [...document.querySelectorAll(".ph-pickrow")].find((r) => r !== on); other.focus();
+    window.__app.set({ hover: { n: Math.random() } }); await new Promise((r) => setTimeout(r, 150)); window.__app.set({ hover: null }); await new Promise((r) => setTimeout(r, 50)); return was && document.activeElement === other; });
   (await checks()).small.forEach((x) => small.add(x));
   await shot("sheet");
   await run(() => document.querySelector('.ph-pickrow[data-kind="random"]')?.scrollIntoView({ block: "nearest" })); await sleep(200);
@@ -553,9 +564,9 @@ try {
   await tapQ(".ph-seatrow.add"); await sleep(600);
   const again = await L();
   const boxes = await run(() => { window.__tracing = false; return [...window.__boxes]; });
-  probe("lineup", { behind: behind.resume, resumed: resumed.phase === "playing" && resumed.steps === behind.steps, sheet: sheet.sheet && sheet.sheetIn, picked: picked.kinds[seat], seats: [fewer.n, again.n], boxes: boxes.slice(0, 4),
+  probe("lineup", { behind: behind.resume, resumed: resumed.phase === "playing" && resumed.steps === behind.steps, sheet: sheet.sheet && sheet.sheetIn, picked: picked.kinds[seat], seats: [fewer.n, again.n], kept, boxes: boxes.slice(0, 4),
                     ok: behind.phase === "lineup" && behind.resume && resumed.phase === "playing" && resumed.steps === behind.steps && sheet.sheet && sheet.sheetIn && !picked.sheet && picked.kinds[seat] === "random"
-                        && fewer.n === 3 && again.n === 4 && boxes.length === 1 });
+                        && fewer.n === 3 && again.n === 4 && kept && boxes.length === 1 });
   for (const [i, k] of again.kinds.entries()) if (k === "human") { await tapQ(`.ph-seatrow[data-seat="${i}"]`); await tapQ('.ph-pickrow[data-kind="heuristic"]'); }
   await tapQ(".ph-play"); await sleep(4000);
   const w = await L();
@@ -710,7 +721,16 @@ try {
   // short of them.
   let full = await T();
   for (let k = 0; k < 240 && !full.done; k++) { await sleep(250); full = await T(); }
-  probe("watchPucks", { done: full.done, at: full.at, frames: full.frames, pucks: full.pucks, ok: full.done && full.phase === "playing" && full.at < full.frames - 1 && full.pucks > 0 });
+  // A drag off the curve's right end stops on the move before the ending: the ending is for the playback.
+  const cv = await rect(".ph-curve");
+  // A finger's pace, in steps (one jump off the screen is a fling, and Chrome then spends the next tap stopping it).
+  await touch("touchStart", cv[0] + cv[2] / 2, cv[1] + cv[3] / 2);
+  for (let k = 1; k <= 12; k++) { await touch("touchMove", cv[0] + cv[2] / 2 + k * (cv[2] / 2 + 30) / 12, cv[1] + cv[3] / 2); await sleep(16); }
+  await sleep(200); await touch("touchEnd"); await sleep(1000);
+  const dragged = await T();
+  probe("watchPucks", { done: full.done, at: full.at, frames: full.frames, pucks: full.pucks, dragged: [dragged.at, dragged.phase, dragged.seenTo],
+                        ok: full.done && full.phase === "playing" && full.at < full.frames - 1 && full.pucks > 0 && dragged.phase === "playing" && dragged.at === full.frames - 2 && dragged.seenTo < full.frames - 2 });
+  await tapQ(".ph-transport .ph-btn.go"); await sleep(300);   // Play on from there (ahead of the furthest point played, so no Live)
   await shot("watch-ahead");
   await run(() => window.__app.set({ pace: "fast" }));
   for (let k = 0; k < 600 && (await T()).phase !== "over"; k++) await sleep(250);

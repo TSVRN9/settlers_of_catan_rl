@@ -1226,16 +1226,23 @@ After playing M1–M7 on a phone (2026-10-13), four changes:
       board's band grew. It is now Resume, in the bottom row beside New board and New game.
     - With two seats there was a row fewer. A hidden spacer now keeps four rows.
   - Adding or removing a seat re-deals the same island, and that replayed the deal animation. Now only an island
-    whose tiles changed is revealed.
+    whose tiles changed is revealed, and a re-deal during a reveal leaves it running.
+    - `deal()` is shared, so this applies on desktop too, where it is equally wanted. It also means "New game" on the
+      same seed no longer re-reveals: the old pieces just go.
   - The lineup probe records the board's box and the reveal flag on every animation frame. It runs while a sheet
     rises, a bot is picked, a seat is taken out and a seat is added; the old check sampled too sparsely to see this.
 - **Watching shows the whole game.** The curve draws everything the worker has played, ahead of the playhead as
   clearly as behind it, and seeks anywhere. Once the ending is in, it has the review's lettered decisive moves and
   point of no return. It used to stop at the furthest point watched, faint past the playhead. Desktop's strip
   already drew every frame.
+  - A drag stops short of a finished game's last frame, which is the ending. Only playing or stepping forward lands
+    there; a drag off the end used to throw you to the result screen, with no way back to where you were.
+  - A seek is not playback: Live returns to where the playback had got to, not to the furthest point dragged to.
 - **The review is one scroller.** The key-move list and the coach line inside it no longer scroll on their own.
-  Android Chrome (emulator, real touch) scrolled the review before and after this change; the report it fixes came
-  from a phone not yet identified.
+  The curve at the top of the panel was `touch-action: none`, so a swipe that started on it could never scroll; it is
+  now `pan-y`, so a sideways drag seeks and an upward swipe scrolls.
+  - Android Chrome (emulator, real touch) scrolled the review before and after this change, from a swipe that started
+    on the list. The phone the report came from is not yet identified.
 - **Your offer is built as two sides.** You give | You get, one card per kind with its count, sits between your hand
   and a row of the five resources. A hand card tapped leaves its stack for You give. A resource tapped below goes into
   You get. A card on either side tapped comes back, one at a time. The incoming offer and your offer on the table use
@@ -1245,6 +1252,9 @@ After playing M1–M7 on a phone (2026-10-13), four changes:
   - When the draft is exactly a legal maritime trade, Bank or Port stands where Offer would, since the bank always
     says yes.
   - The draft is a pure reducer (`drafts.ts`, `tapDraft`/`canTap`, checked).
+  - A hand stack that can't go into the offer (a kind you're asking for) is dimmed, like an ask you can't make.
+  - The cards size a side, not its label, so five kinds (the most there can be) fit at 360 wide with 44px targets.
+    The builder probe sets that draft and checks it.
 
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because

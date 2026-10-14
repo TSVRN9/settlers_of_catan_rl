@@ -152,12 +152,12 @@ const ZERO = [0, 0, 0, 0, 0];
 function Sides({ give, get, w, h, onGive, onGet, className = "", children }: {
   give: number[]; get: number[]; w: number; h: number; onGive?: (r: number) => void; onGet?: (r: number) => void; className?: string; children?: ReactNode;
 }) {
-  const side = (lab: string, counts: number[], tap: ((r: number) => void) | undefined, verb: string) => (
+  const side = (lab: string, counts: number[], tap: ((r: number) => void) | undefined, aria: (res: string) => string) => (
     <div className="side">
       <span className="lab">{lab}</span>
       <div className="cards" style={{ minHeight: h }}>
         {counts.some(Boolean) ? counts.map((n, r) => n > 0 && (tap
-          ? <button key={r} className="ph-tcard arrive" style={{ minHeight: h }} onClick={() => tap(r)} aria-label={`${verb} one ${RESOURCES[r].toLowerCase()}`}>
+          ? <button key={r} className="ph-tcard arrive" style={{ minHeight: h }} onClick={() => tap(r)} aria-label={aria(RESOURCES[r].toLowerCase())}>
               <Card resource={r} count={n} width={w} height={h} /></button>
           : <span key={r} className="ph-tcard"><Card resource={r} count={n} width={w} height={h} /></span>))
           : <span className="ph-slot cut5" style={{ width: w, height: h }} />}
@@ -166,8 +166,8 @@ function Sides({ give, get, w, h, onGive, onGet, className = "", children }: {
   );
   return (
     <div className={`ph-offer cut8 ${className}`}>
-      {side("You give", give, onGive, "Take back")}
-      {side("You get", get, onGet, "Ask for no more than")}
+      {side("You give", give, onGive, (x) => `Take back one ${x}`)}
+      {side("You get", get, onGet, (x) => `Ask for one ${x} less`)}
       {children}
     </div>
   );
