@@ -28,7 +28,7 @@
 .ph-seatrow b { font: 600 15px var(--font-sans); }
 .ph-seatrow small, .ph-pickrow small { font-size: 12px; color: var(--color-moss); }
 .ph-seatrow .chev { margin-left: auto; font-size: 22px; color: var(--color-moss); }
-.ph-lineup > .ph-btn { flex: 0 0 var(--btn-h); }
+.ph-lineup .ph-spacer { visibility: hidden; }
 .ph-lineup .ph-row { height: var(--btn-h); align-items: stretch; }
 .ph-switch { display: flex; align-items: center; gap: 8px; padding-right: 4px; font: 600 14px var(--font-sans); cursor: pointer; min-height: 44px; }
 .ph-scrim { position: absolute; inset: 0; z-index: 6; background: rgba(18, 33, 31, .28); display: flex; align-items: flex-end; }
@@ -171,8 +171,10 @@
 .ph-offer { flex: 1; min-height: 0; background: #fff; box-shadow: 0 8px 18px rgba(18,33,31,.14); display: flex; align-items: center; gap: 14px; padding: 6px 12px; }
 .ph-offer .side { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ph-offer .lab { font: 600 11.5px var(--font-sans); color: var(--color-moss); white-space: nowrap; }
-.ph-offer .cards { display: flex; }
-.ph-offer .cards > * + * { margin-left: -14px; }
+.ph-offer .cards { display: flex; align-items: flex-end; gap: 4px; }
+.ph-tcard { flex: 0 0 auto; min-width: 44px; display: inline-flex; align-items: flex-end; justify-content: center; border: 0; padding: 0; background: none; cursor: pointer; }
+span.ph-tcard { cursor: default; }
+.ph-slot { display: block; background: var(--color-paper); }
 .ph-offer .eff { margin-left: auto; display: grid; gap: 6px; }
 .ph-offer .eff > span { display: flex; align-items: center; gap: 8px; min-height: 16px; }
 .ph-offer .eff i { width: 9px; height: 9px; flex: 0 0 9px; }
@@ -180,14 +182,14 @@
 .ph-offer .up { color: #2e7d4f; } .ph-offer .dn { color: #a5452b; }
 
 /* ── your offer ── */
-.ph-builder-slab { display: flex; flex-direction: column; gap: 10px; }
-.ph-builder { flex: 1; min-height: 0; background: #fff; box-shadow: 0 8px 18px rgba(18,33,31,.14); display: flex; flex-direction: column;
-              justify-content: center; gap: 2px; padding: 0 8px; }
-.ph-builder .toks { display: flex; justify-content: space-between; }
-.ph-builder .sum { font: 600 12px var(--font-sans); color: var(--color-moss); min-height: 15px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The builder: your offer and Offer (or the bank's button) on top; the five resources to ask for and Back beneath. */
+.ph-builder-slab { display: grid; grid-template-columns: 1fr 84px; grid-template-rows: 1fr auto; gap: 6px; }
+.ph-builder-slab .ph-offer { min-width: 0; }
+.ph-builder-slab > .ph-btn { height: auto; min-height: 44px; }
+.ph-asks { display: flex; justify-content: space-between; min-width: 0; }
+.ph-asks .ph-tokbtn { flex: 1 1 0; min-width: 44px; width: auto; }
+.ph-tokbtn:disabled { cursor: default; }
 .ph-tokbtn { position: relative; border: 0; padding: 0; background: none; width: 52px; height: 44px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-.ph-tokbtn .n { position: absolute; right: 2px; top: 0; color: #fff; font: 700 11px var(--font-sans); padding: 1px 4px; }
-.ph-tokbtn .n.give { background: #a5452b; } .ph-tokbtn .n.get { background: #2e7d4f; }
 .ph-offer.out { box-shadow: none; opacity: .8; }
 .ph-sw { display: inline-block; width: 9px; height: 9px; margin-right: 7px; vertical-align: 1px; }
 .ph-answers { position: absolute; left: var(--gut); right: var(--gut); top: 100%; margin-top: 6px; display: flex; gap: 8px; pointer-events: none; }

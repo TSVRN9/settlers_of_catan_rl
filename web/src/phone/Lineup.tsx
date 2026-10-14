@@ -36,7 +36,8 @@ export default function PhoneLineup() {
           <i style={{ background: SEAT_FILL[n] }} /><span className="who"><b>Add a seat</b></span><span className="chev" aria-hidden="true">+</span>
         </button>
       )}
-      {back && <button className="ph-btn go ph-resume cut8" onClick={() => void resume()}>Back to the game</button>}
+      {/* Four rows whatever the seats, so taking one out doesn't grow the board's band and move it. */}
+      {n < 3 && <div className="ph-seatrow ph-spacer" aria-hidden="true" />}
       <div className="ph-row ph-switches">
         <label className="ph-switch"><input type="checkbox" role="switch" checked={s.evalShown} onChange={(e) => setEvalShown(e.target.checked)} />Eval</label>
         <label className="ph-switch"><input type="checkbox" role="switch" checked={s.sound} onChange={(e) => setSound(e.target.checked)} />Sound</label>
@@ -45,11 +46,14 @@ export default function PhoneLineup() {
           <label className="ph-switch"><input type="checkbox" role="switch" checked={s.haptics} onChange={(e) => setHaptics(e.target.checked)} />Haptics</label>
         )}
       </div>
+      {/* A game left behind comes back from the same row as Play, not a row of its own: picking a seat ends the
+          chance to go back, and a row going away would move the board. */}
       <div className="ph-row">
         <button className="ph-btn cut8" onClick={() => set({ seed: Math.floor(Math.random() * 1e6) })}>New board</button>
         <button className={`ph-btn ph-play cut8${back ? "" : " go"}`} disabled={s.status === "thinking" && !s.map} onClick={() => void start()}>
           {back ? "New game" : people ? "Play" : "Watch"}
         </button>
+        {back && <button className="ph-btn go ph-resume cut8" onClick={() => void resume()}>Resume</button>}
       </div>
       {open != null && (
         <div className="ph-scrim" onClick={close}>

@@ -90,11 +90,13 @@ export async function deal() {
     // (Not over a shared game that opened while this deal was in flight: its link stays in the address.)
     if (!get().film) history.replaceState({ crumbs: ["table"], step: null }, "", `#/g/${seed}`);
     // The reveal only happens now: `reveal` has to be set in the same breath as the map,
-    // or the board it animates does not exist yet to carry the class.
-    set({ map: g.map, view: g.view, legal: g.legal, dealt: { seed, n, kinds: s.lineup.map((b) => b.kind).join() }, reveal: !reduced(), status: "idle", frames: [frame(g.view, [])] });
+    // or the board it animates does not exist yet to carry the class. Only a new island is revealed: a seat added or
+    // taken out re-deals the same tiles, and dealing them again moved the whole board for nothing.
+    const fresh = JSON.stringify(s.map?.tiles) !== JSON.stringify(g.map.tiles);
+    set({ map: g.map, view: g.view, legal: g.legal, dealt: { seed, n, kinds: s.lineup.map((b) => b.kind).join() }, reveal: fresh && !reduced(), status: "idle", frames: [frame(g.view, [])] });
     const [ev, other] = shown(await live.evaluateAll(viewer(get())));
     set((cur) => ({ evals: ev, evalsOther: other, frames: cur.frames.length ? [{ ...cur.frames[0], evals: ev, evalsOther: other }] : [frame(g.view, ev, other)] }));
-    if (!reduced()) setTimeout(() => { if (get().map === g.map) set({ reveal: false }); }, DEAL_MS);
+    if (fresh && !reduced()) setTimeout(() => { if (get().map === g.map) set({ reveal: false }); }, DEAL_MS);
   } catch (e) {
     if (!isStale(e)) set({ status: "idle", error: String(e) });
   }

@@ -339,7 +339,7 @@ for (let i = 0; i < 40000; i++) {
     await sleep(300);
     const draft = await run(() => window.__app.get().offerDraft);
     const turned = draft.want.every((n, r) => n === s.trade[r]) && draft.give.every((n, r) => n === Math.min(s.trade[5 + r], s.hand[r]));
-    const builder = !!(await rect(".ph-builder"));
+    const builder = !!(await rect(".ph-builder-slab"));
     await shot("counter");
     await tapSel(".ph-builder-slab .ph-btn:not(.go)"); await sleep(600);
     const back = !!(await rect(".ph-offer"));
@@ -366,25 +366,35 @@ for (let i = 0; i < 40000; i++) {
     probe("offerIn", { slab, eff, lifted, accepted: accept, answered, ok: slab && eff === 2 && lifted > 0 && answered });
     continue;
   }
-  // Your offer: Trade opens the builder, a hand card gives, a token asks, Offer sends it; the answers come back
-  // under the chips; then trade with a taker, or withdraw.
+  // Your offer: Trade opens the builder, a hand card goes into "You give" (out of its stack, not lifted), a resource
+  // in the row beneath goes into "You get" (the one you give can't be asked for), a card on either side tapped comes
+  // back, Offer sends it; the answers come back under the chips; then trade with a taker, or withdraw.
   if (probes.builder == null && s.prompt === "PLAY_TURN" && !s.opening && s.legal.some((a) => a[0] === "OFFER_TRADE")
       && s.hand.some((n) => n > 0) && s.hand.some((n) => n === 0) && !s.legal.some((a) => a[0] === "ROLL")) {
     await sleep(600);
     await tapSel(".ph-build-slab .ph-row .ph-btn:not(.go)");
     await sleep(300);
-    const open = !!(await rect(".ph-builder"));
+    const open = !!(await rect(".ph-builder-slab"));
     const most = s.hand.indexOf(Math.max(...s.hand)), none = s.hand.indexOf(0);
+    const D = () => run(() => window.__app.get().offerDraft);
+    const B = () => run(() => ({ sides: [...document.querySelectorAll(".ph-builder-slab .side")].map((x) => x.querySelectorAll(".ph-tcard").length),
+                                 lifted: document.querySelectorAll(".ph-card.lifted").length,
+                                 asks: [...document.querySelectorAll(".ph-asks .ph-tokbtn")].map((b) => !b.disabled) }));
     await tapSel(`.ph-stack[data-res="${most}"]`); await sleep(150);
-    const toks = await run(() => [...document.querySelectorAll(".ph-tokbtn")].map((b) => { const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
-    if (toks[none]) await tap(...toks[none]);
-    await sleep(150);
-    const draft = await run(() => window.__app.get().offerDraft);
-    const lifted = await run(() => document.querySelectorAll(".ph-card.lifted").length);
+    await tapSel(`.ph-asks .ph-tokbtn:nth-child(${none + 1})`); await sleep(150);
+    const draft = await D(), shown = await B();
+    // Back again from each side, then in again.
+    await tapSel(".ph-builder-slab .side:nth-child(1) .ph-tcard"); await sleep(150);
+    await tapSel(".ph-builder-slab .side:nth-child(2) .ph-tcard"); await sleep(150);
+    const emptied = await D();
+    await tapSel(`.ph-stack[data-res="${most}"]`); await sleep(150);
+    await tapSel(`.ph-asks .ph-tokbtn:nth-child(${none + 1})`); await sleep(150);
     const enabled = await run(() => !document.querySelector(".ph-builder-slab .ph-btn.go")?.disabled);
     await shot("builder");
     await tapSel(".ph-builder-slab .ph-btn.go");
-    probe("builder", { open, draft, lifted, enabled, ok: open && draft.give[most] === 1 && draft.want[none] === 1 && lifted === 1 && enabled });
+    probe("builder", { open, draft, shown, emptied, enabled,
+                       ok: open && draft.give[most] === 1 && draft.want[none] === 1 && shown.sides.join() === "1,1" && shown.lifted === 0 && !shown.asks[most] && shown.asks[none]
+                           && emptied.give.every((n) => n === 0) && emptied.want.every((n) => n === 0) && enabled });
     let sawOut = false, badges = 0, traded = false, withdrew = false;
     for (let k = 0; k < 200; k++) {
       const x = await S();
@@ -521,21 +531,32 @@ try {
   const resumed = await L();
   await tapQ(".ph-back");
   const seat = behind.kinds.findIndex((k) => k !== "human");
-  // The board's box on every animation frame while the sheet rises and a seat is picked: the sheet's selected row,
-  // focused below the screen, once scrolled the whole shell up and back.
+  // The board on every animation frame while the sheet rises, a seat is picked (which ends the game behind, and its
+  // Resume), a seat is taken out and one added back (a re-deal of the same island): its box never moves and the deal
+  // is not replayed. The sheet's selected row, focused below the screen, once scrolled the whole shell up and back;
+  // Resume going away grew the board's band; a seat count change replayed the deal.
   await run(() => { window.__boxes = new Set(); window.__tracing = true;
-    const tick = () => { const b = document.querySelector("#board-layer svg")?.getBoundingClientRect(); window.__boxes.add(b ? `${b.x.toFixed(1)},${b.y.toFixed(1)},${b.width.toFixed(1)}` : "none"); if (window.__tracing) requestAnimationFrame(tick); };
+    const tick = () => { const b = document.querySelector("#board-layer svg")?.getBoundingClientRect();
+      window.__boxes.add(b ? `${b.x.toFixed(1)},${b.y.toFixed(1)},${b.width.toFixed(1)}${window.__app.get().reveal ? " dealing" : ""}` : "none"); if (window.__tracing) requestAnimationFrame(tick); };
     requestAnimationFrame(tick); });
   await tapQ(`.ph-seatrow[data-seat="${seat}"]`);
   const sheet = await L();
   (await checks()).small.forEach((x) => small.add(x));
   await shot("sheet");
+  await run(() => document.querySelector('.ph-pickrow[data-kind="random"]')?.scrollIntoView({ block: "nearest" })); await sleep(200);
   await tapQ('.ph-pickrow[data-kind="random"]');
   const picked = await L();
+  await tapQ(`.ph-seatrow[data-seat="${seat}"]`);
+  await run(() => document.querySelector(".ph-pickrow.out")?.scrollIntoView({ block: "nearest" })); await sleep(200);
+  await tapQ(".ph-pickrow.out");
+  const fewer = await L();
+  await tapQ(".ph-seatrow.add"); await sleep(600);
+  const again = await L();
   const boxes = await run(() => { window.__tracing = false; return [...window.__boxes]; });
-  probe("lineup", { behind: behind.resume, resumed: resumed.phase === "playing" && resumed.steps === behind.steps, sheet: sheet.sheet && sheet.sheetIn, picked: picked.kinds[seat], boxes: boxes.slice(0, 4),
-                    ok: behind.phase === "lineup" && behind.resume && resumed.phase === "playing" && resumed.steps === behind.steps && sheet.sheet && sheet.sheetIn && !picked.sheet && picked.kinds[seat] === "random" && boxes.length === 1 });
-  for (const [i, k] of picked.kinds.entries()) if (k === "human") { await tapQ(`.ph-seatrow[data-seat="${i}"]`); await tapQ('.ph-pickrow[data-kind="heuristic"]'); }
+  probe("lineup", { behind: behind.resume, resumed: resumed.phase === "playing" && resumed.steps === behind.steps, sheet: sheet.sheet && sheet.sheetIn, picked: picked.kinds[seat], seats: [fewer.n, again.n], boxes: boxes.slice(0, 4),
+                    ok: behind.phase === "lineup" && behind.resume && resumed.phase === "playing" && resumed.steps === behind.steps && sheet.sheet && sheet.sheetIn && !picked.sheet && picked.kinds[seat] === "random"
+                        && fewer.n === 3 && again.n === 4 && boxes.length === 1 });
+  for (const [i, k] of again.kinds.entries()) if (k === "human") { await tapQ(`.ph-seatrow[data-seat="${i}"]`); await tapQ('.ph-pickrow[data-kind="heuristic"]'); }
   await tapQ(".ph-play"); await sleep(4000);
   const w = await L();
   await shot("watch");

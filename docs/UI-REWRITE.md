@@ -1214,6 +1214,38 @@ Milestone 7 (`docs/superpowers/plans/2026-10-13-phone-m7-sound.md`) is sound and
   - **Probes.** `soundJump` jumps forward across set-downs a spectator hears, and `soundOff` plays a seated game with
     Sound off. Before, both could pass vacuously.
 
+After playing M1–M7 on a phone (2026-10-13), four changes:
+
+- **The board flew up and back when a seat sheet opened.** The sheet's selected row takes focus, and focus scrolls
+  the nearest scrollable box to show it. `overflow: hidden` still scrolls that way, and while the sheet rose the row
+  was below the screen, so the whole shell scrolled 550px and eased back. The shell is now `overflow: clip`, which
+  can't be scrolled at all. The row focuses with `preventScroll`, and the screen-reader live region no longer makes
+  the page 1px taller than the screen (with the shell clipped, the page itself took the scroll).
+  - Two more ways the lineup moved the board:
+    - "Back to the game" was a row of its own, and picking a bot ends the game behind, so the row went and the
+      board's band grew. It is now Resume, in the bottom row beside New board and New game.
+    - With two seats there was a row fewer. A hidden spacer now keeps four rows.
+  - Adding or removing a seat re-deals the same island, and that replayed the deal animation. Now only an island
+    whose tiles changed is revealed.
+  - The lineup probe records the board's box and the reveal flag on every animation frame. It runs while a sheet
+    rises, a bot is picked, a seat is taken out and a seat is added; the old check sampled too sparsely to see this.
+- **Watching shows the whole game.** The curve draws everything the worker has played, ahead of the playhead as
+  clearly as behind it, and seeks anywhere. Once the ending is in, it has the review's lettered decisive moves and
+  point of no return. It used to stop at the furthest point watched, faint past the playhead. Desktop's strip
+  already drew every frame.
+- **The review is one scroller.** The key-move list and the coach line inside it no longer scroll on their own.
+  Android Chrome (emulator, real touch) scrolled the review before and after this change; the report it fixes came
+  from a phone not yet identified.
+- **Your offer is built as two sides.** You give | You get, one card per kind with its count, sits between your hand
+  and a row of the five resources. A hand card tapped leaves its stack for You give. A resource tapped below goes into
+  You get. A card on either side tapped comes back, one at a time. The incoming offer and your offer on the table use
+  the same two sides in the same order.
+  - Before, one row of tokens carried both −n and +n. A tap there took a given card back or asked for one more,
+    cycling 0→3→0, and a hand tap on a resource you were asking for did nothing.
+  - When the draft is exactly a legal maritime trade, Bank or Port stands where Offer would, since the bank always
+    says yes.
+  - The draft is a pure reducer (`drafts.ts`, `tapDraft`/`canTap`, checked).
+
 M1 shipped no artboard below 1024px on purpose — "this needs a wider window" rather than a
 guessed layout. This section settles that layout in prose rather than in the canvas, because
 there is no phone artboard for prose to drift from: the "artboard is the spec" rule (recorded
