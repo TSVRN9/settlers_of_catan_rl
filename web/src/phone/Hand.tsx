@@ -11,7 +11,7 @@ import { act } from "../game";
 import { playing, set, useApp } from "../store";
 import { held, heldAction } from "../waiting";
 import { pct, useMetrics } from "./usePhone";
-import { inSlots, lifted } from "./drafts";
+import { away, canTap, lifted, tapDraft } from "./drafts";
 import { pickDiscard, useSlabMode } from "./Slab";
 
 const DEEP = 4, STEP = 5, LIFT = 30;
@@ -54,27 +54,26 @@ export function Hand() {
   const me = v.players[s.human];
   const mode = useSlabMode();
   const cost = lifted({ mode, cost: spending(s), give: s.offerDraft.give, asked: v.prompt === "DECIDE_TRADE" ? v.current_trade.slice(5, 10) : null });
-  const slotted = mode === "discard" ? inSlots(s.discardPick) : null;
+  const gone = away(mode, s.offerDraft.give, s.discardPick);
   const mine = playing(s) && v.current_player === s.human && s.step == null && s.pendingHandoff == null;
   // The pile lifts when a card in it can be played, and opens into the slab on your turn (phone/Slab.tsx DevSheet).
   const plays = mine ? s.legal.filter((a) => (PLAY as readonly (string | null)[]).includes(a[0])) : [];
   const sheetable = mine && v.prompt === "PLAY_TURN" && !v.is_resolving_trade;
   const kinds = me.devs.flatMap((n, k) => (n > 0 ? [k] : []));
   const dw = Math.round(cw * 0.8), dh = Math.round(ch * 0.84), step = 8;
-  // In the builder a stack gives one card to the offer; in a discard it puts one in the next slot.
-  const tap = mode === "builder" ? (r: number) => {
-    const { give, want } = s.offerDraft;
-    if (give[r] >= me.hand[r] || want[r] > 0) return;
-    set({ offerDraft: { give: give.map((n, i) => (i === r ? n + 1 : n)), want } });
-  } : mode === "discard" ? (r: number) => pickDiscard(r) : null;
+  // In the builder a stack puts one card in your offer (only while it can: none of a kind you're asking for); in a
+  // discard it puts one in the next slot.
+  const tap = mode === "builder" ? (r: number) => set({ offerDraft: tapDraft(s.offerDraft, me.hand, "give", r) })
+    : mode === "discard" ? (r: number) => pickDiscard(r) : null;
+  const tapOf = (r: number) => (mode === "builder" && !canTap(s.offerDraft, me.hand, "give", r) ? null : tap);
   return (
     <div className="ph-hand" style={{ height: ch + (DEEP - 1) * STEP }}>
       {me.hand.map((n, r) => {
-        const have = n - (slotted?.[r] ?? 0);
+        const have = n - gone[r];
         const need = cost[r], up = Math.min(need, have), short = need - up, rest = have - up;
         const shown = Math.min(rest, DEEP);
         return (
-          <Stack key={r} r={r} tap={tap} verb={mode === "discard" ? "Discard" : "Give"} style={{ width: cw, height: ch, marginTop: Math.max(Math.min(have, DEEP) - 1, 0) * STEP }}>
+          <Stack key={r} r={r} tap={tapOf(r)} verb={mode === "discard" ? "Discard" : "Give"} style={{ width: cw, height: ch, marginTop: Math.max(Math.min(have, DEEP) - 1, 0) * STEP }}>
             {Array.from({ length: shown }, (_, i) => (
               <span key={i} className="ph-card" style={{ top: -(shown - 1 - i) * STEP, filter: i < shown - 1 ? "brightness(.93)" : undefined }}>
                 <Card resource={r} count={i === shown - 1 ? rest : undefined} width={cw} height={ch} />

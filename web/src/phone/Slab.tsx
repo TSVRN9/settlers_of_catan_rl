@@ -1,16 +1,16 @@
 // The slab under your hand: one footprint whose job changes with the phase (phone/slab.ts decides which).
 // Milestone 1 designs the roll, building and someone else's turn; every other position falls back to a list
 // of its legal actions, so a whole game can be played on a phone before those phases get their own design.
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { act, live } from "../game";
 import Card from "../board/Card";
 import { newsworthy, narrate } from "../coach";
 import { SEAT_FILL } from "../board/palette";
-import { bankFor, bundleText, canOffer, DEV_CARDS, fmtDelta, label, packBundle, RESOURCES, SEAT_NAMES } from "../labels";
+import { bankFor, canOffer, DEV_CARDS, fmtDelta, label, packBundle, RESOURCES, SEAT_NAMES } from "../labels";
 import { devChoices, devStep } from "../devpick";
 import { rowAt } from "../review";
 import { get, playing, set, useApp, viewer, you } from "../store";
-import { canPick, inSlots } from "./drafts";
+import { canPick, canTap, inSlots, tapDraft, type DraftTap } from "./drafts";
 import { held } from "../waiting";
 import { Die } from "../views/Tray";
 import { PieceIcon } from "../views/Build";
@@ -122,14 +122,10 @@ function OfferIn() {
   }, [key, s.evalShown, s.showHidden]);  // eslint-disable-line react-hooks/exhaustive-deps
   const accept = s.legal.find((a) => a[0] === "ACCEPT_TRADE"), reject = s.legal.find((a) => a[0] === "REJECT_TRADE");
   const counter = s.legal.some((a) => a[0] === "OFFER_TRADE");
-  const w = Math.round(cw * 0.8), h = Math.round(ch * 0.8);
-  const cards = (counts: number[]) => counts.flatMap((n, r) => Array.from({ length: n }, (_, k) => <Card key={`${r}.${k}`} resource={r} width={w} height={h} />));
   const eff = (seat: number) => (after?.key === key && s.evals[seat] ? after.evals[seat].win - s.evals[seat].win : null);
   return (
     <div className="ph-offer-slab">
-      <div key={key} className="ph-offer cut8 arrive">
-        <div className="side"><span className="lab">You get</span><div className="cards">{cards(t.slice(0, 5))}</div></div>
-        <div className="side"><span className="lab">You give</span><div className="cards">{cards(t.slice(5, 10))}</div></div>
+      <Sides key={key} className="arrive" give={t.slice(5, 10)} get={t.slice(0, 5)} w={Math.round(cw * 0.8)} h={Math.round(ch * 0.8)}>
         {s.evalShown && (
           <div className="eff">
             {[s.human, from].map((seat) => {
@@ -138,7 +134,7 @@ function OfferIn() {
             })}
           </div>
         )}
-      </div>
+      </Sides>
       <div className="ph-row ph-answer" style={{ height: btnH }}>
         {reject && <button className="ph-btn cut8" onClick={() => { set({ mutedSeat: from, mutedBy: s.human, mutedTurn: v.num_turns }); void act(reject); }}>Ignore {SEAT_NAMES[from]}</button>}
         <button className="ph-btn cut8" disabled={!reject} onClick={() => reject && void act(reject)}>Decline</button>
@@ -151,49 +147,64 @@ function OfferIn() {
 
 const ZERO = [0, 0, 0, 0, 0];
 
-/** Your offer, built: one row of the five resources. A tap on a hand card gives it (it lifts, and its token
- *  reads −n); a tap on a token takes a given card back, or else asks for one more of it (+n, up to 3, then
- *  back to none). One row rather than two so it fits a short phone's slab at 44px a target. The bank or a
- *  port appears beside Offer only when the draft is exactly a trade the engine allows. */
+/** An offer as two sides, always yours first: what you give, what you get. One card per kind with its count; on a
+ *  side that takes taps, a card tapped comes back one at a time. An empty side holds an empty slot. */
+function Sides({ give, get, w, h, onGive, onGet, className = "", children }: {
+  give: number[]; get: number[]; w: number; h: number; onGive?: (r: number) => void; onGet?: (r: number) => void; className?: string; children?: ReactNode;
+}) {
+  const side = (lab: string, counts: number[], tap: ((r: number) => void) | undefined, verb: string) => (
+    <div className="side">
+      <span className="lab">{lab}</span>
+      <div className="cards" style={{ minHeight: h }}>
+        {counts.some(Boolean) ? counts.map((n, r) => n > 0 && (tap
+          ? <button key={r} className="ph-tcard arrive" style={{ minHeight: h }} onClick={() => tap(r)} aria-label={`${verb} one ${RESOURCES[r].toLowerCase()}`}>
+              <Card resource={r} count={n} width={w} height={h} /></button>
+          : <span key={r} className="ph-tcard"><Card resource={r} count={n} width={w} height={h} /></span>))
+          : <span className="ph-slot cut5" style={{ width: w, height: h }} />}
+      </div>
+    </div>
+  );
+  return (
+    <div className={`ph-offer cut8 ${className}`}>
+      {side("You give", give, onGive, "Take back")}
+      {side("You get", get, onGet, "Ask for no more than")}
+      {children}
+    </div>
+  );
+}
+
+/** Your offer, built between your hand and the five resources: a hand card tapped goes into "You give", a resource
+ *  tapped in the row underneath goes into "You get", and a card on either side tapped comes back. When the draft is
+ *  exactly a trade the bank or a port takes, that button stands where Offer would: the bank always says yes. */
 function Builder() {
   const s = useApp();
   const v = s.view!;
-  const { btnH } = useMetrics();
+  const { cw, ch } = useMetrics();
   const hand = v.players[s.human].hand;
-  const { give, want } = s.offerDraft;
-  const draft = (g: number[], w: number[]) => set({ offerDraft: { give: g, want: w } });
-  const tapToken = (r: number) => {
-    if (give[r] > 0) { draft(give.map((n, i) => (i === r ? n - 1 : n)), want); return; }
-    const next = want[r] >= 3 ? 0 : want[r] + 1;
-    draft(give, want.map((n, i) => (i === r ? next : n)));
-  };
-  const ok = s.legal.some((a) => a[0] === "OFFER_TRADE") && canOffer(give, want, hand, v.spent_offers);
+  const d = s.offerDraft;
+  const tap = (t: DraftTap) => (r: number) => set({ offerDraft: tapDraft(d, hand, t, r) });
+  const ok = s.legal.some((a) => a[0] === "OFFER_TRADE") && canOffer(d.give, d.want, hand, v.spent_offers);
   // The bank, only for exactly the trade the draft spells: k of one kind for one of another, at the engine's rate.
-  const gives = give.flatMap((n, r) => (n > 0 ? [r] : []));
-  const bank = gives.length === 1 ? bankFor(want, s.legal).find((a) => a[1] === gives[0] && a[2] === give[gives[0]]) : undefined;
+  const gives = d.give.flatMap((n, r) => (n > 0 ? [r] : []));
+  const bank = gives.length === 1 ? bankFor(d.want, s.legal).find((a) => a[1] === gives[0] && a[2] === d.give[gives[0]]) : undefined;
   const close = () => set({ offering: false, offerDraft: { give: ZERO, want: ZERO } });
   return (
     <div className="ph-builder-slab">
-      <div className="ph-builder cut8">
-        <div className="toks">
-          {ZERO.map((_, r) => {
-            const n = give[r] ? -give[r] : want[r];
-            return (
-              <button key={r} className="ph-tokbtn" onClick={() => tapToken(r)}
-                      aria-label={give[r] ? `Give one less ${RESOURCES[r].toLowerCase()}` : want[r] >= 3 ? `Ask for no ${RESOURCES[r].toLowerCase()}` : `Ask for one more ${RESOURCES[r].toLowerCase()}`}>
-                <Token r={r} have={n !== 0 || hand[r] > 0} w={26} />
-                {n !== 0 && <span className={`n num ${n < 0 ? "give" : "get"}`}>{n < 0 ? `−${-n}` : `+${n}`}</span>}
-              </button>
-            );
-          })}
-        </div>
-        <span className="sum">{give.some(Boolean) && want.some(Boolean) ? `${bundleText(give)} for ${bundleText(want)}` : ""}</span>
+      <Sides give={d.give} get={d.want} w={Math.round(cw * 0.8)} h={Math.round(ch * 0.8)} onGive={tap("ungive")} onGet={tap("unask")} />
+      {bank
+        ? <button className="ph-btn go cut8" onClick={() => void act(bank)}>{bank[2] === 4 ? "Bank" : "Port"} {bank[2]}:1</button>
+        : <button className="ph-btn go cut8" disabled={!ok} onClick={() => void act(["OFFER_TRADE", packBundle(d.give), packBundle(d.want), -1])}>Offer</button>}
+      <div className="ph-asks">
+        {ZERO.map((_, r) => {
+          const can = canTap(d, hand, "ask", r);
+          return (
+            <button key={r} className="ph-tokbtn" disabled={!can} onClick={() => tap("ask")(r)} aria-label={`Ask for one ${RESOURCES[r].toLowerCase()}`}>
+              <Token r={r} have={can} w={28} />
+            </button>
+          );
+        })}
       </div>
-      <div className="ph-row" style={{ height: btnH }}>
-        <button className="ph-btn cut8" onClick={close}>Back</button>
-        {bank && <button className="ph-btn cut8" onClick={() => void act(bank)}>{bank[2] === 4 ? "Bank" : "Port"} {bank[2]}:1</button>}
-        <button className="ph-btn go cut8" disabled={!ok} onClick={() => void act(["OFFER_TRADE", packBundle(give), packBundle(want), -1])}>Offer</button>
-      </div>
+      <button className="ph-btn cut8" onClick={close}>Back</button>
     </div>
   );
 }
@@ -207,14 +218,9 @@ function OfferOut() {
   const t = v.current_trade;
   const confirms = s.legal.filter((a) => a[0] === "CONFIRM_TRADE");
   const cancel = s.legal.find((a) => a[0] === "CANCEL_TRADE");
-  const w = Math.round(cw * 0.7), h = Math.round(ch * 0.7);
-  const cards = (counts: number[]) => counts.flatMap((n, r) => Array.from({ length: n }, (_, k) => <Card key={`${r}.${k}`} resource={r} width={w} height={h} />));
   return (
     <div className="ph-offer-slab">
-      <div className="ph-offer out cut8">
-        <div className="side"><span className="lab">You give</span><div className="cards">{cards(t.slice(0, 5))}</div></div>
-        <div className="side"><span className="lab">You get</span><div className="cards">{cards(t.slice(5, 10))}</div></div>
-      </div>
+      <Sides className="out" give={t.slice(0, 5)} get={t.slice(5, 10)} w={Math.round(cw * 0.7)} h={Math.round(ch * 0.7)} />
       <div className="ph-row" style={{ height: btnH }}>
         {confirms.map((a) => (
           <button key={a[1]} className="ph-btn go cut8" onClick={() => void act(a)}>
