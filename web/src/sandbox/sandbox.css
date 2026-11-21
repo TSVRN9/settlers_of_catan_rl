@@ -66,3 +66,8 @@
 .sb-log .ph-pickrow.bad { box-shadow: inset 3px 0 0 #a5452b; }
 .sb-log .ph-pickrow.bad small { color: #a5452b; }
 .ph-sheet .ph-pickrow .card { flex: 0 0 auto; }
+.sb-hand { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px var(--gut) 0; font: 700 14px var(--font-sans); }
+.sb-hand > span { display: inline-flex; align-items: center; gap: 5px; }
+.sb-hand i { width: 12px; height: 16px; flex: 0 0 12px; }
+.sb-hand .gap { margin-left: auto; }
+.sb-hand .card { padding: 0 !important; }

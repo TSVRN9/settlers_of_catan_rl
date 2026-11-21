@@ -146,21 +146,37 @@ await tap(".ph-sheet .sb-cards .card");
 await shot("8-trade");
 await tap(".ph-sheet .ph-btn", "Clear");
 // close the sheet
+await wait(500);
 await run(() => document.querySelector(".ph-scrim").click());
 await wait(200);
 await tap(".sb-turn .ph-btn", "End turn"); await settle();
 
-// ── a seven: robber on the board, then whom to rob
-await tap(".sb-dice .ph-btn", "7"); await settle();
-let v = await run(() => document.querySelector(".ph-title").textContent);
-if (/discards/.test(v)) {
-  // whoever has to discard: pick cards until the button says it's done
-  for (let k = 0; k < 4 && /discards/.test(await run(() => document.querySelector(".ph-title").textContent)); k++) {
-    const need = Number((await run(() => document.querySelector(".ph-title").textContent)).match(/discards (\d+)/)[1]);
-    for (let j = 0; j < need; j++) await tap(".sb-col .sb-cards .card");
-    await tap(".sb-col .ph-btn.go"); await settle();
-  }
+// ── rolls until a seat holds 8+, then a seven: discards (the cards each seat really holds, from the dev handle),
+// then the robber and whom to rob
+const title = () => run(() => document.querySelector(".ph-title").textContent);
+for (let k = 0; k < 40; k++) {
+  const most = await run(() => Math.max(...window.__sandbox.sim.view.players.map((p) => p.hand.reduce((a, b) => a + b, 0))));
+  if (most >= 8) break;
+  await tap(".sb-dice .ph-btn", String([6, 8, 5, 9, 10, 4][k % 6])); await settle();
+  await tap(".sb-turn .ph-btn", "End turn"); await settle();
 }
+await tap(".sb-dice .ph-btn", "7"); await settle();
+let discarded = 0;
+for (let k = 0; k < 4 && /discards/.test(await title()); k++) {
+  await check("discard");
+  await shot("8b-discard");
+  const hand = await run(() => { const v = window.__sandbox.sim.view; return v.players[v.current_player].hand; });
+  const need = Number((await title()).match(/discards (\d+)/)[1]);
+  for (let j = 0, r = 0; j < need; j++) {
+    while (hand[r] === 0) r++;
+    hand[r]--;
+    const xy = await run((r) => { const c = document.querySelectorAll(".sb-col .sb-cards .card")[r].getBoundingClientRect(); return [c.x + c.width / 2, c.y + c.height / 2]; }, r);
+    await tapAt(xy[0], xy[1]);
+  }
+  await tap(".sb-col .ph-btn.go"); await settle();
+  discarded++;
+}
+assert.ok(discarded > 0, "someone discarded");
 await check("robber");
 await shot("9-robber");
 const before = (await session()).log.length;
@@ -168,29 +184,76 @@ const xy = await socket();
 await tapAt(xy[0], xy[1]); await wait(400);
 // a victim chip, if the tile had one
 const chip = await socket();
-if (chip && (await run(() => document.querySelector(".ph-title").textContent.includes("robber")))) { await tapAt(chip[0], chip[1]); await wait(400); }
-if (await run(() => !!document.querySelector(".ph-sheet"))) { await check("steal sheet"); await tap(".ph-sheet .card"); }
+if (chip && /robber/.test(await title())) {
+  await tapAt(chip[0], chip[1]);
+  // the click a phone sends after the touch, on whatever is now under the finger
+  await run((xy) => document.elementFromPoint(xy[0], xy[1])?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: xy[0], clientY: xy[1] })), chip);
+  await wait(400);
+}
+if (await run(() => !!document.querySelector(".ph-sheet"))) {
+  await check("steal sheet");
+  await shot("9b-steal");
+  // the card you took: one the victim holds (another is turned away, with the engine's reason)
+  const victim = await run(() => { const t = document.querySelector(".ph-sheet .hd .d").textContent; return ["Red", "Blue", "Orange", "White"].findIndex((n) => t.startsWith(n)); });
+  const r = await run((v) => window.__sandbox.sim.view.players[v].hand.findIndex((c) => c > 0), victim);
+  const xy = await run((r) => { const c = document.querySelectorAll(".ph-sheet .card")[r].getBoundingClientRect(); return [c.x + c.width / 2, c.y + c.height / 2]; }, r);
+  await tapAt(xy[0], xy[1]);
+}
 await settle();
+if ((await session()).log.length <= before) { await shot("9x-robber-failed"); console.error(await title(), await run(() => document.querySelector(".ph-err")?.textContent)); }
 assert.ok((await session()).log.length > before, "the robber moved");
 
-// ── undo, the log, a reload
+// ── undo, the log, a roll fixed from it, a deleted entry, a file loaded, a reload
 const n0 = (await session()).log.length;
 await tap(".sb-icon[aria-label=Undo]"); await settle();
 assert.ok((await session()).log.length < n0, "undo");
-await tap(".sb-icon[aria-label=Menu]"); await wait(300);
-await tap(".ph-sheet .ph-pickrow", (await run(() => document.querySelector(".ph-sheet .ph-pickrow").textContent.trim())));
-await wait(300);
+const openLog = async () => {
+  await tap(".sb-icon[aria-label=Menu]"); await wait(300);
+  await tap(".ph-sheet .ph-pickrow", await run(() => document.querySelector(".ph-sheet .ph-pickrow").textContent.trim()));
+  await wait(300);
+};
+await openLog();
 await check("log");
 await shot("10-log");
-await run(() => document.querySelector(".ph-scrim").click());
+const ss = await session();
+const ri = ss.log.findIndex((e) => e.a[0] === "ROLL");
+{
+  const gs = [...new Set(ss.log.map((e) => e.g))];
+  const row = gs.length - 1 - gs.indexOf(ss.log[ri].g);   // the log lists the latest first
+  const xy = await run((k) => { const r = document.querySelectorAll(".sb-log .ph-pickrow")[k]; r.scrollIntoView({ block: "center" }); const b = r.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }, row);
+  await tapAt(xy[0], xy[1]); await wait(300);
+}
+await check("entry");
+await shot("10b-entry");
+const was = ss.log[ri].o[0] + ss.log[ri].o[1];
+const other = was === 6 ? "8" : "6";
+await tap(".ph-sheet .sb-dice .ph-btn", other); await settle();
+const fixedRoll = (await session()).log[ri].o;
+assert.equal(fixedRoll[0] + fixedRoll[1], Number(other), "a roll fixed from the log");
+await shot("10c-fixed");
+const n2 = (await session()).log.length;
+await openLog();
+await tap(".sb-log .ph-pickrow"); await wait(300);
+await tap(".ph-sheet .ph-pickrow.out"); await settle();
+assert.ok((await session()).log.length < n2, "an entry deleted from the log");
+const saved = path.join(OUT, "sandbox-saved.json");
+writeFileSync(saved, JSON.stringify({ ...ss, log: ss.log.slice(0, 20) }));
+await tap(".sb-icon[aria-label=Menu]"); await wait(300);
+{
+  const { root } = await cdp("DOM.getDocument");
+  const { nodeId } = await cdp("DOM.querySelector", { nodeId: root.nodeId, selector: ".ph-sheet input[type=file]" });
+  await cdp("DOM.setFileInputFiles", { nodeId, files: [saved] });
+}
+await wait(1500); await settle();
+assert.equal((await session()).log.length, 20, "a session loaded from a file");
 const n1 = (await session()).log.length;
-const title1 = await run(() => document.querySelector(".ph-title").textContent);
+const title1 = await title();
 await cdp("Page.reload"); await wait(3000); await settle();
 assert.equal((await session()).log.length, n1, "the session survives a reload");
-assert.equal(await run(() => document.querySelector(".ph-title").textContent), title1, "and replays to the same position");
+assert.equal(await title(), title1, "and replays to the same position");
 await check("reloaded");
 await shot("11-reloaded");
 
 proc.kill();
-console.log(JSON.stringify({ size: `${W}x${H}`, checks, entries: n1, issues: [...issues], pageErrors }, null, 1));
+console.log(JSON.stringify({ size: `${W}x${H}`, checks, entries: n1, discarded, issues: [...issues], pageErrors }, null, 1));
 if (issues.size || pageErrors.length) process.exit(1);

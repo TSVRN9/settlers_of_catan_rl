@@ -42,7 +42,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
           node tools/smoke.mjs
-          node tools/sandbox_check.mjs
+          node --experimental-strip-types tools/sandbox_check.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

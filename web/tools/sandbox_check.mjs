@@ -2,7 +2,8 @@
 // as one seat would see it at the table (other seats' steals between each other and their bought cards unseen), must
 // replay to the real position on everything that seat can know, through undo, a deleted entry, a corrected roll and a
 // save/load round trip; a mistyped entry is caught at its own index; the readings and the advice come back.
-// `node tools/sandbox_check.mjs` after `pnpm build:wasm` (Node 22.18+: it imports session.ts as it ships).
+// `node --experimental-strip-types tools/sandbox_check.mjs` after `pnpm build:wasm` (it imports session.ts as it ships;
+// the flag is a no-op from Node 22.18 and needed from 22.6).
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";

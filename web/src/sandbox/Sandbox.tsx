@@ -75,6 +75,10 @@ export default function Sandbox() {
   const [robTile, setRobTile] = useState<number | null>(null);
   const [mark, setMark] = useState<Canon | null>(null);
   const hints = useRef<[number, number][]>([]);
+  // A sheet opened by a tap on the board appears under the finger, and the click a phone sends after the touch would
+  // land on its scrim and close it at once: the scrim ignores clicks for a moment after a sheet opens.
+  const openedAt = useRef(0);
+  useEffect(() => { if (sheet) openedAt.current = Date.now(); }, [sheet?.kind]);  // eslint-disable-line react-hooks/exhaustive-deps
   const gen = useRef(0);
 
   /** Show `next`: replay it, and keep it only if it fits — when `strictFrom` is given, entries from that index on
@@ -117,6 +121,8 @@ export default function Sandbox() {
   if (!session.started) return <Setup session={session} onChange={(s) => void commit(s)} onBack={back} flash={flash} />;
   if (!sim) return <div className="ph sb"><Top title="Sandbox" onBack={back} /></div>;
 
+  // the probe's handle (tools/sandbox_phone.mjs), as main.tsx's `__app`
+  if (import.meta.env.DEV) (globalThis as unknown as { __sandbox: unknown }).__sandbox = { sim, session };
   const v = sim.view, map = sim.map, you = session.you, cur = v.current_player;
   const pl = v.players[cur];
   const rolled = pl.has_rolled;
@@ -165,6 +171,13 @@ export default function Sandbox() {
             </div>
           );
         })}
+      </div>
+      <div className="sb-hand" aria-label="Your hand">
+        {RES5.map((r) => <span key={r} className="num" title={RESOURCES[r]}><i style={{ background: RES_FILL[r] }} />{v.players[you].hand[r]}</span>)}
+        <span className="gap" />
+        {[0, 1, 2, 3, 4].filter((d) => v.players[you].devs[d] > 0).map((d) => (
+          <span key={`d${d}`} className="num dev" title={DEV_CARDS[d]}><Card dev={d} width={16} height={22} />{v.players[you].devs[d]}</span>
+        ))}
       </div>
       <div className="ph-board">
         <div className="sb-anchor">
@@ -225,7 +238,7 @@ export default function Sandbox() {
       </div>
 
       {sheet && (
-        <div className="ph-scrim" onClick={() => setSheet(null)}>
+        <div className="ph-scrim" onClick={() => { if (Date.now() - openedAt.current > 450) setSheet(null); }}>
           <div className="ph-sheet cut" role="dialog" onClick={(e) => e.stopPropagation()}>
             <SheetBody key={sheet.kind} sheet={sheet} session={session} sim={sim} cur={cur} you={you} close={() => setSheet(null)} setSheet={setSheet}
                        enter={enter} commit={commit} setFlash={setFlash} />
