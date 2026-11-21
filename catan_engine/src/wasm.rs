@@ -8,6 +8,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::actions::{from_canon, to_canon, Action, Canon};
 use crate::compact;
+use crate::map::Map;
+use crate::sandbox;
 use crate::apply::Outcome;
 use crate::drrl::{Drrl, Variant as DrrlVariant, N_IN as DRRL_N_IN};
 use crate::jsettler::brain::Jsettler;
@@ -87,6 +89,52 @@ pub fn compact_to_record(bytes: &[u8]) -> Result<String, JsValue> {
     Ok(json!({"seed": seed, "n": n, "log": log.iter().map(|(a, o)| json!([canon_json(*a), [o.0, o.1]])).collect::<Vec<_>>()}).to_string())
 }
 
+/// A sandbox board, `{"tiles": [[resource, number] by tile id], "ports": [resource by port id]}`, as a fresh game with
+/// the robber on the desert; the state's random stream comes from `seed` the way `compact::new_state`'s does.
+fn board_state(b: &Value, seed: u32, n: usize) -> Result<State, JsValue> {
+    let tiles = b["tiles"].as_array().filter(|t| t.len() == 19).ok_or("board.tiles: 19 [resource, number]")?;
+    let ports = b["ports"].as_array().filter(|p| p.len() == 9).ok_or("board.ports: 9 resources")?;
+    let int = |v: &Value| v.as_i64().ok_or_else(|| err("board: numbers only"));
+    let mut res = [0i8; 19];
+    let mut num = [0u8; 19];
+    for (t, tile) in tiles.iter().enumerate() {
+        res[t] = int(&tile[0])?.clamp(-1, 4) as i8;
+        num[t] = int(&tile[1])?.clamp(0, 12) as u8;
+    }
+    let mut port = [0i8; 9];
+    for (i, p) in ports.iter().enumerate() {
+        port[i] = int(p)?.clamp(-1, 4) as i8;
+    }
+    let map = Map::from_board(&res, &num, &port, &layout()).map_err(err)?;
+    Ok(State::new(Arc::new(map), n, (seed as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x5851_F42D_4C95_7F2D, 10))
+}
+
+/// A sandbox session `{board, n, seed, log: [[action, [a, b] | null, took?], ...], hints?}` (sandbox.rs; `hints` the
+/// outcomes a previous resolve gave, tried first) resolved: `{log}` as
+/// `Engine.replay` takes it, every hidden outcome typed, as far as it replays, and `fault: {at, message}` at the first
+/// entry no typing makes legal, or null.
+#[wasm_bindgen]
+pub fn sandbox_resolve(session: &str) -> Result<String, JsValue> {
+    let v: Value = serde_json::from_str(session).map_err(err)?;
+    let seed = v["seed"].as_u64().ok_or("session.seed")? as u32;
+    let n = v["n"].as_u64().unwrap_or(4).clamp(2, 4) as usize;
+    let start = board_state(&v["board"], seed, n)?;
+    let log = v["log"].as_array().ok_or("session.log")?;
+    let entries = log
+        .iter()
+        .map(|e| {
+            let outcome = e[1].as_array().map(|o| (o[0].as_i64().unwrap_or(-1) as i32, o[1].as_i64().unwrap_or(-1) as i32));
+            let took = e[2].as_array().map(|k| std::array::from_fn(|i| k.get(i).and_then(|x| x.as_i64()).unwrap_or(0) as i32));
+            Ok(sandbox::Entry { action: canon_from_json(&e[0])?, outcome, took })
+        })
+        .collect::<Result<Vec<_>, String>>()
+        .map_err(err)?;
+    let hints: Vec<Outcome> = v["hints"].as_array().map_or(vec![], |h| h.iter().map(|o| (o[0].as_i64().unwrap_or(-1) as i32, o[1].as_i64().unwrap_or(-1) as i32)).collect());
+    let (_, outs, fault) = sandbox::resolve(&start, &entries, &hints);
+    let log: Vec<Value> = entries.iter().zip(&outs).map(|(e, o)| json!([canon_json(e.action), [o.0, o.1]])).collect();
+    Ok(json!({"log": log, "fault": fault.map(|f| json!({"at": f.at, "message": f.message}))}).to_string())
+}
+
 #[wasm_bindgen]
 pub struct Engine {
     state: State,
@@ -114,6 +162,9 @@ impl Engine {
         let seed = v["seed"].as_u64().ok_or("record.seed")? as u32;
         let n = v["n"].as_u64().unwrap_or(4) as usize;
         let mut e = Engine::new(seed, n);
+        if !v["board"].is_null() {
+            e.state = board_state(&v["board"], seed, n)?;
+        }
         let log = log_from_json(&v)?;
         let take = if steps < 0 { log.len() } else { (steps as usize).min(log.len()) };
         for &(a, o) in &log[..take] {
@@ -397,6 +448,12 @@ impl Engine {
     }
 
     /// {seed, n, log: [[action, [a, b]], ...]} — enough to reproduce the game exactly (see replay()).
+    /// Every place the seat on move could put a road, settlement, city or the robber if it held the cards
+    /// (sandbox.rs `placements`): the sandbox's sockets for a seat whose hand it can't see.
+    pub fn placements(&self) -> String {
+        Value::Array(sandbox::placements(&self.state).into_iter().map(canon_json).collect()).to_string()
+    }
+
     pub fn record(&self) -> String {
         json!({"seed": self.seed, "n": self.n, "log": self.log.iter().map(|(a, o)| json!([canon_json(*a), [o.0, o.1]])).collect::<Vec<_>>()}).to_string()
     }

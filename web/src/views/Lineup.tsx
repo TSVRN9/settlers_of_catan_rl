@@ -130,6 +130,8 @@ export default function Lineup() {
         </button>
       )}
 
+      <a className="act cut8" href="#/sandbox" style={{ marginTop: 8, width: "100%", display: "flex", justifyContent: "center", textDecoration: "none", boxSizing: "border-box" }}>Sandbox</a>
+
       {s.error && <div className="cap" style={{ marginTop: 12, color: "var(--color-warn)" }}>{s.error}</div>}
       {s.linkBroken && <div className="cap" role="alert" style={{ marginTop: 12, color: "var(--color-warn)" }}>That link isn't a game.</div>}
 

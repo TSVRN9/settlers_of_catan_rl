@@ -19,6 +19,7 @@
 
 /* ── the lineup ── */
 .ph-word { flex: 0 0 44px; display: flex; align-items: center; padding: 0 var(--gut); font-size: 22px; }
+.ph-link { margin-left: auto; min-height: 44px; display: inline-flex; align-items: center; font: 600 14px var(--font-sans); color: var(--color-moss); text-decoration: none; }
 .ph-lineup { flex: 0 0 auto; padding: 6px var(--gut) 12px; display: flex; flex-direction: column; gap: 6px; }
 .ph-seatrow { height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border: 0; background: var(--color-paper);
               color: inherit; text-align: left; cursor: pointer; font: inherit; }

@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 // The wasm Engine lives here so search never blocks the UI. One engine per worker.
-import init, { Engine, compact_to_record, record_to_compact } from "./engine/catan_engine.js";
+import init, { Engine, compact_to_record, record_to_compact, sandbox_resolve } from "./engine/catan_engine.js";
 import wasmUrl from "./engine/catan_engine_bg.wasm?url";
-import type { Attribution, BotKind, BotSpec, Canon, Decision, Evaluation, FilmResult, Frame, GameRecord, LuckRoll, MapView, Readings, Request, View } from "./engine";
+import type { Attribution, BotKind, BotSpec, Canon, Decision, Evaluation, FilmResult, Frame, GameRecord, LuckRoll, MapView, Readings, Request, SandboxState, View } from "./engine";
 
 let ready: Promise<{ weights: Uint8Array; hidden: number }> | null = null;
 let engine: Engine | null = null;
@@ -116,6 +116,20 @@ async function handle(req: Request, post: (frames: Frame[]) => void): Promise<un
       aborted = false;
       const e = await replayed(req.record, req.steps);
       return { map: JSON.parse(e.map_json()) as MapView, view: view(e), legal: legal(e) };
+    }
+    case "sandbox": {
+      // The log typed and replayed in Rust (sandbox.rs), then rebuilt as an ordinary engine on the session's board
+      // so every analysis call works on it unchanged.
+      epoch++;
+      await boot();
+      const r = JSON.parse(sandbox_resolve(req.session)) as { log: [Canon, [number, number]][]; fault: SandboxState["fault"] };
+      const { seed, n, board } = JSON.parse(req.session);
+      const e = await replayed(JSON.stringify({ seed, n, board, log: [] }), -1);
+      const actors = r.log.map(([a, o]) => { const p = e.current_player(); e.apply_with(JSON.stringify(a), o[0], o[1]); return p; });
+      return {
+        map: JSON.parse(e.map_json()) as MapView, view: view(e), legal: legal(e),
+        placements: JSON.parse(e.placements()) as Canon[], fault: r.fault, resolved: r.log.map(([, o]) => o), actors,
+      } satisfies SandboxState;
     }
     case "luck": {
       // Dice luck, by counterfactual: replay the record with each of the eleven sums forced in
@@ -243,7 +257,7 @@ self.onmessage = async (ev: MessageEvent<Request & { id: number; epoch?: number 
     // is correct whatever the live engine is doing. Without this it is refused as stale
     // whenever a `replay` is queued behind it — which the Game view does on the same mount.
     // `film` bumps the epoch like `run`; `compact`, like `luck`, holds no engine at all.
-    if (at !== undefined && at !== epoch && op !== "new" && op !== "replay" && op !== "run" && op !== "luck" && op !== "film" && op !== "compact") {
+    if (at !== undefined && at !== epoch && op !== "new" && op !== "replay" && op !== "sandbox" && op !== "run" && op !== "luck" && op !== "film" && op !== "compact") {
       throw new Error("stale");
     }
     const result = await handle(req as Request, (frames) => self.postMessage({ id, progress: frames }));

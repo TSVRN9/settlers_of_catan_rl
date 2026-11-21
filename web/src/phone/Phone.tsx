@@ -47,7 +47,7 @@ export default function Phone() {
     <div className="ph">
       {/* Watching, nobody sits at the bottom: the seats are the standings there, not chips. A shared game still
           loading shows the wordmark. */}
-      {setup || !s.view ? <div className="ph-word d">Catan RL</div> : reviewing ? <ReviewBar /> : <><TopBar />{!watching && <Chips />}</>}
+      {setup || !s.view ? <div className="ph-word d">Catan RL{setup && <a className="ph-link" href="#/sandbox">Sandbox</a>}</div> : reviewing ? <ReviewBar /> : <><TopBar />{!watching && <Chips />}</>}
       {/* A tap on the board hurries the bots until you are asked something (spec "Another seat's turn"). With a
           piece in hand the tap is Carry's, on its own layer above this. */}
       <div className="ph-board" onClick={() => { if (!setup && playing(s) && !mine && s.pendingHandoff == null && !s.hurry) set({ hurry: true }); }}>

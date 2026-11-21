@@ -44,11 +44,34 @@ impl Map {
                 k += 1;
             }
         }
+        Map::from_tiles(tile_res, &numbers, port_res, layout)
+    }
+
+    fn from_tiles(tile_res: &[i8; 19], numbers: &[u8; 19], port_res: &[i8; 9], layout: &Layout) -> Map {
         let tiles: Vec<Tile> = (0..19).map(|t| Tile { resource: tile_res[t], number: numbers[t], nodes: TILE_NODES[t] }).collect();
         let ports: Vec<Port> = (0..9).map(|p| Port { resource: port_res[p], nodes: PORT_NODES[p] }).collect();
         let template = static_template(&tiles, &ports, layout);
         let neighbors = NEIGHBORS.iter().map(|n| n.to_vec()).collect();
         Map::new(tiles, ports, template, neighbors)
+    }
+
+    /// A board copied off a real table (the sandbox): any number placement, but the BASE game's pieces (the tile,
+    /// number and port multisets the net was trained on), and the desert alone without a number.
+    pub fn from_board(tile_res: &[i8; 19], numbers: &[u8; 19], port_res: &[i8; 9], layout: &Layout) -> Result<Map, String> {
+        let sorted = |mut v: Vec<i32>| { v.sort(); v };
+        if sorted(tile_res.iter().map(|&r| r as i32).collect()) != sorted(TILE_RESOURCES.iter().map(|&r| r as i32).collect()) {
+            return Err("tiles must be 4 wood, 3 brick, 4 sheep, 4 wheat, 3 ore and a desert".into());
+        }
+        if (0..19).any(|t| (tile_res[t] < 0) != (numbers[t] == 0)) {
+            return Err("every tile but the desert takes a number".into());
+        }
+        if sorted(numbers.iter().filter(|&&n| n > 0).map(|&n| n as i32).collect()) != sorted(NUMBERS_SPIRAL.iter().map(|&n| n as i32).collect()) {
+            return Err("numbers must be the 18 BASE tokens".into());
+        }
+        if sorted(port_res.iter().map(|&r| r as i32).collect()) != sorted(PORT_RESOURCES.iter().map(|&r| r as i32).collect()) {
+            return Err("ports must be one of each resource and four 3:1".into());
+        }
+        Ok(Map::from_tiles(tile_res, numbers, port_res, layout))
     }
 }
 

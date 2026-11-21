@@ -15,6 +15,7 @@ pub mod map;
 pub mod mapgen;
 pub mod mcts;
 pub mod public;
+pub mod sandbox;
 pub mod jsettler;
 pub mod search;
 pub mod state;

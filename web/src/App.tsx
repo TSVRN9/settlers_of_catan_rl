@@ -3,7 +3,7 @@
 // BoardLayer is a *sibling* of the view slot and is never conditional and never keyed. That
 // is the whole structural claim of this redesign: swapping the view cannot take the game
 // with it, the way the old tab router did.
-import { useEffect, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useSyncExternalStore, type CSSProperties } from "react";
 import BoardLayer from "./board/BoardLayer";
 import Lineup from "./views/Lineup";
 import Table from "./views/Table";
@@ -21,6 +21,11 @@ import { currentView, playing, set, useApp } from "./store";
 import { heat, held, waiting } from "./waiting";
 import Phone from "./phone/Phone";
 import { usePhone } from "./phone/usePhone";
+
+// The sandbox (a game at a real table) is a page of its own, loaded only when opened.
+const Sandbox = lazy(() => import("./sandbox/Sandbox"));
+const onHash = (cb: () => void) => { addEventListener("hashchange", cb); return () => removeEventListener("hashchange", cb); };
+const useSandbox = () => useSyncExternalStore(onHash, () => location.hash.startsWith("#/sandbox"));
 
 /** The views that put something other than the live position on the board (the Table only
  *  while the stands look back at a step). */
@@ -66,6 +71,8 @@ export default function App() {
   const s = useApp();
   // Below the desktop's width the phone tree takes over (phone/Phone.tsx); same store, same game.
   const phone = usePhone();
+  const sandbox = useSandbox();
+  if (sandbox) return <Suspense fallback={null}><Sandbox /></Suspense>;
   if (phone) return <><Phone /><div className="sr" role="status" aria-live="polite">{s.error ?? ""}</div></>;
   const view = currentView(s);
   const setup = s.phase === "lineup";

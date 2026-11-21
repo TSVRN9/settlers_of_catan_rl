@@ -44,6 +44,14 @@ cd web && pnpm install && pnpm dev
 
 Deployed from `.github/workflows/pages.yml` to GitHub Pages on every push to `main`.
 
+**Sandbox** (`#/sandbox`, linked from the lineup): live analysis of a game at a real table. Set the board tile by
+tile, pick your seat, then enter every roll, placement, trade, discard, dev card and robber move as it happens; the
+seats show win chances from what your seat can know, and on your move the value-net search ranks your options. The
+session autosaves in the browser and saves/loads as a JSON file; undo, or tap any log entry to delete it or fix its
+outcome. Steals between other seats and their bought cards are entered unseen and typed at replay
+(`catan_engine/src/sandbox.rs`); checks: `node web/tools/sandbox_check.mjs` (engine) and
+`node web/tools/sandbox_phone.mjs 375 667 <outDir>` against `pnpm dev` (touch, 44px targets, no sideways scroll).
+
 ## Layout
 
 | Path | What |

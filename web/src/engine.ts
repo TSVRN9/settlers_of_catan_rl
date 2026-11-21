@@ -58,9 +58,20 @@ export type Request =
   | { op: "luck"; record: string }
   | { op: "compact"; record: string; sections: Uint8Array }
   | { op: "film"; bytes: Uint8Array }
+  | { op: "sandbox"; session: string }
   | { op: "abort" };
 
 export interface GameState { map: MapView; view: View; legal: Canon[] }
+/** A sandbox session replayed (wasm `sandbox_resolve`): the position its log reaches, where the seat on move could
+ *  build or move the robber whatever its cards, the first entry that doesn't fit, and every outcome as replayed
+ *  (handed back as the next resolve's hints). */
+export interface SandboxState extends GameState {
+  placements: Canon[];
+  fault: { at: number; message: string } | null;
+  resolved: [number, number][];
+  /** The seat that made each entry replayed. */
+  actors: number[];
+}
 export interface RunResult { map: MapView; frames: Frame[]; record: GameRecord }
 export interface FilmResult { map: MapView; frames: Frame[]; seed: number; n: number }
 
@@ -157,6 +168,8 @@ export class EngineClient {
   compact(record: string, sections: Uint8Array) { return this.call<Uint8Array>({ op: "compact", record, sections }); }
   /** A shared link's bytes played back into frames, the spectator's readings on each, the engine left at the end. */
   film(bytes: Uint8Array) { this.epoch++; return this.call<FilmResult>({ op: "film", bytes }); }
+  /** Replace the engine with a sandbox session's position (session.ts `wire`). */
+  sandbox(session: string) { this.epoch++; return this.call<SandboxState>({ op: "sandbox", session }); }
   /** Out of band, ahead of the queue: `run` is polling for exactly this. */
   abort() { if (this.worker) return this.post<null>({ op: "abort" }); return Promise.resolve(null); }
 
